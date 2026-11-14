@@ -178,6 +178,7 @@ export function receiptPreview(state, args) {
   const date = args.date == null || args.date === '' ? inv.date : postingDate(args.date);
   const blockers = [];
   if (!date) blockers.push(`${args.date} is not a date I can read.`);
+  else if (date < inv.date && args.advance !== true) blockers.push(`${date} is before the invoice date ${inv.date}; a receipt cannot be dated before the invoice unless it is recorded as an advance.`);
   else if (isPeriodLocked(state, date)) blockers.push(`${date} is inside the locked period (through ${state.lockThrough}).`);
   if (inv.status === 'cancelled') blockers.push(`${inv.id} is cancelled, so nothing can be received against it.`);
   else if (due <= 0.01) blockers.push(`${inv.id} is already fully received or credited (${money(inv.total)}).`);
@@ -185,7 +186,7 @@ export function receiptPreview(state, args) {
   else if (!(amount >= 0.01)) blockers.push('A receipt has to be a positive amount.');
   return {
     blockers,
-    summary: `Receipt of ${money(amount)} against ${inv.id} (${inv.partyName}) by ${args.mode === 'cash' ? 'cash' : 'bank'} on ${date || '?'}. Outstanding is ${money(due)} of ${money(inv.total)}.`,
+    summary: `${date && date < inv.date ? 'Advance receipt' : 'Receipt'} of ${money(amount)} against ${inv.id} (${inv.partyName}) by ${args.mode === 'cash' ? 'cash' : 'bank'} on ${date || '?'}. Outstanding is ${money(due)} of ${money(inv.total)}.`,
     effects: [`${money(amount)} goes into your ${args.mode === 'cash' ? 'cash' : 'bank'}.`, `${inv.id} becomes ${amount >= due - 0.01 ? 'paid' : 'partly paid'}.`],
     figures: { amount, due, date },
   };
@@ -419,7 +420,7 @@ export function purchaseNotePreview(state, args) {
   return {
     blockers: [],
     summary: `Debit note to ${plan.bill.partyName} of ${money(plan.total)} against ${plan.bill.id}${plan.full ? ', the whole bill' : ''} dated ${plan.date}: taxable ${money(plan.taxable)}${heads ? `, ${heads}` : ''}. Reason: ${plan.reason}.${refund}`,
-    effects: ['You owe the supplier that much less, or are owed it back if you have already paid.', plan.itcEligible && heads ? 'The input credit on that part is reversed in the month of the note.' : 'The bill stays as it was.'],
+    effects: ['You owe the supplier that much less, or are owed it back if you have already paid.', plan.itcEligible && heads ? 'The input credit on that part is reversed in the month of the note.' : 'The bill stays as it was.', ...(plan.tdsReversed > 0 ? [`TDS of ${money(plan.tdsReversed)} under ${plan.bill.tds.section} on that part is reversed.`] : []), ...(plan.tdsHint ? [plan.tdsHint] : [])],
     figures: { billId: plan.bill.id, date: plan.date, taxable: plan.taxable, cgst: plan.cgst, sgst: plan.sgst, igst: plan.igst, total: plan.total, refundDue: plan.refundDue },
   };
 }

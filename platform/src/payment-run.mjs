@@ -1,6 +1,6 @@
 import { localToday, postingDate } from './dates.mjs';
 import { daysBetween } from './reminders.mjs';
-import { billOutstanding, planPayment, recordPayment } from './invoice.mjs';
+import { billOutstanding, planPayment, recordPayment, cashInHand } from './invoice.mjs';
 import { billPayBy } from './supplier-dues.mjs';
 import { cashStart, canAfford } from './cash-forecast.mjs';
 import { listExceptions } from './exceptions.mjs';
@@ -115,7 +115,7 @@ export function paymentRun(state, args = {}) {
 
 export function planPaymentRun(state, args = {}) {
   const run = paymentRun(state, args).data;
-  const wanted = Array.isArray(args.billIds) && args.billIds.length ? args.billIds.map((id) => String(id).toUpperCase()) : run.proposed.map((r) => r.billId);
+  const wanted = [...new Set(Array.isArray(args.billIds) && args.billIds.length ? args.billIds.map((id) => String(id).trim().toUpperCase()) : run.proposed.map((r) => r.billId))];
   if (!wanted.length) return { ok: false, error: 'NOTHING_TO_PAY' };
   if (wanted.length > MAX_BILLS) return { ok: false, error: 'TOO_MANY_BILLS', max: MAX_BILLS };
   const date = args.date == null || args.date === '' ? run.asOf : postingDate(args.date);
@@ -126,13 +126,14 @@ export function planPaymentRun(state, args = {}) {
   const payments = [];
   const problems = [];
   let cashNeeded = 0;
+  const inHand = mode === 'cash' ? cashInHand(state) : null;
   for (const billId of wanted) {
     if (heldIds.has(billId)) { problems.push({ billId, error: 'HELD', reason: run.held.find((r) => r.billId === billId).reason }); continue; }
     const plan = planPayment(state, { billId, date, mode });
     if (!plan.ok) { problems.push({ billId, error: plan.error }); continue; }
     if (mode === 'cash') {
       cashNeeded = round2(cashNeeded + plan.amount);
-      if (plan.inHand != null && cashNeeded > plan.inHand) problems.push({ billId, error: 'INSUFFICIENT_CASH' });
+      if (cashNeeded > inHand + 0.005) problems.push({ billId, error: 'INSUFFICIENT_CASH', inHand, needed: cashNeeded });
     }
     const row = byId.get(billId);
     payments.push({ billId, supplier: plan.bill.partyName, supplierInvoiceNo: plan.bill.supplierInvoiceNo || '', amount: plan.amount, bucket: row ? row.bucket : 'chosen', why: row ? row.why : '' });

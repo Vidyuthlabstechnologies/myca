@@ -462,6 +462,7 @@ export const SALES_PURCHASE_TOOL_SCHEMAS = {
       amount: { type: 'number', exclusiveMinimum: 0 },
       mode: { type: 'string', enum: ['bank', 'cash'] },
       date: { type: 'string' },
+      advance: { type: 'boolean' },
     },
   },
   record_payment: {

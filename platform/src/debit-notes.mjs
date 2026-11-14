@@ -3,8 +3,10 @@ import { gstSplit, partyStateOf, scaledCess, ensureCessAccounts, INPUT_CESS_ACCO
 import { postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { tdsPayableAccountId } from './tds-deduction.mjs';
+import { depositedPaiseOf } from './tds-return.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
+const rupees = (value) => `₹${Number(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const SALES = 4000;
 const PURCHASES = 5000;
 const OUTPUT = { cgst: 2100, sgst: 2101, igst: 2102, cess: OUTPUT_CESS_ACCOUNT_ID };
@@ -160,6 +162,22 @@ export function createDebitNote(state, args = {}) {
   return { ok: true, debitNote: note, invoice, posted, outstanding };
 }
 
+function billTdsEntries(state, bill) {
+  return (state.tdsEntries || []).filter((entry) => entry.source === bill.id && entry.tds > 0);
+}
+
+function tdsToReverse(state, bill, { closes, taxable }) {
+  const held = tdsHeldOn(bill);
+  if (!(held > 0)) return { reversed: 0 };
+  const share = closes ? held : Math.min(held, round2(Number(bill.tds.amount || 0) * taxable / Number(bill.taxable || 0)));
+  if (!(share > 0)) return { reversed: 0 };
+  const entries = billTdsEntries(state, bill);
+  if (depositedPaiseOf(state, entries) > 0) {
+    return { reversed: 0, hint: `The TDS of ${rupees(held)} under ${bill.tds.section} on ${bill.id} is already deposited with the government, so it is not reversed and stays deducted from what you owe the supplier. Adjust it against a later TDS deposit or correct the TDS return with your CA.` };
+  }
+  return { reversed: share };
+}
+
 export function planPurchaseNote(state, args = {}) {
   const billId = String(args.billId || '').trim().toUpperCase();
   const bill = (state.purchases || []).find((item) => item.id === billId);
@@ -177,9 +195,10 @@ export function planPurchaseNote(state, args = {}) {
   const lines = full ? scaledLines(bill, 1, { supplierState: supplierSide, partyState: bill.registrationState || company.state }) : settle(scaledLines(bill, checked.requested / Number(bill.total), { supplierState: supplierSide, partyState: bill.registrationState || company.state }), checked.requested, reverseCharge ? 'taxable' : 'amount');
   const totals = totalsOf(lines, { reverseCharge });
   const paid = round2((bill.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
-  const tdsReversed = full ? tdsHeldOn(bill) : 0;
+  const tds = tdsToReverse(state, bill, { closes: Math.abs(checked.requested - room) < 0.005, taxable: totals.taxable });
+  const tdsReversed = tds.reversed;
   const refundDue = round2(Math.max(0, paid + tdsHeldOn(bill) - tdsReversed + alreadyNoted + totals.total - Number(bill.total)));
-  return { ok: true, plan: { bill, date: checked.date, reason: checked.reason, full, lines, ...totals, alreadyNoted, paid, refundDue, tdsReversed, itcEligible: bill.itcEligible !== false, reverseCharge } };
+  return { ok: true, plan: { bill, date: checked.date, reason: checked.reason, full, lines, ...totals, alreadyNoted, paid, refundDue, tdsReversed, ...(tds.hint ? { tdsHint: tds.hint } : {}), itcEligible: bill.itcEligible !== false, reverseCharge } };
 }
 
 export function createPurchaseNote(state, args = {}) {
@@ -239,11 +258,13 @@ export function createPurchaseNote(state, args = {}) {
   };
   if (plan.tdsReversed > 0) {
     bill.tds = { ...bill.tds, reversed: round2(Number(bill.tds.reversed || 0) + plan.tdsReversed), reversedBy: id };
-    for (const entry of state.tdsEntries || []) {
-      if (entry.source !== bill.id || !(entry.tds > 0)) continue;
-      entry.reversedTds = entry.tds;
-      entry.tds = 0;
+    let left = plan.tdsReversed;
+    for (const entry of billTdsEntries(state, bill)) {
+      const take = round2(Math.min(left, entry.tds));
+      entry.reversedTds = round2(Number(entry.reversedTds || 0) + take);
+      entry.tds = round2(entry.tds - take);
       entry.reversedBy = id;
+      left = round2(left - take);
     }
   }
   state.purchaseNotes = state.purchaseNotes || [];
@@ -252,7 +273,7 @@ export function createPurchaseNote(state, args = {}) {
   bill.notedTotal = round2((bill.notedTotal || 0) + note.total);
   const paid = round2((bill.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
   const outstanding = round2(Math.max(0, Number(bill.total) - bill.notedTotal - tdsHeldOn(bill) - paid));
-  return { ok: true, purchaseNote: note, bill, posted, refundDue: plan.refundDue, outstanding };
+  return { ok: true, purchaseNote: note, bill, posted, refundDue: plan.refundDue, outstanding, ...(plan.tdsHint ? { hint: plan.tdsHint } : {}) };
 }
 
 export function debitNotesForPeriod(state, period) {

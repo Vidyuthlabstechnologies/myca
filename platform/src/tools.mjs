@@ -1062,8 +1062,8 @@ export const TOOLS = [
   {
     name: 'record_receipt',
     title: 'Record receipt',
-    description: 'Receive payment against an invoice (bank or cash) and post the AR settlement.',
-    args: ['invoiceId', 'amount', 'mode', 'date'],
+    description: 'Receive payment against an invoice (bank or cash) and post the AR settlement. A receipt dated before the invoice is refused unless advance is true (the customer paid in advance).',
+    args: ['invoiceId', 'amount', 'mode', 'date', 'advance'],
     run: (state, args) => recordReceipt(state, args),
   },
   {

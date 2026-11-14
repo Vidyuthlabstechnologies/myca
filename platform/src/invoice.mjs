@@ -354,11 +354,13 @@ export function createInvoice(state, input) {
   return { ok: true, invoice, posted };
 }
 
-export function recordReceipt(state, { invoiceId, amount, date, mode } = {}) {
+export function planReceipt(state, { invoiceId, amount, date, mode, advance } = {}) {
   const inv = (state.invoices || []).find((i) => i.id === invoiceId);
   if (!inv) return { ok: false, error: 'INVOICE_NOT_FOUND' };
   const receiptDate = date == null || date === '' ? inv.date : postingDate(date);
   if (!receiptDate) return { ok: false, error: 'INVALID_DATE', date };
+  const early = receiptDate < inv.date;
+  if (early && advance !== true) return { ok: false, error: 'BEFORE_INVOICE', date: receiptDate, invoiceDate: inv.date, hint: 'A receipt cannot be dated before the invoice. If the customer paid in advance, record it as an advance.' };
   if (isPeriodLocked(state, receiptDate)) return { ok: false, error: 'PERIOD_LOCKED', date: receiptDate, lockThrough: state.lockThrough };
   const party = (state.parties || []).find((p) => (inv.partyAccountId ? p.accountId === inv.partyAccountId : p.name === inv.partyName && normGstin(p.gstin) === normGstin(inv.partyGstin)));
   if (!party) return { ok: false, error: 'PARTY_NOT_FOUND' };
@@ -376,19 +378,26 @@ export function recordReceipt(state, { invoiceId, amount, date, mode } = {}) {
       due: Math.round((inv.total - already - credited) * 100) / 100,
     };
   }
-  const bankOrCash = mode === 'cash' ? 1001 : 1002;
+  return { ok: true, inv, party, amount: amt, date: receiptDate, mode: mode || 'bank', advance: early, credited };
+}
+
+export function recordReceipt(state, args = {}) {
+  const plan = planReceipt(state, args);
+  if (!plan.ok) return plan;
+  const { inv, party, amount: amt, date: receiptDate, credited } = plan;
+  const bankOrCash = plan.mode === 'cash' ? 1001 : 1002;
   const posted = createTransfers(state.ledger, [{
     id: nextTransferId(state),
     debitAccountId: bankOrCash,
     creditAccountId: party.accountId,
     amount: paise(amt),
-    invoiceId,
+    invoiceId: inv.id,
     code: 'RECEIPT',
     userData: receiptDate,
   }]);
   if (!posted[0].ok) return { ok: false, error: posted[0].error };
   inv.receipts = inv.receipts || [];
-  inv.receipts.push({ amount: amt, date: receiptDate, mode: mode || 'bank' });
+  inv.receipts.push({ amount: amt, date: receiptDate, mode: plan.mode, ...(plan.advance ? { advance: true } : {}) });
   const received = inv.receipts.reduce((s, r) => s + r.amount, 0);
   inv.status = received + credited >= inv.total - 0.01 ? 'paid' : 'partial';
   return { ok: true, invoice: inv, posted };

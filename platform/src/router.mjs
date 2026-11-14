@@ -135,6 +135,7 @@ const FAILURES = {
   BAD_AMOUNT: () => 'That amount does not work here, so nothing was changed.',
   OVERPAYMENT: (r) => `That is more than is owed${r.due != null ? ` (${money(r.due)})` : ''}, so nothing was changed.`,
   INVOICE_CANCELLED: () => 'That invoice is cancelled, so nothing was changed.',
+  BEFORE_INVOICE: (r) => `That date is before the invoice${r.invoiceDate ? ` (${r.invoiceDate})` : ''}, so nothing was changed.${r.hint ? ` ${r.hint}` : ''}`,
   BAD_SECTION: () => 'Say which TDS section the customer deducted under, like 194C or 194J.',
   BAD_TAN: () => 'A TAN looks like MUMA12345B.',
   RATE_REQUIRED: () => 'A GST rate is needed for each item; MyCA does not assume one. Nothing was changed.',
@@ -143,7 +144,7 @@ const FAILURES = {
   SETUP_REQUIRED: () => 'Set up the business first: its name and GSTIN, or its state if it is not registered. Nothing was changed.',
   TALLY_UNREACHABLE: (r) => `Tally did not answer at ${r.url}. ${r.hint || ''}`.trim(),
   TALLY_TIMEOUT: (r) => `Tally at ${r.url} took too long to answer; try again with the company loaded.`,
-  TALLY_REJECTED: (r) => `Tally rejected ${r.errors} ${r.errors === 1 ? 'entry' : 'entries'}${r.lineErrors?.length ? `: ${r.lineErrors.join('; ')}` : ''}. Nothing is recorded as sent.`,
+  TALLY_REJECTED: (r) => `Tally rejected ${r.errors} ${r.errors === 1 ? 'entry' : 'entries'}${r.lineErrors?.length ? `: ${r.lineErrors.join('; ')}` : ''}.${r.partial ? ` ${r.hint}` : ' Nothing is recorded as sent.'}`,
   ALREADY_PUSHED: (r) => `${r.period} was already sent to Tally on ${r.pushedOn}. ${r.hint || ''}`.trim(),
   NOTHING_TO_PUSH: (r) => `Nothing in ${r.period} to send to Tally.`,
   TALLY_NOT_LOCAL: () => 'Tally is reached on this machine only, for example http://127.0.0.1:9000.',
@@ -473,7 +474,7 @@ function fmtToolResultCore(name, result, args) {
   }
   if (name === 'create_purchase_note' && result.purchaseNote) {
     const n = result.purchaseNote;
-    return `Debit note ${n.id} to ${n.partyName} for ${money(n.total)} against ${n.billId} (${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already paid and is now due back to you.` : ` You owe ${money(result.outstanding)} on it now.`}`;
+    return `Debit note ${n.id} to ${n.partyName} for ${money(n.total)} against ${n.billId} (${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already paid and is now due back to you.` : ` You owe ${money(result.outstanding)} on it now.`}${n.tdsReversed > 0 ? ` TDS of ${money(n.tdsReversed)} is reversed.` : ''}${result.hint ? ` ${result.hint}` : ''}`;
   }
   if ((name === 'create_credit_note' || name === 'cancel_invoice') && result.creditNote) {
     const n = result.creditNote;
