@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { keyedHash } from './tokens.mjs';
 import { DEMO_INACTIVE_DAYS } from './demo.mjs';
+import { usRecordsHeldUntil } from './us-retention.mjs';
 
 export const JOB_HEADER = 'x-myca-job-token';
 const MIN_TOKEN_LENGTH = 32;
@@ -18,9 +19,19 @@ export const CRASH_REPORT_DAYS = 90;
 export const OTP_CHALLENGE_DAYS = 1;
 export const WHATSAPP_MESSAGE_DAYS = 30;
 
-export function createJobs({ db, secret = '', rateLimits = null, withBooks, connectors = null, syncChannels = null, pullsEnabled = () => false, sender = null, vault = null, billing = null, now = () => Date.now(), log = () => {} }) {
+export function createJobs({ db, secret = '', rateLimits = null, withBooks, readBooks = null, connectors = null, syncChannels = null, pullsEnabled = () => false, sender = null, vault = null, billing = null, now = () => Date.now(), log = () => {} }) {
+  async function recordsHeldUntil(businessId, requestId) {
+    if (!readBooks) return null;
+    try {
+      return await readBooks(businessId, { requestId, userId: null, deviceId: null }, (session) => usRecordsHeldUntil(session.state));
+    } catch (err) {
+      if (err && (err.statusCode === 404 || err.body?.error === 'BUSINESS_NOT_FOUND')) return null;
+      throw err;
+    }
+  }
+
   async function purge(requestId) {
-    const summary = { businesses: 0, users: 0, documents: 0, objects: 0, accessRows: 0, crashRows: 0, otpRows: 0, secondStepRows: 0, failed: [] };
+    const summary = { businesses: 0, held: 0, users: 0, documents: 0, objects: 0, accessRows: 0, crashRows: 0, otpRows: 0, secondStepRows: 0, failed: [] };
     const cutoff = new Date(now() - DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000);
     const idleSince = new Date(now() - DEMO_INACTIVE_DAYS * 24 * 60 * 60 * 1000);
     const idle = await db.query(
@@ -34,6 +45,12 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, conn
     const due = await db.query('select id, name from businesses where deletion_requested_at is not null and deletion_requested_at < $1 order by deletion_requested_at', [cutoff]);
     for (const row of due.rows) {
       try {
+        const heldUntil = await recordsHeldUntil(row.id, requestId);
+        if (heldUntil && Date.parse(heldUntil) > now()) {
+          summary.held += 1;
+          log({ requestId, job: 'purge', businessId: row.id, heldUntil, why: 'IRS e-file records (Form 8879 and the return) are kept three years' });
+          continue;
+        }
         await db.tx(async (q) => {
           const docs = vault ? await vault.purge(q, row.id) : { rows: (await q('delete from documents where business_id = $1', [row.id])).rowCount, objects: 0 };
           await q('alter table audit_log disable trigger audit_log_no_update');

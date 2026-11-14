@@ -38,7 +38,7 @@ export const PRIVACY_NOTICE = {
 
 export const PRIVACY_NOTICE_US = {
   document: 'privacy',
-  version: 'us-draft-2026-11-14',
+  version: 'us-draft-2026-11-14.2',
   region: 'US',
   title: 'How MyCA uses your information (United States)',
   status: 'Draft for legal review. Not yet approved for release.',
@@ -46,23 +46,23 @@ export const PRIVACY_NOTICE_US = {
   sections: [
     {
       heading: 'Who we are',
-      body: 'MyCA US is provided by [the US company, to be confirmed before release]. When you prepare a US tax return in MyCA we act as your tax return preparer. When you file, our IRS-authorized e-file partner, [Column Tax or April, to be confirmed], signs Form 8879 with you and sends your return to the IRS.',
+      body: 'MyCA US is provided by [the US company, to be confirmed before release]. When you prepare a US tax return in MyCA we act as your tax return preparer. When you file, our IRS-authorized e-file partner, [Column Tax or April, to be confirmed], signs Form 8879 with you and sends your return to the IRS. MyCA US is for adults 18 and over.',
     },
     {
       heading: 'What we collect',
-      body: 'To sign you in: your Google account name and email, or your phone number. To prepare your return: names, dates of birth and Social Security numbers or ITINs for you, your spouse and your dependents; your address and filing status; the W-2, 1099 and 1098 forms and other documents you add; your answers to the interview; and the bank routing and account number you give for a refund or a payment. To sign and file: what the IRS asks every online filer for, which is your signature PIN, last year\'s AGI or PIN, any Identity Protection PIN, and the device identifier, IP address and time of signing. Our e-file partner collects these on its own filing screen. We also keep a record of every change and who made it.',
+      body: 'To sign you in: your Google account name and email, or your phone number. To prepare your return: names, dates of birth and Social Security numbers or ITINs for you, your spouse and your dependents; your address and filing status; the W-2, 1099 and 1098 forms and other documents you add; your answers to the interview; and the bank routing and account number you give for a refund or a payment. To sign and file: what the IRS asks every online filer for, which is your signature PIN, last year\'s AGI or PIN, any Identity Protection PIN, and the device identifier, IP address and time of signing. Our e-file partner collects these on its own filing screen. We also keep a record of every change and who made it, which phone you signed in on, and, only if you switch them on, crash reports with names, amounts and numbers removed.',
     },
     {
       heading: 'How we use it',
-      body: 'Only to prepare your return, show you how each figure was worked out, file it with the IRS when you tell us to, tell you whether the IRS accepted it, and keep your account secure. Federal law (Internal Revenue Code section 7216) does not let us use or share your tax return information for anything else, such as marketing, without a separate signed consent from you. We do not sell your information and we do not use it for advertising.',
+      body: 'Only to prepare your return, show you how each figure was worked out, file it with the IRS when you tell us to, tell you whether the IRS accepted it, and keep your account secure. Federal law (Internal Revenue Code section 7216) does not let us use or share your tax return information for anything else, such as marketing, without a separate signed consent from you. We do not sell your information, we do not share it for advertising, and we do not use it to profile you. Your Social Security number and other sensitive information are used only to provide the service you asked for.',
     },
     {
       heading: 'Who it is shared with',
-      body: 'Our IRS-authorized e-file partner, when you choose to file: we pass on your names, dates of birth, address, dependents, tax forms and our estimate so you do not type them again, and your Social Security number only if you agree; the partner may use them only to file your return. The IRS, through that partner. Google Cloud, which hosts MyCA. Anthropic, whose AI model reads the forms you photograph and answers your questions; Social Security numbers and ITINs are removed before anything is sent to it, and it may not keep or train on what it receives. People you invite to your return, such as your spouse or your tax professional, who see Social Security numbers only as the last four digits. Nobody else, unless the law requires it.',
+      body: 'Our IRS-authorized e-file partner, when you choose to file: we pass on your names, dates of birth, address, dependents, tax forms and our estimate so you do not type them again; the partner may use them only to file your return. Your Social Security numbers are passed on only if you sign a separate consent, which you can withdraw in the app at any time. The IRS, through that partner. Google Cloud, which hosts MyCA. Anthropic, whose AI model reads the forms you photograph and answers your questions; Social Security numbers and ITINs are removed before anything is sent to it, and it may not keep or train on what it receives. Stripe, Google Play or Apple when you pay, which receive payment details but not your return. People you invite to your return, such as your spouse or your tax professional, who see Social Security numbers only as the last four digits. Nobody else, unless the law requires it.',
     },
     {
       heading: 'How it is protected',
-      body: 'Your return is encrypted when stored and when it travels. Social Security numbers and ITINs are sealed again with a separate key and are shown only as the last four digits. Signing in can be protected with a second step, and filing needs one. Our safeguards follow the IRS Publication 4557 and the FTC Safeguards Rule, and are set out in our written information security plan.',
+      body: 'We maintain physical, electronic and procedural safeguards that comply with applicable law and federal standards. Your return is encrypted when stored and when it travels. Social Security numbers and ITINs are sealed again with a separate key and are shown only as the last four digits. Signing in can be protected with a second step, and signing or filing a return needs one. Our safeguards follow IRS Publication 4557 and the FTC Safeguards Rule, and are set out in our written information security plan. If your information is ever exposed, we will tell you and the authorities as the law requires.',
     },
     {
       heading: 'Where it is kept',
@@ -70,11 +70,19 @@ export const PRIVACY_NOTICE_US = {
     },
     {
       heading: 'How long we keep it',
-      body: 'While you use MyCA, and then for at least three years after the return is filed, because federal law requires a preparer to keep a copy of each return and the signed Form 8879 for that long. After that it is deleted. [Retention periods to be confirmed by counsel.]',
+      body: 'While you use MyCA. If you delete your account or your return, we delete it thirty days later, unless MyCA itself sent the return to the IRS: then federal law requires us to keep the return and your signed Form 8879 for three years from the filing due date or the date the IRS received it, whichever is later, and we delete them after that. When our e-file partner files your return, the partner keeps those records under its own policy. Backups are overwritten within two weeks. [Retention periods to be confirmed by counsel.]',
     },
     {
-      heading: 'Your choices',
-      body: 'You can see, correct and download your information in the app, and delete your account in the app; records the law requires us to keep are kept for that time and then deleted. Residents of California and other states with privacy laws can ask us what we hold and ask us to delete it by writing to us below.',
+      heading: 'Your choices and your rights',
+      body: 'You can see, correct and download everything we hold about you in the app, and delete your account in the app. Wherever you live, you can also ask us by email (below) to tell you what we hold, to correct it or to delete it; we answer within 45 days, and we will not treat you differently for asking. Someone you authorize can ask for you. Records the law requires us to keep are kept for that time and then deleted. Because we do not sell or share your information for advertising, and use sensitive information only to provide the service, there is nothing to opt out of.',
+    },
+    {
+      heading: 'Children',
+      body: 'MyCA US is not for children. We do not knowingly collect information from a child under 13. A child\'s details are entered only by a parent or guardian, as a dependent on the parent\'s return.',
+    },
+    {
+      heading: 'Changes to this notice',
+      body: 'If we change this notice, the app shows you the new one and asks you to agree before you continue.',
     },
     {
       heading: 'Contact',
@@ -95,24 +103,33 @@ export function consentExempt(method, parts) {
   return EXEMPT.has(`${method} ${parts.slice(1).join('/')}`);
 }
 
-export function createConsent({ db, now = () => Date.now() }) {
+export function noticesFor(countries = []) {
+  const codes = (Array.isArray(countries) ? countries : []).map((code) => String(code).toUpperCase());
+  const list = NOTICES.filter((notice) => (notice.region === 'US' ? codes.includes('US') : codes.some((code) => code !== 'US')));
+  return list.length ? list : NOTICES;
+}
+
+export function createConsent({ db, now = () => Date.now(), notices = NOTICES }) {
+  const primary = notices[0];
+
   async function accepted(userId) {
     const { rowCount } = await db.query(
       'select 1 from consents where user_id = $1 and document = $2 and version = any($3::text[])',
-      [userId, PRIVACY_NOTICE.document, NOTICES.map((notice) => notice.version)],
+      [userId, primary.document, notices.map((notice) => notice.version)],
     );
     return rowCount > 0;
   }
 
   return {
     accepted,
+    primary,
     async status(userId) {
-      return { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version, accepted: await accepted(userId) };
+      return { document: primary.document, version: primary.version, accepted: await accepted(userId) };
     },
     async accept(userId, deviceId, body = {}) {
-      const notice = NOTICES.find((n) => n.document === body.document && n.version === body.version);
+      const notice = notices.find((n) => n.document === body.document && n.version === body.version);
       if (!notice) {
-        return { ok: false, error: 'NOTICE_CHANGED', version: PRIVACY_NOTICE.version };
+        return { ok: false, error: 'NOTICE_CHANGED', version: primary.version };
       }
       await db.query(
         `insert into consents (user_id, document, version, device_id, accepted_at) values ($1, $2, $3, $4, $5)

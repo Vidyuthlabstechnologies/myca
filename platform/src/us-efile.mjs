@@ -286,7 +286,7 @@ async function filePartner(state, taxYear, args, actor, options) {
   const loaded = await computedReturn(state, taxYear, options);
   if (!loaded.ok) return loaded;
   const contact = args.contact && typeof args.contact === 'object' ? { email: String(args.contact.email || '').slice(0, 200), phone: String(args.contact.phone || '').replace(/\D/g, '').slice(0, 15) } : {};
-  return startPartnerFiling(state, { taxYear, computed: loaded.data, scope: args.partnerScope, contact }, actor, options);
+  return startPartnerFiling(state, { taxYear, computed: loaded.data, scope: args.partnerScope, contact, shareTins: args.shareTins === true }, actor, options);
 }
 
 function applyAck(submission, ack) {
