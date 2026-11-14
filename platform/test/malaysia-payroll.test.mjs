@@ -53,3 +53,54 @@ test('totals, due date and refusals', () => {
   assert.equal(malaysiaPayroll({ month: '2023-10', employees: [{ wages: 1 }] }).error, 'RULE_NOT_IN_FORCE');
   assert.match(ENGINE.words.my_payroll(out), /due by 2027-01-15/);
 });
+
+test('PCB by the computerised method: RM5,000 single is RM110 in January and every month after', () => {
+  const january = one({ wages: 5000 }, '2026-01');
+  assert.deepEqual(january.pcb, { amount: 110, normal: 110, onBonus: 0, zakatOffset: 0, category: 1, children: 0, method: 'computerised', yearlyChargeableIncome: 47000, yearlyTax: 1320 });
+  assert.equal(january.netPay, 4305.35);
+  const june = one({ wages: 5000 }, '2026-06');
+  assert.equal(june.pcb.amount, 110);
+  assert.match(june.notes.join(' '), /same pay and PCB every month since January/);
+  const exact = one({ wages: 5000, yearToDate: { income: 25000, epf: 2750, pcb: 550 } }, '2026-06');
+  assert.equal(exact.pcb.amount, 110);
+  assert.doesNotMatch(exact.notes.join(' '), /since January/);
+});
+
+test('PCB category 2 takes spouse relief and the RM800 rebate band; children take RM2,000 each', () => {
+  assert.equal(one({ wages: 5000, pcbCategory: 2, children: 2 }, '2026-01').pcb.amount, 70);
+  assert.equal(one({ wages: 3000 }, '2026-01').pcb.amount, 0);
+});
+
+test('PCB on a bonus is the extra yearly tax it causes, and EPF on the bonus counts toward the RM4,000 cap', () => {
+  const row = one({ wages: 5000, bonus: 10000 }, '2026-01');
+  assert.equal(row.epf.employee, 1650);
+  assert.equal(row.pcb.normal, 110);
+  assert.equal(row.pcb.onBonus, 950);
+  assert.equal(row.pcb.amount, 1060);
+  assert.equal(row.netPay, 12255.35);
+});
+
+test('zakat this month reduces PCB, and anything under RM10 is not deducted', () => {
+  assert.equal(one({ wages: 5000, zakat: 50 }, '2026-01').pcb.amount, 60);
+  const small = one({ wages: 5000, zakat: 105 }, '2026-01');
+  assert.equal(small.pcb.amount, 0);
+  assert.equal(small.pcb.zakatOffset, 105);
+});
+
+test('non-residents pay PCB at the flat non-resident rate; PCB inputs are checked', () => {
+  const row = one({ wages: 5000, resident: false, citizen: false }, '2026-01');
+  assert.equal(row.pcb.amount, 1500);
+  assert.equal(row.pcb.method, 'non-resident flat rate');
+  const bad = malaysiaPayroll({ month: '2026-01', employees: [{ wages: 5000, pcbCategory: 4, children: -1, bonus: -5 }] });
+  assert.equal(bad.ok, false);
+  assert.deepEqual(bad.problems.map((problem) => problem.field), ['bonus']);
+  const badCategory = malaysiaPayroll({ month: '2026-01', employees: [{ wages: 5000, pcbCategory: 4 }] });
+  assert.deepEqual(badCategory.problems.map((problem) => problem.field), ['pcbCategory']);
+});
+
+test('the payroll totals PCB and lists the PCB rules it used', () => {
+  const run = malaysiaPayroll({ month: '2026-01', employees: [{ wages: 5000 }, { wages: 5000, pcbCategory: 2, children: 2 }] });
+  assert.equal(run.data.totals.pcb, 180);
+  assert.ok(run.data.rulesUsed.some((rule) => rule.id === 'my.payroll.pcb'));
+  assert.match(ENGINE.words.my_payroll(run), /PCB RM ?180/);
+});

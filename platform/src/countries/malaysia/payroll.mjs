@@ -1,4 +1,5 @@
 import { rules } from '../../sprint-load.mjs';
+import { monthlyPcb, pcbRules, readPcbProfile } from './pcb.mjs';
 
 const toSen = (ringgit) => Math.round(Number(ringgit) * 100);
 const toRinggit = (sen) => Math.round(sen) / 100;
@@ -50,6 +51,7 @@ export function malaysiaPayroll(args = {}) {
   const socso = ruleOn('my.payroll.socso', date);
   const eis = ruleOn('my.payroll.eis', date);
   if (!epf || !socso || !eis) return fail('RULE_NOT_IN_FORCE', { hint: 'MyCA has the contribution tables from October 2024 wages.' });
+  const pcbUsed = pcbRules(date);
   const employees = Array.isArray(args.employees) ? args.employees : [];
   if (!employees.length) return fail('BAD_INPUT', { hint: 'Add at least one employee with monthly wages.' });
   const problems = [];
@@ -58,9 +60,16 @@ export function malaysiaPayroll(args = {}) {
     if (!Number.isFinite(wage) || wage < 0) { problems.push({ employee: index, field: 'wages', why: 'Monthly wages are an amount in ringgit, zero or more.' }); return null; }
     const age = Number(employee.age ?? 30);
     if (!Number.isInteger(age) || age < 14 || age > 100) { problems.push({ employee: index, field: 'age', why: 'Age is a whole number of years.' }); return null; }
+    const bonus = employee.bonus === undefined || employee.bonus === null || employee.bonus === '' ? 0 : Number(employee.bonus);
+    if (!Number.isFinite(bonus) || bonus < 0) { problems.push({ employee: index, field: 'bonus', why: 'Bonus or other extra pay this month is an amount in ringgit, zero or more.' }); return null; }
+    const read = readPcbProfile(employee, toSen);
+    if (read.problems.length) { for (const problem of read.problems) problems.push({ employee: index, ...problem }); return null; }
     const wageSen = toSen(wage);
+    const bonusSen = toSen(bonus);
     const notes = [];
-    const epfPart = epfContribution(wageSen, { age, citizen: employee.citizen !== false, date }, epf);
+    const epfProfile = { age, citizen: employee.citizen !== false, date };
+    const epfOnWages = epfContribution(wageSen, epfProfile, epf);
+    const epfPart = bonusSen > 0 ? epfContribution(wageSen + bonusSen, epfProfile, epf) : epfOnWages;
     let socsoEmployer = 0;
     let socsoEmployee = 0;
     let eisEach = 0;
@@ -79,15 +88,26 @@ export function malaysiaPayroll(args = {}) {
     }
     const employeeTotal = epfPart.employee + socsoEmployee + eisEach;
     const employerTotal = epfPart.employer + socsoEmployer + eisEach;
+    let pcb = null;
+    if (!pcbUsed) notes.push('PCB is not worked out for this month: MyCA has no PCB rules for it.');
+    else {
+      pcb = monthlyPcb({ month: Number(month[2]), wageSen, epfSen: epfOnWages.employee, bonusSen, bonusEpfSen: epfPart.employee - epfOnWages.employee, profile: read.profile }, pcbUsed);
+      if (pcb.assumedSamePaySinceJanuary) notes.push('PCB assumes the same pay and PCB every month since January; give yearToDate for an exact figure.');
+      if (!read.profile.resident) notes.push('Non-resident: PCB is the flat non-resident rate on this month\'s pay.');
+    }
+    const pcbSen = pcb ? pcb.pcbSen : 0;
     return {
       name: String(employee.name || `Employee ${index + 1}`).slice(0, 60),
       wages: toRinggit(wageSen),
+      bonus: toRinggit(bonusSen),
       epf: { employee: toRinggit(epfPart.employee), employer: toRinggit(epfPart.employer), basis: epfPart.basis },
       socso: { employee: toRinggit(socsoEmployee), employer: toRinggit(socsoEmployer) },
       eis: { employee: toRinggit(eisEach), employer: toRinggit(eisEach) },
-      employeeDeductions: toRinggit(employeeTotal),
-      netBeforePcb: toRinggit(wageSen - employeeTotal),
-      employerCost: toRinggit(wageSen + employerTotal),
+      pcb: pcb ? { amount: toRinggit(pcbSen), normal: toRinggit(pcb.normalSen), onBonus: toRinggit(pcb.bonusPcbSen), zakatOffset: toRinggit(pcb.zakatOffsetSen), category: read.profile.category, children: read.profile.children, method: pcb.method, yearlyChargeableIncome: pcb.chargeableSen === null ? null : toRinggit(pcb.chargeableSen), yearlyTax: pcb.yearlyTaxSen === null ? null : toRinggit(pcb.yearlyTaxSen) } : null,
+      employeeDeductions: toRinggit(employeeTotal + pcbSen),
+      netBeforePcb: toRinggit(wageSen + bonusSen - employeeTotal),
+      netPay: toRinggit(wageSen + bonusSen - employeeTotal - pcbSen),
+      employerCost: toRinggit(wageSen + bonusSen + employerTotal),
       notes,
     };
   });
@@ -100,10 +120,10 @@ export function malaysiaPayroll(args = {}) {
     data: {
       month: args.month,
       employees: rows,
-      totals: { wages: sum((row) => row.wages), epf: sum((row) => row.epf.employee + row.epf.employer), socso: sum((row) => row.socso.employee + row.socso.employer), eis: sum((row) => row.eis.employee + row.eis.employer), employerCost: sum((row) => row.employerCost) },
+      totals: { wages: sum((row) => row.wages + row.bonus), pcb: sum((row) => (row.pcb ? row.pcb.amount : 0)), epf: sum((row) => row.epf.employee + row.epf.employer), socso: sum((row) => row.socso.employee + row.socso.employer), eis: sum((row) => row.eis.employee + row.eis.employer), employerCost: sum((row) => row.employerCost) },
       dueBy: `${next}-15`,
-      notes: ['Pay EPF through i-Akaun (Employer), and SOCSO and EIS through PERKESO ASSIST, by the 15th of the next month.', 'PCB (monthly tax deduction) is not worked out here; use LHDN\'s e-PCB calculator until MyCA adds it.'],
-      rulesUsed: [note(epf), note(socso), note(eis)],
+      notes: ['Pay EPF through i-Akaun (Employer), SOCSO and EIS through PERKESO ASSIST, and PCB through e-PCB Plus, by the 15th of the next month.', 'PCB follows LHDN\'s computerised method with EPF, the individual, spouse and child reliefs; other reliefs the employee declared on Form TP1 go in deductions. Check a few employees against LHDN\'s e-PCB calculator until the PCB rules are attested.'],
+      rulesUsed: [note(epf), note(socso), note(eis), ...(pcbUsed ? [note(pcbUsed.pcb), note(pcbUsed.bands), note(pcbUsed.rebate)] : [])],
     },
   };
 }
