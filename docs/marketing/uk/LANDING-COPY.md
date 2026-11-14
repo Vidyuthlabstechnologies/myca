@@ -54,7 +54,9 @@ MyCA reads your obligations straight from HMRC, so you always know what is due a
 quarterly update covers your self-employment and your UK property income together, built from your
 records. Review it, approve it, and MyCA sends it. Then see HMRC's own in-year calculation.
 
-At the end of the tax year, MyCA brings everything together for your final declaration.
+At the end of the tax year, MyCA brings everything together for your final declaration. You see
+HMRC's full calculation, line by line, before you agree HMRC's declaration. If you spot a mistake
+later, you can amend the return in the app for 12 months after the 31 January deadline.
 
 ## Section: VAT returns, box by box
 
@@ -107,7 +109,8 @@ All plans include a 14-day free trial. Cancel any time. Prices [include VAT: to 
 | MTD for Income Tax: quarterly updates (self-employment and UK property), calculations, final declaration | Yes | Yes | Yes, for every client |
 | MTD for VAT: nine-box returns | Yes | Yes | Yes |
 | Tax estimate | Yes | Yes | Yes |
-| Deadline and penalty-point reminders | Yes | Yes | Yes |
+| Deadline calendar and penalty-point guide | Yes | Yes | Yes |
+| Amend a sent return | Yes | Yes | Yes |
 | Assistant | Yes | Yes | Yes |
 | Users | [to confirm] | [to confirm] | [to confirm] |
 | Support | UK-hours, same working day [to confirm] | Priority [to confirm] | Named contact [to confirm] |

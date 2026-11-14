@@ -41,16 +41,16 @@ Digital records, done for you
 Import your bank statements and MyCA sorts each line into the right category as it lands. Snap a receipt and it is matched and filed. Add invoices, rent, repairs and other costs in a few taps. Your records are kept the way HMRC asks: digitally, as you go.
 
 Making Tax Digital for Income Tax
-For sole traders and landlords. MyCA reads your obligations from HMRC, builds each quarterly update for your self-employment and UK property income, and shows it to you before anything is sent. See HMRC's in-year calculation, then send your final declaration at the end of the tax year.
+For sole traders and landlords. MyCA reads your obligations from HMRC, builds each quarterly update for your self-employment and UK property income, and shows it to you before anything is sent. See HMRC's in-year calculation. At the end of the year, check HMRC's full calculation line by line, agree HMRC's declaration and send your final declaration. Spotted a mistake later? Amend it in the app.
 
 VAT returns, box by box
 MyCA reads your VAT obligations from HMRC and prepares your nine-box VAT return from your records. Check every box, see where each figure came from, then submit.
 
 Know your tax bill early
-An estimate of your Self Assessment bill as the year goes on: income tax (including Scottish rates), Class 4 National Insurance, student loan repayments, the High Income Child Benefit Charge, dividends, savings, capital gains and payments on account. HMRC's own calculation is shown beside ours whenever HMRC provides one.
+An estimate of your Self Assessment bill as the year goes on: income tax (including Scottish rates), Class 4 National Insurance, student loan repayments, the High Income Child Benefit Charge, dividends, savings, capital gains and payments on account. Ask HMRC for its own in-year calculation whenever you like.
 
 Never miss a deadline
-Reminders before every quarterly update, VAT return, final declaration and payment, and a clear view of any penalty points HMRC has recorded.
+A calendar of every quarterly update, VAT return, final declaration and payment date, and a plain explanation of how penalty points build up.
 
 Checks before you send
 MyCA checks your UTR, National Insurance number and VAT number are in a valid format before they are used, and flags anything in a quarter that looks incomplete.
@@ -59,10 +59,10 @@ An assistant that does not make things up
 Ask questions in plain English. The assistant picks the right MyCA tool to answer and shows you the result. Every figure comes from MyCA's fixed rules, never from the assistant itself.
 
 For accountants
-Invite your accountant to your books, or, if you are a firm, work on all your clients' records and submissions from one place.
+Invite your accountant to your books, or, if you are a firm, work on all your clients' records and submissions from one place. Agents agree HMRC's agent declaration when they file for a client.
 
 Your data stays in the UK
-Your records are stored on servers in London and encrypted in transit and at rest. You connect to HMRC on HMRC's own sign-in page; MyCA never sees or stores your HMRC password. Export all your records at any time.
+Your records are stored on servers in London and encrypted in transit and at rest. You connect to HMRC on HMRC's own sign-in page; MyCA never sees or stores your HMRC password. Export all your records at any time, including a list of everything sent to HMRC.
 
 Our promise
 Nothing goes to HMRC until you approve it. If a figure we sent was wrong because of our error, we fix it and help you refile for free.

@@ -36,6 +36,12 @@ export function engineWords(name) {
   return behaviour('words', name);
 }
 
+export function engineBooks(country, name, kind = 'run') {
+  const engine = engines().find((entry) => entry.country === String(country || ''));
+  const entry = engine?.books?.[String(name || '')];
+  return typeof entry?.[kind] === 'function' ? entry[kind] : null;
+}
+
 export function runEngineTool(name, state, args = {}) {
   const run = engineRun(name);
   return run ? run(state, args) : { ok: false, error: 'ENGINE_TOOL_NOT_BUILT', tool: String(name) };

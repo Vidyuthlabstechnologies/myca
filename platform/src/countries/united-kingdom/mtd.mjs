@@ -1,4 +1,4 @@
-import { parseTaxYear, gbRule, ruleSet, toPence, toPounds, share, wholePoundsPence, addMonthsDays, daysBetween, isIsoDate } from './rules.mjs';
+import { parseTaxYear, gbRule, ruleSet, toPence, toPounds, share, wholePoundsPence, addMonthsDays, daysBetween, isIsoDate, amountProblems } from './rules.mjs';
 
 export const SE_INCOME_FIELDS = Object.freeze(['turnover', 'other', 'taxTakenOffTradingIncome']);
 export const SE_EXPENSE_FIELDS = Object.freeze([
@@ -9,6 +9,30 @@ export const SE_EXPENSE_FIELDS = Object.freeze([
 export const PROPERTY_INCOME_FIELDS = Object.freeze(['premiumsOfLeaseGrant', 'reversePremiums', 'periodAmount', 'taxDeducted', 'otherIncome']);
 export const PROPERTY_EXPENSE_FIELDS = Object.freeze(['premisesRunningCosts', 'repairsAndMaintenance', 'financialCosts', 'professionalFees', 'costOfServices', 'other', 'residentialFinancialCost', 'travelCosts']);
 export const BUSINESS_KINDS = Object.freeze(['self-employment', 'uk-property']);
+
+const HEAD_TO_PROPERTY = Object.freeze({
+  rent: 'periodAmount', 'rent-received': 'periodAmount', 'rental-income': 'periodAmount', 'lease-premium': 'premiumsOfLeaseGrant', 'reverse-premium': 'reversePremiums', 'other-income': 'otherIncome', 'tax-deducted': 'taxDeducted',
+  repairs: 'repairsAndMaintenance', maintenance: 'repairsAndMaintenance', insurance: 'premisesRunningCosts', utilities: 'premisesRunningCosts', 'council-tax': 'premisesRunningCosts', 'ground-rent': 'premisesRunningCosts', 'service-charge': 'premisesRunningCosts',
+  'letting-agent': 'professionalFees', 'agent-fees': 'professionalFees', accountancy: 'professionalFees', legal: 'professionalFees', cleaning: 'costOfServices', gardening: 'costOfServices', services: 'costOfServices',
+  'mortgage-interest': 'residentialFinancialCost', 'finance-costs': 'residentialFinancialCost', 'loan-interest': 'residentialFinancialCost', travel: 'travelCosts', other: 'other',
+});
+
+export function categoriseForProperty(transactions = []) {
+  const income = {};
+  const expenses = {};
+  const unmapped = [];
+  const problems = [];
+  for (const [index, item] of (Array.isArray(transactions) ? transactions : []).entries()) {
+    const head = String(item?.category || item?.head || '').toLowerCase();
+    const field = PROPERTY_INCOME_FIELDS.includes(item?.field) || PROPERTY_EXPENSE_FIELDS.includes(item?.field) ? item.field : HEAD_TO_PROPERTY[head];
+    const bad = amountProblems(item?.amount, `transactions[${index}].amount`, { allowNegative: !PROPERTY_INCOME_FIELDS.includes(field) });
+    if (bad.length || item?.amount === undefined || item?.amount === null || item?.amount === '') { problems.push(...(bad.length ? bad : [{ field: `transactions[${index}].amount`, why: 'Give an amount in pounds, like 1250.50.' }])); continue; }
+    if (!field) { unmapped.push({ index, category: head }); continue; }
+    const target = PROPERTY_INCOME_FIELDS.includes(field) ? income : expenses;
+    target[field] = toPounds(toPence(target[field] || 0) + toPence(item.amount));
+  }
+  return { income, expenses, unmapped, problems };
+}
 
 const HEAD_TO_SE = Object.freeze({
   sales: 'turnover', revenue: 'turnover', 'other-income': 'other', stock: 'costOfGoods', purchases: 'costOfGoods', materials: 'costOfGoods',
@@ -72,16 +96,19 @@ export function categoriseForSelfEmployment(transactions = []) {
   const expenses = Object.fromEntries(SE_EXPENSE_FIELDS.map((field) => [field, 0]));
   const disallowable = Object.fromEntries(SE_EXPENSE_FIELDS.map((field) => [field, 0]));
   const unmapped = [];
+  const invalid = [];
   for (const [index, item] of (Array.isArray(transactions) ? transactions : []).entries()) {
     const head = String(item?.category || item?.head || '').toLowerCase();
     const field = SE_INCOME_FIELDS.includes(item?.field) || SE_EXPENSE_FIELDS.includes(item?.field) ? item.field : HEAD_TO_SE[head];
+    const bad = amountProblems(item?.amount, `transactions[${index}].amount`, { allowNegative: !SE_INCOME_FIELDS.includes(field) });
+    if (bad.length || item?.amount === undefined || item?.amount === null || item?.amount === '') { invalid.push(...(bad.length ? bad : [{ field: `transactions[${index}].amount`, why: 'Give an amount in pounds, like 1250.50.' }])); continue; }
     const amount = toPence(item?.amount);
     if (!field) { unmapped.push({ index, category: head }); continue; }
     if (SE_INCOME_FIELDS.includes(field)) income[field] += amount;
     else if (item?.disallowable) { expenses[field] += amount; disallowable[field] += amount; }
     else expenses[field] += amount;
   }
-  return { income, expenses, disallowable, unmapped };
+  return { income, expenses, disallowable, unmapped, invalid };
 }
 
 function pounds(map) {
@@ -113,6 +140,7 @@ export function selfEmploymentCumulative(args = {}) {
   const problems = [];
   if (consolidate && vatRule && turnover * (12 / Math.max(1, monthsOf(args.periodStartDate, args.periodEndDate))) >= vatRule.value.registerAbovePence) problems.push({ field: 'periodExpenses', why: 'Consolidated expenses are only allowed while turnover is under the VAT registration threshold.' });
   if (sorted.unmapped.length) problems.push({ field: 'transactions', why: `${sorted.unmapped.length} transactions have a category MyCA cannot map to an HMRC box; pick a box for each.`, unmapped: sorted.unmapped.slice(0, 20) });
+  problems.push(...sorted.invalid);
   return {
     ok: true,
     data: {
@@ -136,15 +164,26 @@ export function ukPropertyCumulative(args = {}) {
   if (!isIsoDate(args.fromDate) || !isIsoDate(args.toDate) || args.toDate < args.fromDate) return fail('BAD_PERIOD', { hint: 'Give fromDate and toDate as YYYY-MM-DD.' });
   const income = {};
   const expenses = {};
-  const given = args.income && typeof args.income === 'object' ? args.income : {};
-  const spent = args.expenses && typeof args.expenses === 'object' ? args.expenses : {};
+  const sorted = Array.isArray(args.transactions) ? categoriseForProperty(args.transactions) : null;
+  const given = sorted ? sorted.income : args.income && typeof args.income === 'object' ? args.income : {};
+  const spent = sorted ? sorted.expenses : args.expenses && typeof args.expenses === 'object' ? args.expenses : {};
+  const bad = sorted ? [] : [...amountProblems(given, 'income'), ...amountProblems(spent, 'expenses', { allowNegative: true })];
+  if (bad.length) return fail('BAD_AMOUNT', { problems: bad, hint: bad.map((problem) => `${problem.field}: ${problem.why}`).join(' ') });
   const unknown = [...Object.keys(given).filter((key) => !PROPERTY_INCOME_FIELDS.includes(key)), ...Object.keys(spent).filter((key) => !PROPERTY_EXPENSE_FIELDS.includes(key) && key !== 'consolidatedExpenses')];
   if (unknown.length) return fail('UNKNOWN_PROPERTY_FIELDS', { unknown, income: PROPERTY_INCOME_FIELDS, expenses: PROPERTY_EXPENSE_FIELDS });
   for (const key of PROPERTY_INCOME_FIELDS) if (given[key]) income[key] = toPounds(toPence(given[key]));
   for (const key of [...PROPERTY_EXPENSE_FIELDS, 'consolidatedExpenses']) if (spent[key]) expenses[key] = toPounds(toPence(spent[key]));
   if (expenses.consolidatedExpenses && Object.keys(expenses).some((key) => key !== 'consolidatedExpenses' && key !== 'residentialFinancialCost')) return fail('CONSOLIDATED_AND_ITEMISED', { hint: 'Send either consolidatedExpenses (with residentialFinancialCost if any) or the itemised expenses, not both.' });
+  if (args.fromDate < year.from && args.fromDate !== `${year.start}-04-01`) return fail('PERIOD_OUTSIDE_TAX_YEAR', { taxYear: year.label });
+  if (args.toDate > year.to) return fail('PERIOD_OUTSIDE_TAX_YEAR', { taxYear: year.label });
   const body = { fromDate: args.fromDate, toDate: args.toDate, ukProperty: { income, expenses } };
-  return { ok: true, data: { taxYear: year.label, body } };
+  const problems = [];
+  if (sorted?.unmapped.length) problems.push({ field: 'transactions', why: `${sorted.unmapped.length} transactions have a category MyCA cannot map to an HMRC box; pick a box for each.`, unmapped: sorted.unmapped.slice(0, 20) });
+  if (sorted) problems.push(...sorted.problems);
+  const sum = (map, skip = []) => Object.entries(map).filter(([key]) => !skip.includes(key)).reduce((total, [, value]) => total + toPence(value), 0);
+  const totalIncome = sum(income, ['taxDeducted']);
+  const totalExpenses = sum(expenses, ['residentialFinancialCost']);
+  return { ok: true, data: { taxYear: year.label, body, totals: { income: toPounds(totalIncome), expenses: toPounds(totalExpenses), financeCosts: toPounds(toPence(expenses.residentialFinancialCost || 0)), profit: toPounds(totalIncome - totalExpenses) }, problems, ready: problems.length === 0 } };
 }
 
 export function penaltyPoints(args = {}) {

@@ -35,7 +35,7 @@ class _InviteScreenState extends State<InviteScreen> {
 
   Future<void> _share(ReferralInfo info) async {
     final state = AppScope.of(context);
-    final shared = await state.shareText(info.shareText(us: state.edition == 'US'));
+    final shared = await state.shareText(info.shareText(us: state.edition == 'US', uk: state.edition == 'GB'));
     if (shared) state.reachSteps(['referral_shared']);
   }
 

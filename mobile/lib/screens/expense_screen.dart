@@ -75,7 +75,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
     if (amount == null) return setState(() => _error = 'Enter the amount.');
     if (rate == null) {
       return setState(
-        () => _error = 'The GST rate must be a number, or leave it blank.',
+        () => _error = 'The $salesTaxName rate must be a number, or leave it blank.',
       );
     }
     final tdsProblem = _tds.problem();
@@ -95,7 +95,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
     };
     _lastArgs = args;
     await propose(
-      '$what: ${rupees(amount)} from $_mode${rate > 0 ? ', GST $rate% inside' : ''}',
+      '$what: ${rupees(amount)} from $_mode${rate > 0 ? ', $salesTaxName $rate% inside' : ''}',
       'post_expense',
       args,
     );
@@ -165,9 +165,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
-                        decoration: const InputDecoration(
-                          labelText: 'Amount paid, with GST',
-                          prefixText: '₹ ',
+                        decoration: InputDecoration(
+                          labelText: 'Amount paid, with $salesTaxName',
+                          prefixText: moneyPrefix,
                         ),
                       ),
                     ),
@@ -179,8 +179,8 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
-                        decoration: const InputDecoration(
-                          labelText: 'GST inside',
+                        decoration: InputDecoration(
+                          labelText: '$salesTaxName inside',
                           suffixText: '%',
                         ),
                       ),
@@ -223,7 +223,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
                   ),
                 ] else
                 Text(
-                  'Give the GST rate only if the bill shows GST. Credit is taken only when the supplier GSTIN is on the bill; add it later from the Purchases chat if you need it.',
+                  moneyCountry == 'GB' ? 'Give the VAT rate only if the receipt shows VAT. Reclaim VAT only with a valid VAT receipt from a VAT-registered supplier.' : 'Give the GST rate only if the bill shows GST. Credit is taken only when the supplier GSTIN is on the bill; add it later from the Purchases chat if you need it.',
                   style: text.bodySmall,
                 ),
                 if (_error.isNotEmpty) ...[

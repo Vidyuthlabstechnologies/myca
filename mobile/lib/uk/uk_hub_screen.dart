@@ -9,6 +9,7 @@ import '../widgets.dart';
 import 'uk_common.dart';
 import 'uk_connect_screen.dart';
 import 'uk_estimate_screen.dart';
+import 'uk_history_screen.dart';
 import 'uk_mtd_screen.dart';
 import 'uk_taxpayer_screen.dart';
 import 'uk_vat_screen.dart';
@@ -194,6 +195,14 @@ class _UkHubScreenState extends State<UkHubScreen> {
                   subtitle: 'Quarterly updates, HMRC\'s calculation and the final declaration',
                   trailing: const Chevron(),
                   onTap: () => _open(UkMtdScreen(taxYear: _taxYear)),
+                ),
+                RowCard(
+                  key: const Key('uk.hub.history'),
+                  leading: const TintTile(tint: Tint.ask, mark: Mark.confirm),
+                  title: 'Sent to HMRC',
+                  subtitle: 'Every return and update sent, with HMRC\'s references',
+                  trailing: const Chevron(),
+                  onTap: () => _open(const UkHistoryScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.switchBooks),

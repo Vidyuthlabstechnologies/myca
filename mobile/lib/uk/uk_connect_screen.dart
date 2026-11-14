@@ -32,6 +32,9 @@ class HmrcStatus {
   List<Map<String, dynamic>> get itsaBusinesses => ukMaps(data['itsaBusinesses']);
   List<Map<String, dynamic>> get calculations => ukMaps(data['calculations']);
   Map<String, dynamic> get fraudHeaderCheck => ukMap(data['fraudHeaderCheck']);
+  List<Map<String, dynamic>> get returns => ukMaps(data['returns']);
+  Map<String, dynamic> get declarationWords => ukMap(data['declarationWords']);
+  Map<String, dynamic>? returnFor(String taxYear) => returns.where((r) => ukText(r['taxYear']) == taxYear).lastOrNull;
 }
 
 Future<HmrcStatus> loadHmrcStatus(MycaApi api) async => HmrcStatus.fromTool(await ukQuery(api, 'gb_hmrc_status'));

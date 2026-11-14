@@ -213,7 +213,8 @@ class _NewPartySheetState extends State<_NewPartySheet> {
     if (uaeEdition(context)) return _submitAe();
     final name = _name.text.trim();
     final gstin = _gstin.text.trim().toUpperCase();
-    final shape = gstinShapeError(gstin);
+    final uk = AppScope.of(context).edition == 'GB';
+    final shape = uk ? null : gstinShapeError(gstin);
     if (name.isEmpty) return setState(() => _error = 'Enter a name.');
     if (shape != null) return setState(() => _error = shape);
     Navigator.of(context).pop((name: name, gstin: gstin));
@@ -233,6 +234,7 @@ class _NewPartySheetState extends State<_NewPartySheet> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final ae = uaeEdition(context) ? UaeStrings.of(context) : null;
+    final uk = AppScope.of(context).edition == 'GB';
     return Padding(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -252,8 +254,10 @@ class _NewPartySheetState extends State<_NewPartySheet> {
               autofocus: widget.initialName.isEmpty,
               textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(labelText: ae != null ? ae.name : 'Name'),
+              onSubmitted: uk ? (_) => _submit() : null,
             ),
-            const SizedBox(height: 12),
+            if (!uk) const SizedBox(height: 12),
+            if (!uk)
             TextField(
               key: const ValueKey('party.taxId'),
               controller: _gstin,

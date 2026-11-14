@@ -8,6 +8,7 @@ import '../theme.dart';
 import '../uae/uae_edition.dart';
 import '../uae/uae_emirates.dart';
 import '../uae/uae_strings.dart';
+import '../uk/uk_plan_screen.dart';
 import '../widgets.dart';
 import 'businesses_screen.dart';
 import 'connections_screen.dart';
@@ -39,14 +40,14 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
             children: [
               Text(company.name, style: text.headlineSmall),
               const SizedBox(height: 4),
-              if (ae == null)
+              if (ae == null && state.edition != 'GB')
                 Text(
                   company.gstin.isEmpty
                       ? 'Not registered for GST'
                       : 'GSTIN ${company.gstin}',
                   style: text.bodyMedium,
                 )
-              else if (aeTrn.isNotEmpty)
+              else if (ae != null && aeTrn.isNotEmpty)
                 Text(ae.trnOf(aeTrn), style: text.bodyMedium),
               if (user != null)
                 Text('Signed in as ${user.name}', style: text.bodyMedium),
@@ -76,7 +77,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                       trailing: const Chevron(),
                       onTap: () {
                         navigator.pop();
-                        navigator.push(MaterialPageRoute<void>(builder: (_) => const PlanScreen()));
+                        navigator.push(MaterialPageRoute<void>(builder: (_) => state.edition == 'GB' ? const UkPlanScreen() : const PlanScreen()));
                       },
                     ),
                     RowCard(
@@ -110,7 +111,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                           navigator.push(MaterialPageRoute<void>(builder: (_) => const ConnectionsScreen()));
                         },
                       ),
-                    if (user?.role == 'owner' && ae == null)
+                    if (user?.role == 'owner' && ae == null && state.edition != 'GB')
                       RowCard(
                         leading: const TintTile(tint: Tint.ask, mark: Mark.cloudBooks),
                         title: 'Connections to banks and apps',

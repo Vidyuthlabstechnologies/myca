@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import '../format.dart';
 import '../marks.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -10,7 +11,34 @@ import 'hmrc_device.dart';
 import 'uk_common.dart';
 import 'uk_connect_screen.dart';
 
-const finalDeclarationWords = 'I declare that the information I have given for this tax year, through my quarterly updates and this final declaration, is correct and complete to the best of my knowledge and belief. I understand that I may have to pay financial penalties and face prosecution if I give false information.';
+const declarationPreamble = 'Before you can submit the information displayed here in response to your notice to file from HM Revenue & Customs, you must read and agree to the following statement.';
+
+const finalDeclarationWords = 'I declare that the information and tax return I have submitted are (taken together) correct and complete to the best of my knowledge. I understand that I may have to pay financial penalties and face prosecution if I give false information.';
+
+const agentDeclarationWords = 'I confirm that my client has received a copy of all the information being filed and approved the information as being correct and complete to the best of their knowledge and belief. My client understands that they may have to pay financial penalties and face prosecution if they give false information.';
+
+({String preamble, String text}) declarationWordsFor(HmrcStatus? status, String declaredBy) {
+  final words = status?.declarationWords ?? const <String, dynamic>{};
+  final preamble = ukText(words['preamble']);
+  final own = ukText(words[declaredBy == 'agent' ? 'agent' : 'taxpayer']);
+  return (
+    preamble: preamble.isEmpty ? declarationPreamble : preamble,
+    text: own.isNotEmpty ? own : (declaredBy == 'agent' ? agentDeclarationWords : finalDeclarationWords),
+  );
+}
+
+String taxBandWords(String name) => switch (name.toUpperCase()) {
+  'SRT' => 'Starter rate',
+  'SSR' => 'Starting rate for savings',
+  'ZRT' || 'ZRTBR' || 'ZRTHR' || 'ZRTAR' => 'Nil rate',
+  'BRT' => 'Basic rate',
+  'IRT' => 'Intermediate rate',
+  'HRT' => 'Higher rate',
+  'AVRT' => 'Advanced rate',
+  'ART' => 'Additional rate',
+  'TRT' => 'Top rate',
+  _ => name,
+};
 
 const selfEmploymentIncomeFields = <(String, String)>[
   ('turnover', 'Turnover'),
@@ -222,11 +250,9 @@ class _UkMtdScreenState extends State<UkMtdScreen> {
             ],
           ),
           const SectionLabel('Final declaration'),
-          UkCard(
-            children: [
-              const UkNote('After the last quarter, confirm your figures for the year with HMRC. This takes the place of the Self Assessment return.'),
-              UkWideButton(label: 'Start the final declaration', onPressed: () => _open(UkFinalDeclarationScreen(taxYear: _year))),
-            ],
+          FutureBuilder<HmrcStatus>(
+            future: _status,
+            builder: (context, snap) => UkReturnCard(taxYear: _year, sent: snap.data?.returnFor(_year), today: AppScope.of(context).now(), onStart: () => _open(UkFinalDeclarationScreen(taxYear: _year)), onAmend: () => _open(UkFinalDeclarationScreen(taxYear: _year, amend: true))),
           ),
           const SectionLabel('Must I use Making Tax Digital?'),
           UkCard(
@@ -249,27 +275,181 @@ class _UkMtdScreenState extends State<UkMtdScreen> {
   }
 }
 
+class UkReturnCard extends StatelessWidget {
+  const UkReturnCard({super.key, required this.taxYear, required this.sent, required this.today, required this.onStart, required this.onAmend});
+
+  final String taxYear;
+  final Map<String, dynamic>? sent;
+  final DateTime today;
+  final VoidCallback onStart;
+  final VoidCallback onAmend;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final sent = this.sent;
+    if (sent == null) {
+      return UkCard(
+        children: [
+          const UkNote('After the last quarter, confirm your figures for the year with HMRC. This takes the place of the Self Assessment return.'),
+          UkWideButton(label: 'Start the final declaration', onPressed: onStart),
+        ],
+      );
+    }
+    final closes = ukText(sent['amendmentWindowCloses']);
+    final open = closes.isEmpty || isoDate(today).compareTo(closes) <= 0;
+    return UkCard(
+      key: const Key('uk.mtd.returnSent'),
+      tone: Palette.accentSoft,
+      children: [
+        Text(ukText(sent['type']) == 'confirm-amendment' ? 'Your amended $taxYear return is with HMRC' : 'Your $taxYear return is with HMRC', style: text.titleMedium),
+        if (ukText(sent['at']).isNotEmpty) UkNote('Sent ${gbDay(ukText(sent['at']))}${ukText(sent['declaredBy']) == 'agent' ? ' by your agent' : ''}'),
+        if (ukNumOrNull(sent['totalDue']) != null) UkFigure(label: 'Income Tax and National Insurance', amount: ukNum(sent['totalDue'])),
+        if (open) ...[
+          UkNote(closes.isEmpty ? 'You can amend it if something was wrong.' : 'You can amend it until ${gbDay(closes)}.'),
+          UkWideButton(key: const Key('uk.mtd.amend'), label: 'Amend this return', outlined: true, onPressed: onAmend),
+        ] else
+          UkNote('Amendments for $taxYear closed on ${gbDay(closes)}. Ask HMRC about an overpayment relief claim if something was wrong.'),
+      ],
+    );
+  }
+}
+
 class CalculationView extends StatelessWidget {
-  const CalculationView({super.key, required this.calculation});
+  const CalculationView({super.key, required this.calculation, this.full = false});
 
   final Map<String, dynamic> calculation;
+  final bool full;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final c = calculation;
     final total = ukNumOrNull(c['totalIncomeTaxAndNicsDue']);
+    final breakdown = ukMap(c['breakdown']);
     return Column(
       key: const Key('uk.mtd.calculation'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(calculationTypeWords(ukText(c['calculationType'])), style: text.titleMedium),
         if (ukText(c['status']) == 'requested') UkNote(ukText(c['hint']).isEmpty ? 'HMRC is still working it out. Try again in a minute.' : ukText(c['hint'])),
-        if (ukNumOrNull(c['totalTaxableIncome']) != null) UkFigure(label: 'Taxable income', amount: ukNum(c['totalTaxableIncome'])),
-        if (ukNumOrNull(c['incomeTax']) != null) UkFigure(label: 'Income tax', amount: ukNum(c['incomeTax'])),
-        if (ukNumOrNull(c['nics']) != null) UkFigure(label: 'National Insurance', amount: ukNum(c['nics'])),
-        if (total != null) UkFigure(label: 'Total Income Tax and National Insurance', amount: total, strong: true),
+        if (full && breakdown.isNotEmpty)
+          CalculationBreakdown(breakdown: breakdown, fallbackTotal: total)
+        else ...[
+          if (ukNumOrNull(c['totalTaxableIncome']) != null) UkFigure(label: 'Taxable income', amount: ukNum(c['totalTaxableIncome'])),
+          if (ukNumOrNull(c['incomeTax']) != null) UkFigure(label: 'Income tax', amount: ukNum(c['incomeTax'])),
+          if (ukNumOrNull(c['nics']) != null) UkFigure(label: 'National Insurance', amount: ukNum(c['nics'])),
+          if (total != null) UkFigure(label: 'Total Income Tax and National Insurance', amount: total, strong: true),
+        ],
+        CalculationMessages(messages: ukMap(c['messages'])),
         const SizedBox(height: 8),
+      ],
+    );
+  }
+}
+
+class CalculationBreakdown extends StatelessWidget {
+  const CalculationBreakdown({super.key, required this.breakdown, this.fallbackTotal});
+
+  final Map<String, dynamic> breakdown;
+  final num? fallbackTotal;
+
+  static List<Widget> _figures(List<(String, Object?)> rows, {bool strongLast = false}) => [
+    for (final (i, row) in rows.indexed)
+      if (ukNumOrNull(row.$2) != null) UkFigure(label: row.$1, amount: ukNumOrNull(row.$2)!, strong: strongLast && i == rows.length - 1),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final b = breakdown;
+    final income = ukMap(b['income']);
+    final bands = ukMaps(b['bands']);
+    final total = ukNumOrNull(b['totalDue']) ?? fallbackTotal;
+    final sections = <(String, List<Widget>)>[
+      ('INCOME', _figures([
+        ('Self-employment profit', income['selfEmployment']),
+        ('UK property profit', income['ukProperty']),
+        ('Foreign property profit', income['foreignProperty']),
+        ('Employment income', income['employment']),
+        ('Total income', income['total']),
+      ], strongLast: true)),
+      ('ALLOWANCES', _figures([
+        ('Personal Allowance', b['personalAllowance']),
+        ('Total allowances and deductions', b['allowancesAndDeductions']),
+        ('Taxable income', b['taxableIncome']),
+      ], strongLast: true)),
+      ('INCOME TAX', [
+        for (final band in bands)
+          if (ukNumOrNull(band['tax']) != null)
+            UkFigure(
+              key: Key('uk.calc.band.${ukText(band['name'])}'),
+              label: [
+                if (ukText(band['source']).isNotEmpty) '${ukText(band['source'])}:',
+                taxBandWords(ukText(band['name'])),
+                if (ukNumOrNull(band['rate']) != null) 'at ${ukText(band['rate'])}%',
+                if (ukNumOrNull(band['income']) != null) 'on ${pounds(ukNum(band['income']))}',
+              ].join(' '),
+              amount: ukNum(band['tax']),
+            ),
+        ..._figures([
+          ('Income Tax charged', b['incomeTaxCharged']),
+          ('Tax reliefs', b['reliefs']),
+          ('Income Tax due', b['incomeTaxDue']),
+        ]),
+      ]),
+      ('NATIONAL INSURANCE', _figures([
+        ('Class 2 National Insurance', b['class2Nics']),
+        ('Class 4 National Insurance', b['class4Nics']),
+        ('Total National Insurance', b['totalNics']),
+      ])),
+      ('OTHER', _figures([
+        ('Student Loan repayment', b['studentLoan']),
+        ('Capital Gains Tax', b['capitalGainsTax']),
+        ('Tax already taken off', b['taxDeducted']),
+      ])),
+    ];
+    return Column(
+      key: const Key('uk.calc.breakdown'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final (label, rows) in sections)
+          if (rows.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(label, style: text.labelSmall),
+            ...rows,
+          ],
+        if (total != null) ...[
+          const Divider(height: 20),
+          UkFigure(key: const Key('uk.calc.total'), label: 'Total due', amount: total, strong: true),
+        ],
+      ],
+    );
+  }
+}
+
+class CalculationMessages extends StatelessWidget {
+  const CalculationMessages({super.key, required this.messages});
+
+  final Map<String, dynamic> messages;
+
+  @override
+  Widget build(BuildContext context) {
+    final errors = ukMaps(messages['errors']);
+    final warnings = ukMaps(messages['warnings']);
+    final info = ukMaps(messages['info']);
+    if (errors.isEmpty && warnings.isEmpty && info.isEmpty) return const SizedBox.shrink();
+    String words(Map<String, dynamic> m) => ukText(m['id']).isEmpty ? ukText(m['text']) : '${ukText(m['text'])} (${ukText(m['id'])})';
+    return Column(
+      key: const Key('uk.calc.messages'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        Text('MESSAGES FROM HMRC', style: Theme.of(context).textTheme.labelSmall),
+        const SizedBox(height: 6),
+        for (final e in errors) UkProblem(words(e)),
+        for (final w in warnings) UkNote(words(w), warn: true),
+        for (final i in info) UkNote(words(i)),
       ],
     );
   }
@@ -295,9 +475,18 @@ class _UkQuarterScreenState extends State<UkQuarterScreen> {
   ChatPreview? _preview;
   Map<String, dynamic>? _receipt;
   String _problem = '';
+  Map<String, String> _fieldProblems = const {};
   bool _busy = false;
 
   MycaApi get _api => AppScope.of(context).api;
+
+  String _quarterField(String path, List<MapEntry<String, double>> sent) {
+    final m = RegExp(r'^transactions\[(\d+)\]').firstMatch(path);
+    final at = m == null ? -1 : int.parse(m.group(1)!);
+    if (at >= 0 && at < sent.length) return sent[at].key;
+    final dotted = path.split('.').last;
+    return dotted.isEmpty ? path : dotted;
+  }
 
   TextEditingController _amount(String key) => _amounts.putIfAbsent('$_kind.$key', TextEditingController.new);
 
@@ -321,6 +510,7 @@ class _UkQuarterScreenState extends State<UkQuarterScreen> {
   void _changed() => setState(() {
     _prepared = null;
     _preview = null;
+    _fieldProblems = const {};
   });
 
   Map<String, double> _values(List<(String, String)> fields) => {
@@ -337,20 +527,23 @@ class _UkQuarterScreenState extends State<UkQuarterScreen> {
     setState(() {
       _busy = true;
       _problem = '';
+      _fieldProblems = const {};
     });
+    final sent = _values(fields).entries.toList();
     final args = <String, Object?>{
       'kind': _kind,
       'taxYear': widget.taxYear,
       'periodStartDate': _from,
       'periodEndDate': _to,
-      if (_kind == 'self-employment') 'transactions': [for (final e in _values([...selfEmploymentIncomeFields, ...selfEmploymentExpenseFields]).entries) {'field': e.key, 'amount': e.value}],
-      if (_kind == 'uk-property') 'income': _values(propertyIncomeFields),
-      if (_kind == 'uk-property') 'expenses': _values(propertyExpenseFields),
+      'transactions': [for (final e in sent) {'field': e.key, 'amount': e.value}],
     };
     final result = await ukQuery(_api, 'gb_itsa_quarter_check', args);
     if (!mounted) return;
     setState(() {
       _busy = false;
+      _fieldProblems = {
+        for (final p in ukFieldProblems(ukOk(result) ? toolData(result) : result).entries) _quarterField(p.key, sent): p.value,
+      };
       if (ukOk(result)) {
         _prepared = toolData(result);
       } else {
@@ -488,9 +681,9 @@ class _UkQuarterScreenState extends State<UkQuarterScreen> {
                   ),
                 const SizedBox(height: 16),
                 const SectionLabel('Income'),
-                for (final f in income) UkMoneyField(key: Key('uk.quarter.${f.$1}'), controller: _amount(f.$1), label: f.$2, onChanged: (_) => _changed()),
+                for (final f in income) UkMoneyField(key: Key('uk.quarter.${f.$1}'), controller: _amount(f.$1), label: f.$2, error: _fieldProblems[f.$1], onChanged: (_) => _changed()),
                 const SectionLabel('Expenses'),
-                for (final f in expenses) UkMoneyField(key: Key('uk.quarter.${f.$1}'), controller: _amount(f.$1), label: f.$2, onChanged: (_) => _changed()),
+                for (final f in expenses) UkMoneyField(key: Key('uk.quarter.${f.$1}'), controller: _amount(f.$1), label: f.$2, error: _fieldProblems[f.$1], onChanged: (_) => _changed()),
                 if (_problem.isNotEmpty) UkProblem(_problem),
                 UkWideButton(label: _busy && prepared == null ? 'Checking…' : 'Check the update', onPressed: _busy ? null : _check),
                 if (prepared != null) ...[
@@ -518,9 +711,10 @@ class _UkQuarterScreenState extends State<UkQuarterScreen> {
 }
 
 class UkFinalDeclarationScreen extends StatefulWidget {
-  const UkFinalDeclarationScreen({super.key, required this.taxYear});
+  const UkFinalDeclarationScreen({super.key, required this.taxYear, this.amend = false});
 
   final String taxYear;
+  final bool amend;
 
   @override
   State<UkFinalDeclarationScreen> createState() => _UkFinalDeclarationScreenState();
@@ -528,6 +722,9 @@ class UkFinalDeclarationScreen extends StatefulWidget {
 
 class _UkFinalDeclarationScreenState extends State<UkFinalDeclarationScreen> {
   Map<String, dynamic>? _calculation;
+  HmrcStatus? _hmrc;
+  bool _asked = false;
+  String _declaredBy = 'taxpayer';
   bool _declared = false;
   bool _busy = false;
   String _problem = '';
@@ -538,7 +735,21 @@ class _UkFinalDeclarationScreenState extends State<UkFinalDeclarationScreen> {
 
   String get _calculationId => ukText(_calculation?['calculationId']);
 
-  bool get _usable => _calculationId.isNotEmpty && ukText(_calculation?['status']) != 'requested';
+  bool get _blocked => _calculation?['blockedByErrors'] == true;
+
+  bool get _usable => _calculationId.isNotEmpty && ukText(_calculation?['status']) != 'requested' && !_blocked;
+
+  String get _calculationType => widget.amend ? 'intent-to-amend' : 'intent-to-finalise';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_asked) return;
+    _asked = true;
+    loadHmrcStatus(_api).then((status) {
+      if (mounted) setState(() => _hmrc = status);
+    });
+  }
 
   Future<void> _step(Future<void> Function() run) async {
     if (_busy) return;
@@ -557,7 +768,7 @@ class _UkFinalDeclarationScreenState extends State<UkFinalDeclarationScreen> {
 
   Future<void> _calculate() => _step(() async {
     final device = await hmrcDeviceReader(context);
-    final reply = await proposeAndConfirm(_api, 'trigger_gb_itsa_calculation', {'taxYear': widget.taxYear, 'calculationType': 'intent-to-finalise', 'device': device});
+    final reply = await proposeAndConfirm(_api, 'trigger_gb_itsa_calculation', {'taxYear': widget.taxYear, 'calculationType': _calculationType, 'device': device});
     if (!mounted) return;
     setState(() {
       _declared = false;
@@ -569,14 +780,19 @@ class _UkFinalDeclarationScreenState extends State<UkFinalDeclarationScreen> {
     });
   });
 
+  void _chooseDeclarer(String? who) => setState(() {
+    _declaredBy = who ?? _declaredBy;
+    _declared = false;
+  });
+
   Future<void> _propose() => _step(() async {
     if (!_declared || !_usable) return;
     final device = await hmrcDeviceReader(context);
-    final reply = await _api.propose('submit_gb_final_declaration', {'taxYear': widget.taxYear, 'calculationId': _calculationId, 'declaration': true, 'device': device});
+    final reply = await _api.propose('submit_gb_final_declaration', {'taxYear': widget.taxYear, 'calculationId': _calculationId, 'declaration': true, 'declaredBy': _declaredBy, 'device': device});
     if (!mounted) return;
     setState(() {
       _preview = reply.preview;
-      if (reply.preview == null) _problem = reply.reply.isEmpty ? 'The final declaration cannot be sent yet.' : reply.reply;
+      if (reply.preview == null) _problem = reply.reply.isEmpty ? 'The return cannot be sent yet.' : gbDatesIn(reply.reply);
     });
   });
 
@@ -609,8 +825,10 @@ class _UkFinalDeclarationScreenState extends State<UkFinalDeclarationScreen> {
     final text = Theme.of(context).textTheme;
     final receipt = _receipt;
     final preview = _preview;
+    final words = declarationWordsFor(_hmrc, _declaredBy);
+    final amended = ukText(receipt?['type']) == 'confirm-amendment';
     return Scaffold(
-      appBar: AppBar(title: Text('Final declaration ${widget.taxYear}')),
+      appBar: AppBar(title: Text(widget.amend ? 'Amend ${widget.taxYear} return' : 'Final declaration ${widget.taxYear}')),
       body: ListView(
         padding: ukPagePadding,
         children: receipt != null
@@ -619,24 +837,42 @@ class _UkFinalDeclarationScreenState extends State<UkFinalDeclarationScreen> {
                   key: const Key('uk.final.receipt'),
                   tone: Palette.accentSoft,
                   children: [
-                    Text('HMRC has your final declaration', style: text.headlineSmall),
+                    Text(amended ? 'HMRC has your amended return' : 'HMRC has your final declaration', style: text.headlineSmall),
                     UkNote('Tax year ${ukText(receipt['taxYear']).isEmpty ? widget.taxYear : ukText(receipt['taxYear'])}'),
                     if (receipt['totalDue'] is num) UkFigure(label: 'Income Tax and National Insurance', amount: receipt['totalDue'] as num, strong: true),
+                    if (ukText(receipt['declaredBy']) == 'agent') const UkNote('Declared by the agent for their client.'),
                     if (ukText(receipt['environment']) == 'mock') const UkNote('Sent to the MyCA simulator, not to HMRC.', warn: true),
                     if (ukText(receipt['correlationId']).isNotEmpty) UkNote('Reference ${ukText(receipt['correlationId'])}'),
                     if (ukText(receipt['at']).isNotEmpty) UkNote('Sent ${gbDay(ukText(receipt['at']))}'),
-                    const UkNote('Any balancing payment is due by 31 January.'),
+                    if (ukText(receipt['amendmentWindowCloses']).isNotEmpty) UkNote('You can amend it until ${gbDay(ukText(receipt['amendmentWindowCloses']))}.'),
+                    const UkNote('Any balance is due by 31 January after the end of the tax year.'),
                   ],
                 ),
                 UkWideButton(label: 'Done', onPressed: () => Navigator.of(context).maybePop()),
               ]
             : [
-                Text('Step 1. Get HMRC\'s final calculation', style: text.titleMedium),
-                const UkNote('HMRC works out the tax for the whole year from your updates. Check it before you declare.'),
-                if (_calculation != null) CalculationView(calculation: _calculation!),
-                UkWideButton(label: _calculation == null ? 'Ask HMRC for the final calculation' : 'Ask again', outlined: _calculation != null, onPressed: _busy ? null : _calculate),
+                Text(widget.amend ? 'Step 1. Get HMRC\'s calculation for the amendment' : 'Step 1. Get HMRC\'s final calculation', style: text.titleMedium),
+                UkNote(widget.amend ? 'Send any corrected updates first. HMRC then works out the tax again for the whole year. Check it before you declare.' : 'HMRC works out the tax for the whole year from your updates. Check every line before you declare.'),
+                if (_calculation != null) CalculationView(calculation: _calculation!, full: true),
+                if (_blocked) const UkNote('HMRC listed errors on this calculation, so the return cannot be sent. Fix the updates it names, then ask again.', warn: true),
+                UkWideButton(label: _calculation == null ? (widget.amend ? 'Ask HMRC for the amendment calculation' : 'Ask HMRC for the final calculation') : 'Ask again', outlined: _calculation != null, onPressed: _busy ? null : _calculate),
                 const SizedBox(height: 16),
                 Text('Step 2. Declare', style: text.titleMedium),
+                const SizedBox(height: 6),
+                Text('Who is declaring?', style: text.bodyLarge),
+                RadioGroup<String>(
+                  key: const Key('uk.final.who'),
+                  groupValue: _declaredBy,
+                  onChanged: _chooseDeclarer,
+                  child: Column(
+                    children: [
+                      RadioListTile<String>(key: const Key('uk.final.who.taxpayer'), contentPadding: EdgeInsets.zero, enabled: preview == null, value: 'taxpayer', title: const Text('I\'m the taxpayer')),
+                      RadioListTile<String>(key: const Key('uk.final.who.agent'), contentPadding: EdgeInsets.zero, enabled: preview == null, value: 'agent', title: const Text('I\'m the agent sending this for my client')),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(words.preamble, key: const Key('uk.final.preamble'), style: text.bodyMedium),
                 const SizedBox(height: 6),
                 CheckboxListTile(
                   key: const Key('uk.final.declare'),
@@ -644,15 +880,15 @@ class _UkFinalDeclarationScreenState extends State<UkFinalDeclarationScreen> {
                   controlAffinity: ListTileControlAffinity.leading,
                   value: _declared,
                   onChanged: _usable && preview == null ? (v) => setState(() => _declared = v ?? false) : null,
-                  title: const Text(finalDeclarationWords),
+                  title: Text(words.text, key: const Key('uk.final.statement')),
                 ),
-                if (!_usable) const UkNote('Get the final calculation first.'),
+                if (_calculation == null) UkNote(widget.amend ? 'Get the amendment calculation first.' : 'Get the final calculation first.'),
                 if (_problem.isNotEmpty) UkProblem(_problem),
                 if (preview == null)
-                  UkWideButton(key: const Key('uk.final.submit'), label: _busy ? 'Working…' : 'Send final declaration', onPressed: _declared && _usable && !_busy ? _propose : null)
+                  UkWideButton(key: const Key('uk.final.submit'), label: _busy ? 'Working…' : (widget.amend ? 'Send the amended return' : 'Send final declaration'), onPressed: _declared && _usable && !_busy ? _propose : null)
                 else
                   UkPreviewCard(preview: preview, busy: _busy, onSend: _send, onCancel: _cancel, sendLabel: 'Confirm and send'),
-                const UkNote('This cannot be undone. An amendment is a new submission within 12 months of the deadline.'),
+                UkNote(widget.amend ? 'This replaces the return HMRC holds for the year.' : 'This cannot be withdrawn. You can amend it until 31 January, a year after the filing deadline.'),
                 const UkFooter(),
               ],
       ),

@@ -98,9 +98,7 @@ function einvoice(state, args) {
   return buildPintAe(withSeller(state, { issueDate: new Date().toISOString().slice(0, 10), ...args }));
 }
 
-export const ENGINE = Object.freeze({
-  country: 'AE',
-  run: localiseRuns({
+const RUN = localiseRuns({
     ae_business_profile: (state) => {
       const business = savedProfile(state);
       return { ok: true, data: { saved: Boolean(business), business: business || null, updatedAt: countrySlice(state, 'aeProfile').updatedAt || null } };
@@ -137,8 +135,9 @@ export const ENGINE = Object.freeze({
       return { ok: true, data: { saved: true, business: profile } };
     },
     validate_ae_trn: (state, args = {}) => ({ ok: true, data: checkTrn(args.trn) }),
-  }),
-  preview: Object.freeze({
+});
+
+const PREVIEW = Object.freeze({
     create_ae_credit_note: (state, args = {}) => {
       const lang = langOf(args);
       const planned = planAeCreditNote(state, args);
@@ -223,8 +222,9 @@ export const ENGINE = Object.freeze({
         figures: {},
       };
     },
-  }),
-  words: Object.freeze({
+});
+
+const WORDS = Object.freeze({
     ae_business_profile: (result, money, args = {}) => {
       if (!result.ok) return '';
       const ar = langOf(args) === 'ar';
@@ -314,5 +314,15 @@ export const ENGINE = Object.freeze({
       if (!d.valid) return d.why;
       return langOf(args) === 'ar' ? `رقم التسجيل الضريبي ${d.trn} بالصيغة الصحيحة؛ ورقمه الضريبي ${d.tin}.` : `TRN ${d.trn} has the right format; its TIN is ${d.tin}.`;
     },
+});
+
+export const ENGINE = Object.freeze({
+  country: 'AE',
+  run: RUN,
+  preview: PREVIEW,
+  words: WORDS,
+  books: Object.freeze({
+    create_invoice: Object.freeze({ run: RUN.create_ae_invoice, preview: PREVIEW.create_ae_invoice }),
+    create_purchase: Object.freeze({ run: RUN.create_ae_purchase, preview: PREVIEW.create_ae_purchase }),
   }),
 });
