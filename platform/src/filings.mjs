@@ -79,8 +79,11 @@ export function planFiling(state, args = {}, rows = []) {
   }
   const gstin = filingGstin(state, args.gstin);
   if (args.gstin && !(state.company?.registrations || []).some((reg) => reg.gstin === gstin) && gstin) return { ok: false, error: 'UNKNOWN_REGISTRATION', gstin };
-  const form = returnType === TDS_STATEMENT ? tdsFormOf(args.form) : '';
-  if (returnType === TDS_STATEMENT && !form) return { ok: false, error: 'TDS_FORM_REQUIRED', returnType, period, form: args.form == null ? '' : String(args.form) };
+  const due = returnType === TDS_STATEMENT ? tdsFormsDue(state, period) : [];
+  const given = returnType === TDS_STATEMENT ? tdsFormOf(args.form) : '';
+  const named = args.form != null && String(args.form).trim() !== '';
+  const form = given || (!named && due.length === 1 ? due[0] : '');
+  if (returnType === TDS_STATEMENT && !form && (named || due.length > 1)) return { ok: false, error: 'TDS_FORM_REQUIRED', returnType, period, form: named ? String(args.form) : '', forms: due };
   const existing = filingFor(state, returnType, period, gstin, form);
   if (existing) return { ok: false, error: 'ALREADY_RECORDED', returnType, period, arn: existing.arn, filedOn: existing.filedOn };
   if ((state.filings || []).some((item) => item.arn === arn)) return { ok: false, error: 'ARN_USED', arn };

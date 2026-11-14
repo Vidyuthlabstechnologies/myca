@@ -165,3 +165,12 @@ test('a TDS statement filing recorded before the forms were told apart still cou
   assert.equal(tdsReturnDraft(state, 'Q2 2026-27', { form: 'salary' }).data.filed?.arn, 'OLDTDSACK0001');
   assert.equal(filingRows(state, '2026-11-01').find((item) => item.returnType === 'TDS_QUARTERLY' && item.period === 'Q2 2026-27').level, 'filed');
 });
+
+test('a TDS statement filing with no form is taken as the only form that has TDS in the quarter, so the app can record it without asking', async () => {
+  const state = tdsBooks();
+  state.tdsEntries = state.tdsEntries.filter((entry) => entry.section !== '192');
+  const done = await runTool(state, 'record_filing', { returnType: 'TDS_QUARTERLY', period: 'Q2 2026-27', filedOn: '2026-10-30', arn: 'TDS26QQ2ACK0009' });
+  assert.equal(done.ok, true, JSON.stringify(done));
+  assert.equal(done.filing.form, 'other');
+  assert.equal(filingRows(state, '2026-11-01').find((item) => item.returnType === 'TDS_QUARTERLY' && item.period === 'Q2 2026-27').level, 'filed');
+});
