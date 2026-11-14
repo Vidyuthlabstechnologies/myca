@@ -28,7 +28,7 @@ void main() {
       expect(session.signedIn, isTrue);
 
       await session.checkConsent();
-      if (session.needsConsent) await session.acceptNotice(await session.privacyNotice());
+      if (session.needsConsent) await session.acceptNotice(await session.privacyNotice(), adult: true);
 
       final stamp = DateTime.now().toUtc().millisecondsSinceEpoch;
       final karnataka = (await session.states()).firstWhere((state) => state.name == 'Karnataka');

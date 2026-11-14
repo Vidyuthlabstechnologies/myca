@@ -10,6 +10,7 @@ import { regArg, docFieldsFor } from './registrations.mjs';
 import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
 import { gstin as gstinRules } from './sprint-load.mjs';
 import { needsSelfInvoice, reverseChargeOf } from './reverse-charge.mjs';
+import { COMPOSITION_DECLARATION, documentTitleOf, exportEndorsementOf, hsnShownOn, reverseChargeLineOf } from './invoice-compliance.mjs';
 
 function badGstin(value) {
   const said = String(value || '').trim();
@@ -38,7 +39,12 @@ function exportPlan(input) {
   const portCode = String(raw.portCode || '').trim().toUpperCase().slice(0, 6);
   const countryCode = String(raw.countryCode || '').trim().toUpperCase();
   if (countryCode && (!/^[A-Z]{2}$/.test(countryCode) || countryCode === 'IN')) return { ok: false, error: 'BAD_COUNTRY_CODE', countryCode };
-  return { ok: true, plan: { currency, exchangeRate, withTax, shippingBillNo, shippingBillDate, portCode, ...(countryCode ? { countryCode } : {}) } };
+  const lutNumber = String(raw.lutNumber || '').trim().toUpperCase().replace(/[^A-Z0-9/-]/g, '').slice(0, 20);
+  return { ok: true, plan: { currency, exchangeRate, withTax, shippingBillNo, shippingBillDate, portCode, ...(countryCode ? { countryCode } : {}), ...(lutNumber && !withTax ? { lutNumber } : {}) } };
+}
+
+function sumOf(lines, key) {
+  return Math.round(lines.reduce((s, l) => s + Number(l[key] || 0), 0) * 100) / 100;
 }
 
 function padInv(n) {
@@ -167,7 +173,7 @@ export function createInvoice(state, input) {
     rate: Number(l.rate),
     gstRate: Number(l.gstRate),
   }));
-  if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate))) {
+  if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate) || s.gstRate < 0)) {
     return { ok: false, error: 'BAD_LINE' };
   }
   const exporting = exportPlan(input);
@@ -210,10 +216,10 @@ export function createInvoice(state, input) {
       amount: Math.round((taxable + split.tax) * 100) / 100,
     };
   });
-  const taxable = lines.reduce((s, l) => s + l.taxable, 0);
-  const cgst = lines.reduce((s, l) => s + l.cgst, 0);
-  const sgst = lines.reduce((s, l) => s + l.sgst, 0);
-  const igst = lines.reduce((s, l) => s + l.igst, 0);
+  const taxable = sumOf(lines, 'taxable');
+  const cgst = sumOf(lines, 'cgst');
+  const sgst = sumOf(lines, 'sgst');
+  const igst = sumOf(lines, 'igst');
   const total = Math.round((taxable + cgst + sgst + igst) * 100) / 100;
   const assignedSeq = !input.id;
   const seqBefore = state.invoiceSeq || 0;
@@ -308,9 +314,9 @@ export function recordReceipt(state, { invoiceId, amount, date, mode } = {}) {
   const already = (inv.receipts || []).reduce((s, r) => s + Number(r.amount || 0), 0);
   const credited = (state.creditNotes || []).filter((note) => note.invoiceId === invoiceId).reduce((s, note) => s + Number(note.total || 0), 0)
     - (state.debitNotes || []).filter((note) => note.invoiceId === invoiceId).reduce((s, note) => s + Number(note.total || 0), 0);
-  const amt = amount == null || amount === '' ? Math.round((inv.total - already - credited) * 100) / 100 : Number(amount);
+  const amt = amount == null || amount === '' ? Math.round((inv.total - already - credited) * 100) / 100 : (Number.isFinite(Number(amount)) ? Number(paise(Number(amount))) / 100 : NaN);
   if (!Number.isFinite(amt) || amt <= 0) return { ok: false, error: 'BAD_AMOUNT' };
-  if (already + credited + amt > inv.total + 0.01) {
+  if (already + credited + amt > inv.total + 0.005) {
     return {
       ok: false,
       error: 'OVERPAYMENT',
@@ -381,7 +387,7 @@ export function createPurchase(state, input) {
     rate: Number(l.rate),
     gstRate: Number(l.gstRate),
   }));
-  if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate))) {
+  if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate) || s.gstRate < 0)) {
     return { ok: false, error: 'BAD_LINE' };
   }
   const grossTaxable = specs.reduce((sum, s) => sum + Math.round(s.qty * s.rate * 100) / 100, 0);
@@ -413,10 +419,10 @@ export function createPurchase(state, input) {
       amount: Math.round((taxable + split.tax) * 100) / 100,
     };
   });
-  const taxable = lines.reduce((s, l) => s + l.taxable, 0);
-  const cgst = lines.reduce((s, l) => s + l.cgst, 0);
-  const sgst = lines.reduce((s, l) => s + l.sgst, 0);
-  const igst = lines.reduce((s, l) => s + l.igst, 0);
+  const taxable = sumOf(lines, 'taxable');
+  const cgst = sumOf(lines, 'cgst');
+  const sgst = sumOf(lines, 'sgst');
+  const igst = sumOf(lines, 'igst');
   const total = rcm ? Math.round(taxable * 100) / 100 : Math.round((taxable + cgst + sgst + igst) * 100) / 100;
   let tds = null;
   if (wantsTds(input)) {
@@ -523,7 +529,7 @@ export function addBillTds(state, args = {}) {
 
 export function billOutstanding(bill) {
   const paid = (bill.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-  return Math.round((Number(bill.total || 0) - Number(bill.notedTotal || 0) - Number(bill.tds?.amount || 0) - paid) * 100) / 100;
+  return Math.round((Number(bill.total || 0) - Number(bill.notedTotal || 0) - (Number(bill.tds?.amount || 0) - Number(bill.tds?.reversed || 0)) - paid) * 100) / 100;
 }
 
 export function cashInHand(state) {
@@ -581,8 +587,9 @@ export function printInvoice(state, id) {
   const c = state.company;
   const t = invoiceTemplateOf(state);
   const sale = inv.kind !== 'purchase';
-  const hsnHead = t.showHsn ? '<th>HSN</th>' : '';
-  const rows = inv.lines.map((l) => `<tr><td>${htmlEscape(l.description)}</td>${t.showHsn ? `<td>${htmlEscape(l.hsn)}</td>` : ''}<td class="num">${htmlEscape(l.qty)}</td><td class="num">${htmlEscape(l.rate)}</td><td class="num">${htmlEscape(l.taxable)}</td><td class="num">${htmlEscape(l.gstRate)}%</td><td class="num">${htmlEscape(l.amount)}</td></tr>`).join('');
+  const showHsn = !sale || hsnShownOn(state, inv, t);
+  const hsnHead = showHsn ? '<th>HSN</th>' : '';
+  const rows = inv.lines.map((l) => `<tr><td>${htmlEscape(l.description)}</td>${showHsn ? `<td>${htmlEscape(l.hsn)}</td>` : ''}<td class="num">${htmlEscape(l.qty)}</td><td class="num">${htmlEscape(l.rate)}</td><td class="num">${htmlEscape(l.taxable)}</td><td class="num">${htmlEscape(l.gstRate)}%</td><td class="num">${htmlEscape(l.amount)}</td></tr>`).join('');
   const minimal = t.layout === 'minimal';
   const rule = minimal ? `1px solid ${t.accent}` : `3px double ${t.accent}`;
   const font = minimal ? 'Segoe UI,Helvetica,Arial,sans-serif' : 'Georgia,serif';
@@ -591,10 +598,13 @@ export function printInvoice(state, id) {
   const pay = payment ? `<section class="pay"><strong>Pay to</strong><br>${htmlEscape(payment)}</section>` : '';
   const signed = sale ? `<section class="sign">For ${htmlEscape(c.name)}<br><br><br>${htmlEscape(t.signatory || 'Authorised signatory')}</section>` : '';
   const foot = t.footer ? `<p class="foot">${htmlEscape(t.footer)}</p>` : '';
+  const title = sale ? ({ 'Tax invoice': 'Tax Invoice', 'Bill of supply': 'Bill of Supply' })[documentTitleOf(state, inv)] || 'Invoice' : 'Purchase Invoice';
+  const notes = sale ? [reverseChargeLineOf(state, inv), exportEndorsementOf(state, inv), state.company?.composition === true ? COMPOSITION_DECLARATION : '', inv.irn ? `IRN ${inv.irn}${inv.ackNo ? `, Ack No ${inv.ackNo}` : ''}${inv.ackDate ? `, Ack Date ${inv.ackDate}` : ''}` : ''].filter(Boolean) : [];
+  const noted = notes.length ? `<p class="notes">${notes.map((line) => htmlEscape(line)).join('<br>')}</p>` : '';
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${htmlEscape(inv.id)}</title>
 <style>body{font-family:${font};padding:32px;color:#1c1917}h1{border-bottom:${rule};color:${t.accent}}table{width:100%;border-collapse:collapse;margin-top:16px}td,th{border-bottom:1px solid #e4d8c4;padding:6px;text-align:left}th{color:${t.accent}}.num{text-align:right}footer{margin-top:24px;border-top:${rule};padding-top:8px}.pay,.terms{margin-top:16px;font-size:0.9em}.sign{margin-top:32px;text-align:right}.foot{margin-top:24px;font-size:0.85em;color:#57534e;text-align:center}</style></head>
-<body><p>${htmlEscape(c.name)} · ${htmlEscape(inv.registrationGstin || c.gstin)}</p><h1>Tax Invoice ${htmlEscape(inv.id)}</h1>
-<p>${sale ? 'Bill to' : 'Supplier'}: ${htmlEscape(inv.partyName)} ${htmlEscape(inv.partyGstin || '')}<br>Date ${htmlEscape(inv.date)}</p>
+<body><p>${htmlEscape(c.name)} · ${htmlEscape(inv.registrationGstin || c.gstin)}</p><h1>${htmlEscape(title)} ${htmlEscape(inv.id)}</h1>
+<p>${sale ? 'Bill to' : 'Supplier'}: ${htmlEscape(inv.partyName)} ${htmlEscape(inv.partyGstin || '')}<br>Date ${htmlEscape(inv.date)}</p>${noted}
 <table><thead><tr><th>Item</th>${hsnHead}<th>Qty</th><th>Rate</th><th>Taxable</th><th>GST</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
 <footer>Taxable ₹${htmlEscape(inv.taxable)} &nbsp; CGST ₹${htmlEscape(inv.cgst)} &nbsp; SGST ₹${htmlEscape(inv.sgst)} &nbsp; IGST ₹${htmlEscape(inv.igst)}<br><strong>Total ₹${htmlEscape(inv.total)}</strong></footer>${pay}${terms}${signed}${foot}</body></html>`;
   return { ok: true, html, invoice: inv };

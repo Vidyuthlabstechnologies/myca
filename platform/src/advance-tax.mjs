@@ -89,7 +89,8 @@ export function advanceTax(state, args = {}) {
   const otherIncome = round2(Math.max(0, Number(args.otherIncome) || 0));
   const annualised = round2((toDate.profit * 12) / elapsed);
   const taxableIncome = round2(Math.max(0, annualised + otherIncome));
-  const computed = incomeTax.computeIncomeTax({ fy: fy.label, regime, otherIncomePaise: Math.round(taxableIncome * 100), residentIndividual: true });
+  const huf = entity === 'huf';
+  const computed = incomeTax.computeIncomeTax({ fy: fy.label, regime, otherIncomePaise: Math.round(taxableIncome * 100), residentIndividual: !huf });
   if (computed.error) return { ok: false, error: computed.error, ruleId: computed.ruleId };
   const tax = round2(computed.taxPayablePaise / 100);
   const credits = creditsToDate(state, fy, today);
@@ -135,7 +136,7 @@ export function advanceTax(state, args = {}) {
       assumptions: [
         `Profit to date is sales less credit notes, purchases, expenses${toDate.payrollHidden ? '' : ' and approved payroll'} dated in ${fy.label} up to ${today}, before depreciation and any adjustment your CA makes${toDate.payrollHidden ? '; payroll is left out because only the owner sees it' : ''}.`,
         `The year is taken as ${elapsed} ${elapsed === 1 ? 'month' : 'months'} elapsed and the profit scaled to twelve; a seasonal business should say its expected year instead.`,
-        `Tax under the ${regime} regime for a resident individual below sixty, from MyCA's dated rules${schedule.attested ? '' : ' (not yet reviewed by your CA)'}.`,
+        `Tax under the ${regime} regime for ${huf ? 'an HUF, with no section 87A rebate' : 'a resident individual below sixty'}, from MyCA's dated rules${schedule.attested ? '' : ' (not yet reviewed by your CA)'}.`,
         `TDS credit: ${credits.source}.`,
         presumptive ? 'Presumptive income under section 58(2): the whole amount by 15 March.' : 'Instalments of 15, 45, 75 and 100 percent by 15 June, 15 September, 15 December and 15 March.',
         notBelowThreshold ? '' : 'Advance tax is not payable when the net amount is under ₹10,000; the figures are shown for planning.',

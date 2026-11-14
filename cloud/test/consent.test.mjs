@@ -7,7 +7,7 @@ let api;
 before(async () => { api = await startApi(); });
 after(async () => { await api.close(); });
 
-const agree = (token, body = { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version }) => api.call('POST', '/v1/me/consent', { token, body });
+const agree = (token, body = { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version, adult: true }) => api.call('POST', '/v1/me/consent', { token, body });
 
 test('the privacy notice can be read before signing in', async () => {
   const out = await api.call('GET', '/v1/privacy-notice');

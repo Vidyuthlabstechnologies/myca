@@ -91,6 +91,15 @@ export function createMembers({ db, secret, now = () => Date.now(), notify = nul
       });
     },
 
+    async seatsHeld(businessId, phoneInput) {
+      const phone = normalizePhone(phoneInput);
+      const found = await db.query(
+        `select count(*)::int as n from invitations where business_id = $1 and ${OPEN} and expires_at > $2 and phone_hash <> $3`,
+        [businessId, at(), phone ? keyedHash(secret, phone) : ''],
+      );
+      return found.rows[0].n;
+    },
+
     async openFor(businessId) {
       const found = await db.query(
         `select id, phone_hint as "phoneHint", role from invitations

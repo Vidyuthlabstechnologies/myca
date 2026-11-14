@@ -44,7 +44,7 @@ test('a token from the configured issuer signs a user in, keeps them across sign
   assert.equal(again.body.user.id, out.body.user.id);
   assert.equal(again.body.user.isNew, false);
   const token = again.body.accessToken;
-  assert.equal((await api.call('POST', '/v1/me/consent', { token, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version } })).status, 200);
+  assert.equal((await api.call('POST', '/v1/me/consent', { token, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version, adult: true } })).status, 200);
   const created = await api.call('POST', '/v1/businesses', { token, body: { name: 'Kumar Agencies', state: '36' } });
   assert.equal(created.status, 200, created.text);
 });
