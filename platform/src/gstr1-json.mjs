@@ -147,6 +147,8 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
       const ctin = String(note.partyGstin).toUpperCase();
       if (!cdnrMap.has(ctin)) cdnrMap.set(ctin, []);
       cdnrMap.get(ctin).push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), pos, rchrg: 'N', inv_typ: 'R', val, itms: itemsByRate(note.lines) });
+    } else if (original.export || pos === '96') {
+      cdnur.push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), typ: original.export?.withTax ? 'EXPWP' : 'EXPWOP', val, itms: itemsByRate(note.lines) });
     } else if (isB2cl(original, pos, supplierState)) {
       cdnur.push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), typ: 'B2CL', pos, val, itms: itemsByRate(note.lines) });
     } else {

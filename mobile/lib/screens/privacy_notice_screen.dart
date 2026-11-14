@@ -6,7 +6,9 @@ import '../cloud/cloud_session.dart';
 import '../theme.dart';
 
 class PrivacyNoticeScreen extends StatefulWidget {
-  const PrivacyNoticeScreen({super.key});
+  const PrivacyNoticeScreen({super.key, this.readOnly = false});
+
+  final bool readOnly;
 
   @override
   State<PrivacyNoticeScreen> createState() => _PrivacyNoticeScreenState();
@@ -17,6 +19,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
   String _error = '';
   bool _busy = false;
   bool _crashReports = false;
+  bool _adult = false;
 
   @override
   void didChangeDependencies() {
@@ -31,7 +34,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
       _error = '';
     });
     try {
-      await state.cloud!.acceptNotice(notice);
+      await state.cloud!.acceptNotice(notice, adult: _adult);
       if (_crashReports) await state.setCrashReports(true);
       await state.refresh();
     } on MycaApiException catch (err) {
@@ -57,6 +60,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
     final text = Theme.of(context).textTheme;
     final state = AppScope.of(context);
     return Scaffold(
+      appBar: widget.readOnly ? AppBar(title: const Text('Privacy notice')) : null,
       body: SafeArea(
         child: FutureBuilder<PrivacyNotice>(
           future: _notice,
@@ -100,7 +104,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
               ],
               for (final section in notice.sections) ...[
                 const SizedBox(height: 20),
-                Text(section.heading, style: text.titleMedium),
+                Semantics(header: true, child: Text(section.heading, style: text.titleMedium)),
                 const SizedBox(height: 6),
                 Text(section.body, style: text.bodyLarge),
               ],
@@ -133,10 +137,22 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                   ),
                 ),
               ),
+              if (notice.requiresAdult)
+                Material(
+                  color: Colors.transparent,
+                  child: CheckboxListTile(
+                    key: const ValueKey('consent.adult'),
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: _adult,
+                    onChanged: _busy ? null : (value) => setState(() => _adult = value ?? false),
+                    title: const Text('I am 18 or over'),
+                  ),
+                ),
               const SizedBox(height: 4),
               FilledButton(
                 key: const ValueKey('consent.agree'),
-                onPressed: _busy ? null : () => _agree(notice),
+                onPressed: _busy || (notice.requiresAdult && !_adult) ? null : () => _agree(notice),
                 child: Text(_busy ? 'Saving…' : 'I agree'),
               ),
               const SizedBox(height: 4),
@@ -148,6 +164,12 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
             return LayoutBuilder(
               builder: (context, box) {
                 final roomy = box.maxHeight >= 440 && MediaQuery.textScalerOf(context).scale(10) <= 13;
+                if (widget.readOnly) {
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                    children: body,
+                  );
+                }
                 if (!roomy) {
                   return ListView(
                     key: const ValueKey('consent.list'),

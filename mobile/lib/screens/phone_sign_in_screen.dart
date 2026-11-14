@@ -7,6 +7,7 @@ import '../brand.dart';
 import '../cloud/cloud_session.dart';
 import '../secure_window.dart';
 import '../theme.dart';
+import 'privacy_notice_screen.dart';
 
 String? usPhoneNumber(String typed) {
   var digits = typed.replaceAll(RegExp(r'\D'), '');
@@ -175,6 +176,18 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> with SecureWindow
                                   : (googleOn ? 'Use your Google account. No new password to remember.' : 'Use the account your firm gave you. No new password to remember.')),
                     style: text.bodyLarge?.copyWith(color: Palette.muted),
                   ),
+                  if (!awaitingCode && !secondStep) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        key: const Key('signIn.privacy'),
+                        style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(48, 48)),
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyNoticeScreen(readOnly: true))),
+                        child: const Text('Read how MyCA uses your data (privacy policy)'),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 28),
                   if (googleOn && !awaitingCode && !secondStep) ...[
                     FilledButton(

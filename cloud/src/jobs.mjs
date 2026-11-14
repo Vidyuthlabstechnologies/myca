@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { keyedHash } from './tokens.mjs';
 import { DEMO_INACTIVE_DAYS } from './demo.mjs';
 import { usRecordsHeldUntil } from './us-retention.mjs';
+import { PRIVACY_REQUEST_KEEP_DAYS } from './privacy-requests.mjs';
 
 export const JOB_HEADER = 'x-myca-job-token';
 const MIN_TOKEN_LENGTH = 32;
@@ -88,6 +89,7 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, read
             await q('delete from whatsapp_links where phone = $1', [row.phone]);
           }
           await q('delete from access_log where user_id = $1', [row.id]);
+          await q("update privacy_requests set message = '', nominee_name = '', nominee_contact = '', reply = '' where user_id = $1", [row.id]);
           await q('delete from users where id = $1', [row.id]);
           summary.users += 1;
         });
@@ -102,6 +104,9 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, read
     summary.otpRows = (await db.query('delete from otp_challenges where created_at < $1', [new Date(now() - OTP_CHALLENGE_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     summary.rateRows = rateLimits ? await rateLimits.prune() : 0;
     summary.secondStepRows = (await db.query('delete from second_step_challenges where created_at < $1', [new Date(now() - OTP_CHALLENGE_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
+    summary.privacyRequestRows = (await db.query("delete from privacy_requests where status <> 'open' and created_at < $1", [new Date(now() - PRIVACY_REQUEST_KEEP_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
+    summary.privacyRequestsOverdue = (await db.query("select count(*)::int as n from privacy_requests where status = 'open' and due_at < $1", [new Date(now())])).rows[0].n;
+    if (summary.privacyRequestsOverdue) log({ requestId, job: 'purge', alert: 'PRIVACY_REQUESTS_OVERDUE', overdue: summary.privacyRequestsOverdue });
     summary.whatsappRows = (await db.query('delete from whatsapp_messages where received_at < $1', [new Date(now() - WHATSAPP_MESSAGE_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     return summary;
   }

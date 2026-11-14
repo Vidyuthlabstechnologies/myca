@@ -29,23 +29,24 @@ async function firmOf(q, userId, at) {
   return found.rows[0]?.business_id || null;
 }
 
-async function clientPlan(q, userId, at) {
+async function clientPlan(q, userId, referrerUserId, at) {
   const found = await q(
     `select s.plan from memberships m join subscriptions s on s.business_id = m.business_id
       where m.user_id = $1 and m.role = 'owner' and s.status = any($2) and s.current_end > $3
+        and not exists (select 1 from memberships r where r.business_id = m.business_id and r.user_id = $4)
       order by s.current_end desc limit 1`,
-    [userId, LIVE, at],
+    [userId, LIVE, at, referrerUserId],
   );
   return found.rows[0]?.plan || '';
 }
 
-async function creditFirm(q, referredUserId, referrerUserId, at) {
+async function creditFirm(q, referredUserId, referrerUserId, plan, at) {
   const firm = await firmOf(q, referrerUserId, at);
   if (!firm) return false;
   const saved = await q(
     `insert into referral_credits (referred_user_id, referrer_user_id, firm_business_id, client_plan, months, earned_at)
      values ($1, $2, $3, $4, $5, $6) on conflict (referred_user_id) do nothing`,
-    [referredUserId, referrerUserId, firm, await clientPlan(q, referredUserId, at), FIRM_CREDIT_MONTHS, at],
+    [referredUserId, referrerUserId, firm, plan, FIRM_CREDIT_MONTHS, at],
   );
   return saved.rowCount > 0;
 }
@@ -97,8 +98,12 @@ export function createGrowth({ db, now = () => Date.now(), siteUrl = '', reward 
     );
     if (step === 'paid') {
       await db.tx(async (q) => {
-        const converted = await q('update referrals set converted_at = $2 where referred_user_id = $1 and converted_at is null returning referrer_user_id', [userId, at]);
-        if (converted.rowCount) await creditFirm(q, userId, converted.rows[0].referrer_user_id, at);
+        await q('update referrals set converted_at = $2 where referred_user_id = $1 and converted_at is null', [userId, at]);
+        const referral = await q('select referrer_user_id from referrals where referred_user_id = $1', [userId]);
+        if (!referral.rowCount) return;
+        const referrer = referral.rows[0].referrer_user_id;
+        const plan = await clientPlan(q, userId, referrer, at);
+        if (plan) await creditFirm(q, userId, referrer, plan, at);
       });
     }
   }
@@ -176,8 +181,9 @@ export function createGrowth({ db, now = () => Date.now(), siteUrl = '', reward 
         if (referrer === userId) return { ok: false, error: 'OWN_CODE' };
         const at = new Date(now());
         const paid = await q("select 1 from funnel_steps where user_id = $1 and step = 'paid'", [userId]);
+        const plan = paid.rowCount ? await clientPlan(q, userId, referrer, at) : '';
         await q('insert into referrals (referred_user_id, referrer_user_id, claimed_at, converted_at) values ($1, $2, $3, $4)', [userId, referrer, at, paid.rowCount ? at : null]);
-        if (paid.rowCount) await creditFirm(q, userId, referrer, at);
+        if (plan) await creditFirm(q, userId, referrer, plan, at);
         await q(
           `insert into funnel_steps (user_id, step, edition, source, first_at, last_at, hits)
            values ($1, 'referral_claimed', 'india', 'referral', $2, $2, 1)

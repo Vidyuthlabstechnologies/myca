@@ -24,6 +24,7 @@ class _RecordFilingScreenState extends State<RecordFilingScreen>
   final _arn = TextEditingController();
   late Deadline? _chosen = widget.returns.isEmpty ? null : widget.returns.first;
   DateTime? _filedOn;
+  String _tdsForm = '';
   String _error = '';
   bool _posted = false;
 
@@ -74,6 +75,8 @@ class _RecordFilingScreenState extends State<RecordFilingScreen>
         'returnType': chosen.returnType,
         'period': chosen.period,
         if (widget.gstin.isNotEmpty) 'gstin': widget.gstin,
+        if (chosen.returnType == 'TDS_QUARTERLY' && _tdsForm.isNotEmpty)
+          'form': _tdsForm,
         'arn': arn,
         'filedOn': filedOn,
       },
@@ -114,8 +117,31 @@ class _RecordFilingScreenState extends State<RecordFilingScreen>
                           ),
                         ),
                     ],
-                    onChanged: (value) => setState(() => _chosen = value),
+                    onChanged: (value) => setState(() {
+                      _chosen = value;
+                      _tdsForm = '';
+                    }),
                   ),
+                  if (_chosen?.returnType == 'TDS_QUARTERLY') ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        for (final option in const [
+                          ('24Q', 'Salary (24Q)'),
+                          ('26Q', 'Other payments (26Q)'),
+                        ])
+                          ChoiceChip(
+                            label: Text(option.$2),
+                            selected: _tdsForm == option.$1,
+                            onSelected: (on) => setState(
+                              () => _tdsForm = on ? option.$1 : '',
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   TextField(
                     controller: _arn,

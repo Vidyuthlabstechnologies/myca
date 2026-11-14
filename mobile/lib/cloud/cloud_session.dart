@@ -24,6 +24,11 @@ const _messages = {
   'OIDC_UNREACHABLE': 'MyCA could not reach your firm\'s sign-in. Try again in a minute.',
   'CONSENT_REQUIRED': 'Read and accept the privacy notice to continue.',
   'NOTICE_CHANGED': 'The privacy notice has changed. Read the new one and accept it.',
+  'ADULT_REQUIRED': 'Confirm that you are 18 or over to use MyCA.',
+  'MESSAGE_REQUIRED': 'Tell us what went wrong or what should be corrected.',
+  'NOMINEE_REQUIRED': 'Give the name and a phone number or email of the person you nominate.',
+  'TOO_MANY_OPEN_REQUESTS': 'You already have ten open requests. We will answer those first.',
+  'PLAN_NOT_OPEN': 'This plan is not open yet. Nothing was charged by MyCA.',
   'INVALID_PHONE': 'Enter a 10-digit Indian mobile number.',
   'TOO_MANY_REQUESTS': 'Too many codes requested. Try again in an hour.',
   'INVALID_CODE': 'That code is not right. Check it and try again.',
@@ -225,7 +230,7 @@ class ConnectorList {
 }
 
 class PlanOffer {
-  const PlanOffer({required this.id, required this.title, required this.monthlyRupees, this.yearlyRupees = 0, required this.buyable, required this.features, required this.invoicesPerMonth, required this.members, this.productId = ''});
+  const PlanOffer({required this.id, required this.title, required this.monthlyRupees, this.yearlyRupees = 0, required this.buyable, required this.features, required this.invoicesPerMonth, required this.members, this.productId = '', this.opening = false, this.professional = ''});
 
   factory PlanOffer.fromJson(Map<String, dynamic> map) {
     final limits = map['limits'] is Map ? (map['limits'] as Map).cast<String, dynamic>() : const <String, dynamic>{};
@@ -239,9 +244,13 @@ class PlanOffer {
       invoicesPerMonth: limits['invoicesPerMonth'] is num ? (limits['invoicesPerMonth'] as num).toInt() : null,
       members: limits['members'] is num ? (limits['members'] as num).toInt() : null,
       productId: '${map['productId'] ?? ''}',
+      opening: map['opening'] == true,
+      professional: '${map['professional'] ?? ''}',
     );
   }
 
+  final bool opening;
+  final String professional;
   final String id;
   final String title;
   final int monthlyRupees;
@@ -560,6 +569,31 @@ class NoticeSection {
   final String body;
 }
 
+class PrivacyRequest {
+  const PrivacyRequest({required this.reference, required this.kind, required this.status, required this.message, required this.reply, required this.createdAt, required this.dueAt});
+
+  factory PrivacyRequest.fromJson(Object? json) {
+    final map = json is Map ? json : const {};
+    return PrivacyRequest(
+      reference: '${map['reference'] ?? ''}',
+      kind: '${map['kind'] ?? ''}',
+      status: '${map['status'] ?? ''}',
+      message: '${map['message'] ?? ''}',
+      reply: '${map['reply'] ?? ''}',
+      createdAt: '${map['createdAt'] ?? ''}',
+      dueAt: '${map['dueAt'] ?? ''}',
+    );
+  }
+
+  final String reference;
+  final String kind;
+  final String status;
+  final String message;
+  final String reply;
+  final String createdAt;
+  final String dueAt;
+}
+
 class PrivacyNotice {
   const PrivacyNotice({
     required this.document,
@@ -567,7 +601,21 @@ class PrivacyNotice {
     required this.title,
     required this.status,
     required this.sections,
+    this.requiresAdult = false,
+    this.grievance = '',
+    this.links = const {},
   });
+
+  static String _grievanceLine(Object? contact) {
+    if (contact is! Map) return '';
+    final officer = contact['grievanceOfficer'];
+    if (officer is! Map) return '';
+    final parts = ['${officer['name'] ?? ''}', '${officer['email'] ?? ''}', '${officer['phone'] ?? ''}'].where((p) => p.trim().isNotEmpty && !p.contains('optional')).join(', ');
+    return parts.isEmpty ? '' : 'Grievance Officer: $parts';
+  }
+
+  final String grievance;
+  final Map<String, String> links;
 
   factory PrivacyNotice.fromJson(Object? json) {
     final map = json is Map ? json : const {};
@@ -576,6 +624,9 @@ class PrivacyNotice {
       version: '${map['version'] ?? ''}',
       title: '${map['title'] ?? ''}',
       status: '${map['status'] ?? ''}',
+      requiresAdult: map['requiresAdult'] == true,
+      grievance: _grievanceLine(map['contact']),
+      links: map['links'] is Map ? {for (final e in (map['links'] as Map).entries) '${e.key}': '${e.value}'} : const {},
       sections: [
         for (final row in _rows(map['sections']))
           NoticeSection(heading: '${row['heading'] ?? ''}', body: '${row['body'] ?? ''}'),
@@ -583,6 +634,7 @@ class PrivacyNotice {
     );
   }
 
+  final bool requiresAdult;
   final String document;
   final String version;
   final String title;
@@ -1142,8 +1194,23 @@ class CloudSession {
     return PrivacyNotice.fromJson(body['notice']);
   }
 
-  Future<void> acceptNotice(PrivacyNotice notice) async {
-    await call('POST', '/v1/me/consent', {'document': notice.document, 'version': notice.version});
+  Future<List<PrivacyRequest>> privacyRequests() async {
+    final body = await call('GET', '/v1/me/privacy-requests');
+    return [for (final row in _rows(body['requests'])) PrivacyRequest.fromJson(row)];
+  }
+
+  Future<(PrivacyRequest, String)> sendPrivacyRequest(String kind, {String message = '', String nomineeName = '', String nomineeContact = ''}) async {
+    final body = await call('POST', '/v1/me/privacy-requests', {
+      'kind': kind,
+      if (message.trim().isNotEmpty) 'message': message.trim(),
+      if (nomineeName.trim().isNotEmpty) 'nomineeName': nomineeName.trim(),
+      if (nomineeContact.trim().isNotEmpty) 'nomineeContact': nomineeContact.trim(),
+    });
+    return (PrivacyRequest.fromJson(body['request']), '${body['selfService'] ?? ''}');
+  }
+
+  Future<void> acceptNotice(PrivacyNotice notice, {bool adult = false}) async {
+    await call('POST', '/v1/me/consent', {'document': notice.document, 'version': notice.version, if (notice.requiresAdult) 'adult': adult});
     needsConsent = false;
     if (_businessId == null) {
       final mine = await businesses();

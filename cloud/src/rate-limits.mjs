@@ -9,6 +9,7 @@ export const LIMITS = Object.freeze({
   crash: { max: 30, windowSeconds: 3600 },
   funnel: { max: 120, windowSeconds: 3600 },
   referralClaim: { max: 10, windowSeconds: 3600 },
+  privacyRequest: { max: 10, windowSeconds: 86400 },
   upload: { max: 200, windowSeconds: 3600 },
   gstinCheck: { max: 120, windowSeconds: 3600 },
   quickoBusiness: { max: 300, windowSeconds: 3600 },

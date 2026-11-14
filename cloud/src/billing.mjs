@@ -84,6 +84,7 @@ export function billingConfigFromEnv(env = process.env) {
     usPlus: { priceUsd: dollars(env.MYCA_US_PLUS_PRICE_USD, US_PLUS_PRICE_USD), productId: unset(env.MYCA_PLAY_PRODUCT_US_PLUS) },
     usExpertReview: { on: unset(env.MYCA_US_EXPERT_REVIEW) === '1', priceUsd: dollars(env.MYCA_US_EXPERT_REVIEW_PRICE_USD, US_EXPERT_REVIEW_PRICE_USD) },
     stripe: { secretKey: unset(env.MYCA_STRIPE_SECRET_KEY), webhookSecret: unset(env.MYCA_STRIPE_WEBHOOK_SECRET), plusPriceId: unset(env.MYCA_STRIPE_PRICE_US_PLUS), returnUrl: unset(env.MYCA_US_CHECKOUT_RETURN_URL) },
+    assuredProfessional: unset(env.MYCA_ASSURED_PROFESSIONAL),
     notifyToken: unset(env.MYCA_PLAY_NOTIFY_TOKEN),
     serviceAccount: parseServiceAccount(unset(env.MYCA_PLAY_SERVICE_ACCOUNT_JSON)),
     prices,
@@ -147,6 +148,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   const notOpen = () => fail('US_EFILE_NOT_OPEN', { hint: US_EFILE_NOT_OPEN_HINT });
   const stripe = cardEnabled ? createStripe({ secretKey: cfg.stripe.secretKey, fetchImpl }) : null;
   const planOfProduct = (productId) => PAID.find((plan) => cfg.productIds[plan] && cfg.productIds[plan] === productId) || null;
+  const planOpen = (planId) => planId !== 'assured' || Boolean(cfg.assuredProfessional);
   let cachedToken = { value: '', until: 0 };
 
   async function accessToken() {
@@ -232,8 +234,13 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
 
   async function save(businessId, userId, purchaseToken, found) {
     const before = await row(businessId);
+    if (!replaces(before, purchaseToken, found)) {
+      log({ billing: 'superseded_purchase_ignored', businessId, status: found.status });
+      return false;
+    }
     await saveRow(businessId, userId, purchaseToken, found);
     await applyFirmCredits(businessId, before, found);
+    return true;
   }
 
   async function saveRow(businessId, userId, purchaseToken, found) {
@@ -248,6 +255,22 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   async function row(businessId) {
     const found = await db.query('select provider, provider_subscription_id as "token", product_id as "productId", plan, status, current_end as "currentEnd", test_purchase as "testPurchase", credit_months as "creditMonths" from subscriptions where business_id = $1', [businessId]);
     return found.rows[0] || null;
+  }
+
+  function paidUntilOf(sub) {
+    if (!sub?.currentEnd) return 0;
+    const live = LIVE_STATUSES.has(sub.status);
+    const creditDays = live || sub.status === 'expired' ? (sub.creditMonths || 0) * CREDIT_MONTH_DAYS : 0;
+    if (!live && !creditDays) return 0;
+    const graceDays = live && sub.status !== 'canceled' ? GRACE_DAYS : 0;
+    return new Date(sub.currentEnd).getTime() + (graceDays + creditDays) * DAY_MS;
+  }
+
+  function replaces(before, purchaseToken, found) {
+    if (!before || before.token === purchaseToken) return true;
+    if (found.linkedPurchaseToken && found.linkedPurchaseToken === before.token) return true;
+    if (!(PAID.includes(before.plan) && paidUntilOf(before) > now())) return true;
+    return LIVE_STATUSES.has(found.status) && Boolean(found.currentEnd) && (!before.currentEnd || found.currentEnd.getTime() >= new Date(before.currentEnd).getTime());
   }
 
   async function ownerOfToken(purchaseToken) {
@@ -277,8 +300,8 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     const trialEndsAt = Math.min(createdAt, firstBusinessAt) + TRIAL_DAYS * DAY_MS;
     const sub = await row(businessId);
     const creditDays = (sub?.creditMonths || 0) * CREDIT_MONTH_DAYS;
-    const paidUntil = sub?.currentEnd ? new Date(sub.currentEnd).getTime() + (GRACE_DAYS + creditDays) * DAY_MS : 0;
-    const paying = Boolean(sub && LIVE_STATUSES.has(sub.status) && PAID.includes(sub.plan) && paidUntil > at);
+    const paidUntil = paidUntilOf(sub);
+    const paying = Boolean(sub && PAID.includes(sub.plan) && paidUntil > at);
     const inTrial = !paying && at < trialEndsAt;
     const plan = paying ? sub.plan : inTrial ? 'pro' : 'lapsed';
     return {
@@ -736,7 +759,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       packageName: cfg.packageName,
       trialDays: TRIAL_DAYS,
       currency: 'INR',
-      plans: PAID.map((id) => PLANS[id]).map((plan) => ({ ...plan, monthlyRupees: cfg.prices[plan.id] ?? plan.monthlyRupees, productId: cfg.productIds[plan.id] || '', buyable: enabled && Boolean(cfg.productIds[plan.id]) })),
+      plans: PAID.map((id) => PLANS[id]).map((plan) => ({ ...plan, monthlyRupees: cfg.prices[plan.id] ?? plan.monthlyRupees, productId: cfg.productIds[plan.id] || '', buyable: enabled && Boolean(cfg.productIds[plan.id]) && planOpen(plan.id), ...(plan.id === 'assured' ? { opening: !planOpen(plan.id), professional: cfg.assuredProfessional || '' } : {}) })),
       ...offers(),
     }),
     entitlement,
@@ -761,6 +784,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       if (!enabled) return fail('BILLING_NOT_CONFIGURED', { hint: 'The operator has not set up Google Play subscriptions yet.' });
       const token = String(purchaseToken || '');
       if (!planOfProduct(productId) || !token || token.length > 2000) return fail('UNKNOWN_PLAN', { products: PAID.map((p) => cfg.productIds[p]).filter(Boolean) });
+      if (!planOpen(planOfProduct(productId))) return fail('PLAN_NOT_OPEN', { hint: 'MyCA Assured opens once the independent professional who reviews and files your returns is named. Nothing was charged by MyCA; ask Google Play for a refund if you were.' });
       const holder = await ownerOfToken(token);
       if (holder && holder !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription already pays for another business.' });
       let found;
@@ -773,7 +797,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       if (!found.ok) return fail('PURCHASE_NOT_FOUND', { status: found.status, hint: 'Google Play does not know this purchase.' });
       if (!found.plan || found.productId !== productId) return fail('PURCHASE_PRODUCT_MISMATCH');
       if (found.accountId && found.accountId !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription was bought for another business.' });
-      await save(businessId, userId, token, found);
+      if (!(await save(businessId, userId, token, found))) return fail('PURCHASE_SUPERSEDED', { hint: 'This Google Play purchase was replaced by a newer subscription for this business.', entitlement: await entitlement(businessId) });
       await acknowledge(found, token);
       await audit(businessId, userId, 'billing.subscribe', { provider: 'play', plan: found.plan, status: found.status, testPurchase: found.testPurchase });
       return { ok: true, plan: found.plan, status: found.status, testPurchase: found.testPurchase, entitlement: await entitlement(businessId) };
@@ -850,7 +874,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
         log({ billing: 'notify_unknown_purchase' });
         return { ok: true, unknown: true };
       }
-      await save(businessId, null, token, found);
+      if (!(await save(businessId, null, token, found))) return { ok: true, superseded: true };
       await acknowledge(found, token);
       await db.query("insert into billing_events (provider, event_id) values ('play', $1) on conflict do nothing", [String(message.messageId || message.message_id || `${token.slice(0, 40)}:${event.eventTimeMillis || ''}`).slice(0, 200)]);
       await audit(businessId, null, 'billing.event', { provider: 'play', notificationType: Number(event.subscriptionNotification.notificationType) || 0, status: found.status, plan: found.plan });
