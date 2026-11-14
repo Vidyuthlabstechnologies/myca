@@ -188,7 +188,7 @@ class _UsPlusScreenState extends State<UsPlusScreen> {
           child: Text('Get MyCA Plus, ${_playPrice.isEmpty ? '\$${plus.priceUsd}' : _playPrice} a year'),
         ),
         const SizedBox(height: 6),
-        Text(_store == null ? 'MyCA Plus cannot be bought in this app on this device yet.' : 'Paid through Google Play. Cancel any time in Play.', key: const Key('usPlus.playNote'), style: text.bodySmall?.copyWith(color: Palette.muted)),
+        Text(_store == null ? 'MyCA Plus cannot be bought in this app on this device yet.' : 'Renews automatically every year at ${_playPrice.isEmpty ? '\$${plus.priceUsd}' : _playPrice} until you cancel. Paid through Google Play; cancel any time in Play before the renewal date and you keep Plus until the end of the year you paid for.', key: const Key('usPlus.playNote'), style: text.bodySmall?.copyWith(color: Palette.muted)),
       ]);
     } else if (plus.buyable) {
       children.addAll([
@@ -198,7 +198,7 @@ class _UsPlusScreenState extends State<UsPlusScreen> {
           OutlinedButton(key: const Key('usPlus.paid'), onPressed: _busy ? null : _confirm, child: const Text("I've paid, continue")),
         ],
         const SizedBox(height: 6),
-        Text('Paid by card through Stripe. Cancel any time in one tap.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+        Text('Renews automatically every year at \$${plus.priceUsd} until you cancel. Paid by card through Stripe; cancel any time in one tap here and you keep Plus until the end of the year you paid for.', style: text.bodySmall?.copyWith(color: Palette.muted)),
       ]);
     } else if (!plus.active) {
       children.add(Text('MyCA Plus is not on sale yet.', style: text.bodyMedium));

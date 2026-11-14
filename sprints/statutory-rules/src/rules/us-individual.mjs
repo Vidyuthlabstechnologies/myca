@@ -127,6 +127,17 @@ export const RULES = [
     attestations: []
   },
   {
+    id: 'us.federal.individual.early-distribution-tax',
+    value: { basisPoints: 1000 },
+    basis: 'additional_tax_as_basis_points_of_the_taxable_part_of_an_early_distribution_from_a_qualified_retirement_plan_or_ira_with_no_exception',
+    effectiveFrom: '2020-01-01',
+    effectiveTo: null,
+    act: 'IRC',
+    section: '72(t)(1)',
+    source: `IRC section 72(t)(1): a 10 percent additional tax on the part of an early distribution included in gross income; reported on Schedule 2 (Form 1040) line 8 without Form 5329 when box 7 of Form 1099-R shows code 1 and no exception applies (Instructions for Schedule 2, line 8). Not indexed. Registry coverage starts 1 January 2020 (${NOT_REREAD})`,
+    attestations: []
+  },
+  {
     id: 'us.federal.individual.capital-loss-limit',
     value: { maxCents: 3000 * D, mfsMaxCents: 1500 * D },
     basis: 'net_capital_loss_allowed_against_ordinary_income_each_year_the_rest_carried_forward',

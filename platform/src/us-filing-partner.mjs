@@ -115,8 +115,9 @@ function person(item, sendTins) {
 
 /**
  * What MyCA already knows, in the partner's import shape. SSNs and ITINs are only included
- * when MYCA_US_FILER_SEND_TINS is on (the partner contract and the IRC 7216 consent must allow
- * it); otherwise the filer types them once in the partner's own flow.
+ * when MYCA_US_FILER_SEND_TINS is on (the partner contract allows it) and the filer has signed
+ * the separate IRC 7216 consent (cloud/src/us-7216.mjs); otherwise the filer types them once
+ * in the partner's own flow.
  */
 export function partnerPrefill(computed, { sendTins = false, contact = {} } = {}) {
   const lines = computed.lines || {};
@@ -230,7 +231,7 @@ async function createSession(settings, payload, { fetchImpl, signal }) {
  * engine's filing shape (computedForm1040ForFiling). In the simulator the partner's answer is
  * immediate: the return is submitted and accepted, the way the MeF simulator behaves.
  */
-export async function startPartnerFiling(state, { taxYear, computed, scope, contact } = {}, actor, options = {}) {
+export async function startPartnerFiling(state, { taxYear, computed, scope, contact, shareTins = false } = {}, actor, options = {}) {
   const settings = options.settings || partnerSettings();
   const missing = partnerMissing(settings);
   const book = bookOf(state);
@@ -243,10 +244,11 @@ export async function startPartnerFiling(state, { taxYear, computed, scope, cont
   const nowIso = options.now || new Date().toISOString();
   const beforeHash = stateDigest(state);
   const configured = missing.length === 0;
+  const sendTins = settings.sendTins && shareTins === true;
   const mode = productionCallsEnabled() && configured ? 'live' : 'sandbox';
   let session;
   if (configured) {
-    const payload = { external_id: externalId, tax_year: taxYear, prefill: partnerPrefill(computed, { sendTins: settings.sendTins, contact }) };
+    const payload = { external_id: externalId, tax_year: taxYear, prefill: partnerPrefill(computed, { sendTins, contact }) };
     const got = await performExternalAction(state, {
       actionId: 'us_filer_session',
       actor,
@@ -263,7 +265,7 @@ export async function startPartnerFiling(state, { taxYear, computed, scope, cont
   entry.partner = { provider: settings.provider || 'simulator', ref, externalId, sessionId: session.sessionId || '', status: 'in_progress', startedAt: entry.partner?.startedAt || nowIso, lastOpenedAt: nowIso, mode };
   entry.submissions = entry.submissions || [];
   book.returns[String(taxYear)] = entry;
-  audit(state, 'us_efile.partner_start', beforeHash, { actorId: actor?.userId, taxYear, provider: entry.partner.provider, mode, sentTins: Boolean(configured && settings.sendTins) });
+  audit(state, 'us_efile.partner_start', beforeHash, { actorId: actor?.userId, taxYear, provider: entry.partner.provider, mode, sentTins: Boolean(configured && sendTins) });
   if (!configured) {
     applyPartnerEvent(state, { externalId, status: 'submitted', submissionId: `SIM${ref.slice(0, 17)}`.toUpperCase(), at: nowIso, errors: [] }, { now: nowIso });
     applyPartnerEvent(state, { externalId, status: 'accepted', at: nowIso, errors: [] }, { now: nowIso });
@@ -288,6 +290,9 @@ export function applyPartnerEvent(state, event, options = {}) {
   let latest = entry.submissions.at(-1);
   const partnerOpen = latest && latest.transport === 'partner' && latest.status !== 'rejected';
   if (latest?.status === 'accepted') return { ok: true, changed: false, status: 'accepted' };
+  const known = event.submissionId ? entry.submissions.find((item) => item.submissionId === event.submissionId) : null;
+  if (known && event.status !== 'in_progress' && (known !== latest || known.status === 'rejected')) return { ok: true, changed: false, status: latest.status };
+  if (!known && !partnerOpen && latest?.status === 'rejected' && event.status === 'rejected' && !event.submissionId && entry.partner.status === 'rejected') return { ok: true, changed: false, status: 'rejected' };
   if (event.status === 'in_progress') {
     if (entry.partner.status === 'in_progress') return { ok: true, changed: false, status: 'in_progress' };
     entry.partner.status = 'in_progress';

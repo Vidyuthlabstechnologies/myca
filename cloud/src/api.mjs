@@ -14,7 +14,8 @@ import { createAuth, isUuid, OTP_MAX_GLOBAL_PER_HOUR } from './auth.mjs';
 import { createSecondFactor } from './second-factor.mjs';
 import { createDevices } from './devices.mjs';
 import { createBusinesses, engineRole } from './businesses.mjs';
-import { publicCountries } from './residency.mjs';
+import { hostedCountries, publicCountries, residencyRefusal } from './residency.mjs';
+import { US_RETURN_YEARS } from '../../platform/src/us-return.mjs';
 import { createBooksRunner } from './books-runner.mjs';
 import { createMembers } from './members.mjs';
 import { IMPORT_CONTENT_ARG, isImport } from '../../platform/src/import-documents.mjs';
@@ -22,7 +23,9 @@ import { assertSecret } from './tokens.mjs';
 import { createBodyBudget, defaultBodyBudgetBytes } from './body-budget.mjs';
 import { createCrashReports } from './crash-reports.mjs';
 import { createGrowth } from './growth.mjs';
-import { PRIVACY_NOTICE, consentExempt, createConsent, noticeFor } from './consent.mjs';
+import { consentExempt, createConsent, noticeFor, noticesFor } from './consent.mjs';
+import { createUsConsents, PARTNER_TINS } from './us-7216.mjs';
+import { SECOND_STEP_FOR_FILING, US_SECOND_STEP_TOOLS, usSecondStepRequired } from './us-safeguards.mjs';
 import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
 import { createOidcVerifier } from './oidc.mjs';
@@ -346,10 +349,15 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
 
   // Confirming a US filing: the server names the business for the e-file partner's webhook
   // (whatever proposed it, app or chat), and the call runs at the service's provider setting.
-  function asUsFiling(session, businessId, run) {
+  async function asUsFiling(session, businessId, userId, run) {
     const pending = session.state.pendingChatAction;
-    if (pending?.name === US_FILE_TOOL) pending.args = { ...(pending.args || {}), partnerScope: businessId };
+    if (pending?.name === US_FILE_TOOL) pending.args = { ...(pending.args || {}), partnerScope: businessId, shareTins: await usConsents.valid(userId, PARTNER_TINS) };
     return withProviderContext({ environment: serviceProviderEnvironment() }, run);
+  }
+
+  async function secondStepMissing(userId, name) {
+    if (!US_SECOND_STEP_TOOLS.includes(name) || !usSecondStepRequired()) return null;
+    return (await secondFactor.status(userId)).enabled ? null : SECOND_STEP_FOR_FILING;
   }
 
   async function unpaidFiling(businessId, session) {
@@ -374,7 +382,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain }, storedBytes: (businessId) => businesses.storedBytes(businessId), limitBytes: MAX_BUSINESS_BYTES });
   const rateLimits = createRateLimits({ db, now, limits: limitsGiven });
   const whatsApp = createWhatsApp({ db, withBooks, billing, withSharedBooks: runner.withSharedBooks, syncOf, rateLimits, config: whatsapp, sender: whatsappSender, now, log });
-  const consent = createConsent({ db, now });
+  const consent = createConsent({ db, now, notices: noticesFor(hostedCountries()) });
+  const usConsents = createUsConsents({ db, now, environment });
   const recordAccess = createAccessLog(db);
   const isAdmin = (userId) => {
     const listed = typeof adminUserIds === 'function' ? adminUserIds() : adminUserIds;
@@ -385,7 +394,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     const taken = await rateLimits.take(kind, who);
     if (!taken.ok) throw httpError(429, 'RATE_LIMITED', { retryAfterSeconds: taken.retryAfterSeconds, hint: 'Too many requests in a short time. Wait a little and try again.' });
   }
-  const jobs = createJobs({ db, secret, rateLimits, withBooks, connectors, syncChannels, pullsEnabled: channelPullsEnabled, sender: whatsappSender, vault, billing, now, log });
+  const jobs = createJobs({ db, secret, rateLimits, withBooks, readBooks: (...args) => runner.withReadOnlyBooks(...args), connectors, syncChannels, pullsEnabled: channelPullsEnabled, sender: whatsappSender, vault, billing, now, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
   const openId = createOidcVerifier({ issuer: oidc.issuer || '', clientIds: oidc.clientIds || [], jwksUrl: oidc.jwksUrl || '', keys: oidcKeys, now });
   if (!auth.phoneEnabled && !google.enabled && !openId.enabled) throw new Error('no sign-in method: configure an SMS sender, MYCA_GOOGLE_CLIENT_IDS or MYCA_OIDC_ISSUER with MYCA_OIDC_CLIENT_IDS');
@@ -481,7 +490,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       }).catch((err) => (err?.statusCode === 404 || err?.status === 404 ? { ok: false, error: 'FILER_EVENT_UNKNOWN_RETURN' } : Promise.reject(err)));
       return out.ok ? { ok: true, status: out.status, changed: Boolean(out.changed) } : { ok: true, ignored: out.error };
     }
-    if (parts[1] === 'us' && parts[2] === 'supported-forms' && parts.length === 3 && method === 'GET') return { ok: true, taxYears: [2025, 2026], ...US_SUPPORTED_FORMS };
+    if (parts[1] === 'us' && parts[2] === 'supported-forms' && parts.length === 3 && method === 'GET') return { ok: true, taxYears: US_RETURN_YEARS.map(Number), ...US_SUPPORTED_FORMS };
     if (parts[1] === 'auth' && parts[2] === 'methods' && parts.length === 3 && method === 'GET') {
       return { ok: true, phone: auth.phoneEnabled, google: google.enabled, oidc: openId.enabled, ...(openId.enabled ? { oidcIssuer: openId.issuer } : {}) };
     }
@@ -586,11 +595,18 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     const user = await signedIn(req);
 
     if (!consentExempt(method, parts) && !(await consent.accepted(user.userId))) {
-      throw httpError(403, 'CONSENT_REQUIRED', { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version });
+      throw httpError(403, 'CONSENT_REQUIRED', { document: consent.primary.document, version: consent.primary.version });
     }
 
     if (parts[1] === 'me' && parts[2] === 'consent' && parts.length === 3 && method === 'POST') {
       return consent.accept(user.userId, user.deviceId, await readJson(req));
+    }
+
+    if (parts[1] === 'me' && parts[2] === 'us-consents') {
+      if (parts.length === 3 && method === 'GET') return usConsents.list(user.userId);
+      if (parts.length === 3 && method === 'POST') return usConsents.sign(user.userId, user.deviceId, await readJson(req));
+      if (parts.length === 4 && method === 'DELETE') return usConsents.revoke(user.userId, decodeURIComponent(parts[3]));
+      throw httpError(404, 'NOT_FOUND');
     }
 
     if (parts[1] === 'me' && parts[2] === 'second-step') {
@@ -944,6 +960,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (action === 'replace') {
         const state = body.books && !body.state ? body.books : body.state;
         if (!state || typeof state !== 'object') return { ok: false, error: 'INVALID_BACKUP', hint: 'Send the file saved by "Download everything" or a backup from the Windows app.' };
+        const elsewhere = residencyRefusal(state.company && typeof state.company === 'object' ? state.company.country : '');
+        if (elsewhere) return elsewhere;
         const out = await runner.replaceBooks(businessId, context, { version: 1, state, documents: body.documents || {}, exportedAt: body.exportedAt || '' });
         if (out.ok !== false) await businesses.rename(businessId, state.company || {});
         return out;
@@ -961,21 +979,25 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           if (IMPORT_CONTENT_ARG[name] in args || typeof args.documentSha256 !== 'string') throw httpError(400, 'IMPORT_NEEDS_UPLOAD');
           return withBooks(businessId, context, (session) => session.propose(name, args, actor), { hashes: [args.documentSha256] });
         }
+        const unprotected = await secondStepMissing(user.userId, name);
+        if (unprotected) return unprotected;
         if (name === US_FILE_TOOL) {
           const paid = await billing.usFilingAllowed(businessId, args.taxYear);
           if (!paid.ok) return paid;
         }
         if (!PROPOSABLE.has(name)) throw httpError(400, 'NOT_PROPOSABLE', { tool: name });
-        const proposed = name === 'sign_us_return' ? withRequestAddress(args, clientAddress(req)) : name === US_FILE_TOOL ? { ...args, partnerScope: businessId } : args;
+        const proposed = name === 'sign_us_return' ? withRequestAddress(args, clientAddress(req)) : name === US_FILE_TOOL ? { ...args, partnerScope: businessId, shareTins: await usConsents.valid(user.userId, PARTNER_TINS) } : args;
         return withBooks(businessId, context, (session) => session.propose(name, proposed, actor));
       }
       if (action === 'confirm') {
         return withBooks(businessId, context, async (session) => {
+          const unprotected = await secondStepMissing(user.userId, session.state.pendingChatAction?.name);
+          if (unprotected) return unprotected;
           const unpaid = await unpaidFiling(businessId, session);
           if (unpaid) return unpaid;
           // Requests run with provider calls off; filing a US return is the one confirm that may
           // reach the IRS or the e-file partner, at the service's own provider setting.
-          if (session.state.pendingChatAction?.name === US_FILE_TOOL) return asUsFiling(session, businessId, () => session.confirm(body.token, actor));
+          if (session.state.pendingChatAction?.name === US_FILE_TOOL) return asUsFiling(session, businessId, user.userId, () => session.confirm(body.token, actor));
           return session.confirm(body.token, actor);
         });
       }
@@ -994,8 +1016,13 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return withBooks(businessId, context, async (session) => {
           if (!canPost.ok) return readOnlyChat(session, message, actor);
           if (await unpaidFiling(businessId, session)) await session.discard(actor);
+          const unprotected = await secondStepMissing(user.userId, session.state.pendingChatAction?.name);
+          if (unprotected && confirmationIntent(message) && confirmationIntent(message) !== 'cancel') {
+            await session.discard(actor);
+            return { reply: unprotected.hint, tools: [], error: unprotected.error };
+          }
           // A "yes" in chat can confirm a pending US filing, which must reach the partner the same way.
-          const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, () => session.chat(message, actor)) : await session.chat(message, actor);
+          const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, user.userId, () => session.chat(message, actor)) : await session.chat(message, actor);
           const unpaid = await unpaidFiling(businessId, session);
           if (!unpaid) return out;
           await session.discard(actor);
