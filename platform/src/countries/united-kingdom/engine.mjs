@@ -6,6 +6,7 @@ import { quarterlyPeriods, mtdItMandate, selfEmploymentCumulative, ukPropertyCum
 import { checkGbIdentifier, utrValid, ninoValid, vrnValid, normaliseUtr, normaliseNino, normaliseVrn } from './identifiers.mjs';
 import { parseTaxYear, gbMoney, monthEndPlus } from './rules.mjs';
 import { amendmentWindowCloses, declarationFor } from './declarations.mjs';
+import { createGbInvoice, createGbPurchase, gbDocumentPreview, vatLinesFromBooks } from './books.mjs';
 import {
   hmrcStatus, hmrcHistory, startHmrcConnection, finishHmrcConnection, disconnectHmrc, syncHmrc, submitGbVatReturn, submitGbItsaUpdate,
   triggerGbCalculation, submitGbFinalDeclaration, calculationBlockers,
@@ -89,6 +90,10 @@ function hmrcPreview(summary, effects, extra = {}) {
 
 export const ENGINE = Object.freeze({
   country: 'GB',
+  books: Object.freeze({
+    create_invoice: Object.freeze({ run: (state, args = {}) => createGbInvoice(state, args), preview: (state, args = {}) => gbDocumentPreview(state, args, 'sale') }),
+    create_purchase: Object.freeze({ run: (state, args = {}) => createGbPurchase(state, args), preview: (state, args = {}) => gbDocumentPreview(state, args, 'purchase') }),
+  }),
   run: Object.freeze({
     connect_gb_hmrc: (state, args = {}) => startHmrcConnection(state, args),
     disconnect_gb_hmrc: (state, args = {}) => disconnectHmrc(state, args),
@@ -108,6 +113,14 @@ export const ENGINE = Object.freeze({
     gb_vat_registration: (state, args = {}) => vatRegistrationCheck(args),
     gb_vat_return_check: (state, args = {}) => {
       const profile = taxpayer(state);
+      if (args.fromBooks === true) {
+        const books = vatLinesFromBooks(state, { from: args.from, to: args.to });
+        if (!books.ok) return books;
+        const out = buildVatReturn({ scheme: profile.vatScheme, flatRateBasisPoints: profile.flatRateBasisPoints, ...args, sales: books.sales, purchases: books.purchases });
+        if (!out.ok) return out;
+        const notes = [...out.data.notes, `Built from ${books.documents} invoices and bills in the books from ${args.from} to ${args.to}.`, ...(books.skipped ? [`${books.skipped} documents in this period were not made in the UK edition and are left out.`] : [])];
+        return { ...out, data: { ...out.data, notes, fromBooks: { from: args.from, to: args.to, documents: books.documents, skipped: books.skipped } } };
+      }
       return buildVatReturn({ scheme: profile.vatScheme, flatRateBasisPoints: profile.flatRateBasisPoints, ...args });
     },
     set_gb_taxpayer: (state, args = {}) => {

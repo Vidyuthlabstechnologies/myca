@@ -64,14 +64,14 @@ export function buildVatReturn(args = {}) {
   for (const [index, line] of sales.entries()) {
     const out = lineVat(values.rates, line || {});
     if (!out) return fail('BAD_VAT_RATE', { line: `sales[${index}]`, rates: VAT_RATE_NAMES });
-    totals.box6 += out.net;
+    if (line.rate !== 'outside-scope') totals.box6 += out.net;
     if (scheme === 'standard') totals.box1 += out.vat;
     if (line.euGoods) totals.box8 += out.net;
   }
   for (const [index, line] of purchases.entries()) {
     const out = lineVat(values.rates, line || {});
     if (!out) return fail('BAD_VAT_RATE', { line: `purchases[${index}]`, rates: VAT_RATE_NAMES });
-    totals.box7 += out.net;
+    if (line.rate !== 'outside-scope') totals.box7 += out.net;
     if (line.euGoods) {
       totals.box9 += out.net;
       totals.box2 += out.vat;

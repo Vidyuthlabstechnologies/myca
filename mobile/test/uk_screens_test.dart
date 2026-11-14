@@ -13,6 +13,7 @@ import 'package:myca/uk/uk_estimate_screen.dart';
 import 'package:myca/uk/uk_history_screen.dart';
 import 'package:myca/uk/uk_hub_screen.dart';
 import 'package:myca/uk/uk_mtd_screen.dart';
+import 'package:myca/uk/uk_plan_screen.dart';
 import 'package:myca/uk/uk_taxpayer_screen.dart';
 import 'package:myca/uk/uk_vat_screen.dart';
 
@@ -76,7 +77,13 @@ Future<void> fillEstimate(WidgetTester tester) async {
   await tapIt(tester, find.text('Work out my tax'));
 }
 
+Future<void> enterVatByHand(WidgetTester tester) async {
+  final toggle = find.byKey(const Key('uk.vat.fromBooks'));
+  if (toggle.evaluate().isNotEmpty && tester.widget<SwitchListTile>(toggle).value) await tapIt(tester, toggle);
+}
+
 Future<void> prepareVat(WidgetTester tester) async {
+  await enterVatByHand(tester);
   await typeIn(tester, find.byKey(const Key('uk.vat.sales.0.net')), '10000');
   await typeIn(tester, find.byKey(const Key('uk.vat.purchases.0.net')), '2000');
   await tapIt(tester, find.text('Check the return'));
@@ -205,6 +212,8 @@ final Map<String, (Widget Function(), UkWalk)> ukScreens = {
   ),
   'history with submissions': (() => const UkHistoryScreen(), (t, api) async {}),
   'history, nothing sent': (() => const UkHistoryScreen(), (t, api) async {}),
+  'plans': (() => const UkPlanScreen(), (t, api) async {}),
+  'VAT return from the books': (() => const UkVatReturnScreen(obligation: openObligation), (t, api) async => tapIt(t, find.text('Check the return'))),
   'estimate with bad amounts': (() => const UkEstimateScreen(taxYear: '2026-27'), (t, api) async => fillEstimate(t)),
   'VAT return with bad amounts': (() => const UkVatReturnScreen(obligation: openObligation), (t, api) async => prepareVat(t)),
   'landlord quarter with problems': (
@@ -416,6 +425,34 @@ void main() {
     expect(find.text('256660290587'), findsOneWidget);
     expect(find.text('XM002610011594'), findsOneWidget);
     expect(find.text('By Direct Debit'), findsOneWidget);
+  });
+
+  testWidgets('a VAT return for an HMRC period is built from the books unless the owner enters totals', (tester) async {
+    final api = GbFakeApi();
+    await pumpUk(tester, api, const UkVatReturnScreen(obligation: openObligation));
+    expect(tester.widget<SwitchListTile>(find.byKey(const Key('uk.vat.fromBooks'))).value, isTrue);
+    expect(find.byKey(const Key('uk.vat.sales.0.net')), findsNothing);
+    await tapIt(tester, find.text('Check the return'));
+    final call = api.queries.lastWhere((q) => q.name == 'gb_vat_return_check');
+    expect(call.args['fromBooks'], isTrue);
+    expect(call.args.containsKey('sales'), isFalse);
+    expect(call.args['from'], openObligation.start);
+    expect(find.byKey(const Key('uk.vat.review')), findsOneWidget);
+    await enterVatByHand(tester);
+    expect(find.byKey(const Key('uk.vat.review')), findsNothing);
+    expect(find.byKey(const Key('uk.vat.sales.0.net')), findsOneWidget);
+  });
+
+  testWidgets('the UK plans screen shows UK prices and never rupees or GST', (tester) async {
+    final api = GbFakeApi();
+    await pumpUk(tester, api, const UkPlanScreen());
+    for (final plan in ukPlans) {
+      await tester.scrollUntilVisible(find.byKey(Key('uk.plan.${plan.id}')), 200, scrollable: find.byType(Scrollable).first);
+      expect(find.text(plan.price), findsOneWidget);
+    }
+    expect(find.textContaining('₹'), findsNothing);
+    expect(find.textContaining('GST'), findsNothing);
+    expect(find.text(ukPlansNotOpen), findsOneWidget);
   });
 
   testWidgets('changing an amount after checking clears the declaration and needs a new check', (tester) async {
@@ -766,6 +803,7 @@ void main() {
     final api = GbFakeApi();
     ukSetups['VAT return with bad amounts']!(api);
     await pumpUk(tester, api, const UkVatReturnScreen(obligation: openObligation));
+    await enterVatByHand(tester);
     await typeIn(tester, find.byKey(const Key('uk.vat.sales.0.net')), '10000');
     await typeIn(tester, find.byKey(const Key('uk.vat.purchases.0.net')), '2000');
     await tapIt(tester, find.text('Add a sales line'));

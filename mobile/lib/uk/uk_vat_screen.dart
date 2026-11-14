@@ -158,6 +158,7 @@ class _UkVatReturnScreenState extends State<UkVatReturnScreen> {
   DateTime? _periodEnd;
   Map<String, dynamic>? _prepared;
   bool _declared = false;
+  late bool _fromBooks = widget.obligation != null;
   bool _busy = false;
   String _problem = '';
   Map<String, String> _lineProblems = const {};
@@ -214,7 +215,7 @@ class _UkVatReturnScreenState extends State<UkVatReturnScreen> {
   String get _to => widget.obligation?.end ?? (_periodEnd == null ? '' : isoDate(_periodEnd!));
 
   Future<void> _check() async {
-    if ([..._sales, ..._purchases].any((l) => poundsInvalid(l.net.text, allowNegative: true))) {
+    if (!_fromBooks && [..._sales, ..._purchases].any((l) => poundsInvalid(l.net.text, allowNegative: true))) {
       setState(() => _problem = 'Some amounts need a look.');
       return;
     }
@@ -231,8 +232,9 @@ class _UkVatReturnScreenState extends State<UkVatReturnScreen> {
       'periodKey': key,
       if (widget.obligation != null) 'from': widget.obligation!.start,
       if (_to.isNotEmpty) 'to': _to,
-      'sales': _lines(_sales),
-      'purchases': _lines(_purchases, purchases: true),
+      if (_fromBooks) 'fromBooks': true,
+      if (!_fromBooks) 'sales': _lines(_sales),
+      if (!_fromBooks) 'purchases': _lines(_purchases, purchases: true),
     });
     if (!mounted) return;
     setState(() {
@@ -400,14 +402,29 @@ class _UkVatReturnScreenState extends State<UkVatReturnScreen> {
                   UkWideButton(label: _periodEnd == null ? 'Choose the last day of the period' : 'Period ends ${readableDay(isoDate(_periodEnd!))}', outlined: true, onPressed: _pickEnd),
                 ],
                 const SizedBox(height: 10),
-                const SectionLabel('Sales'),
-                const UkNote('Enter each sale, or one total for each VAT rate.'),
-                for (var i = 0; i < _sales.length; i++) _lineRow(_sales[i], i, _sales, 'sales'),
-                UkWideButton(label: 'Add a sales line', outlined: true, onPressed: () => setState(() => _sales.add(_Line()))),
-                const SizedBox(height: 8),
-                const SectionLabel('Purchases'),
-                for (var i = 0; i < _purchases.length; i++) _lineRow(_purchases[i], i, _purchases, 'purchases'),
-                UkWideButton(label: 'Add a purchases line', outlined: true, onPressed: () => setState(() => _purchases.add(_Line()))),
+                if (o != null)
+                  SwitchListTile(
+                    key: const Key('uk.vat.fromBooks'),
+                    contentPadding: EdgeInsets.zero,
+                    value: _fromBooks,
+                    title: const Text('Use the invoices and bills in my books'),
+                    subtitle: const Text('Turn off to enter the totals yourself'),
+                    onChanged: (v) {
+                      _fromBooks = v;
+                      _changed();
+                    },
+                  ),
+                if (_fromBooks) const UkNote('MyCA adds up the VAT on every UK invoice and bill dated in this period.'),
+                if (!_fromBooks) ...[
+                  const SectionLabel('Sales'),
+                  const UkNote('Enter each sale, or one total for each VAT rate.'),
+                  for (var i = 0; i < _sales.length; i++) _lineRow(_sales[i], i, _sales, 'sales'),
+                  UkWideButton(label: 'Add a sales line', outlined: true, onPressed: () => setState(() => _sales.add(_Line()))),
+                  const SizedBox(height: 8),
+                  const SectionLabel('Purchases'),
+                  for (var i = 0; i < _purchases.length; i++) _lineRow(_purchases[i], i, _purchases, 'purchases'),
+                  UkWideButton(label: 'Add a purchases line', outlined: true, onPressed: () => setState(() => _purchases.add(_Line()))),
+                ],
                 const SizedBox(height: 8),
                 if (_problem.isNotEmpty) UkProblem(_problem),
                 for (final p in _lineProblems.entries)

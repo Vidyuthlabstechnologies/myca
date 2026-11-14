@@ -215,3 +215,31 @@ test('a landlord quarter is sorted into HMRC property boxes, and unknown or bad 
   assert.equal(trade.data.ready, false);
   assert.equal(trade.data.problems[0].field, 'transactions[0].amount');
 });
+
+test('UK sales and bills post VAT, not GST, and the VAT return can be built straight from the books', async () => {
+  const { runTool } = await import('../src/tools.mjs');
+  const { documentPreview } = await import('../src/confirm-sales-purchases.mjs');
+  const state = createState();
+  state.company = { ...(state.company || {}), country: 'GB', name: 'Test Trader' };
+  const unregistered = await runTool(state, 'create_invoice', { partyName: 'Acme Ltd', date: '2026-04-20', lines: [{ description: 'Design work', qty: 1, rate: 800, gstRate: 20 }] });
+  assert.equal(unregistered.ok, true);
+  assert.equal(unregistered.invoice.vat, 0, 'no VAT before the business has a VAT number');
+  assert.equal(unregistered.invoice.lines[0].vatCode, 'outside-scope');
+  runEngineTool('set_gb_taxpayer', state, { vrn: 'GB999999973' });
+  assert.equal((await runTool(state, 'create_invoice', { partyName: 'Acme Ltd', date: '2026-05-01', lines: [{ description: 'Work', qty: 1, rate: 1000, gstRate: 18 }] })).error, 'BAD_VAT_RATE');
+  const preview = documentPreview(state, { partyName: 'Acme Ltd', date: '2026-05-01', lines: [{ description: 'Work', qty: 1, rate: 1000, gstRate: 20 }] }, 'sale');
+  assert.match(preview.summary, /£1,200\.00 \(£1,000\.00 plus £200\.00 VAT\)/);
+  assert.doesNotMatch(JSON.stringify(preview), /GST|CGST|SGST|₹/);
+  const sale = await runTool(state, 'create_invoice', { partyName: 'Acme Ltd', date: '2026-05-01', lines: [{ description: 'Work', qty: 1, rate: 1000, gstRate: 20 }, { description: 'Child car seat', qty: 1, rate: 100, gstRate: 5 }, { description: 'Book', qty: 1, rate: 50, gstRate: 0 }, { description: 'Grant', qty: 1, rate: 70, supply: 'non-gst' }] });
+  assert.equal(sale.ok, true);
+  assert.equal(sale.invoice.vat, 205);
+  assert.equal(sale.invoice.cgst + sale.invoice.sgst + sale.invoice.igst, 0);
+  assert.equal(sale.invoice.supplierVrn, '999999973');
+  const bill = await runTool(state, 'create_purchase', { partyName: 'Tool Hire', date: '2026-05-10', lines: [{ description: 'Drill hire', qty: 1, rate: 500, gstRate: 20 }, { description: 'Insurance', qty: 1, rate: 300, supply: 'exempt' }] });
+  assert.equal(bill.invoice.vatReclaimed, 100);
+  const vat = runEngineTool('gb_vat_return_check', state, { periodKey: '26A1', fromBooks: true, from: '2026-04-01', to: '2026-06-30' });
+  assert.equal(vat.ok, true, JSON.stringify(vat));
+  assert.deepEqual(vat.data.boxes, { 1: 205, 2: 0, 3: 205, 4: 100, 5: 105, 6: 1150, 7: 800, 8: 0, 9: 0 });
+  assert.equal(vat.data.fromBooks.documents, 3);
+  assert.equal(runEngineTool('gb_vat_return_check', state, { periodKey: '26A1', fromBooks: true, from: '2026-06-30', to: '2026-04-01' }).error, 'BAD_PERIOD');
+});
