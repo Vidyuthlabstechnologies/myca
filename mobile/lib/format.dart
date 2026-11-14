@@ -3,9 +3,11 @@ import 'package:myca_design/myca_design.dart' show MycaCountry, MycaDateStyle, M
 String moneyCountry = 'IN';
 
 final _us = MycaFormat(MycaCountry.of('US'));
+final _ae = MycaFormat(MycaCountry.of('AE'));
 
 String rupees(num amount) {
   if (moneyCountry == 'US') return dollars(amount);
+  if (moneyCountry == 'AE') return _ae.money(amount);
   final negative = amount < 0;
   final fixed = amount.abs().toStringAsFixed(2);
   final dot = fixed.indexOf('.');
@@ -104,6 +106,7 @@ String _scaled(double value) =>
 String compactRupees(num amount) {
   final abs = amount.abs().toDouble();
   final sign = amount < 0 ? '-' : '';
+  if (moneyCountry == 'AE') return _ae.moneyCompact(amount);
   if (abs == 0) return '₹0';
   if (abs >= 1e7) return '$sign₹${_scaled(abs / 1e7)} cr';
   if (abs >= 1e5) return '$sign₹${_scaled(abs / 1e5)} L';
