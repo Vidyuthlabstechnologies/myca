@@ -83,6 +83,7 @@ export function billingConfigFromEnv(env = process.env) {
     usPlus: { priceUsd: dollars(env.MYCA_US_PLUS_PRICE_USD, US_PLUS_PRICE_USD), productId: unset(env.MYCA_PLAY_PRODUCT_US_PLUS) },
     usExpertReview: { on: unset(env.MYCA_US_EXPERT_REVIEW) === '1', priceUsd: dollars(env.MYCA_US_EXPERT_REVIEW_PRICE_USD, US_EXPERT_REVIEW_PRICE_USD) },
     stripe: { secretKey: unset(env.MYCA_STRIPE_SECRET_KEY), webhookSecret: unset(env.MYCA_STRIPE_WEBHOOK_SECRET), plusPriceId: unset(env.MYCA_STRIPE_PRICE_US_PLUS), returnUrl: unset(env.MYCA_US_CHECKOUT_RETURN_URL) },
+    assuredProfessional: unset(env.MYCA_ASSURED_PROFESSIONAL),
     notifyToken: unset(env.MYCA_PLAY_NOTIFY_TOKEN),
     serviceAccount: parseServiceAccount(unset(env.MYCA_PLAY_SERVICE_ACCOUNT_JSON)),
     prices,
@@ -146,6 +147,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   const notOpen = () => fail('US_EFILE_NOT_OPEN', { hint: US_EFILE_NOT_OPEN_HINT });
   const stripe = cardEnabled ? createStripe({ secretKey: cfg.stripe.secretKey, fetchImpl }) : null;
   const planOfProduct = (productId) => PAID.find((plan) => cfg.productIds[plan] && cfg.productIds[plan] === productId) || null;
+  const planOpen = (planId) => planId !== 'assured' || Boolean(cfg.assuredProfessional);
   let cachedToken = { value: '', until: 0 };
 
   async function accessToken() {
@@ -694,7 +696,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       packageName: cfg.packageName,
       trialDays: TRIAL_DAYS,
       currency: 'INR',
-      plans: PAID.map((id) => PLANS[id]).map((plan) => ({ ...plan, monthlyRupees: cfg.prices[plan.id] ?? plan.monthlyRupees, productId: cfg.productIds[plan.id] || '', buyable: enabled && Boolean(cfg.productIds[plan.id]) })),
+      plans: PAID.map((id) => PLANS[id]).map((plan) => ({ ...plan, monthlyRupees: cfg.prices[plan.id] ?? plan.monthlyRupees, productId: cfg.productIds[plan.id] || '', buyable: enabled && Boolean(cfg.productIds[plan.id]) && planOpen(plan.id), ...(plan.id === 'assured' ? { opening: !planOpen(plan.id), professional: cfg.assuredProfessional || '' } : {}) })),
       ...offers(),
     }),
     entitlement,
@@ -719,6 +721,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       if (!enabled) return fail('BILLING_NOT_CONFIGURED', { hint: 'The operator has not set up Google Play subscriptions yet.' });
       const token = String(purchaseToken || '');
       if (!planOfProduct(productId) || !token || token.length > 2000) return fail('UNKNOWN_PLAN', { products: PAID.map((p) => cfg.productIds[p]).filter(Boolean) });
+      if (!planOpen(planOfProduct(productId))) return fail('PLAN_NOT_OPEN', { hint: 'MyCA Assured opens once the independent professional who reviews and files your returns is named. Nothing was charged by MyCA; ask Google Play for a refund if you were.' });
       const holder = await ownerOfToken(token);
       if (holder && holder !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription already pays for another business.' });
       let found;

@@ -96,7 +96,9 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                       const EmptyNote(
                         text:
                             'Ask about your GST, deadlines or invoices. '
-                            'Nothing is posted to your books until you confirm it.',
+                            'Nothing is posted to your books until you confirm it. '
+                            'MyCA works from the rules it shows you; it is not a chartered accountant '
+                            'and does not give tax or legal advice.',
                       ),
                       Wrap(
                         alignment: WrapAlignment.center,

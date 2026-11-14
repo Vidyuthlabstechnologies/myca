@@ -4,6 +4,7 @@ import 'package:myca/app_state.dart';
 import 'package:myca/cloud/cloud_session.dart';
 import 'package:myca/cloud/token_store.dart';
 import 'package:myca/main.dart';
+import 'package:myca/screens/privacy_rights_screen.dart';
 
 import 'fake_api.dart';
 import 'fake_cloud.dart';
@@ -49,6 +50,10 @@ void main() {
         reason: 'no business data is asked for before consent',
       );
 
+      await tester.tap(find.text('I am 18 or over'));
+
+      await tester.pump();
+
       await tester.tap(find.text('I agree'));
       await tester.pumpAndSettle();
       expect(cloud.consents, ['privacy@v-test']);
@@ -83,9 +88,62 @@ void main() {
     await tester.pumpWidget(MycaApp(state: _hosted(_session(cloud, tokens))));
     await tester.pumpAndSettle();
     expect(find.text('How MyCA uses your information'), findsOneWidget);
+    await tester.tap(find.text('I am 18 or over'));
+    await tester.pump();
     await tester.tap(find.text('I agree'));
     await tester.pumpAndSettle();
     expect(find.text('How MyCA uses your information'), findsNothing);
     expect(cloud.consents, ['privacy@v-test']);
+  });
+
+  testWidgets('"I agree" stays off until the person says they are 18 or over', (tester) async {
+    final cloud = FakeCloud()..noticeAccepted = false;
+    await tester.pumpWidget(MycaApp(state: _hosted(_session(cloud, MemoryTokenStore()))));
+    await tester.pumpAndSettle();
+    await _signIn(tester);
+    final agree = find.byKey(const ValueKey('consent.agree'));
+    expect(tester.widget<FilledButton>(agree).onPressed, isNull);
+    await tester.tap(find.text('I am 18 or over'));
+    await tester.pump();
+    expect(tester.widget<FilledButton>(agree).onPressed, isNotNull);
+    final handle = tester.ensureSemantics();
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    handle.dispose();
+  });
+
+  testWidgets('the privacy notice can be read before a number is typed', (tester) async {
+    final cloud = FakeCloud()..noticeAccepted = false;
+    await tester.pumpWidget(MycaApp(state: _hosted(_session(cloud, MemoryTokenStore()))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('signIn.privacy')));
+    await tester.pumpAndSettle();
+    expect(find.text('How MyCA uses your information'), findsOneWidget);
+    expect(find.text('I agree'), findsNothing);
+    expect(cloud.consents, isEmpty);
+  });
+
+  testWidgets('your privacy rights shows the Grievance Officer and sends a complaint with a reference', (tester) async {
+    final cloud = FakeCloud()..userName = 'Asha';
+    final session = _session(cloud, MemoryTokenStore());
+    await session.requestCode('9876543210');
+    await session.verifyCode(FakeCloud.code);
+    await tester.pumpWidget(MaterialApp(home: AppScope(state: _hosted(session), child: const PrivacyRightsScreen())));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Grievance Officer: Asha Rao, grievance@myca.test'), findsOneWidget);
+    expect(find.textContaining('[phone'), findsNothing);
+    expect(find.byKey(const ValueKey('rights.link.terms')), findsOneWidget);
+    final handle = tester.ensureSemantics();
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(textContrastGuideline));
+    handle.dispose();
+    await tester.tap(find.byKey(const ValueKey('rights.ask.grievance')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('rights.message')), 'My invoice was shared with the wrong person.');
+    await tester.tap(find.byKey(const ValueKey('rights.send')));
+    await tester.pumpAndSettle();
+    expect(cloud.privacyRequests.single['kind'], 'grievance');
+    expect(find.textContaining('DPR-20261114-ABC0'), findsWidgets);
   });
 }
