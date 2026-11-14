@@ -97,4 +97,19 @@ export const RULES = [
     '2009-09-01', null, 'Ministerial Resolution 788 of 2009 on the Wage Protection System; Federal Decree-Law 33 of 2021', '22',
     'Central Bank of the UAE Wage Protection System salary information file (SIF): one EDR line per employee (labour id, agent routing code, IBAN, pay start and end, days, fixed and variable pay, unpaid leave days) and one closing SCR line (employer id, bank routing code, file date and time, salary month MMYYYY, EDR count, total, AED, reference); file named employer id plus YYMMDDHHMMSS.SIF (https://netbanking.mashreqbank.com/B001/WPS_File_Format_eng.html)'
   ),
+  record(
+    'ae.labour.overtime', { wageBasis: 'basic', dayRateDivisor: 30, normalHoursPerDay: 8, overtimeBasisPoints: 12500, nightOvertimeBasisPoints: 15000, nightFrom: '22:00', nightTo: '04:00', restDayBasisPoints: 15000, maxOvertimeHoursPerDay: 2, shiftWorkersExcluded: true }, 'overtime_pay_as_basis_points_of_the_basic_hourly_wage',
+    '2022-02-02', null, 'Federal Decree-Law 33 of 2021 on the Regulation of Labour Relations', '19; Cabinet Resolution 1 of 2022',
+    'Overtime is paid at the normal hourly wage, based on the basic salary, plus 25%, rising to 50% for overtime between 10 pm and 4 am; work on a rest day earns a substitute day or the normal wage plus 50%; overtime may not exceed two hours a day and the rule does not apply to shift workers (UAE government portal, working hours in the private sector, https://u.ae/en/information-and-services/jobs/employment-in-the-private-sector/working-hours); the hourly wage is the basic monthly wage divided by 30 and by 8 hours (Hono, how to calculate overtime in the UAE, https://www.hono.ai/blog/how-to-calculate-overtime-in-uae)'
+  ),
+  record(
+    'ae.labour.wage-deductions', { maxShareOfWageBasisPoints: 5000, allowed: ['disciplinary fines', 'loan or advance repayment', 'social insurance or pension contributions'] }, 'cap_on_deductions_from_the_wage_of_one_pay_period',
+    '2022-02-02', null, 'Federal Decree-Law 33 of 2021 on the Regulation of Labour Relations', '25; Cabinet Resolution 1 of 2022',
+    'Deductions from the wage (fines, loan or advance repayments, pension contributions) may not exceed 50% of the wage of the pay period (ATB Legal, UAE federal labour law: wages, https://atblegal.com/blog/uae-federal-labour-law/wages/)'
+  ),
+  record(
+    'ae.pension.gpssa', { employeeBasisPoints: 1100, employerBasisPoints: 1500, governmentShareBasisPoints: 250, governmentShareBelowFils: 20000 * DIRHAM, contributionSalaryCapFils: 70000 * DIRHAM, coveredNationality: 'AE', contributionSalary: 'basic salary and allowances in the employment contract', registeredBefore: '2023-10-31' }, 'pension_contributions_for_uae_nationals_in_the_private_sector',
+    '2024-01-01', null, 'Federal Decree-Law 57 of 2023 on Pensions and Social Security', 'Contributions',
+    'Emirati private-sector workers who joined after 31 October 2023: employee 11% and employer 15% of the contribution salary, of which the government pays 2.5% when the contribution salary is below AED 20,000; contribution salary is the basic salary and contract allowances, capped at AED 70,000 for the private sector; payments from 1 January 2024 (DLA Piper, new UAE pensions law, https://knowledge.dlapiper.com/dlapiperknowledge/globalemploymentlatestdevelopments/2024/new-uae-pensions-law.html; The Talent Point, monthly pension contribution system for Emiratis, https://www.thetalentpoint.com/blog/monthly-pension-contribution-system-for-emiratis-in-private-sector)'
+  ),
 ];

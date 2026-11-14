@@ -113,7 +113,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | **WPS salary information file (SIF) with IBAN and total checks** | `ae_wps_file` | **Built now** (Zoho charges per employee for payroll) |
 | Direct EmaraTax filing | no API exists | Not possible for anyone but Zoho's partnership; MyCA prepares |
 | Bank feeds (Wio, Mashreq) | no | Gap |
-| Full payroll run (leave, payslips) | no | Gap |
+| Full payroll run (overtime, unpaid leave, GPSSA pension, gratuity accrual, WPS lines) | `ae_payroll_run` | **Built now**; payslip PDFs and annual leave balances still open |
 | Cost centres / project profitability | no | Gap (Wafeq) |
 
 ## Malaysia (rivals: Bukku, SQL Account, AutoCount, Xero)
@@ -146,7 +146,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | 4 | UK | Open Banking bank feeds and receipt OCR on UK screens | Every rival has them; quarterly MTD updates need categorised bank lines | UK thread (TrueLayer or Yapily via a cloud port) |
 | 5 | India | Hindi and regional-language app | Vyapar's growth came from it | Design system thread |
 | 6 | US | Prior-year import, 2441, 8962, Schedule E, 1040-X, states | Common returns that now bounce to a rival | US engine thread |
-| 7 | UAE | Bank feeds (Wio, Mashreq) and a full payroll run on top of WPS/gratuity | Zoho's bank links; Wafeq's payroll | UAE thread |
+| 7 | UAE | Bank feeds (Wio, Mashreq); the full payroll run on top of WPS/gratuity is BUILT | Zoho's bank links; Wafeq's payroll | UAE thread |
 | 8 | UK | Payroll RTI, GPS mileage | QuickBooks and Sage keep sole traders who hire | UK thread |
 
 ## Sources
