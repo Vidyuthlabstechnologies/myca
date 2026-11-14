@@ -18,9 +18,19 @@ const EMIRATE_ALIASES = new Map(EMIRATES.flatMap((emirate) => [
   [emirate.en.toUpperCase().replace(/[^A-Z]/g, ''), emirate],
 ]));
 
+const ARABIC_EMIRATES = new Map(EMIRATES.map((emirate) => [arabicKey(emirate.ar), emirate]));
+
+function arabicKey(text) {
+  return String(text).normalize('NFC').replace(/[\u064B-\u0652\u0640\s]/g, '').replace(/[أإآ]/g, 'ا');
+}
+
 export function emirateOf(value) {
   const key = String(value || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
-  return EMIRATE_ALIASES.get(key) || null;
+  return EMIRATE_ALIASES.get(key) || ARABIC_EMIRATES.get(arabicKey(String(value || '').trim())) || null;
+}
+
+export function latinDigits(text) {
+  return String(text ?? '').replace(/[\u0660-\u0669\u06F0-\u06F9]/g, (digit) => String(digit.charCodeAt(0) & 0xF));
 }
 
 export function fail(error, extra = {}) {

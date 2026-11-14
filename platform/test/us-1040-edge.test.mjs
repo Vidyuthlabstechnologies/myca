@@ -369,6 +369,10 @@ test('Invalid inputs: unknown year or status refuses; non-numbers count as zero;
   const negative = run('single', [w2(50000, -5000)]);
   assert.equal(negative.data.lines['25a'], 0);
   assert.ok(negative.data.checks.some((item) => item.code === 'FORM_AMOUNT_NEGATIVE' && item.level === 'error'));
+  const brokerWithheld = (federalWithheld) => run('single', [w2(50000), { kind: '1099-B', payer: 'Broker', fields: { federalWithheld, transactions: [{ proceeds: 1000, costBasis: 500, term: 'long', federalWithheld: 40 }, { proceeds: 800, costBasis: 900, term: 'short', federalWithheld: -200 }] } }]);
+  assert.equal(brokerWithheld(60).data.lines['25b'], 100);
+  assert.equal(brokerWithheld(-300).data.lines['25b'], 40);
+  assert.ok(brokerWithheld(-300).data.checks.some((item) => item.code === 'FORM_AMOUNT_NEGATIVE' && /federalWithheld/.test(item.message)));
   const badDob = run('single', [w2(50000)], { taxpayer: { ...adult, dateOfBirth: '04/02/1988' } });
   assert.ok(badDob.data.checks.some((item) => item.code === 'TAXPAYER_DOB_INVALID' && item.level === 'error'));
 });
@@ -473,4 +477,15 @@ test('2026: non-itemizers deduct up to $1,000 of cash gifts ($2,000 joint, not Q
   const itemized = run('single', [w2(100000)], { answers: { itemize: 'yes', charityCash: 5000 } }, '2026');
   assert.equal(itemized.data.schedules.A['14'], 4500);
   assert.equal(run('single', [w2(60000)], { answers: { charityCash: 1500 } }, '2025').data.lines['13b'], 0);
+});
+
+test('IRC 199A(i) from 2026: business income flags the minimum QBI deduction as not applied, without blocking filing; 2025 does not', () => {
+  const business = { businesses: [{ name: 'Studio', grossReceipts: 9000, totalExpenses: 1000 }] };
+  const y2026 = run('single', [w2(30000)], business, '2026');
+  const flagged = y2026.data.unsupported.find((item) => item.form === 'QBI minimum deduction');
+  assert.equal(flagged.required, false);
+  assert.ok(codes(y2026).includes('QBI_MINIMUM_NOT_APPLIED'));
+  assert.ok(!needs(y2026).includes('QBI minimum deduction'));
+  assert.ok(!codes(run('single', [w2(30000)], business, '2025')).includes('QBI_MINIMUM_NOT_APPLIED'));
+  assert.ok(!codes(run('single', [w2(30000)], {}, '2026')).includes('QBI_MINIMUM_NOT_APPLIED'));
 });

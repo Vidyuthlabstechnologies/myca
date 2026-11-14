@@ -44,7 +44,12 @@ class _LockScreenState extends State<LockScreen> {
     final text = Theme.of(context).textTheme;
     return Scaffold(
       body: SafeArea(
-        child: Padding(
+        child: LayoutBuilder(
+          builder: (context, box) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: box.maxHeight),
+              child: IntrinsicHeight(
+                child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
@@ -69,6 +74,10 @@ class _LockScreenState extends State<LockScreen> {
                 child: const Text('Sign out instead'),
               ),
             ],
+          ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

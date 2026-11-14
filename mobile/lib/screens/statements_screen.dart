@@ -163,6 +163,11 @@ class StatementView {
   }
 }
 
+Widget _amount(BuildContext context, String amount, TextStyle? style) => ConstrainedBox(
+  constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.4),
+  child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerRight, child: Text(amount, style: style)),
+);
+
 class StatementsScreen extends StatefulWidget {
   const StatementsScreen({super.key, this.initial = StatementKind.profitAndLoss, this.customer = ''});
 
@@ -259,8 +264,9 @@ class _StatementsScreenState extends State<StatementsScreen> {
           const SizedBox(height: 12),
           DropdownButtonFormField<StatementPeriod>(
             initialValue: _period,
+            isExpanded: true,
             decoration: InputDecoration(labelText: _kind == StatementKind.balanceSheet ? 'As at the end of' : 'Period'),
-            items: [for (final p in StatementPeriod.values) DropdownMenuItem(value: p, child: Text(periodLabels[p]!))],
+            items: [for (final p in StatementPeriod.values) DropdownMenuItem(value: p, child: Text(periodLabels[p]!, overflow: TextOverflow.ellipsis))],
             onChanged: (p) {
               if (p == null) return;
               _period = p;
@@ -307,12 +313,12 @@ class _StatementsScreenState extends State<StatementsScreen> {
                             ListTile(
                               title: Text(line.label),
                               subtitle: line.detail.isEmpty ? null : Text(line.detail),
-                              trailing: Text(rupees(line.amount), style: text.titleSmall),
+                              trailing: _amount(context, rupees(line.amount), text.titleSmall),
                             ),
                           if (section.total != null)
                             ListTile(
                               title: Text(section.totalLabel, style: text.titleSmall),
-                              trailing: Text(rupees(section.total!), style: text.titleSmall),
+                              trailing: _amount(context, rupees(section.total!), text.titleSmall),
                             ),
                         ],
                       ),

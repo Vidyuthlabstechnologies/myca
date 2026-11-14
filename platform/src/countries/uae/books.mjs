@@ -113,7 +113,8 @@ export function planAeInvoice(state, input = {}) {
   if (terms.error) return fail(terms.error);
   const warnings = [];
   if (!profile || !profile.trn) warnings.push('The business profile has no TRN yet, so this is not a tax invoice until the TRN is added.');
-  if (vat > 0 && net + vat > 1000000 && !buyer.trn) warnings.push('A tax invoice above AED 10,000 should carry the buyer\'s details; add the buyer TRN if they are registered.');
+  const invoiceRule = ruleOn('ae.vat.invoice', date);
+  if (vat > 0 && invoiceRule && net + vat > invoiceRule.value.fullInvoiceAboveFils && !buyer.trn) warnings.push('A tax invoice above AED 10,000 should carry the buyer\'s details; add the buyer TRN if they are registered.');
   return {
     ok: true,
     plan: { date, partyName, partyAddress: String(input.partyAddress || '').trim().slice(0, 200), buyerTrn: buyer.trn, emirate: emirate ? emirate.code : '', currency: money.currency, exchangeRate: money.exchangeRate, lines, net, vat, total: net + vat, terms, warnings },

@@ -28,6 +28,7 @@ import { weeklyBrief } from './weekly-brief.mjs';
 import { monthCloseOf, approveMonthClose } from './month-close.mjs';
 import { restockPlan, setSkuSupply, recordPurchaseOrder } from './restock.mjs';
 import { advanceTax, recordAdvanceTaxPayment } from './advance-tax.mjs';
+import { incomeTaxInterest, tdsInterestFor } from './it-interest.mjs';
 import { setSupplierBank, supplierPayoutFile } from './supplier-bank.mjs';
 import { attachDocument } from './receipt-match.mjs';
 import { saveReport, runReport, listReports, deleteReport } from './reports.mjs';
@@ -195,7 +196,7 @@ export const TOOLS = [
     name: 'set_company',
     title: 'Set business profile',
     description: 'Set this book\'s own business identity (name, GSTIN, PAN, state, FY, address; country and EIN before anything is posted). Affects future postings only; history is untouched.',
-    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType', 'country', 'ein', 'invoiceNumbering'],
+    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType', 'country', 'ein', 'invoiceNumbering', 'composition', 'lutNumber'],
     run: (state, args = {}) => {
       const company = state.company;
       const patch = {};
@@ -259,6 +260,13 @@ export const TOOLS = [
         const pin = String(args.pin).trim();
         if (pin && !/^\d{6}$/.test(pin)) return fail('INVALID_PIN');
         patch.pin = pin ? Number(pin) : '';
+      }
+      if (args.composition != null) {
+        if (typeof args.composition !== 'boolean') return fail('BAD_COMPOSITION', { hint: 'true or false' });
+        patch.composition = args.composition;
+      }
+      if (args.lutNumber != null) {
+        patch.lutNumber = String(args.lutNumber).trim().toUpperCase().replace(/[^A-Z0-9/-]/g, '').slice(0, 20);
       }
       Object.assign(company, patch);
       if (company.name && company.setupNeeded) delete company.setupNeeded;
@@ -597,8 +605,8 @@ export const TOOLS = [
   {
     name: 'create_invoice',
     title: 'Create invoice',
-    description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the UAE 5% VAT by emirate; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here.',
-    args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'partyAddress'],
+    description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the UAE 5% VAT by emirate; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here. In India set supplyType SEZWP (supply to an SEZ unit or developer with IGST), SEZWOP (to an SEZ under LUT or bond, no tax) or DEXP (deemed export, taxed as usual; buyer GSTIN required); SEZ supplies are always IGST. A line may carry compensation cess as cessRate (percent of the taxable value) and/or cessPerUnit (rupees per unit).',
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'partyAddress', 'exportSale', 'supplyType'],
     run: (state, args) => (engineBooks(countryOf(state), 'create_invoice')?.(state, args) ?? (countryOf(state) === 'US' ? createUsInvoice(state, args) : createInvoice(state, args))),
   },
   {
@@ -1077,8 +1085,8 @@ export const TOOLS = [
   {
     name: 'record_receipt',
     title: 'Record receipt',
-    description: 'Receive payment against an invoice (bank or cash) and post the AR settlement.',
-    args: ['invoiceId', 'amount', 'mode', 'date'],
+    description: 'Receive payment against an invoice (bank or cash) and post the AR settlement. A receipt dated before the invoice is refused unless advance is true (the customer paid in advance).',
+    args: ['invoiceId', 'amount', 'mode', 'date', 'advance'],
     run: (state, args) => recordReceipt(state, args),
   },
   {
@@ -1138,8 +1146,8 @@ export const TOOLS = [
   {
     name: 'gstr9_draft',
     title: 'GSTR-9 annual return draft',
-    description: 'A draft of the annual return for a financial year from the twelve monthly figures: outward supplies and tax by head (table 4 and 5 where known), credit and debit notes, input credit availed by head (table 6), reversals (table 7), GSTR-2B against credit availed (table 8 where 2B was added), tax paid in cash and by credit (table 9), and the HSN summary (table 17). Read-only; files nothing.',
-    args: ['fy'],
+    description: 'A draft of the annual return for a financial year from the twelve monthly figures: outward supplies and tax by head (table 4 and 5 where known), credit and debit notes, input credit availed by head (table 6), reversals (table 7), GSTR-2B against credit availed (table 8 where 2B was added), tax paid in cash and by credit (table 9), and the HSN summary (table 17). One draft per GSTIN: give gstin for a registration other than the principal one. Read-only; files nothing.',
+    args: ['fy', 'gstin'],
     run: (state, args = {}) => gstr9Draft(state, args),
   },
   {
@@ -1156,8 +1164,8 @@ export const TOOLS = [
   {
     name: 'set_gst_credit_opening',
     title: 'GST credit balance',
-    description: 'Record the electronic credit ledger balance by head at the start of a month, from the GST portal, so set-off counts credit brought forward from earlier months.',
-    args: ['period', 'igst', 'cgst', 'sgst'],
+    description: 'Record the electronic credit ledger balance by head (IGST, CGST, SGST and compensation cess) at the start of a month, from the GST portal, so set-off counts credit brought forward from earlier months.',
+    args: ['period', 'igst', 'cgst', 'sgst', 'cess'],
     run: (state, args = {}) => setCreditOpening(state, args),
   },
   {
@@ -1513,15 +1521,15 @@ export const TOOLS = [
   {
     name: 'import_gstr2b',
     title: 'Add GSTR-2B',
-    description: 'Store the GSTR-2B statement for one month (the CSV from the GST portal) so purchase bills can be checked against what suppliers reported. Posts nothing to the ledger; a second file for the same month replaces the first.',
-    args: ['csv', 'period', 'fileName'],
+    description: 'Store the GSTR-2B statement for one month (the CSV from the GST portal) so purchase bills can be checked against what suppliers reported. Posts nothing to the ledger; a second file for the same month replaces the first. Give gstin for a registration other than the principal one; each GSTIN keeps its own 2B.',
+    args: ['csv', 'period', 'fileName', 'gstin'],
     run: (state, args = {}) => import2b(state, args),
   },
   {
     name: 'credit_at_risk',
     title: 'Credit at risk',
-    description: 'For one month: the input credit on purchase bills that GSTR-2B does not support (not reported, not available, different amounts or date, or no supplier bill number), by supplier, and 2B entries not in your books. Read-only.',
-    args: ['period'],
+    description: 'For one month: the input credit on purchase bills that GSTR-2B does not support (not reported, not available, different amounts or date, or no supplier bill number), by supplier, and 2B entries not in your books. One GSTIN at a time: give gstin for a registration other than the principal one. Read-only.',
+    args: ['period', 'gstin'],
     run: (state, args = {}) => creditAtRisk(state, args),
   },
   {
@@ -3122,6 +3130,20 @@ export const TOOLS = [
     description: 'For an individual or proprietor: profit for the financial year to date scaled to twelve months (both figures shown), tax under the chosen regime from the dated rules, less TDS credit from Form 26AS or marketplace settlements, split into the instalments due 15 June, 15 September, 15 December and 15 March (or the whole by 15 March when presumptive), with what is met, missed or next. Headed "for your CA to confirm" with its assumptions. Read-only.',
     args: ['regime', 'presumptive', 'otherIncome', 'asOf'],
     run: (state, args = {}) => advanceTax(state, args),
+  },
+  {
+    name: 'income_tax_interest',
+    title: 'Income tax interest under 234A, 234B and 234C',
+    description: 'Interest for a financial year from the figures given: 234A for a return filed after the due date, 234B when advance tax paid is under 90% of the assessed tax (recomputed after each self-assessment payment), and 234C for each instalment paid short (15, 45, 75 and 100 percent; none for June at 12% or September at 36%; only 15 March when presumptive; tax on capital gains, lottery, dividend or new business income arising later can be left out of earlier instalments). Months or part count as full months and amounts are rounded down to Rs 100 (Rule 119A); self-assessment tax goes first to interest (s.140A). Amounts in rupees. Headed "for your CA to confirm". Read-only.',
+    args: ['fy', 'dueDate', 'filedOn', 'determinedOn', 'taxOnTotalIncome', 'taxOnReturnedIncome', 'tdsTcs', 'relief', 'lateFee', 'advanceTaxPayments', 'selfAssessmentPayments', 'presumptive', 'seniorNoBusiness', 'excludedIncome'],
+    run: (state, args = {}) => incomeTaxInterest(args),
+  },
+  {
+    name: 'tds_interest',
+    title: 'TDS late fee and interest (234E, 201(1A))',
+    description: 'The late fee of Rs 200 a day under 234E for a TDS statement filed after its due date, capped at the TDS in it (from the quarter\'s draft when a quarter is given, or the due date, filing date and TDS given), and interest under 201(1A) on amounts given: 1% a month or part from the date tax was deductible to the date deducted, and 1.5% from deduction to payment when paid after the 7th of the next month (30 April for March). Months counted by calendar month as TRACES does unless basis is "period". Amounts in rupees. Read-only.',
+    args: ['quarter', 'form', 'dueDate', 'filedOn', 'tds', 'late', 'basis', 'asOf'],
+    run: (state, args = {}) => tdsInterestFor(state, args),
   },
   {
     name: 'record_advance_tax',

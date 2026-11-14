@@ -28,7 +28,8 @@ function withSeller(state, args) {
 
 function profileFrom(args) {
   const out = Object.fromEntries(PROFILE_FIELDS.filter((key) => args[key] !== undefined && args[key] !== null && args[key] !== '').map((key) => [key, typeof args[key] === 'string' ? args[key].trim() : args[key]]));
-  if (out.trn) out.trn = out.trn.replace(/[\s-]/g, '');
+  if (out.trn) out.trn = checkTrn(out.trn).trn;
+  if (out.tin) out.tin = checkTin(out.tin).tin;
   const emirate = emirateOf(out.emirate);
   if (emirate) out.emirate = emirate.code;
   return out;

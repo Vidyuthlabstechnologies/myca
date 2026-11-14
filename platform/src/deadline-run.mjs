@@ -83,6 +83,37 @@ function withTdsDeposits(rows, bookOf) {
   });
 }
 
+const DATED_BOOK_KEYS = ['invoices', 'purchases', 'expenses', 'creditNotes', 'debitNotes', 'purchaseNotes', 'quotes'];
+
+export function booksStartDate(book) {
+  const days = [];
+  for (const key of DATED_BOOK_KEYS) {
+    for (const doc of Array.isArray(book?.[key]) ? book[key] : []) if (/^\d{4}-\d{2}-\d{2}/.test(String(doc?.date || ''))) days.push(String(doc.date).slice(0, 10));
+  }
+  for (const event of Array.isArray(book?.auditEvents) ? book.auditEvents : []) if (/^\d{4}-\d{2}-\d{2}/.test(String(event?.at || ''))) days.push(String(event.at).slice(0, 10));
+  return days.length ? days.sort()[0] : '';
+}
+
+function beforeStart(row, start) {
+  if (!start) return false;
+  if (YEAR_MONTH.test(String(row.period || ''))) return row.period < start.slice(0, 7);
+  return Boolean(row.dueDate) && row.dueDate < start;
+}
+
+function withBooksStart(rows, bookOf) {
+  const starts = new Map();
+  const startOf = (clientId) => {
+    if (!starts.has(clientId)) starts.set(clientId, booksStartDate(bookOf(clientId)));
+    return starts.get(clientId);
+  };
+  return rows.map((row) => {
+    if (row.filed || row.level !== 'overdue') return row;
+    const start = startOf(row.clientId);
+    if (!beforeStart(row, start)) return row;
+    return { ...row, level: 'before_start', booksStart: start, why: `For a period before ${start}, when these books start in MyCA; file it on the portal if it applies, then record the filing.` };
+  });
+}
+
 export function deadlineRun(state, { asOfDate, months, holidaysText = '' } = {}) {
   const root = state.__root || state;
   const clientsText = csvRows([DEADLINE_COLUMNS, ...deadlineProfiles(root).map((p) => DEADLINE_COLUMNS.map((key) => p[key]))]);
@@ -90,7 +121,7 @@ export function deadlineRun(state, { asOfDate, months, holidaysText = '' } = {})
   if (!window.ok) throw new Error(window.error);
   const run = complianceRun({ clientsText, docsText: NO_DOCS, holidaysText }, { months: window.months, asOfDate });
   const bookOf = (clientId) => (clientId === 'SELF' ? root : getBook(root, clientId));
-  return { ...run, deadlines: withTdsDeposits(withFilings(run.deadlines || [], bookOf), bookOf) };
+  return { ...run, deadlines: withBooksStart(withTdsDeposits(withFilings(run.deadlines || [], bookOf), bookOf), bookOf) };
 }
 
 export function filingRows(state, filedOn) {

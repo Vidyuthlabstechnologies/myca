@@ -145,8 +145,8 @@ export function paymentFor(state, requested, { payOn, gstin } = {}) {
 function paymentNotes({ forward, nil, late, unreviewed, tcsUsed, reverseCharge }) {
   const notes = [];
   const rcmTotal = round2(Number(reverseCharge?.igst || 0) + Number(reverseCharge?.cgst || 0) + Number(reverseCharge?.sgst || 0));
-  if (rcmTotal > 0) notes.push(`Reverse charge tax of ${rcmTotal} on this month's purchases is paid in cash, as the law requires; input credit cannot pay it. Its credit is counted in this month's input credit.`);
   notes.push('Credit is set off head by head in the order the law sets: IGST credit against IGST first, then CGST and SGST; CGST credit against CGST then IGST; SGST credit against SGST then IGST. CGST credit is never used for SGST, nor SGST credit for CGST.');
+  if (rcmTotal > 0) notes.push(`Reverse charge tax of ${rcmTotal} on this month's purchases is paid in cash, as the law requires; input credit cannot pay it. Its credit is counted in this month's input credit.`);
   if (!forward.known) {
     notes.push(forward.beforeOpening
       ? 'This month is before the credit balance you set, so no credit is brought forward into it.'
@@ -171,14 +171,17 @@ export function planCreditOpening(state, args = {}) {
     if (!Number.isFinite(value) || value < 0) return fail('BAD_AMOUNT', { head });
     heads[head] = round2(value);
   }
-  return { ok: true, opening: { period, ...heads, total: round2(heads.igst + heads.cgst + heads.sgst) }, was: creditOpening(state) };
+  const cessSaid = args.cess != null && args.cess !== '';
+  const cess = cessSaid ? Number(args.cess) : null;
+  if (cessSaid && (!Number.isFinite(cess) || cess < 0)) return fail('BAD_AMOUNT', { head: 'cess' });
+  return { ok: true, opening: { period, ...heads, total: round2(heads.igst + heads.cgst + heads.sgst), ...(cessSaid ? { cess: round2(cess) } : {}) }, was: creditOpening(state) };
 }
 
 export function setCreditOpening(state, args = {}) {
   const plan = planCreditOpening(state, args);
   if (!plan.ok) return plan;
   const actor = state.__actor;
-  state.gstCreditOpening = { period: plan.opening.period, igst: plan.opening.igst, cgst: plan.opening.cgst, sgst: plan.opening.sgst, setOn: localToday(), by: String(actor?.userId || args.actorId || '') };
+  state.gstCreditOpening = { period: plan.opening.period, igst: plan.opening.igst, cgst: plan.opening.cgst, sgst: plan.opening.sgst, ...(plan.opening.cess != null ? { cess: plan.opening.cess } : {}), setOn: localToday(), by: String(actor?.userId || args.actorId || '') };
   return { ok: true, opening: plan.opening, was: plan.was };
 }
 
