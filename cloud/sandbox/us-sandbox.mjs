@@ -15,12 +15,20 @@ const ROUTES = new Set(['partner', 'mef']);
 const PLUS = new Set(['card', 'play']);
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
 
+function isSandboxPartner(value) {
+  try {
+    return new URL(String(value || '')).origin === new URL(SANDBOX_PARTNER_URL).origin;
+  } catch {
+    return false;
+  }
+}
+
 export function sandboxRefusal(env = process.env) {
   const on = (name) => String(env[name] || '').trim() && String(env[name]).trim() !== 'unset';
   if (on('MYCA_ENABLE_LIVE_CALLS')) return 'MYCA_ENABLE_LIVE_CALLS is set. The US sandbox never makes live calls; unset it.';
   if (on('K_SERVICE') || on('MYCA_PRODUCTION') || String(env.MYCA_ENVIRONMENT || '').trim() === 'production') return 'This looks like a production host. Run the US sandbox on a developer machine or in CI only.';
   if (/^(sk|rk)_live_/.test(String(env.MYCA_STRIPE_SECRET_KEY || ''))) return 'MYCA_STRIPE_SECRET_KEY is a live Stripe key. The sandbox fakes Stripe and needs no key; unset it.';
-  if (on('MYCA_US_FILER_API_KEY') && !String(env.MYCA_US_FILER_BASE_URL || '').startsWith(SANDBOX_PARTNER_URL)) return 'A real e-file partner key is set. The sandbox fakes the partner; unset MYCA_US_FILER_API_KEY.';
+  if (on('MYCA_US_FILER_API_KEY') && !isSandboxPartner(env.MYCA_US_FILER_BASE_URL)) return 'A real e-file partner key is set. The sandbox fakes the partner; unset MYCA_US_FILER_API_KEY.';
   return '';
 }
 
@@ -222,7 +230,7 @@ export async function startUsSandbox({ databaseUrl, port = 8080, consolePort = 8
       return send(404, page('Not found', '<h1>Not found</h1>'));
     } catch (err) {
       log({ sandbox: 'console error', error: String(err?.message || err) });
-      return wantsJson ? send(500, { error: 'CONSOLE_ERROR', detail: String(err?.message || err) }, 'application/json') : send(500, page('Error', `<h1>Sandbox console error</h1><p>${esc(err?.message || err)}</p>`));
+      return wantsJson ? send(500, { error: 'CONSOLE_ERROR' }, 'application/json') : send(500, page('Error', '<h1>Sandbox console error</h1><p>See the sandbox log in the terminal.</p>'));
     }
   });
 
