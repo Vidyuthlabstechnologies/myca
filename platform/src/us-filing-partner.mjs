@@ -288,6 +288,9 @@ export function applyPartnerEvent(state, event, options = {}) {
   let latest = entry.submissions.at(-1);
   const partnerOpen = latest && latest.transport === 'partner' && latest.status !== 'rejected';
   if (latest?.status === 'accepted') return { ok: true, changed: false, status: 'accepted' };
+  const known = event.submissionId ? entry.submissions.find((item) => item.submissionId === event.submissionId) : null;
+  if (known && event.status !== 'in_progress' && (known !== latest || known.status === 'rejected')) return { ok: true, changed: false, status: latest.status };
+  if (!known && !partnerOpen && latest?.status === 'rejected' && event.status === 'rejected' && !event.submissionId && entry.partner.status === 'rejected') return { ok: true, changed: false, status: 'rejected' };
   if (event.status === 'in_progress') {
     if (entry.partner.status === 'in_progress') return { ok: true, changed: false, status: 'in_progress' };
     entry.partner.status = 'in_progress';
