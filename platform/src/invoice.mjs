@@ -1,5 +1,5 @@
 import { createAccounts, createTransfers, listAccounts, paise, TRANSFER_FLAGS } from './ledger.mjs';
-import { gstSplit, nextPartyId, partyStateOf } from './chart.mjs';
+import { gstSplit, nextPartyId, partyStateOf, INVOICE_SUPPLY_TYPES, cessOf, hasCessInput, badCessInput, ensureCessAccounts, INPUT_CESS_ACCOUNT_ID, OUTPUT_CESS_ACCOUNT_ID } from './chart.mjs';
 import { csvRows, htmlEscape } from './text-safe.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { postingDate } from './dates.mjs';
@@ -39,6 +39,31 @@ function exportPlan(input) {
   const countryCode = String(raw.countryCode || '').trim().toUpperCase();
   if (countryCode && (!/^[A-Z]{2}$/.test(countryCode) || countryCode === 'IN')) return { ok: false, error: 'BAD_COUNTRY_CODE', countryCode };
   return { ok: true, plan: { currency, exchangeRate, withTax, shippingBillNo, shippingBillDate, portCode, ...(countryCode ? { countryCode } : {}) } };
+}
+
+function supplyTypePlan(input) {
+  const said = input.supplyType == null ? '' : String(input.supplyType).trim().toUpperCase();
+  if (!said) return { ok: true, supplyType: '' };
+  if (!INVOICE_SUPPLY_TYPES.includes(said)) return { ok: false, error: 'BAD_INVOICE_SUPPLY_TYPE', supplyType: said, hint: 'SEZWP, SEZWOP or DEXP' };
+  if (input.exportSale) return { ok: false, error: 'SEZ_NOT_EXPORT', hint: 'A supply to an SEZ or a deemed export is to a buyer in India; it is not also an export.' };
+  if (!String(input.partyGstin || '').trim()) return { ok: false, error: 'BUYER_GSTIN_REQUIRED', supplyType: said, hint: said === 'DEXP' ? 'A deemed export needs the recipient\'s GSTIN.' : 'A supply to an SEZ unit or developer needs its GSTIN.' };
+  const service = (input.lines || []).findIndex((line) => String(line?.hsn ?? '').trim().startsWith('99'));
+  if (said === 'DEXP' && service >= 0) return { ok: false, error: 'DEEMED_EXPORT_GOODS_ONLY', line: service + 1, hint: 'Deemed exports under section 147 cover goods only.' };
+  return { ok: true, supplyType: said };
+}
+
+export function cessProblem(rawLines) {
+  const bad = rawLines.findIndex((line) => badCessInput(line));
+  if (bad >= 0) return { ok: false, error: 'BAD_CESS', line: bad + 1, hint: 'Cess is a percentage and/or rupees per unit, zero or more.' };
+  const onZero = rawLines.findIndex((line) => hasCessInput(line) && line.supply != null && line.supply !== '');
+  if (onZero >= 0) return { ok: false, error: 'CESS_ON_ZERO_RATE_SUPPLY', line: onZero + 1 };
+  return null;
+}
+
+function cessFields(line, taxable, qty, levied) {
+  if (!hasCessInput(line)) return null;
+  const computed = cessOf(line, taxable, qty);
+  return levied ? computed : { ...computed, cessAdval: 0, cessNonAdval: 0, cess: 0 };
 }
 
 function sumOf(lines, key) {
@@ -160,10 +185,15 @@ export function createInvoice(state, input) {
   if (!date) return { ok: false, error: 'INVALID_DATE', date: input.date };
   if (isPeriodLocked(state, date)) return { ok: false, error: 'PERIOD_LOCKED', date, lockThrough: state.lockThrough };
   if (input.id && idTaken(state.invoices, input.id)) return { ok: false, error: 'DUPLICATE_ID', id: input.id };
+  const supplyPlan = supplyTypePlan(input);
+  if (!supplyPlan.ok) return supplyPlan;
+  const supplyType = supplyPlan.supplyType;
   const gstinProblem = input.exportSale ? null : badGstin(input.partyGstin);
   if (gstinProblem) return gstinProblem;
   const rawLines = input.lines || [];
   if (!rawLines.length) return { ok: false, error: 'NO_LINES' };
+  const saleCessProblem = cessProblem(rawLines);
+  if (saleCessProblem) return saleCessProblem;
   const unrated = rawLines.findIndex((l) => l.gstRate == null || l.gstRate === '');
   if (unrated >= 0) return { ok: false, error: 'RATE_REQUIRED', line: unrated + 1 };
   const specs = rawLines.map((l) => ({
@@ -199,8 +229,11 @@ export function createInvoice(state, input) {
       rate: gstRate,
       supplierState: reg.state,
       partyState: pos,
+      interState: supplyType === 'SEZWP',
     });
-    const split = exportSale && !exportSale.withTax ? { intra: false, cgst: 0, sgst: 0, igst: 0, tax: 0 } : computed;
+    const untaxed = (exportSale && !exportSale.withTax) || supplyType === 'SEZWOP';
+    const split = untaxed ? { intra: false, cgst: 0, sgst: 0, igst: 0, tax: 0 } : computed;
+    const cess = cessFields(l, taxable, qty, !untaxed);
     return {
       description: l.description,
       hsn: String(l.hsn ?? '').trim(),
@@ -211,14 +244,17 @@ export function createInvoice(state, input) {
       ...(gstRate === 0 && l.supply ? { supply: String(l.supply) } : {}),
       taxable,
       ...split,
-      amount: Math.round((taxable + split.tax) * 100) / 100,
+      ...(cess || {}),
+      amount: Math.round((taxable + split.tax + (cess ? cess.cess : 0)) * 100) / 100,
     };
   });
   const taxable = sumOf(lines, 'taxable');
   const cgst = sumOf(lines, 'cgst');
   const sgst = sumOf(lines, 'sgst');
   const igst = sumOf(lines, 'igst');
-  const total = Math.round((taxable + cgst + sgst + igst) * 100) / 100;
+  const withCess = lines.some((l) => l.cess != null);
+  const cessTotal = sumOf(lines, 'cess');
+  const total = Math.round((taxable + cgst + sgst + igst + cessTotal) * 100) / 100;
   const assignedSeq = !input.id;
   const seqBefore = state.invoiceSeq || 0;
   const seqByFyBefore = JSON.stringify(state.invoiceSeqByFy || {});
@@ -267,6 +303,18 @@ export function createInvoice(state, input) {
       code: 'IGST',
     });
   }
+  if (cessTotal > 0) {
+    ensureCessAccounts(state);
+    bundle.push({
+      id: nextTransferId(state),
+      debitAccountId: party.accountId,
+      creditAccountId: OUTPUT_CESS_ACCOUNT_ID,
+      amount: paise(cessTotal),
+      flags: linked,
+      invoiceId: id,
+      code: 'CESS',
+    });
+  }
   const posted = createTransfers(state.ledger, bundle);
   if (posted.some((p) => !p.ok)) {
     if (assignedSeq) {
@@ -288,7 +336,10 @@ export function createInvoice(state, input) {
     cgst,
     sgst,
     igst,
+    ...(withCess ? { cess: cessTotal } : {}),
     total,
+    ...(supplyType ? { supplyType } : {}),
+    ...(supplyType === 'SEZWOP' ? { zeroRated: true } : supplyType === 'SEZWP' ? { zeroRated: false } : {}),
     ...(terms.days == null ? {} : { paymentTermsDays: terms.days, dueDate: dueDateOf(date, terms.days) }),
     ...(exportSale ? { export: { ...exportSale, foreignTotal: exportSale.currency === 'INR' ? total : Math.round(lines.reduce((s, l) => s + Number(l.foreignAmount || 0), 0) * 100) / 100 }, zeroRated: !exportSale.withTax } : {}),
     ...docFieldsFor(reg),
@@ -390,6 +441,8 @@ export function createPurchase(state, input) {
   }
   const grossTaxable = specs.reduce((sum, s) => sum + Math.round(s.qty * s.rate * 100) / 100, 0);
   if (grossTaxable <= 0) return { ok: false, error: 'ZERO_AMOUNT' };
+  const billCessProblem = cessProblem(rawLines);
+  if (billCessProblem) return billCessProblem;
   const reverse = reverseChargeOf(input);
   if (!reverse.ok) return reverse;
   const rcm = reverse.rcm;
@@ -406,6 +459,7 @@ export function createPurchase(state, input) {
       supplierState: imported ? FOREIGN_POS : partyStateOf(vendor.gstin) || stateCodeOf(input.partyState) || reg.state,
       partyState: reg.state,
     });
+    const cess = cessFields(l, taxable, qty, true);
     return {
       description: l.description,
       hsn: String(l.hsn ?? '').trim(),
@@ -414,14 +468,17 @@ export function createPurchase(state, input) {
       gstRate,
       taxable,
       ...split,
-      amount: Math.round((taxable + split.tax) * 100) / 100,
+      ...(cess || {}),
+      amount: Math.round((taxable + split.tax + (cess ? cess.cess : 0)) * 100) / 100,
     };
   });
   const taxable = sumOf(lines, 'taxable');
   const cgst = sumOf(lines, 'cgst');
   const sgst = sumOf(lines, 'sgst');
   const igst = sumOf(lines, 'igst');
-  const total = rcm ? Math.round(taxable * 100) / 100 : Math.round((taxable + cgst + sgst + igst) * 100) / 100;
+  const withCess = lines.some((l) => l.cess != null);
+  const cess = sumOf(lines, 'cess');
+  const total = rcm ? Math.round(taxable * 100) / 100 : Math.round((taxable + cgst + sgst + igst + cess) * 100) / 100;
   let tds = null;
   if (wantsTds(input)) {
     const planned = planTds(state, input, { date, basis: taxable, payable: total, payee: vendor.name, beforeGst: true });
@@ -447,12 +504,13 @@ export function createPurchase(state, input) {
   const linked = TRANSFER_FLAGS.LINKED;
   const itcEligible = input.itcEligible !== false;
   const taxTo = rcm ? null : vendor.accountId;
-  const OUTPUT_OF = { cgst: 2100, sgst: 2101, igst: 2102 };
+  const OUTPUT_OF = { cgst: 2100, sgst: 2101, igst: 2102, cess: OUTPUT_CESS_ACCOUNT_ID };
+  if (cess > 0) ensureCessAccounts(state);
   const prefix = rcm ? 'RCM-' : '';
   const bundle = [
     { id: nextTransferId(state), debitAccountId: 5000, creditAccountId: vendor.accountId, amount: paise(taxable), flags: linked, invoiceId: id, code: 'PURCHASE' },
   ];
-  const heads = [['cgst', cgst, 1200], ['sgst', sgst, 1201], ['igst', igst, 1202]];
+  const heads = [['cgst', cgst, 1200], ['sgst', sgst, 1201], ['igst', igst, 1202], ['cess', cess, INPUT_CESS_ACCOUNT_ID]];
   if (itcEligible) {
     for (const [head, amount, itcAccount] of heads) {
       if (amount > 0) bundle.push({ id: nextTransferId(state), debitAccountId: itcAccount, creditAccountId: taxTo || OUTPUT_OF[head], amount: paise(amount), flags: linked, invoiceId: id, code: `${prefix}ITC-${head.toUpperCase()}` });
@@ -461,9 +519,9 @@ export function createPurchase(state, input) {
     for (const [head, amount] of heads) {
       if (amount > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 5000, creditAccountId: OUTPUT_OF[head], amount: paise(amount), flags: linked, invoiceId: id, code: `RCM-BLOCKED-${head.toUpperCase()}` });
     }
-  } else if (cgst + sgst + igst > 0) {
+  } else if (cgst + sgst + igst + cess > 0) {
     // Blocked credit (section 17(5)) is part of the cost, not an input tax asset.
-    bundle.push({ id: nextTransferId(state), debitAccountId: 5000, creditAccountId: vendor.accountId, amount: paise(cgst + sgst + igst), flags: linked, invoiceId: id, code: 'GST-BLOCKED' });
+    bundle.push({ id: nextTransferId(state), debitAccountId: 5000, creditAccountId: vendor.accountId, amount: paise(Math.round((cgst + sgst + igst + cess) * 100) / 100), flags: linked, invoiceId: id, code: 'GST-BLOCKED' });
   }
   if (tds && tds.tds > 0) bundle.push({ id: nextTransferId(state), debitAccountId: vendor.accountId, creditAccountId: tdsPayableAccountId(), amount: paise(tds.tds), flags: linked, invoiceId: id, code: `TDS-${tds.section}` });
   const posted = createTransfers(state.ledger, bundle);
@@ -476,7 +534,7 @@ export function createPurchase(state, input) {
   const bill = {
     id, ...(supplierInvoiceNo ? { supplierInvoiceNo } : {}), ...(/^[0-9a-f]{64}$/i.test(String(input.documentSha256 || '')) ? { documentSha256: String(input.documentSha256).toLowerCase() } : {}), date, partyName: vendor.name, partyGstin: vendor.gstin, partyState: vendor.state,
     partyAccountId: vendor.accountId,
-    lines, taxable, cgst, sgst, igst, total, status: 'posted', kind: 'purchase',
+    lines, taxable, cgst, sgst, igst, ...(withCess ? { cess } : {}), total, status: 'posted', kind: 'purchase',
     ...docFieldsFor(reg),
     itcEligible,
     ...(rcm ? { reverseCharge: rcm } : {}),
@@ -600,7 +658,7 @@ export function printInvoice(state, id) {
 <body><p>${htmlEscape(c.name)} · ${htmlEscape(inv.registrationGstin || c.gstin)}</p><h1>Tax Invoice ${htmlEscape(inv.id)}</h1>
 <p>${sale ? 'Bill to' : 'Supplier'}: ${htmlEscape(inv.partyName)} ${htmlEscape(inv.partyGstin || '')}<br>Date ${htmlEscape(inv.date)}</p>
 <table><thead><tr><th>Item</th>${hsnHead}<th>Qty</th><th>Rate</th><th>Taxable</th><th>GST</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
-<footer>Taxable ₹${htmlEscape(inv.taxable)} &nbsp; CGST ₹${htmlEscape(inv.cgst)} &nbsp; SGST ₹${htmlEscape(inv.sgst)} &nbsp; IGST ₹${htmlEscape(inv.igst)}<br><strong>Total ₹${htmlEscape(inv.total)}</strong></footer>${pay}${terms}${signed}${foot}</body></html>`;
+<footer>Taxable ₹${htmlEscape(inv.taxable)} &nbsp; CGST ₹${htmlEscape(inv.cgst)} &nbsp; SGST ₹${htmlEscape(inv.sgst)} &nbsp; IGST ₹${htmlEscape(inv.igst)}${Number(inv.cess || 0) > 0 ? ` &nbsp; Cess ₹${htmlEscape(inv.cess)}` : ''}<br><strong>Total ₹${htmlEscape(inv.total)}</strong></footer>${pay}${terms}${signed}${foot}</body></html>`;
   return { ok: true, html, invoice: inv };
 }
 
@@ -633,7 +691,7 @@ export function invoicesToSalesCsv(invoices) {
         l.cgst,
         l.sgst,
         l.igst,
-        0,
+        l.cess || 0,
         'N',
       ]);
     }

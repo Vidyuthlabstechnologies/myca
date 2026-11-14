@@ -162,7 +162,7 @@ export function ewayBillPartA(state, invoice) {
   const goods = (invoice.lines || []).filter((line) => !isService(line));
   const itemList = goods.map((line) => {
     const rate = Number(line.gstRate || 0);
-    const inter = Number(line.igst || 0) > 0 || (Number(line.cgst || 0) === 0 && Number(line.sgst || 0) === 0 && Number(invoice.igst || 0) > 0);
+    const inter = ['SEZWP', 'SEZWOP'].includes(invoice.supplyType) || Number(line.igst || 0) > 0 || (Number(line.cgst || 0) === 0 && Number(line.sgst || 0) === 0 && Number(invoice.igst || 0) > 0);
     return {
       productName: clean(line.description || line.item || 'Goods', 100) || 'Goods',
       productDesc: clean(line.description || '', 100),
@@ -173,8 +173,8 @@ export function ewayBillPartA(state, invoice) {
       igstRate: inter ? rate : 0,
       cgstRate: inter ? 0 : rate / 2,
       sgstRate: inter ? 0 : rate / 2,
-      cessRate: 0,
-      cessNonadvol: 0,
+      cessRate: Number(line.cessRate || 0),
+      cessNonadvol: Number(line.cessPerUnit || 0),
     };
   });
   const sumOf = (field) => round2(goods.reduce((sum, line) => sum + Number(line[field] || 0), 0));
@@ -182,8 +182,10 @@ export function ewayBillPartA(state, invoice) {
   const cgst = sumOf('cgst');
   const sgst = sumOf('sgst');
   const igst = sumOf('igst');
+  const cessAdval = sumOf('cessAdval');
+  const cessNonAdval = sumOf('cessNonAdval');
   const total = round2(invoice.total);
-  const other = round2(total - taxable - cgst - sgst - igst);
+  const other = round2(total - taxable - cgst - sgst - igst - cessAdval - cessNonAdval);
   const fromState = stateCode(seller.Stcd);
   const toState = exported ? EXPORT_STATE : stateCode(buyer.Stcd);
   const partA = {
@@ -214,8 +216,8 @@ export function ewayBillPartA(state, invoice) {
     cgstValue: cgst,
     sgstValue: sgst,
     igstValue: igst,
-    cessValue: 0,
-    cessNonAdvolValue: 0,
+    cessValue: cessAdval,
+    cessNonAdvolValue: cessNonAdval,
     otherValue: other,
     totInvValue: total,
     transMode: MODES[transport.mode],

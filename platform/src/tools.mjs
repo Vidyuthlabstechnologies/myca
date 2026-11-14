@@ -596,8 +596,8 @@ export const TOOLS = [
   {
     name: 'create_invoice',
     title: 'Create invoice',
-    description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here.',
-    args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'partyAddress'],
+    description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here. In India set supplyType SEZWP (supply to an SEZ unit or developer with IGST), SEZWOP (to an SEZ under LUT or bond, no tax) or DEXP (deemed export, taxed as usual; buyer GSTIN required); SEZ supplies are always IGST. A line may carry compensation cess as cessRate (percent of the taxable value) and/or cessPerUnit (rupees per unit).',
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'partyAddress', 'exportSale', 'supplyType'],
     run: (state, args) => (countryOf(state) === 'US' ? createUsInvoice(state, args) : createInvoice(state, args)),
   },
   {

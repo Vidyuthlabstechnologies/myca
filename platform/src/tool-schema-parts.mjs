@@ -16,6 +16,8 @@ export const lineSchema = {
     gstRate: { type: 'number', minimum: 0, maximum: 28 },
     taxable: { type: 'boolean' },
     supply: { type: 'string', enum: ['nil', 'exempt', 'non-gst'] },
+    cessRate: { type: 'number', minimum: 0 },
+    cessPerUnit: { type: 'number', minimum: 0 },
   },
 };
 

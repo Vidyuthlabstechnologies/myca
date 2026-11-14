@@ -1,5 +1,5 @@
 import { createTransfers, paise, TRANSFER_FLAGS } from './ledger.mjs';
-import { gstSplit, partyStateOf } from './chart.mjs';
+import { gstSplit, partyStateOf, scaledCess, ensureCessAccounts, INPUT_CESS_ACCOUNT_ID, OUTPUT_CESS_ACCOUNT_ID } from './chart.mjs';
 import { postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { tdsPayableAccountId } from './tds-deduction.mjs';
@@ -7,8 +7,9 @@ import { tdsPayableAccountId } from './tds-deduction.mjs';
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const SALES = 4000;
 const PURCHASES = 5000;
-const OUTPUT = { cgst: 2100, sgst: 2101, igst: 2102 };
-const INPUT = { cgst: 1200, sgst: 1201, igst: 1202 };
+const OUTPUT = { cgst: 2100, sgst: 2101, igst: 2102, cess: OUTPUT_CESS_ACCOUNT_ID };
+const INPUT = { cgst: 1200, sgst: 1201, igst: 1202, cess: INPUT_CESS_ACCOUNT_ID };
+const HEADS = ['cgst', 'sgst', 'igst', 'cess'];
 
 export function tdsHeldOn(bill) {
   return round2(Number(bill?.tds?.amount || 0) - Number(bill?.tds?.reversed || 0));
@@ -41,7 +42,8 @@ export function notedAgainstBill(state, billId) {
 export function scaledLines(document, fraction, { supplierState, partyState }) {
   return (document.lines || []).map((line) => {
     const taxable = round2(Number(line.taxable || 0) * fraction);
-    const split = document.zeroRated ? { cgst: 0, sgst: 0, igst: 0, tax: 0 } : gstSplit({ taxable, rate: Number(line.gstRate || 0), supplierState, partyState });
+    const split = document.zeroRated ? { cgst: 0, sgst: 0, igst: 0, tax: 0 } : gstSplit({ taxable, rate: Number(line.gstRate || 0), supplierState, partyState, interState: document.supplyType === 'SEZWP' });
+    const cess = scaledCess(line, fraction);
     return {
       description: line.description,
       hsn: line.hsn,
@@ -52,7 +54,8 @@ export function scaledLines(document, fraction, { supplierState, partyState }) {
       cgst: split.cgst,
       sgst: split.sgst,
       igst: split.igst,
-      amount: round2(taxable + split.tax),
+      ...cess,
+      amount: round2(taxable + split.tax + Number(cess.cess || 0)),
     };
   });
 }
@@ -62,7 +65,7 @@ export function settle(lines, requested, key = 'amount') {
   const scaled = round2(lines.reduce((sum, line) => sum + line[key], 0));
   const last = lines[lines.length - 1];
   last.taxable = round2(last.taxable + requested - scaled);
-  last.amount = round2(last.taxable + last.cgst + last.sgst + last.igst);
+  last.amount = round2(last.taxable + last.cgst + last.sgst + last.igst + Number(last.cess || 0));
   return lines;
 }
 
@@ -72,7 +75,9 @@ export function totalsOf(lines, { reverseCharge = false } = {}) {
   const cgst = sum('cgst');
   const sgst = sum('sgst');
   const igst = sum('igst');
-  return { taxable, cgst, sgst, igst, total: reverseCharge ? taxable : round2(taxable + cgst + sgst + igst) };
+  const withCess = lines.some((line) => line.cess != null);
+  const cess = round2(lines.reduce((total, line) => total + Number(line.cess || 0), 0));
+  return { taxable, cgst, sgst, igst, ...(withCess ? { cess } : {}), total: reverseCharge ? taxable : round2(taxable + cgst + sgst + igst + cess) };
 }
 
 function commonChecks(state, document, args, { notFound }) {
@@ -112,7 +117,8 @@ export function createDebitNote(state, args = {}) {
   const id = nextId(state, 'debitNotes', 'debitNoteSeq', 'DN');
   const linked = TRANSFER_FLAGS.LINKED;
   const bundle = [{ id: nextTransferId(state), debitAccountId: party.accountId, creditAccountId: SALES, amount: paise(plan.taxable), flags: linked, invoiceId: id, code: 'DEBIT_NOTE', userData: plan.date }];
-  for (const head of ['cgst', 'sgst', 'igst']) {
+  if (plan.cess > 0) ensureCessAccounts(state);
+  for (const head of HEADS) {
     if (plan[head] > 0) bundle.push({ id: nextTransferId(state), debitAccountId: party.accountId, creditAccountId: OUTPUT[head], amount: paise(plan[head]), flags: linked, invoiceId: id, code: `DN-${head.toUpperCase()}`, userData: plan.date });
   }
   const posted = createTransfers(state.ledger, bundle);
@@ -137,7 +143,10 @@ export function createDebitNote(state, args = {}) {
     cgst: plan.cgst,
     sgst: plan.sgst,
     igst: plan.igst,
+    ...(plan.cess != null ? { cess: plan.cess } : {}),
     total: plan.total,
+    ...(invoice.supplyType ? { supplyType: invoice.supplyType } : {}),
+    ...(invoice.supplyType === 'SEZWOP' ? { zeroRated: true } : {}),
     transferIds: posted.map((result) => result.id),
   };
   state.debitNotes = state.debitNotes || [];
@@ -183,13 +192,14 @@ export function createPurchaseNote(state, args = {}) {
   const id = nextId(state, 'purchaseNotes', 'purchaseNoteSeq', 'PDN');
   const linked = TRANSFER_FLAGS.LINKED;
   const bundle = [{ id: nextTransferId(state), debitAccountId: vendor.accountId, creditAccountId: PURCHASES, amount: paise(plan.taxable), flags: linked, invoiceId: id, code: 'PURCHASE_NOTE', userData: plan.date }];
-  const tax = round2(plan.cgst + plan.sgst + plan.igst);
+  const tax = round2(plan.cgst + plan.sgst + plan.igst + Number(plan.cess || 0));
+  if (plan.cess > 0) ensureCessAccounts(state);
   if (plan.reverseCharge) {
-    for (const head of ['cgst', 'sgst', 'igst']) {
+    for (const head of HEADS) {
       if (plan[head] > 0) bundle.push({ id: nextTransferId(state), debitAccountId: OUTPUT[head], creditAccountId: plan.itcEligible ? INPUT[head] : PURCHASES, amount: paise(plan[head]), flags: linked, invoiceId: id, code: `PDN-RCM-${head.toUpperCase()}`, userData: plan.date });
     }
   } else if (plan.itcEligible) {
-    for (const head of ['cgst', 'sgst', 'igst']) {
+    for (const head of HEADS) {
       if (plan[head] > 0) bundle.push({ id: nextTransferId(state), debitAccountId: vendor.accountId, creditAccountId: INPUT[head], amount: paise(plan[head]), flags: linked, invoiceId: id, code: `PDN-${head.toUpperCase()}`, userData: plan.date });
     }
   } else if (tax > 0) {
@@ -221,6 +231,7 @@ export function createPurchaseNote(state, args = {}) {
     cgst: plan.cgst,
     sgst: plan.sgst,
     igst: plan.igst,
+    ...(plan.cess != null ? { cess: plan.cess } : {}),
     total: plan.total,
     ...(plan.tdsReversed > 0 ? { tdsReversed: plan.tdsReversed, tdsSection: bill.tds.section } : {}),
     transferIds: posted.map((result) => result.id),

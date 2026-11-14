@@ -19,6 +19,7 @@ export const SALES_PURCHASE_TOOL_SCHEMAS = {
       taxExempt: { type: 'boolean' },
       exemptionReason: { type: 'string', maxLength: 120 },
       partyAddress: { type: 'string', maxLength: 200 },
+      supplyType: { type: 'string', enum: ['SEZWP', 'SEZWOP', 'DEXP', 'sezwp', 'sezwop', 'dexp'] },
       exportSale: {
         type: 'object',
         additionalProperties: false,

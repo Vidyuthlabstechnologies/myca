@@ -9,10 +9,12 @@ export const COA = [
   { id: 1200, code: '1200', name: 'GST input CGST', type: 'asset', flags: 0 },
   { id: 1201, code: '1201', name: 'GST input SGST', type: 'asset', flags: 0 },
   { id: 1202, code: '1202', name: 'GST input IGST', type: 'asset', flags: 0 },
+  { id: 1203, code: '1203', name: 'GST input Cess', type: 'asset', flags: 0 },
   { id: 2000, code: '2000', name: 'Trade payables', type: 'liability', flags: ACCOUNT_FLAGS.DEBITS_MUST_NOT_EXCEED_CREDITS },
   { id: 2100, code: '2100', name: 'GST output CGST', type: 'liability', flags: 0 },
   { id: 2101, code: '2101', name: 'GST output SGST', type: 'liability', flags: 0 },
   { id: 2102, code: '2102', name: 'GST output IGST', type: 'liability', flags: 0 },
+  { id: 2103, code: '2103', name: 'GST output Cess', type: 'liability', flags: 0 },
   { id: 2200, code: '2200', name: 'TDS payable', type: 'liability', flags: 0 },
   { id: 3000, code: '3000', name: 'Capital', type: 'equity', flags: ACCOUNT_FLAGS.DEBITS_MUST_NOT_EXCEED_CREDITS },
   { id: 4000, code: '4000', name: 'Sales', type: 'income', flags: ACCOUNT_FLAGS.DEBITS_MUST_NOT_EXCEED_CREDITS },
@@ -34,6 +36,47 @@ export function installChart(ledger) {
   createAccounts(ledger, COA);
 }
 
+export const INPUT_CESS_ACCOUNT_ID = 1203;
+export const OUTPUT_CESS_ACCOUNT_ID = 2103;
+
+export function ensureCessAccounts(state) {
+  createAccounts(state.ledger, COA.filter((account) => account.id === INPUT_CESS_ACCOUNT_ID || account.id === OUTPUT_CESS_ACCOUNT_ID));
+}
+
+export const INVOICE_SUPPLY_TYPES = ['SEZWP', 'SEZWOP', 'DEXP'];
+const SEZ_SUPPLY_TYPES = ['SEZWP', 'SEZWOP'];
+
+export function isSezSupply(doc) {
+  return SEZ_SUPPLY_TYPES.includes(doc?.supplyType);
+}
+
+export function cessOf(spec, taxable, qty) {
+  const cessRate = Number(spec?.cessRate || 0);
+  const cessPerUnit = Number(spec?.cessPerUnit || 0);
+  const cessAdval = Math.round((Math.round(Number(taxable) * 100) * cessRate) / 100) / 100;
+  const cessNonAdval = Math.round(Number(qty) * cessPerUnit * 100) / 100;
+  return { cessRate, cessPerUnit, cessAdval, cessNonAdval, cess: Math.round((cessAdval + cessNonAdval) * 100) / 100 };
+}
+
+export function hasCessInput(line) {
+  return ['cessRate', 'cessPerUnit'].some((key) => line?.[key] != null && line[key] !== '');
+}
+
+export function badCessInput(line) {
+  return ['cessRate', 'cessPerUnit'].some((key) => line?.[key] != null && line[key] !== '' && !(Number.isFinite(Number(line[key])) && Number(line[key]) >= 0));
+}
+
+export function scaledCess(line, fraction) {
+  if (line.cess == null) return {};
+  const cess = Math.round(Number(line.cess || 0) * fraction * 100) / 100;
+  const cessAdval = Math.round(Number(line.cessAdval || 0) * fraction * 100) / 100;
+  return { cessRate: line.cessRate, cessPerUnit: line.cessPerUnit, cessAdval, cessNonAdval: Math.round((cess - cessAdval) * 100) / 100, cess };
+}
+
+export function hasCess(doc) {
+  return (doc?.lines || []).some((line) => line.cess != null);
+}
+
 export function ensureInterestIncomeAccount(state) {
   createAccounts(state.ledger, [INTEREST_INCOME_ACCOUNT]);
   return INTEREST_INCOME_ACCOUNT.id;
@@ -48,9 +91,9 @@ export function nextPartyId(state) {
 
 // CGST and SGST are each levied at half the rate, so each is computed on its own
 // in paise and they are always equal; IGST is levied at the full rate.
-export function gstSplit({ taxable, rate, supplierState, partyState }) {
+export function gstSplit({ taxable, rate, supplierState, partyState, interState = false }) {
   const taxablePaise = Math.round(Number(taxable) * 100);
-  const intra = supplierState === partyState;
+  const intra = !interState && supplierState === partyState;
   if (intra) {
     const half = Math.round((taxablePaise * rate) / 200) / 100;
     return { intra: true, cgst: half, sgst: half, igst: 0, tax: Math.round(half * 200) / 100 };
