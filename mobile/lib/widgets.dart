@@ -85,6 +85,36 @@ class TintTile extends StatelessWidget {
   }
 }
 
+class ChoiceDot extends StatelessWidget {
+  const ChoiceDot({super.key, required this.selected, this.size = 40});
+
+  final bool selected;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      checked: selected,
+      inMutuallyExclusiveGroup: true,
+      child: SizedBox.square(
+        dimension: size,
+        child: Center(
+          child: Container(
+            width: size * 0.6,
+            height: size * 0.6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: selected ? Palette.ink : Colors.transparent,
+              border: Border.all(color: selected ? Palette.ink : Palette.muted, width: 1.6),
+            ),
+            child: selected ? Icon(Icons.check, size: size * 0.4, color: Palette.onInk) : null,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class Panel extends StatelessWidget {
   const Panel({super.key, required this.children});
 
