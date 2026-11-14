@@ -153,6 +153,7 @@ class ChatReply {
     required this.posted,
     required this.blocked,
     this.tools = const [],
+    this.raw = const <String, dynamic>{},
   });
 
   factory ChatReply.fromJson(Object? json) {
@@ -166,6 +167,7 @@ class ChatReply {
       posted: map['posted'] == true,
       blocked: map['blocked'] == true,
       tools: tools is List ? [for (final t in tools) if (t is Map) Map<String, dynamic>.from(t)] : const [],
+      raw: map,
     );
   }
 
@@ -173,6 +175,7 @@ class ChatReply {
   final ChatPreview? preview;
   final bool posted;
   final bool blocked;
+  final Map<String, dynamic> raw;
 
   /// The tools a confirm ran, each as {name, result}.
   final List<Map<String, dynamic>> tools;

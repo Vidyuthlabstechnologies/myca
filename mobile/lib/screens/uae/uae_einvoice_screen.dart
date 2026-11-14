@@ -79,6 +79,7 @@ class _UaeEinvoiceScreenState extends State<UaeEinvoiceScreen> with ProposalFlow
     final price = parseDirhams(_price.text);
     if (quantity == null || price == null) return null;
     return {
+      if (UaeStrings.of(context).ar) 'lang': 'ar',
       'type': 'invoice',
       'number': _number.text.trim(),
       'issueDate': _date.text.trim(),

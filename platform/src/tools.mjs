@@ -595,7 +595,7 @@ export const TOOLS = [
   {
     name: 'create_invoice',
     title: 'Create invoice',
-    description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here.',
+    description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the UAE 5% VAT by emirate; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here.',
     args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'partyAddress'],
     run: (state, args) => (engineBooks(countryOf(state), 'create_invoice')?.(state, args) ?? (countryOf(state) === 'US' ? createUsInvoice(state, args) : createInvoice(state, args))),
   },
