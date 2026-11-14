@@ -14,7 +14,4 @@
   <url><loc>https://__SITE_ORIGIN__/refunds</loc></url>
   <url><loc>https://__SITE_ORIGIN__/disclaimer</loc></url>
   <url><loc>https://__SITE_ORIGIN__/grievance</loc></url>
-  <url><loc>https://__SITE_ORIGIN__/us/privacy</loc></url>
-  <url><loc>https://__SITE_ORIGIN__/us/terms</loc></url>
-  <url><loc>https://__SITE_ORIGIN__/us/refunds</loc></url>
 </urlset>

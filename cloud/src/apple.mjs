@@ -6,6 +6,7 @@ export const APPLE_KEYS_URL = 'https://appleid.apple.com/auth/keys';
 export const APPLE_BUNDLE_ID = 'com.mldynamic.myca.us';
 const PRIVATE_RELAY = /@privaterelay\.appleid\.com$/i;
 const RAW_NONCE = /^[\x21-\x7e]{16,128}$/;
+const NONCE_KEEP_MS = 15 * 60 * 1000;
 
 export function appleClientIdsFromEnv(env = process.env) {
   const raw = String(env.MYCA_APPLE_CLIENT_IDS || '').trim();
@@ -33,7 +34,7 @@ function displayName(given) {
   return [part(given.givenName), part(given.familyName)].filter(Boolean).join(' ').slice(0, 80);
 }
 
-export function createAppleVerifier({ clientIds = [], keys, now = () => Date.now() }) {
+export function createAppleVerifier({ clientIds = [], keys, now = () => Date.now(), db = null }) {
   const verifier = createIdTokenVerifier({
     issuers: [APPLE_ISSUER],
     clientIds,
@@ -41,12 +42,21 @@ export function createAppleVerifier({ clientIds = [], keys, now = () => Date.now
     now,
     codes: { invalid: 'INVALID_APPLE_TOKEN', expired: 'APPLE_TOKEN_EXPIRED', unreachable: 'APPLE_UNREACHABLE', unavailable: 'APPLE_SIGN_IN_UNAVAILABLE' },
   });
+  async function firstUse(claimed) {
+    if (!db) return true;
+    const at = now();
+    await db.query('delete from apple_used_nonces where expires_at < $1', [new Date(at)]);
+    const stored = await db.query('insert into apple_used_nonces (nonce_hash, expires_at) values ($1, $2) on conflict (nonce_hash) do nothing', [hashNonce(String(claimed).toLowerCase()), new Date(at + NONCE_KEEP_MS)]);
+    return stored.rowCount === 1;
+  }
+
   return {
     enabled: verifier.enabled,
     async verify(idToken, { rawNonce, fullName } = {}) {
       const out = await verifier.verify(idToken);
       if (!out.ok) return out.error === 'WRONG_AUDIENCE' ? { ok: false, error: 'APPLE_WRONG_AUDIENCE' } : out;
       if (!nonceMatches(rawNonce, out.nonce)) return { ok: false, error: 'APPLE_NONCE_MISMATCH' };
+      if (!(await firstUse(out.nonce))) return { ok: false, error: 'APPLE_NONCE_REUSED' };
       return {
         ok: true,
         issuer: APPLE_ISSUER,

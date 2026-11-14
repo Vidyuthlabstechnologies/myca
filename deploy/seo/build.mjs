@@ -202,7 +202,7 @@ ${group('us', 'US federal taxes')}
 }
 
 export function renderSitemap() {
-  const paths = ['', GUIDE_INDEX.slug, ...PAGES.map((page) => page.slug), 'privacy', 'terms', 'refunds', 'disclaimer', 'grievance', 'us/privacy', 'us/terms', 'us/refunds'];
+  const paths = ['', GUIDE_INDEX.slug, ...PAGES.map((page) => page.slug), 'privacy', 'terms', 'refunds', 'disclaimer', 'grievance'];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${paths.map((path) => `  <url><loc>${ORIGIN}/${path}</loc></url>`).join('\n')}
@@ -249,7 +249,7 @@ ${notice.status ? `      <p class="note">${escape(notice.status)}</p>\n` : ''}  
 ${notice.sections.map((section) => `      <h2>${escape(section.heading)}</h2>\n${String(section.body).split(/\n\s*\n/).map((para) => `      <p>${escape(para.trim())}</p>`).join('\n')}`).join('\n')}
     </div>
   </section>`;
-  return shell({ path: 'us/privacy', title: 'MyCA US privacy notice', description: 'How MyCA US collects, uses, shares and protects your tax information, including your Social Security number, and the choices and rights you have.', body, ld: [], edition: 'us' });
+  return shell({ path: 'us/privacy', title: 'MyCA US privacy notice', description: 'How MyCA US collects, uses, shares and protects your tax information, including your Social Security number, and the choices and rights you have.', body, ld: [], edition: 'us' }).replace('<meta name="theme-color"', '<meta name="robots" content="noindex">\n<meta name="theme-color"');
 }
 
 export function outputs() {

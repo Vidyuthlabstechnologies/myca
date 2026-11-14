@@ -77,3 +77,13 @@ test('US pages carry an early-access form that stays hidden until its address is
   assert.match(docker, /COPY deploy\/site\/default\.conf\.template \/etc\/nginx\/templates\/default\.conf\.template/);
   assert.match(readFileSync(join(root, 'deploy', 'public', 'privacy.html'), 'utf8'), /early-access list/);
 });
+
+test('a page with blanks for the owner to fill is kept out of search and the sitemap', () => {
+  const sitemap = outputs()['sitemap.xml'];
+  for (const name of ['us/privacy', 'us/terms', 'us/refunds']) {
+    const html = readFileSync(join(root, 'deploy', 'public', `${name}.html`), 'utf8');
+    if (!/\[[^\]]*(company|support email|partner|address)[^\]]*\]/i.test(html)) continue;
+    assert.match(html, /<meta name="robots" content="noindex">/, name);
+    assert.ok(!sitemap.includes(`/${name}<`), name);
+  }
+});
