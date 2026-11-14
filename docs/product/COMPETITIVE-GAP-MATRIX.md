@@ -63,7 +63,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | Withholding check and estimated payments planner | yes | Ahead of FreeTaxUSA/Cash App |
 | **Refund booster: unused deductions and credits priced by re-running the return** | `us_refund_boost` | **Built now** (answers TurboTax's max-refund promise, with the dollar value shown) |
 | E-file through embedded partner (Column Tax / April) | built, partner unsigned | Gap until signed |
-| Brokerage / crypto CSV import (1099-B) | manual forms | Gap (TurboTax) |
+| Brokerage / crypto CSV import (1099-B) | `us_brokerage_csv` (broker 1099-B/8949 exports, exchange trades matched first in, first out) | **Built now** |
 | Prior-year return import (PDF) | no | Gap (TurboTax, H&R Block) |
 | Amended return 1040-X | no | Gap |
 | Form 2441 child care credit, 8962 premium tax credit, Schedule E rentals | coming | Gap |
@@ -132,7 +132,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | SST-02 return, SST registration test | yes | Ahead of Xero |
 | Income tax estimate | yes | Ahead |
 | Bilingual (English, Malay) | yes (launch branch) | Parity |
-| Payroll statutory (EPF, SOCSO, EIS, PCB) | no | **Top gap**; needs the official SOCSO/EIS tables, which are stepped and not a formula |
+| Payroll statutory (EPF, SOCSO, EIS) | `my_payroll` from the Third Schedule and the PERKESO RM100-band tables | **Built now**; PCB, wages of RM300 or less and SOCSO second category still open |
 | Bank feeds and receipt extraction | no | Gap (Bukku) |
 | Inventory with batches/serials | basic | Gap (AutoCount) |
 
@@ -140,8 +140,8 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 
 | # | Country | Gap | Why it matters | Suggested owner |
 |---|---|---|---|---|
-| 1 | US | Sign the e-file partner and add 1099-B/crypto CSV import | No filing, no revenue; investors are the users TurboTax upsells hardest | US launch thread + owner |
-| 2 | Malaysia | Payroll statutory (EPF Third Schedule, SOCSO and EIS tables, PCB) | SQL Account's payroll add-on is the main reason SMEs stay on desktop | Malaysia thread, from the official KWSP/PERKESO/LHDN tables |
+| 1 | US | Sign the e-file partner (1099-B/crypto CSV import is built) | No filing, no revenue; investors are the users TurboTax upsells hardest | US launch thread + owner |
+| 2 | Malaysia | PCB (monthly tax deduction) on top of the EPF/SOCSO/EIS payroll now built | SQL Account's payroll add-on is the main reason SMEs stay on desktop | Malaysia thread, from the official KWSP/PERKESO/LHDN tables |
 | 3 | India | Barcode counter billing and thermal printing on Android | Retail shops pick Vyapar/myBillBook for this alone | India mobile thread |
 | 4 | UK | Open Banking bank feeds and receipt OCR on UK screens | Every rival has them; quarterly MTD updates need categorised bank lines | UK thread (TrueLayer or Yapily via a cloud port) |
 | 5 | India | Hindi and regional-language app | Vyapar's growth came from it | Design system thread |

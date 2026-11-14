@@ -108,6 +108,7 @@ export const UNITED_STATES = Object.freeze({
     'track1099_import',
     'track1099_issuers',
     'track1099_job',
+    'us_brokerage_csv',
     'us_connectors',
     'us_efile_setup',
     'us_efile_status',
