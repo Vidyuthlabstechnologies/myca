@@ -17,6 +17,7 @@ const DAY_MS = 86400000;
 const FIRM_PLAN = 'firm';
 const LIVE = ['active', 'in_grace_period', 'canceled'];
 export const FIRM_CREDIT_MONTHS = 1;
+export const FIRM_REWARD = 'One month of the firm plan for each client who joins with your code and pays, added at your next renewal.';
 
 async function firmOf(q, userId, at) {
   const found = await q(
@@ -154,7 +155,7 @@ export function createGrowth({ db, now = () => Date.now(), siteUrl = '', reward 
         converted: counts.rows[0].converted,
         firm,
         credits: credits.rows[0],
-        reward: firm ? reward || null : null,
+        reward: firm ? reward || FIRM_REWARD : null,
       };
     },
 

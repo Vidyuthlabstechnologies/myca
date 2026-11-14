@@ -341,7 +341,7 @@ The server logs one `startup: services` line listing which optional services are
 | `MYCA_DEV_OTP` | local only | | no | Prints codes to the log; refused in production. |
 | `MYCA_ADMIN_USER_IDS` | for the crash digest and funnel | | no | Comma list of user ids that may read `GET /v1/admin/crashes?days=N` and `GET /v1/admin/funnel?days=N&edition=india|us`. |
 | `MYCA_SITE_URL` | for invite links | | no | Public https origin of the website. `GET /v1/me/referral` returns `<origin>/r/<code>`; empty returns the code only. |
-| `MYCA_REFERRAL_REWARD` | no | | no | Short text a CA firm sees as its invite reward. Only firms earn rewards (owner decision 2026-11-14): when a client a firm invited pays, `referral_credits` records one credit (one month, status `earned`) for the firm's owner. Credits are recorded, not yet applied to any subscription. |
+| `MYCA_REFERRAL_REWARD` | no | | no | Short text a CA firm sees as its invite reward. Only firms earn rewards (owner decision 2026-11-14): when a client a firm invited pays, `referral_credits` records one credit (one month, status `earned`) for the firm's owner. At the firm's next Play renewal (a later `current_end` on its `firm` subscription) earned credits become `applied` and add to `subscriptions.credit_months`; each month keeps the firm plan 30 days past the paid end. Empty uses the built-in firm reward text. |
 | `MYCA_PROVIDER_ENV` | no | `off` | no | Provider environment for the engines. Staging allows only `off` or `sandbox`. |
 | `MYCA_MOCK_MODE` | staging | | no | `1` makes every provider simulated (`providerMode: simulated`). |
 | `MYCA_ENABLE_LIVE_CALLS` | never on hosted today | off | no | The live switch for government, model and write actions. |

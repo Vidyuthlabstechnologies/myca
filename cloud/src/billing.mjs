@@ -4,6 +4,7 @@ import { createStripe, stripeSignatureValid } from './stripe.mjs';
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const TRIAL_DAYS = 14;
 export const GRACE_DAYS = 3;
+export const CREDIT_MONTH_DAYS = 30;
 const LIVE_STATUSES = new Set(['active', 'in_grace_period', 'canceled']);
 const PLAY_API = 'https://androidpublisher.googleapis.com/androidpublisher/v3/applications';
 const PLAY_SCOPE = 'https://www.googleapis.com/auth/androidpublisher';
@@ -210,7 +211,30 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     if (!out.ok) log({ billing: 'acknowledge_failed', status: out.status });
   }
 
+  async function applyFirmCredits(businessId, before, found) {
+    if (found.plan !== 'firm' || !LIVE_STATUSES.has(found.status) || !before?.currentEnd || !found.currentEnd) return 0;
+    if (new Date(found.currentEnd).getTime() <= new Date(before.currentEnd).getTime()) return 0;
+    return db.tx(async (q) => {
+      const taken = await q(
+        "update referral_credits set status = 'applied', applied_at = $2 where firm_business_id = $1 and status = 'earned' returning months",
+        [businessId, new Date(now())],
+      );
+      const months = taken.rows.reduce((sum, item) => sum + item.months, 0);
+      if (months) {
+        await q('update subscriptions set credit_months = credit_months + $2 where business_id = $1', [businessId, months]);
+        log({ billing: 'firm_credits_applied', businessId, months });
+      }
+      return months;
+    });
+  }
+
   async function save(businessId, userId, purchaseToken, found) {
+    const before = await row(businessId);
+    await saveRow(businessId, userId, purchaseToken, found);
+    await applyFirmCredits(businessId, before, found);
+  }
+
+  async function saveRow(businessId, userId, purchaseToken, found) {
     await db.query(
       `insert into subscriptions (business_id, provider, provider_subscription_id, product_id, plan, status, current_end, test_purchase, created_by, updated_at)
        values ($1, 'play', $2, $3, $4, $5, $6, $7, $8, now())
@@ -220,7 +244,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   }
 
   async function row(businessId) {
-    const found = await db.query('select provider, provider_subscription_id as "token", product_id as "productId", plan, status, current_end as "currentEnd", test_purchase as "testPurchase" from subscriptions where business_id = $1', [businessId]);
+    const found = await db.query('select provider, provider_subscription_id as "token", product_id as "productId", plan, status, current_end as "currentEnd", test_purchase as "testPurchase", credit_months as "creditMonths" from subscriptions where business_id = $1', [businessId]);
     return found.rows[0] || null;
   }
 
@@ -250,7 +274,8 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     const firstBusinessAt = business.rows[0]?.trialStartedAt ? new Date(business.rows[0].trialStartedAt).getTime() : createdAt;
     const trialEndsAt = Math.min(createdAt, firstBusinessAt) + TRIAL_DAYS * DAY_MS;
     const sub = await row(businessId);
-    const paidUntil = sub?.currentEnd ? new Date(sub.currentEnd).getTime() + GRACE_DAYS * DAY_MS : 0;
+    const creditDays = (sub?.creditMonths || 0) * CREDIT_MONTH_DAYS;
+    const paidUntil = sub?.currentEnd ? new Date(sub.currentEnd).getTime() + (GRACE_DAYS + creditDays) * DAY_MS : 0;
     const paying = Boolean(sub && LIVE_STATUSES.has(sub.status) && PAID.includes(sub.plan) && paidUntil > at);
     const inTrial = !paying && at < trialEndsAt;
     const plan = paying ? sub.plan : inTrial ? 'pro' : 'lapsed';
@@ -262,7 +287,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       limits: PLANS[plan].limits,
       features: PLANS[plan].features,
       trial: inTrial ? { endsAt: new Date(trialEndsAt).toISOString(), daysLeft: Math.max(0, Math.ceil((trialEndsAt - at) / DAY_MS)) } : null,
-      subscription: sub ? { provider: sub.provider, plan: sub.plan, productId: sub.productId, status: sub.status, renews: sub.status === 'active' || sub.status === 'in_grace_period', currentEnd: sub.currentEnd ? new Date(sub.currentEnd).toISOString() : null, testPurchase: sub.testPurchase } : null,
+      subscription: sub ? { provider: sub.provider, plan: sub.plan, productId: sub.productId, status: sub.status, renews: sub.status === 'active' || sub.status === 'in_grace_period', currentEnd: sub.currentEnd ? new Date(sub.currentEnd).toISOString() : null, testPurchase: sub.testPurchase, creditMonths: sub.creditMonths || 0, ...(sub.creditMonths ? { creditUntil: new Date(new Date(sub.currentEnd).getTime() + creditDays * DAY_MS).toISOString() } : {}) } : null,
       manageUrl: sub?.provider === 'play' ? manageUrl(sub.productId) : '',
     };
   }
