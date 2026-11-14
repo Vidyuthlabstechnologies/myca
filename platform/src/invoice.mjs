@@ -312,9 +312,9 @@ export function recordReceipt(state, { invoiceId, amount, date, mode } = {}) {
   const already = (inv.receipts || []).reduce((s, r) => s + Number(r.amount || 0), 0);
   const credited = (state.creditNotes || []).filter((note) => note.invoiceId === invoiceId).reduce((s, note) => s + Number(note.total || 0), 0)
     - (state.debitNotes || []).filter((note) => note.invoiceId === invoiceId).reduce((s, note) => s + Number(note.total || 0), 0);
-  const amt = amount == null || amount === '' ? Math.round((inv.total - already - credited) * 100) / 100 : Number(amount);
+  const amt = amount == null || amount === '' ? Math.round((inv.total - already - credited) * 100) / 100 : (Number.isFinite(Number(amount)) ? Number(paise(Number(amount))) / 100 : NaN);
   if (!Number.isFinite(amt) || amt <= 0) return { ok: false, error: 'BAD_AMOUNT' };
-  if (already + credited + amt > inv.total + 0.01) {
+  if (already + credited + amt > inv.total + 0.005) {
     return {
       ok: false,
       error: 'OVERPAYMENT',

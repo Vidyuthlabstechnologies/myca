@@ -75,7 +75,7 @@ function movements(state, include) {
     if (!isPosted(transfer)) continue;
     const date = dateOf(transfer);
     if (!date) undated += 1;
-    if (!include(date)) continue;
+    if (!include(date, transfer)) continue;
     const debit = transfer.debitAccountId.toString();
     const credit = transfer.creditAccountId.toString();
     const d = byAccount.get(debit) || { debit: 0n, credit: 0n };
@@ -119,7 +119,7 @@ export function profitAndLoss(state, args = {}) {
   const span = period(state, args);
   if (span.error) return span.error;
   const { from, to } = span;
-  const { byAccount, undated } = movements(state, (date) => Boolean(date) && date >= from && date <= to);
+  const { byAccount, undated } = movements(state, (date, transfer) => Boolean(date) && date >= from && date <= to && transfer.code !== 'YEAR-CLOSE');
   const income = linesFor(state.ledger, byAccount, 'income', 'credit');
   const expenses = linesFor(state.ledger, byAccount, 'expense', 'debit');
   const net = income.total - expenses.total;

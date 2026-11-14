@@ -154,6 +154,7 @@ export function tallyVouchers(state, period) {
       entry(LEDGERS.purchases, blocked ? round2(bill.taxable + tax) : bill.taxable, true),
       ...(blocked ? [] : taxEntries(bill, 'input', true)),
       entry(bill.partyName, round2(bill.total - tds), false),
+      ...(bill.reverseCharge ? taxEntries(bill, 'output', false) : []),
       entry(LEDGERS.tdsPayable, tds, false),
     ] }));
   }
