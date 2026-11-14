@@ -171,7 +171,9 @@ export function tallyVouchers(state, period) {
     use(note.partyName, GROUPS.supplier, note.partyGstin || '');
     const tax = round2(note.cgst + note.sgst + note.igst);
     push(voucher({ type: 'Debit Note', date: note.date, number: note.id, party: note.partyName, narration: `Against ${note.billId}: ${note.reason}`, reference: note.billId, entries: [
-      entry(note.partyName, note.total, true),
+      entry(note.partyName, round2(note.total - Number(note.tdsReversed || 0)), true),
+      entry(LEDGERS.tdsPayable, note.tdsReversed, true),
+      ...(note.reverseCharge ? taxEntries(note, 'output', true) : []),
       entry(LEDGERS.purchases, note.itcEligible === false ? round2(note.taxable + tax) : note.taxable, false),
       ...(note.itcEligible === false ? [] : taxEntries(note, 'input', false)),
     ] }));

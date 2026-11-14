@@ -2,12 +2,17 @@ import { createTransfers, paise, TRANSFER_FLAGS } from './ledger.mjs';
 import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
+import { tdsPayableAccountId } from './tds-deduction.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const SALES = 4000;
 const PURCHASES = 5000;
 const OUTPUT = { cgst: 2100, sgst: 2101, igst: 2102 };
 const INPUT = { cgst: 1200, sgst: 1201, igst: 1202 };
+
+export function tdsHeldOn(bill) {
+  return round2(Number(bill?.tds?.amount || 0) - Number(bill?.tds?.reversed || 0));
+}
 
 function nextTransferId(state) {
   state.transferSeq = (state.transferSeq || 100000) + 1;
@@ -162,8 +167,9 @@ export function planPurchaseNote(state, args = {}) {
   const lines = full ? scaledLines(bill, 1, { supplierState: supplierSide, partyState: bill.registrationState || company.state }) : settle(scaledLines(bill, checked.requested / Number(bill.total), { supplierState: supplierSide, partyState: bill.registrationState || company.state }), checked.requested, reverseCharge ? 'taxable' : 'amount');
   const totals = totalsOf(lines, { reverseCharge });
   const paid = round2((bill.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
-  const refundDue = round2(Math.max(0, paid + Number(bill.tds?.amount || 0) + alreadyNoted + totals.total - Number(bill.total)));
-  return { ok: true, plan: { bill, date: checked.date, reason: checked.reason, full, lines, ...totals, alreadyNoted, paid, refundDue, itcEligible: bill.itcEligible !== false, reverseCharge } };
+  const tdsReversed = full ? tdsHeldOn(bill) : 0;
+  const refundDue = round2(Math.max(0, paid + tdsHeldOn(bill) - tdsReversed + alreadyNoted + totals.total - Number(bill.total)));
+  return { ok: true, plan: { bill, date: checked.date, reason: checked.reason, full, lines, ...totals, alreadyNoted, paid, refundDue, tdsReversed, itcEligible: bill.itcEligible !== false, reverseCharge } };
 }
 
 export function createPurchaseNote(state, args = {}) {
@@ -189,6 +195,7 @@ export function createPurchaseNote(state, args = {}) {
   } else if (tax > 0) {
     bundle.push({ id: nextTransferId(state), debitAccountId: vendor.accountId, creditAccountId: PURCHASES, amount: paise(tax), flags: linked, invoiceId: id, code: 'PDN-GST-BLOCKED', userData: plan.date });
   }
+  if (plan.tdsReversed > 0) bundle.push({ id: nextTransferId(state), debitAccountId: tdsPayableAccountId(), creditAccountId: vendor.accountId, amount: paise(plan.tdsReversed), flags: linked, invoiceId: id, code: `PDN-TDS-${bill.tds.section}`, userData: plan.date });
   const posted = createTransfers(state.ledger, bundle);
   if (posted.some((result) => !result.ok)) {
     state.transferSeq = seqBefore;
@@ -215,14 +222,24 @@ export function createPurchaseNote(state, args = {}) {
     sgst: plan.sgst,
     igst: plan.igst,
     total: plan.total,
+    ...(plan.tdsReversed > 0 ? { tdsReversed: plan.tdsReversed, tdsSection: bill.tds.section } : {}),
     transferIds: posted.map((result) => result.id),
   };
+  if (plan.tdsReversed > 0) {
+    bill.tds = { ...bill.tds, reversed: round2(Number(bill.tds.reversed || 0) + plan.tdsReversed), reversedBy: id };
+    for (const entry of state.tdsEntries || []) {
+      if (entry.source !== bill.id || !(entry.tds > 0)) continue;
+      entry.reversedTds = entry.tds;
+      entry.tds = 0;
+      entry.reversedBy = id;
+    }
+  }
   state.purchaseNotes = state.purchaseNotes || [];
   state.purchaseNotes.push(note);
   bill.purchaseNoteIds = [...(bill.purchaseNoteIds || []), id];
   bill.notedTotal = round2((bill.notedTotal || 0) + note.total);
   const paid = round2((bill.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
-  const outstanding = round2(Math.max(0, Number(bill.total) - bill.notedTotal - Number(bill.tds?.amount || 0) - paid));
+  const outstanding = round2(Math.max(0, Number(bill.total) - bill.notedTotal - tdsHeldOn(bill) - paid));
   return { ok: true, purchaseNote: note, bill, posted, refundDue: plan.refundDue, outstanding };
 }
 

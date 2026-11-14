@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createState } from '../src/store.mjs';
-import { createInvoice, createPurchase, recordReceipt } from '../src/invoice.mjs';
+import { createInvoice, createPurchase, recordReceipt, billOutstanding } from '../src/invoice.mjs';
 import { createCreditNote, outstandingOf } from '../src/credit-notes.mjs';
 import { createPurchaseNote } from '../src/debit-notes.mjs';
 import { listAccounts, trialBalance, verifyChain } from '../src/ledger.mjs';
@@ -12,6 +12,8 @@ import { reportDate } from '../src/dates.mjs';
 import { parse26asCredits } from '../src/marketplace-credits.mjs';
 import { parseOrdersCsv } from '../src/marketplace-orders.mjs';
 import { parseSettlementCsv } from '../src/settlements.mjs';
+import { collectionDrafts, recordCollectionReminder } from '../src/collections.mjs';
+import { planMatch, openInvoicesOf } from '../src/bank-recon.mjs';
 
 const CUSTOMER = '27AAACH7409R1Z1';
 const SUPPLIER = '27AABCT1332L1ZE';
@@ -82,6 +84,9 @@ test('a full supplier note against a reverse charge bill clears the supplier wit
   const note = createPurchaseNote(state, { billId: bill.id, amount: 10000, reason: 'returned', date: '2026-08-20' });
   assert.equal(note.ok, true);
   assert.equal(balanceOf(state, bill.partyAccountId), 0);
+  const voucher = tallyVouchers(state, '2026-08').vouchers.find((v) => v.includes(note.purchaseNote.id));
+  assert.equal(voucherNet(voucher), 0);
+  assert.match(voucher, /<LEDGERNAME>Output CGST<\/LEDGERNAME>/);
 });
 
 test('the profit and loss of a closed year still shows its income and expenses', () => {
@@ -139,4 +144,64 @@ test('report dates with a time, or a month name as 26AS prints it, are read as t
   const settlement = parseSettlementCsv('settlement-id,transaction-type,order-id,amount-type,amount-description,amount,posted-date-time\n777,Order,403-1111111-1111111,ItemPrice,Principal,1200.00,03.09.2026 10:11:12 UTC', { channel: 'amazon' });
   assert.equal(settlement.ok, true);
   assert.equal(settlement.lines[0].date, '2026-09-03');
+});
+
+test('a full supplier note against a bill with TDS reverses the TDS, so the supplier and TDS payable end at zero', () => {
+  const state = books();
+  state.company = { ...state.company, tdsDeductor: true, tan: 'MUMA12345B' };
+  const bill = createPurchase(state, { partyName: 'Fabric Co', partyGstin: SUPPLIER, date: '2026-10-05', tdsSection: '194C', payeePan: 'AABCT1332L', lines: [{ description: 'Job work', hsn: '9988', qty: 1, rate: 200000, gstRate: 5 }] }).invoice;
+  assert.ok(bill.tds.amount > 0);
+  const note = createPurchaseNote(state, { billId: bill.id, amount: bill.total, reason: 'work rejected', date: '2026-10-10' });
+  assert.equal(note.ok, true, note.error);
+  assert.equal(balanceOf(state, bill.partyAccountId), 0);
+  assert.equal(balanceOf(state, 2200), 0);
+  assert.equal(billOutstanding(bill), 0);
+  assert.equal(note.outstanding, 0);
+  assert.equal(note.refundDue, 0);
+  assert.equal(state.tdsEntries.filter((entry) => entry.source === bill.id).reduce((sum, entry) => sum + entry.tds, 0), 0);
+  const { vouchers } = tallyVouchers(state, '2026-10');
+  for (const voucher of vouchers) assert.equal(voucherNet(voucher), 0);
+  assert.ok(vouchers.some((voucher) => voucher.includes(note.purchaseNote.id) && voucher.includes('<LEDGERNAME>TDS Payable</LEDGERNAME>')));
+});
+
+function twoSharmas() {
+  const state = books();
+  const pune = createInvoice(state, { date: '2026-08-01', partyName: 'Sharma Traders', partyGstin: CUSTOMER, lines: [{ description: 'x', hsn: '5208', qty: 1, rate: 1000, gstRate: 18 }] }).invoice;
+  const bengaluru = createInvoice(state, { date: '2026-08-02', partyName: 'Sharma Traders', partyGstin: '29AAACH7409R1Z8', lines: [{ description: 'y', hsn: '5208', qty: 1, rate: 500, gstRate: 18 }] }).invoice;
+  assert.notEqual(pune.partyAccountId, bengaluru.partyAccountId);
+  return { state, pune, bengaluru };
+}
+
+test('two customers with the same name and different GSTINs are chased separately', () => {
+  const { state, pune, bengaluru } = twoSharmas();
+  const drafts = collectionDrafts(state, { today: '2026-10-15' });
+  assert.equal(drafts.ok, true);
+  assert.equal(drafts.data.customers.length, 2);
+  const totals = Object.fromEntries(drafts.data.customers.map((row) => [row.gstin, row.total]));
+  assert.deepEqual(totals, { [CUSTOMER]: 1180, '29AAACH7409R1Z8': 590 });
+  assert.deepEqual(drafts.data.customers.find((row) => row.gstin === CUSTOMER).invoices.map((row) => row.id), [pune.id]);
+  const byName = recordCollectionReminder(state, { customer: 'Sharma Traders', today: '2026-10-15' });
+  assert.equal(byName.ok, false);
+  assert.equal(byName.error, 'CUSTOMER_AMBIGUOUS');
+  const byGstin = recordCollectionReminder(state, { customer: '29AAACH7409R1Z8', today: '2026-10-15' });
+  assert.equal(byGstin.ok, true, byGstin.error);
+  assert.deepEqual(byGstin.reminder.invoiceIds, [bengaluru.id]);
+  const after = collectionDrafts(state, { today: '2026-10-15' }).data.customers;
+  assert.equal(after.find((row) => row.gstin === '29AAACH7409R1Z8').timesSent, 1);
+  assert.equal(after.find((row) => row.gstin === CUSTOMER).timesSent, 0);
+});
+
+test('a bank receipt for one of two same-named customers is applied only to that customer', () => {
+  const { state, pune, bengaluru } = twoSharmas();
+  const line = { id: 'BL-1', account: '1002', date: '2026-08-20', narration: 'NEFT SHARMA TRADERS', in: 1770, out: 0, status: 'unmatched' };
+  const byName = planMatch(state, line, { kind: 'receipt', partyName: 'Sharma Traders' });
+  assert.equal(byName.ok, false);
+  assert.equal(byName.error, 'PARTY_AMBIGUOUS');
+  const byInvoice = planMatch(state, line, { kind: 'receipt', invoiceId: bengaluru.id });
+  assert.equal(byInvoice.ok, false);
+  assert.equal(byInvoice.error, 'RECEIPT_UNALLOCATED');
+  const exact = planMatch(state, { ...line, in: 590 }, { kind: 'receipt', invoiceId: bengaluru.id });
+  assert.equal(exact.ok, true, exact.error);
+  assert.deepEqual(exact.plan.allocations, [{ invoiceId: bengaluru.id, amount: 590 }]);
+  assert.deepEqual(openInvoicesOf(state, state.parties.find((party) => party.accountId === pune.partyAccountId)).map((inv) => inv.id), [pune.id]);
 });
