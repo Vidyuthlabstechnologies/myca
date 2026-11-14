@@ -145,8 +145,8 @@ export function paymentFor(state, requested, { payOn, gstin } = {}) {
 function paymentNotes({ forward, nil, late, unreviewed, tcsUsed, reverseCharge }) {
   const notes = [];
   const rcmTotal = round2(Number(reverseCharge?.igst || 0) + Number(reverseCharge?.cgst || 0) + Number(reverseCharge?.sgst || 0));
-  if (rcmTotal > 0) notes.push(`Reverse charge tax of ${rcmTotal} on this month's purchases is paid in cash, as the law requires; input credit cannot pay it. Its credit is counted in this month's input credit.`);
   notes.push('Credit is set off head by head in the order the law sets: IGST credit against IGST first, then CGST and SGST; CGST credit against CGST then IGST; SGST credit against SGST then IGST. CGST credit is never used for SGST, nor SGST credit for CGST.');
+  if (rcmTotal > 0) notes.push(`Reverse charge tax of ${rcmTotal} on this month's purchases is paid in cash, as the law requires; input credit cannot pay it. Its credit is counted in this month's input credit.`);
   if (!forward.known) {
     notes.push(forward.beforeOpening
       ? 'This month is before the credit balance you set, so no credit is brought forward into it.'
