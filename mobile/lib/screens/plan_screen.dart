@@ -143,6 +143,7 @@ class _PlanScreenState extends State<PlanScreen> {
           _plans = plans;
           _entitlement = entitlement;
         });
+        AppScope.of(context).reachSteps(['plan_viewed', if (entitlement.trialDaysLeft != null) 'trial_started', if (entitlement.paying) 'paid']);
       }
       await _startStore(cloud, plans);
     } on MycaApiException catch (err) {

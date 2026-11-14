@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../api/models.dart';
 import '../api/myca_api.dart';
+import '../growth.dart';
 import 'token_store.dart';
 
 const _messages = {
@@ -997,6 +998,17 @@ class CloudSession {
 
   Future<void> sendCrashReports(List<Map<String, Object?>> reports) async {
     await call('POST', '/v1/crash-reports', {'reports': reports});
+  }
+
+  Future<void> sendFunnelSteps(List<Map<String, Object?>> steps) async {
+    _accepted(await call('POST', '/v1/funnel', {'steps': steps}));
+  }
+
+  Future<ReferralInfo> referral() async => ReferralInfo.fromJson(_accepted(await call('GET', '/v1/me/referral')));
+
+  Future<String?> claimReferral(String code) async {
+    final body = await call('POST', '/v1/me/referral/claim', {'code': code});
+    return body['ok'] == true ? null : referralClaimMessage('${body['error'] ?? ''}');
   }
 
   Future<void> requestCode(String phone) async {

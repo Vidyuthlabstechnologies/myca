@@ -19,6 +19,7 @@ import { IMPORT_CONTENT_ARG, isImport } from '../../platform/src/import-document
 import { assertSecret } from './tokens.mjs';
 import { createBodyBudget, defaultBodyBudgetBytes } from './body-budget.mjs';
 import { createCrashReports } from './crash-reports.mjs';
+import { createGrowth } from './growth.mjs';
 import { PRIVACY_NOTICE, consentExempt, createConsent, noticeFor } from './consent.mjs';
 import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
@@ -315,7 +316,7 @@ export function clientAddress(req, hops = trustedProxyHops()) {
   return String(parts[parts.length - hops] || '').slice(0, 64);
 }
 
-export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', environment = 'local', healthTimeoutMs = 2000, playPush = {}, testSignIn = null, otpGlobalPerHour = OTP_MAX_GLOBAL_PER_HOUR, rateLimits: limitsGiven = LIMITS, adminUserIds = [], jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0, gspFetch = null, smokeFetch = null }) {
+export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', environment = 'local', healthTimeoutMs = 2000, playPush = {}, testSignIn = null, otpGlobalPerHour = OTP_MAX_GLOBAL_PER_HOUR, rateLimits: limitsGiven = LIMITS, adminUserIds = [], jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0, gspFetch = null, smokeFetch = null, growth: growthConfig = {} }) {
   process.env.MYCA_HOSTED = '1';
   assertSecret(secret);
   const budget = createBodyBudget(Number.isSafeInteger(bodyBudgetBytes) && bodyBudgetBytes > 0 ? bodyBudgetBytes : defaultBodyBudgetBytes({ constrainedMemory: process.constrainedMemory(), ceiling: MAX_BUSINESS_BYTES }));
@@ -359,6 +360,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   };
   const members = createMembers({ db, secret, now, notify: otpSender && typeof otpSender.sendText === 'function' ? (phone, text) => otpSender.sendText(phone, text) : null });
   const crashes = createCrashReports({ db, now });
+  const growth = createGrowth({ db, now, siteUrl: growthConfig.siteUrl ?? process.env.MYCA_SITE_URL ?? '', reward: growthConfig.reward ?? process.env.MYCA_REFERRAL_REWARD ?? '' });
   const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain }, storedBytes: (businessId) => businesses.storedBytes(businessId), limitBytes: MAX_BUSINESS_BYTES });
   const rateLimits = createRateLimits({ db, now, limits: limitsGiven });
   const whatsApp = createWhatsApp({ db, withBooks, billing, withSharedBooks: runner.withSharedBooks, syncOf, rateLimits, config: whatsapp, sender: whatsappSender, now, log });
@@ -587,6 +589,27 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     if (parts[1] === 'crash-reports' && parts.length === 2 && method === 'POST') {
       await throttle('crash', user.userId);
       return crashes.record(await readJson(req, MAX_CRASH_BYTES));
+    }
+
+    if (parts[1] === 'funnel' && parts.length === 2 && method === 'POST') {
+      await throttle('funnel', user.userId);
+      return growth.record(user.userId, await readJson(req));
+    }
+
+    if (parts[1] === 'me' && parts[2] === 'referral') {
+      if (parts.length === 3 && method === 'GET') return growth.referral(user.userId);
+      if (parts.length === 4 && parts[3] === 'claim' && method === 'POST') {
+        await throttle('referralClaim', user.userId);
+        return growth.claim(user.userId, await readJson(req));
+      }
+      throw httpError(404, 'NOT_FOUND');
+    }
+
+    if (parts[1] === 'admin' && parts[2] === 'funnel' && parts.length === 3 && method === 'GET') {
+      if (!isAdmin(user.userId)) throw httpError(404, 'NOT_FOUND');
+      const days = Math.max(1, Math.min(365, Number(url.searchParams.get('days')) || 30));
+      log({ requestId, admin: 'funnel', userId: user.userId, days });
+      return { days, ...(await growth.digest({ sinceMs: now() - days * 24 * 60 * 60 * 1000, edition: url.searchParams.get('edition') || 'india' })) };
     }
 
     if (parts[1] === 'admin' && parts[2] === 'crashes' && parts.length === 3 && method === 'GET') {

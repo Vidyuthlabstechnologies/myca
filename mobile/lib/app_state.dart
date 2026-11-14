@@ -13,6 +13,7 @@ import 'cloud/google_auth.dart';
 import 'cloud/oidc_auth.dart';
 import 'cloud/plaid_link.dart';
 import 'crash_reports.dart';
+import 'growth.dart';
 import 'lock/app_lock.dart';
 import 'notifications.dart';
 
@@ -42,6 +43,7 @@ class AppState extends ChangeNotifier {
     this.lock = const NoAppLock(),
     this.now = DateTime.now,
     this.crashes,
+    this.funnel,
     this.google,
     this.oidc,
     this.plaidLink = const NoPlaidLink(),
@@ -75,6 +77,7 @@ class AppState extends ChangeNotifier {
   final AppLock lock;
   final DateTime Function() now;
   final CrashReporter? crashes;
+  final FunnelTracker? funnel;
   final GoogleAuth? google;
   final OidcAuth? oidc;
   final PlaidLinkOpener plaidLink;
@@ -158,6 +161,7 @@ class AppState extends ChangeNotifier {
       moneyCountry = snapshot?.company.country ?? 'IN';
       await _skipMigrationForKeptBooks();
       _sendCrashReports();
+      _reachFunnel();
     } on SignedOutException {
       snapshot = null;
       recoveryNote = '';
@@ -187,6 +191,21 @@ class AppState extends ChangeNotifier {
     final hosted = cloud;
     if (reporter == null || hosted == null || !hosted.signedIn) return;
     unawaited(reporter.flush(hosted.sendCrashReports));
+  }
+
+  void _reachFunnel() {
+    final books = snapshot;
+    if (books == null) return;
+    final india = edition == 'IN';
+    final kept = books.invoices.isNotEmpty || books.purchases.isNotEmpty || books.expenses.isNotEmpty;
+    reachSteps(['signed_in', if (india) 'business_created', if (india && kept) 'first_entry']);
+  }
+
+  void reachSteps(List<String> steps) {
+    final tracker = funnel;
+    final hosted = cloud;
+    if (tracker == null || hosted == null || !hosted.ready || hosted.needsConsent) return;
+    unawaited(tracker.reach(steps, hosted.sendFunnelSteps));
   }
 
   Future<void> setCrashReports(bool enabled) async {

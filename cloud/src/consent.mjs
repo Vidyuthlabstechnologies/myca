@@ -1,6 +1,6 @@
 export const PRIVACY_NOTICE = {
   document: 'privacy',
-  version: 'draft-2026-10-07',
+  version: 'draft-2026-11-14',
   title: 'How MyCA uses your information',
   status: 'Draft for legal review. Not yet approved for release.',
   controller: 'ML Dynamic Solutions Private Limited, 606, 6th Floor, Gowra Fountainhead, Patrika Nagar, Madhapur, HITEC City, Hyderabad, Telangana 500081',
@@ -11,11 +11,11 @@ export const PRIVACY_NOTICE = {
     },
     {
       heading: 'What we collect',
-      body: 'Your mobile number, or the name and email address of the Google account you choose, to sign you in. Your name, so people you work with know who recorded what. The books of the businesses you keep in MyCA: invoices, bills, expenses, receipts and payments, the customers and suppliers named in them, and files you upload. Which phone you signed in on, and a record of every change made to the books and by whom. Crash reports, with names, amounts, GSTINs and phone numbers removed, only if you switch them on.',
+      body: 'Your mobile number, or the name and email address of the Google account you choose, to sign you in. Your name, so people you work with know who recorded what. The books of the businesses you keep in MyCA: invoices, bills, expenses, receipts and payments, the customers and suppliers named in them, and files you upload. Which phone you signed in on, and a record of every change made to the books and by whom. Crash reports, with names, amounts, GSTINs and phone numbers removed, only if you switch them on. Which setup steps you have reached in the app, such as adding a business, starting a trial or paying, with no names or amounts, and the invite code you joined with, if any, so we can see where people get stuck.',
     },
     {
       heading: 'Why we use it',
-      body: 'To keep your books, prepare your GST figures, remind you of due dates, let the people you invite work with you, keep your account secure, and fix problems in the app. We do not sell your information or use it for advertising.',
+      body: 'To keep your books, prepare your GST figures, remind you of due dates, let the people you invite work with you, keep your account secure, fix problems in the app, and see in totals across everyone where people get stuck. We do not sell your information or use it for advertising.',
     },
     {
       heading: 'Where it is kept',
