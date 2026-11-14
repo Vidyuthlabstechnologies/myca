@@ -28,7 +28,7 @@ the raw set, not a mix.
 | Card | Title (≤ 80) | Description (≤ 80) |
 |---|---|---|
 | Launch | MyCA is here: books, GST and payroll by chat | Try Pro free for 14 days. You approve every filing |
-| GST month end | GSTR-1 due on the 11th. Yours is drafted | Open MyCA, review the draft, file with your EVC OTP |
+| GST month end | GSTR-1 due on the 11th. Yours is drafted | Open MyCA, review the draft and send it to your CA |
 | For CA firms | Every client's books, one approvals queue | MyCA CA firm plan: 25 people, approvals across clients |
 
 ## Search terms to watch (for the listing and Play ads later)

@@ -33,9 +33,9 @@ Hindi lines are a first draft for a native speaker to polish.
 >
 > Most small business owners we spoke to keep their books twice: once in a notebook or a billing app, and again when their CA asks for it at month end. GST returns become a scramble, every month.
 >
-> MyCA keeps the books the way a careful accountant would, from the owner's phone. Sales, bills and expenses go in as a sentence or a photo. GSTR-1 and GSTR-3B are drafted from those books, and filed on the portal only when the owner confirms with the EVC OTP. A CA can be asked to approve first.
+> MyCA keeps the books the way a careful accountant would, from the owner's phone. Sales, bills and expenses go in as a sentence or a photo. GSTR-1 and GSTR-3B are drafted from those books, for the owner and their CA to review. Nothing is filed without the CA's approval.
 >
-> Every figure comes from a rules engine with the GST rule and the date behind it. If a return MyCA filed is wrong because of our mistake, we correct and refile it at no charge.
+> Every figure comes from a rules engine with the GST rule and the date behind it.
 >
 > It is on Google Play today with a 14-day trial of Pro. If you run a business, or look after the books of a few, I would love your feedback.
 
@@ -44,17 +44,16 @@ Hindi lines are a first draft for a native speaker to polish.
 **4. GSTR-1 reminder** (8th to 10th of the month) · `post-03-gstr1.png`
 
 > GSTR-1 is due on the 11th. In MyCA, yours is already drafted from your invoices.
-> Review it step by step, then file with your EVC OTP. Done before chai gets cold.
+> Review it step by step and send it to your CA. Done before chai gets cold.
 
-Hindi (WhatsApp status): "GSTR-1 की आखिरी तारीख 11 है। MyCA में आपका ड्राफ्ट तैयार है, बस जाँचिए और OTP से फाइल कीजिए।"
+Hindi (WhatsApp status): "GSTR-1 की आखिरी तारीख 11 है। MyCA में आपका ड्राफ्ट तैयार है, बस जाँचिए और अपने CA को भेजिए।"
 
-**5. Accuracy promise** · `post-04-promise.png`
+**5. Accuracy** · `post-04-promise.png`
 
-> Our promise is accuracy.
-> If a return MyCA filed is wrong because of our mistake, we correct it and refile it at no charge.
-> That is how sure we are of the engine behind every figure.
+> Every figure in MyCA shows where it came from.
+> Each line of your GST return traces back to your invoices and the dated GST rule behind it, so you and your CA can check it in minutes.
 
-(Do not change this to a penalty promise. See the brand guidelines, section 7.)
+(No refund, refile or penalty promise here: the correction promise belongs to MyCA Assured only. See the brand guidelines, section 7.)
 
 **6. Say it, see it** · `post-05-preview.png`
 
@@ -66,7 +65,7 @@ Hindi (WhatsApp status): "GSTR-1 की आखिरी तारीख 11 ह�
 **7. You approve** · `post-06-control.png`
 
 > MyCA never files or pays on its own.
-> Every entry: a preview first. Every return: your EVC OTP. Want your CA to sign off first? Turn on CA approval.
+> Every entry: a preview first. Every return: a step-by-step review, and your CA's approval before anything is filed.
 
 **8. Data** · `post-07-data.png`
 
@@ -75,7 +74,7 @@ Hindi (WhatsApp status): "GSTR-1 की आखिरी तारीख 11 ह�
 
 **9. Bahi** · `post-08-bahi.png`
 
-> Say hello to Bahi, the ledger who keeps MyCA tidy. He waves when you open the app, thinks while your return is drafted, and celebrates when it is filed.
+> Say hello to Bahi, the ledger who keeps MyCA tidy. He waves when you open the app, thinks while your return is drafted, and celebrates when your books balance.
 
 ## Week 4: for CA firms and growing businesses
 
@@ -99,8 +98,8 @@ Hindi (WhatsApp status): "GSTR-1 की आखिरी तारीख 11 ह�
 ## X / Threads short versions
 
 - MyCA: books, GST and payroll by chat. You approve every entry and filing. {{PLAY_LINK}}
-- GSTR-1 due on the 11th? In MyCA it is already drafted. Review, OTP, done.
-- If a return MyCA filed is wrong because of our mistake, we refile it free. That is the promise.
+- GSTR-1 due on the 11th? In MyCA it is already drafted. Review it, send it to your CA, done.
+- Every figure in your GST return traces back to an invoice and a dated rule. Check it in minutes.
 - Type "bill from Gupta Steels 45,000 GST 18%". See it. Say yes. That is bookkeeping now.
 
 ## Reels and shorts (30 seconds, no voice-over, captions in English and Hindi)

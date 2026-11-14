@@ -25,9 +25,7 @@ It keeps your books the way a careful accountant would, from your phone:
 
 - **Type it or snap it.** "Invoice Sharma Traders 12,000 GST 18%" or a photo of a purchase bill.
 - **See it first.** MyCA shows you exactly what it will post. Nothing goes in until you say yes.
-- **GST, drafted.** GSTR-1 and GSTR-3B are worked out from your books. File on the portal with your EVC OTP when you are ready, or ask your CA to approve first.
-
-And our promise: if a return MyCA filed is wrong because of our mistake, we correct it and refile it at no charge.
+- **GST, drafted.** GSTR-1 and GSTR-3B are worked out from your books, ready for you and your CA to review.
 
 Your first business gets 14 days of Pro, free.
 
@@ -71,7 +69,7 @@ Every sale and bill you record in MyCA flows into the month's GST draft.
 
 Open **Taxes** to see GSTR-1 and GSTR-3B for this month: what is ready, what needs a look (an invoice without a GSTIN, a bill that is not in GSTR-2B yet) and the date it is due.
 
-When you are on Pro, you can file on the portal from MyCA once you confirm with the EVC OTP sent to your authorised signatory. Prefer your CA to check first? Turn on **CA approval** and invite them.
+Invite your CA from the business menu so they can review the same draft. Nothing is filed without their approval.
 
 [Review this month's GST]({{APP_LINK}})
 
@@ -90,7 +88,7 @@ Your 14-day Pro trial ends on {{TRIAL_END}}.
 | Plan | For | Price |
 |---|---|---|
 | Essentials | Keep your own books, GST worked out, 2 people | ₹999 a month or ₹9,999 a year |
-| Pro | Plus portal filing, e-invoices, connectors, WhatsApp, 5 people | ₹1,999 a month or ₹19,999 a year |
+| Pro | Plus e-invoices, connectors, WhatsApp, 5 people, and portal filing with your CA's approval once it opens | ₹1,999 a month or ₹19,999 a year |
 | CA firm | Plus 25 people and approvals across clients | ₹5,999 a month or ₹59,999 a year |
 
 No per-invoice limits. Google Play shows the final price before you pay, and you can cancel any time.

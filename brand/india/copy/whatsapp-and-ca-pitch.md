@@ -11,7 +11,7 @@ matching square from `out/social/`.
 >
 > Type "invoice Sharma Traders 12000 GST 18%". MyCA shows you the invoice, you say yes, and it is in your books and your GSTR-1.
 >
-> ✅ Nothing posts or files until you approve
+> ✅ Nothing posts until you approve
 > ✅ GSTR-1 and GSTR-3B drafted from your books
 > ✅ 14-day Pro trial
 >
@@ -23,7 +23,7 @@ matching square from `out/social/`.
 >
 > Bas likhiye "invoice Sharma Traders 12000 GST 18%". MyCA invoice dikhayega, aap haan boliye, aur entry books aur GSTR-1 dono mein.
 >
-> ✅ Aapki approval ke bina kuch post ya file nahi hota
+> ✅ Aapki approval ke bina kuch post nahi hota
 > ✅ GSTR-1, GSTR-3B aapke books se tayyar
 > ✅ 14 din Pro free trial
 >
@@ -35,7 +35,7 @@ matching square from `out/social/`.
 >
 > लिखिए "invoice Sharma Traders 12000 GST 18%"। MyCA इनवॉइस दिखाएगा, आप हाँ कहिए, और एंट्री आपकी बही और GSTR-1 में।
 >
-> ✅ आपकी मंज़ूरी के बिना कुछ भी फाइल नहीं होता
+> ✅ आपकी मंज़ूरी के बिना कुछ भी बही में नहीं जाता
 > ✅ GSTR-1 और GSTR-3B आपकी बही से तैयार
 > ✅ 14 दिन Pro मुफ़्त
 >
@@ -53,10 +53,10 @@ Talk track, one slide at a time:
 1. **Title.** MyCA for CA firms: clients who keep their books right, a firm that reviews instead of re-keys.
 2. **The problem.** Month end today: bills on WhatsApp on the 9th, re-keying into Tally, chasing GSTINs, late nights before the 11th and the 20th.
 3. **What changes.** Clients record sales and bills on their phone as they happen. Every entry is previewed and confirmed. Your team reviews, not re-types.
-4. **Your firm view.** Every client in one place. Due dates across clients. An approvals queue: a filing can require the CA's approval before the client's EVC OTP.
+4. **Your firm view.** Every client in one place. Due dates across clients. An approvals queue: every filing needs your approval.
 5. **Review is fast.** Every figure in a return shows the rule and date behind it. GSTR-2B matching shows what credit is safe to take and which suppliers to remind.
 6. **Your tools stay.** Export to Tally or CSV at any time. Nothing is locked in.
-7. **Trust.** Nothing files without the client's OTP; your approval can be required first. Books sealed per business, HTTPS only, a books check every night, daily backups. The accuracy promise: if a return MyCA filed is wrong because of our mistake, we refile it at no charge.
+7. **Trust.** Nothing is filed without your approval. Books sealed per business, HTTPS only, a books check every night, daily backups. Every figure shows the rule and date behind it.
 8. **Plans.** CA firm ₹5,999 a month (₹59,999 a year), 25 people across clients. Clients choose Essentials ₹999 or Pro ₹1,999. Each client you invite who subscribes gives your firm one free month.
 9. **Pilot.** Bring 5 clients for 30 days. We set them up with you, import their Tally data, and sit with your team for the first GST month end.
 10. **Next step.** A 20-minute walkthrough on sample books. Contact {{SENDER}}, {{PHONE}}, {{EMAIL}}.
@@ -65,8 +65,8 @@ Objections and answers:
 
 | They say | We answer |
 |---|---|
-| "My clients will make mistakes." | Every entry is previewed in plain words before it posts, and you can require your approval before any filing. |
+| "My clients will make mistakes." | Every entry is previewed in plain words before it posts, and every filing needs your approval. |
 | "We already use Tally." | Keep it. MyCA exports a Tally file whenever you want, so your working papers stay where they are. |
-| "Who is liable if a return is wrong?" | The client files with their own OTP, after your approval if you require it. If the error is MyCA's, we correct and refile at no charge. We do not take over your professional responsibility, and we do not pay penalties. |
+| "Who is liable if a return is wrong?" | Nothing is filed without your approval, and the responsibility for the return stays with you and the client. MyCA does not take over your professional responsibility and does not pay penalties. |
 | "Is client data safe?" | Each business is sealed separately, sent only over HTTPS, checked nightly and backed up daily. A client can export or delete their data at any time. |
 | "Will you steal my clients?" | No. MyCA does not offer CA services to your clients. MyCA Assured, when it opens, is for businesses without a CA. |
