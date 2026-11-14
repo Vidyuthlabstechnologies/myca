@@ -214,7 +214,12 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
 
 ThemeData usAppTheme() {
   final base = MycaDesign.forFlavor('us').light;
-  return base.copyWith(inputDecorationTheme: base.inputDecorationTheme.copyWith(helperMaxLines: 4, errorMaxLines: 4));
+  const roomy = WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 10));
+  return base.copyWith(
+    inputDecorationTheme: base.inputDecorationTheme.copyWith(helperMaxLines: 4, errorMaxLines: 4),
+    filledButtonTheme: FilledButtonThemeData(style: (base.filledButtonTheme.style ?? const ButtonStyle()).copyWith(padding: roomy)),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: (base.outlinedButtonTheme.style ?? const ButtonStyle()).copyWith(padding: roomy)),
+  );
 }
 
 class _Readable extends StatelessWidget {

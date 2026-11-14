@@ -281,6 +281,7 @@ class _UsFilingFeeCardState extends State<UsFilingFeeCard> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final price = _product?.price ?? '\$${widget.fee.priceUsd}';
+    final storeDiffers = _product != null && num.tryParse(price.replaceAll(RegExp(r'[^0-9.]'), '')) != widget.fee.priceUsd;
     return Container(
       key: const Key('usFee.card'),
       padding: const EdgeInsets.all(16),
@@ -291,6 +292,10 @@ class _UsFilingFeeCardState extends State<UsFilingFeeCard> {
           Text('One step before filing', style: text.titleMedium),
           const SizedBox(height: 6),
           Text(usFilingFeeLine(widget.fee), key: const Key('usFee.line'), semanticsLabel: usFeeSpoken(widget.fee), style: text.bodyMedium),
+          if (!widget.fee.byCard && _ready && storeDiffers) ...[
+            const SizedBox(height: 8),
+            Text('Google Play charges $price here, and that is the price you pay.', key: const Key('usFee.storePrice'), style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+          ],
           const SizedBox(height: 14),
           if (widget.fee.byCard)
             ..._cardButtons(text)

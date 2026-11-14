@@ -327,7 +327,7 @@ class UsWalk {
     await popAll();
 
     api.efile = 'signed';
-    final store = FeeStore();
+    final store = FeeStore(price: '\$99.00');
     await open(UsSignScreen(taxYear: walkYear, fees: WalkFees(const UsFilingFee(taxYear: walkYear, enforced: true, paid: false, priceUsd: 99, listPriceUsd: 129, productId: 'myca_us_1040', priceLine: '\$99 to file your federal return, launch price for this season (usually \$129). One price, no upgrade fees.')), store: store), '28_fee_play_launch');
     await popAll();
     await open(UsSignScreen(taxYear: walkYear, fees: WalkFees(const UsFilingFee(taxYear: walkYear, enforced: true, paid: false, priceUsd: 129, checkout: 'card'))), '29_fee_card');

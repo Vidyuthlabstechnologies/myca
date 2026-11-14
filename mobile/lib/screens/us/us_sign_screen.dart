@@ -601,7 +601,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                   keyboardType: TextInputType.number,
                   obscureText: true,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-                  decoration: InputDecoration(labelText: 'Identity Protection PIN (if the IRS sent you one)', errorText: _errors['ipPin']),
+                  decoration: InputDecoration(labelText: 'IP PIN (optional)', helperText: 'Only if the IRS sent you an Identity Protection PIN', errorText: _errors['ipPin']),
                 ),
                 if (joint) ...[
                   const SizedBox(height: 12),
@@ -611,7 +611,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                     keyboardType: TextInputType.number,
                     obscureText: true,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-                    decoration: InputDecoration(labelText: 'Your spouse\'s Identity Protection PIN (if any)', errorText: _errors['spouseIpPin']),
+                    decoration: InputDecoration(labelText: 'Spouse\'s IP PIN (optional)', helperText: 'Only if the IRS sent your spouse one', errorText: _errors['spouseIpPin']),
                   ),
                 ],
                 const SizedBox(height: 22),

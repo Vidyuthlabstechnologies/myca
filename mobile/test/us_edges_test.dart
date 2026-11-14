@@ -19,7 +19,7 @@ import 'package:myca/us/us_return.dart';
 import 'cloud_test.dart' show sessionOn, signedIn;
 import 'fake_api.dart' show MemoryOnboardingStore;
 import 'fake_cloud.dart';
-import 'us_return_test.dart' show usState;
+import 'us_return_test.dart' show FeeStore, usState;
 import 'us_walk.dart';
 import '../tool/fonts.dart';
 
@@ -285,6 +285,21 @@ void main() {
     expect(find.byKey(const Key('usSign.secondStep')), findsOneWidget);
     expect(find.textContaining('two-step sign-in under Security'), findsOneWidget);
     expect(find.byKey(const Key('usSign.openSecurity')), findsOneWidget);
+  });
+
+  testWidgets('when Google Play charges something other than our price, the card says what Play charges', (tester) async {
+    const fee = UsFilingFee(taxYear: walkYear, enforced: true, paid: false, priceUsd: 99, listPriceUsd: 129, productId: 'myca_us_1040');
+    final api = filledApi()..efile = 'signed';
+    await tester.pumpWidget(MycaApp(state: usState(api)));
+    await tester.pumpAndSettle();
+    await openOn(tester, UsSignScreen(taxYear: walkYear, fees: WalkFees(fee), store: FeeStore()));
+    expect(find.byKey(const Key('usFee.storePrice')), findsOneWidget);
+    expect(find.textContaining('Google Play charges \$129.00'), findsOneWidget);
+    Navigator.of(tester.element(find.byType(UsSignScreen))).pop();
+    await tester.pumpAndSettle();
+    await openOn(tester, UsSignScreen(taxYear: walkYear, fees: WalkFees(fee), store: FeeStore(price: '\$99.00')));
+    expect(find.byKey(const Key('usFee.storePrice')), findsNothing);
+    expect(find.text('Pay \$99.00 and continue'), findsOneWidget);
   });
 
   testWidgets('the fee line is read by screen readers as one sentence with launch and list price', (tester) async {
