@@ -4,6 +4,7 @@ import { publicEncrypt, constants, createPublicKey, createHash } from 'node:cryp
 import { encryptSecret, decryptSecret, vaultBackend } from './credential-vault.mjs';
 import { providerContext } from './provider-context.mjs';
 import { rcmSupplyType, selfInvoiceById } from './reverse-charge.mjs';
+import { localToday } from './dates.mjs';
 
 export const GOVT_SITES = {
   gstHome: 'https://www.gst.gov.in/',
@@ -205,6 +206,7 @@ function nicDate(iso) {
 }
 
 const PIN = /\b([1-9][0-9]{5})\b/;
+const DOC_NUMBER = /^[A-Za-z1-9][A-Za-z0-9/-]{0,15}$/;
 const IRN_FROM = '2021-10-01';
 const CANCEL_HOURS = 24;
 
@@ -228,7 +230,7 @@ export function nicSupplyType(inv) {
   return String(inv?.partyGstin || '').trim() ? 'B2B' : '';
 }
 
-export function nicPayloadProblems(company, inv, party = null, today = new Date().toISOString().slice(0, 10)) {
+export function nicPayloadProblems(company, inv, party = null, today = localToday()) {
   const problems = [];
   const supply = nicSupplyType(inv);
   if (inv?.kind === 'purchase' && !supply) {
@@ -238,6 +240,8 @@ export function nicPayloadProblems(company, inv, party = null, today = new Date(
     return problems;
   }
   if (!supply) problems.push({ code: 'B2C_NO_IRN', words: 'An invoice to a buyer without a GSTIN gets no IRN: e-invoicing covers B2B, export and SEZ supplies only.' });
+  const docNo = String((inv?.kind === 'purchase' ? inv.selfInvoiceNo : inv?.id) ?? '');
+  if (!DOC_NUMBER.test(docNo)) problems.push({ code: 'DOC_NUMBER_INVALID', words: `The IRP takes a document number of up to 16 letters, digits, / and -, not starting with 0, / or -; ${docNo || 'this one'} is not one.` });
   const date = String(inv?.date || '');
   if (date && date < IRN_FROM) problems.push({ code: 'DOCUMENT_TOO_OLD', words: 'The IRP takes documents dated 1 October 2021 or later.' });
   if (date && date > today) problems.push({ code: 'FUTURE_DOCUMENT', words: 'The document is dated in the future.' });

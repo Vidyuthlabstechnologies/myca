@@ -41,6 +41,7 @@ const FILING_REASONS = {
   DEPOSIT_NOT_A_FILING: () => 'A TDS deposit is recorded with its challan, not an ARN. Say "deposited TDS, challan" followed by the reference.',
   ALREADY_RECORDED: (p) => `${p.returnType} for ${p.period} is already recorded as filed on ${p.filedOn} (ARN ${p.arn}).`,
   ARN_USED: (p) => `ARN ${p.arn} is already recorded against another return.`,
+  TDS_FORM_REQUIRED: () => 'Say which TDS statement was filed: 24Q for salary, or 26Q for other payments.',
 };
 
 const ADVANCE_REASONS = { BAD_AMOUNT: 'The amount has to be more than zero.', INVALID_DATE: 'That is not a date I can read.', FUTURE_DATE: 'A payment cannot be dated in the future.', PERIOD_LOCKED: 'That date is inside the locked period.' };

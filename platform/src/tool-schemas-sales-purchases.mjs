@@ -30,6 +30,7 @@ export const SALES_PURCHASE_TOOL_SCHEMAS = {
           shippingBillDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
           portCode: { type: 'string', maxLength: 6 },
           countryCode: { type: 'string', pattern: '^[A-Za-z]{2}$' },
+          lutNumber: { type: 'string', maxLength: 20 },
         },
       }, ...documentSchema.properties, paymentTermsDays: { type: 'integer', minimum: 0, maximum: 365 } },
   },
@@ -270,6 +271,7 @@ export const SALES_PURCHASE_TOOL_SCHEMAS = {
       transporterId: { type: 'string', maxLength: 15 },
       mode: { type: 'string', enum: ['road', 'rail', 'air', 'ship'] },
       docNo: { type: 'string', maxLength: 15 },
+      docDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
     },
   },
   record_share: {

@@ -62,8 +62,13 @@ What must be true by about 20 January 2027:
 - [ ] A US CPA or EA attests the tax year 2026 rule records (owner signs the partner; Column Tax's own
       return engine is the one the IRS receives, so this mainly protects MyCA's estimate).
 - [ ] Privacy notice names the US company as controller, with a real contact. The US notice
-      (`us-draft-2026-11-14`) already describes the partner route and US hosting; three bracketed
-      blanks remain: the US company, the partner's name, and the privacy contact.
+      (`us-draft-2026-11-14.2`) already describes the partner route and US hosting; three bracketed
+      blanks remain: the US company, the partner's name, and the privacy contact. The IRC 7216 consent
+      forms (`cloud/src/us-7216.mjs`) use the same company blank and cannot be signed in production
+      until it is filled. Full checklist: [`COMPLIANCE-REVIEW.md`](COMPLIANCE-REVIEW.md).
+- [ ] `MYCA_US_FILER_SEND_TINS=1` only once the partner contract allows SSNs in the prefill; even then
+      SSNs go only for filers who signed the partner consent.
+- [ ] Two-step sign-in is required to sign or file in production; tell support.
 
 ## Owner actions before a US launch
 
@@ -77,7 +82,7 @@ What must be true by about 20 January 2027:
       the Qualified Individual and privacy contact.
 - [ ] Decide where US returns are stored. Recommended: a US region (`us-central1`) for US households.
 - [ ] EV TLS certificate for the filing domain, weekly external vulnerability scans, US registrar.
-- [ ] Decide whether two-step sign-in is required before signing (recommended: yes).
+- [x] Two-step sign-in is required before signing or filing in production (`cloud/src/us-safeguards.mjs`). Still to decide: require it at account creation.
 - [ ] Set `MYCA_PII_KEY` (32+ characters, in Secret Manager, different from `MYCA_BOOKS_KEY`) and
       `MYCA_REQUIRE_PII_KEY=1` in production before any US return is saved.
 

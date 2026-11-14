@@ -97,7 +97,7 @@ export async function startApi(options = {}) {
     });
     if (verified.status !== 200) throw new Error(`sign-in failed: ${verified.text}`);
     if (agree) {
-      const agreed = await call('POST', '/v1/me/consent', { token: verified.body.accessToken, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version } });
+      const agreed = await call('POST', '/v1/me/consent', { token: verified.body.accessToken, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version, adult: true } });
       if (agreed.status !== 200) throw new Error(`consent failed: ${agreed.text}`);
     }
     return verified.body;

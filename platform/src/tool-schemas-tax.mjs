@@ -69,6 +69,7 @@ export const TAX_TOOL_SCHEMAS = {
       arn: { type: 'string', pattern: '^[A-Za-z0-9 ]{10,24}$' },
       filedOn: { type: 'string' },
       filedBy: { type: 'string', maxLength: 60 },
+      form: { type: 'string', enum: ['24Q', '26Q', '138', '140', 'salary', 'other'] },
     },
   },
   import_tcs_statement: {

@@ -21,8 +21,9 @@ that by making the export complete and free, not by keeping data the owner asked
 | The books (one sealed row per business), documents, members, connectors, audit trail, access log | The business exists | Erased thirty days after the owner deletes the business; the owner can export in the meantime | Members of the business, by role; the operator cannot read the books column without the service key |
 | Shared view for the accountant | The business exists | Erased with the business | The accountant member |
 | Access log (who asked for what, when) | 365 days | Rows older than a year are deleted nightly | The owner, from "who looked at my books" |
-| Database audit (pgaudit: every read and write of the database by any role, including the operator) | 180 days in Cloud Logging | Expires | The operator, for incident work; never the content, only who touched what |
-| Request and job logs (Cloud Logging) | 180 days | Expires | The operator |
+| Database audit (pgaudit: every read and write of the database by any role, including the operator) | 365 days in Cloud Logging, in the country's region | Expires | The operator, for incident work; never the content, only who touched what |
+| Request and job logs (Cloud Logging, bucket `myca-…-logs-<region>`, in India for the India service) | 365 days (DPDP Rules 2025 r.8(3) asks for one year; CERT-In asks for 180 days in India) | Expires | The operator |
+| Privacy and grievance requests (`privacy_requests`) | Open until answered; then 365 days from the request | Deleted nightly once answered and a year old. When the account is erased the reference, kind and dates stay for that year but the message, nominee details and reply are blanked | The person, in Your privacy rights; admins, from `GET /v1/admin/privacy-requests` |
 | Sign-in codes | 1 day | Deleted nightly (they expire in five minutes anyway) | Nobody; only a salted hash is stored |
 | Second-step challenges (the pending sign-in between the phone code and the authenticator code) | 1 day | Deleted nightly (they expire in five minutes anyway) | Nobody; a challenge holds no code |
 | Authenticator key and recovery codes (two-step sign-in) | While the user keeps two-step on | Deleted when the user turns it off or deletes the account | Nobody; the key is sealed per user and the codes are stored as hashes |
@@ -30,6 +31,8 @@ that by making the export complete and free, not by keeping data the owner asked
 | Crash reports | 90 days from the last occurrence | Deleted nightly | The operator; they carry no names, amounts or numbers |
 | Cloud SQL backups | 14 daily backups, 7 days of transaction logs | Expire | The operator, for recovery only |
 | Account (phone, email, Google or OIDC id, name), devices, sign-in tokens, consents, memberships, invitations to their number, sign-in codes for their number, WhatsApp links, their rows in the access log | The account exists | Erased thirty days after the user deletes the account in the app; signing in again within the thirty days cancels the deletion. A business the user alone owns is deleted with it | The user and the members of their businesses |
+| A US household whose return MyCA itself e-filed to the IRS (MeF, live) | Three years from the later of the return's due date and the IRS receipt (Pub 1345, Form 8879) | The nightly purge skips the deleted household until then, then erases it as above (`cloud/src/us-retention.mjs`). Partner and sandbox filings are not held | The household's members while it exists; nobody after deletion except the operator for an IRS request |
+| IRC 7216 consents (US) | Until withdrawn or the period the filer chose (one year by default) ends; the row stays as the record of what was signed | Erased with the account | The filer |
 | Desktop edition | On the owner's PC only; 14 daily backups beside the books | The owner's own choice | The owner |
 
 ## What deletion does

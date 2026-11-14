@@ -4,6 +4,18 @@ import { postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
+const NO_TAX = { cgst: 0, sgst: 0, igst: 0, tax: 0 };
+
+function splitFor(invoice, taxable, gstRate, company) {
+  if (invoice.zeroRated) return NO_TAX;
+  return gstSplit({ taxable, rate: gstRate, supplierState: invoice.registrationState || company.state, partyState: invoice.placeOfSupply || invoice.partyState });
+}
+
+export function gstCorrectionDeadline(invoiceDate) {
+  const [y, m] = String(invoiceDate || '').split('-').map(Number);
+  const fyStart = m >= 4 ? y : y - 1;
+  return `${fyStart + 1}-11-30`;
+}
 
 function nextTransferId(state) {
   state.transferSeq = (state.transferSeq || 100000) + 1;
@@ -48,7 +60,7 @@ function itemisedLines(invoice, raw, company) {
     if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(rate) || rate <= 0 || !Number.isFinite(gstRate)) return { ok: false, error: 'BAD_LINE', line: i + 1 };
     if (!rates.has(gstRate)) return { ok: false, error: 'RATE_NOT_ON_INVOICE', line: i + 1, gstRate, rates: [...rates] };
     const taxable = round2(qty * rate);
-    const split = gstSplit({ taxable, rate: gstRate, supplierState: invoice.registrationState || company.state, partyState: invoice.placeOfSupply || invoice.partyState });
+    const split = splitFor(invoice, taxable, gstRate, company);
     lines.push({ description: String(item.description || '').trim() || 'Credit', hsn: String(item.hsn || '').trim(), qty, rate, gstRate, taxable, cgst: split.cgst, sgst: split.sgst, igst: split.igst, amount: round2(taxable + split.tax) });
   }
   return { ok: true, lines, total: round2(lines.reduce((sum, line) => sum + line.amount, 0)) };
@@ -64,7 +76,7 @@ function scaledLines(invoice, fraction, company) {
   }
   return (invoice.lines || []).map((line) => {
     const taxable = round2(Number(line.taxable || 0) * fraction);
-    const split = gstSplit({ taxable, rate: Number(line.gstRate || 0), supplierState: invoice.registrationState || company.state, partyState: invoice.placeOfSupply || invoice.partyState });
+    const split = splitFor(invoice, taxable, Number(line.gstRate || 0), company);
     return {
       description: line.description,
       hsn: line.hsn,
@@ -115,6 +127,8 @@ export function planCreditNote(state, args = {}) {
   const sgst = round2(lines.reduce((sum, line) => sum + line.sgst, 0));
   const igst = round2(lines.reduce((sum, line) => sum + line.igst, 0));
   const total = round2(taxable + cgst + sgst + igst + salesTax);
+  const lastDate = gstCorrectionDeadline(invoice.date);
+  if (invoice.country !== 'US' && cgst + sgst + igst > 0 && date > lastDate) return { ok: false, error: 'CREDIT_NOTE_TIME_BARRED', invoiceId, date, lastDate, hint: `GST on ${invoiceId} can be reduced by a credit note only up to ${lastDate} (section 34(2)); after that issue a financial credit note without GST.` };
   const cashReceived = round2((invoice.receipts || []).filter((receipt) => receipt.mode !== 'tds').reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0));
   const refundDue = round2(Math.min(cashReceived, Math.max(0, receivedAgainst(invoice) + alreadyCredited + total - Number(invoice.total))));
   return {

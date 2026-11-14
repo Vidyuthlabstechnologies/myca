@@ -19,8 +19,8 @@ const featureWords = {
   'connectors': 'Amazon, Shopify, Razorpay, Zoho and bank connections',
   'whatsapp': 'Ask and post on WhatsApp',
   'team': 'Staff and your accountant in the same books',
-  'ca-assured': 'A chartered accountant reviews and files your GST and TDS returns every month',
-  'accuracy-promise': 'Accuracy promise: if a return we filed is wrong because of our mistake, we correct and refile it at no charge',
+  'ca-assured': 'An independent GST practitioner or chartered accountant, named before you subscribe, reviews and files your GST and TDS returns every month. That professional, not MyCA, is responsible for their work',
+  'accuracy-promise': 'Correction promise: if a return filed through MyCA is wrong because of an error in MyCA, we prepare the correction at no charge. Interest, late fees and penalties are not covered',
   'priority-support': 'Priority support',
 };
 
@@ -45,10 +45,16 @@ String wholeRupees(int amount) {
 }
 
 String planPrice(PlanOffer plan, StoreProduct? product) {
-  if (product != null && product.price.isNotEmpty) return '${product.price} a month on Google Play';
-  final monthly = '${wholeRupees(plan.monthlyRupees)} a month';
-  return plan.yearlyRupees > 0 ? '$monthly or ${wholeRupees(plan.yearlyRupees)} a year' : monthly;
+  if (product != null && product.price.isNotEmpty) return '${product.price} a month on Google Play, GST included';
+  return '${wholeRupees(plan.monthlyRupees)} a month plus GST';
 }
+
+String renewalTerms(PlanOffer plan, StoreProduct? product) {
+  final price = product != null && product.price.isNotEmpty ? product.price : '${wholeRupees(plan.monthlyRupees)} plus GST';
+  return 'Renews every month at $price until you cancel. Cancel any time in Google Play, Subscriptions; the plan runs to the end of the month you paid for. Google Play handles refunds.';
+}
+
+const notAdvice = 'MyCA is software. It is not a firm of chartered accountants and does not give tax or legal advice. You approve every return before it is filed.';
 
 String entitlementLine(Entitlement e) {
   final until = e.currentEnd.length >= 10 ? e.currentEnd.substring(0, 10) : '';
@@ -215,8 +221,18 @@ class _PlanScreenState extends State<PlanScreen> {
                           Text(planLimits(plan), style: text.bodyMedium),
                           const SizedBox(height: 8),
                           for (final feature in plan.features) Text('• ${featureWords[feature] ?? feature}', style: text.bodyMedium),
+                          if (plan.opening) ...[
+                            const SizedBox(height: 8),
+                            Text('Opening soon. It opens once the professional who reviews and files is named here.', style: text.bodyMedium?.copyWith(color: Palette.warn)),
+                          ],
+                          if (plan.professional.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text('Your reviewing professional: ${plan.professional}', style: text.bodyMedium),
+                          ],
                           if (canBuy && plan.buyable && _products.containsKey(plan.productId) && !e.paying) ...[
                             const SizedBox(height: 12),
+                            Text(renewalTerms(plan, _products[plan.productId]), key: ValueKey('renewal.${plan.id}'), style: text.bodySmall),
+                            const SizedBox(height: 8),
                             FilledButton(key: ValueKey('buy.${plan.id}'), onPressed: _busy || _buying ? null : () => _buy(plan), child: Text('Subscribe to ${plan.title}')),
                           ],
                         ],
@@ -234,6 +250,8 @@ class _PlanScreenState extends State<PlanScreen> {
                   const SizedBox(height: 16),
                   Text('Only the owner can change the plan.', style: text.bodyMedium),
                 ],
+                const SizedBox(height: 16),
+                Text(notAdvice, key: const ValueKey('plan.notAdvice'), style: text.bodySmall),
                 if (owner && !buyInApp && defaultTargetPlatform != TargetPlatform.iOS) ...[
                   const SizedBox(height: 16),
                   Text('Plans are bought from Google Play in the MyCA Android app. A plan bought there works here too.', style: text.bodyMedium),

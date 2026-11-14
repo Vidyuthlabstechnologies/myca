@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../app_state.dart';
-import '../../api/myca_api.dart';
 import '../../format.dart';
 import '../../theme.dart';
 import '../../us/us_return.dart';
 import '../../widgets.dart';
+import 'us_fields.dart';
 
 num _num(Object? value) => value is num ? value : num.tryParse('${value ?? ''}') ?? 0;
 
@@ -86,7 +86,7 @@ class _UsStateSheetScreenState extends State<UsStateSheetScreen> {
         child: FutureBuilder<UsStateSheet>(
           future: _sheet,
           builder: (context, loaded) {
-            if (loaded.hasError) return EmptyNote(text: loaded.error is MycaApiException ? (loaded.error as MycaApiException).message : 'The sheet could not be made.');
+            if (loaded.hasError) return UsLoadError(message: usLoadProblem(loaded.error, 'The sheet could not be made.'), onRetry: () => setState(() { _sheet = _load(); }));
             if (!loaded.hasData) return const Center(child: CircularProgressIndicator());
             final sheet = loaded.data!;
             return ListView(

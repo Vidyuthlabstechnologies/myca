@@ -92,6 +92,20 @@ function uniqueByName(list, name) {
   return close.length === 1 ? close[0] : null;
 }
 
+function sameNamed(list, name) {
+  const key = nameKey(name);
+  return key ? (list || []).filter((item) => nameKey(item.name) === key) : [];
+}
+
+function partyOfDocument(list, doc) {
+  return (list || []).find((item) => doc.partyAccountId != null && item.accountId === doc.partyAccountId) || null;
+}
+
+function ofParty(party) {
+  if (party && typeof party === 'object') return (doc) => (doc.partyAccountId != null && party.accountId != null ? doc.partyAccountId === party.accountId : nameKey(doc.partyName) === nameKey(party.name));
+  return (doc) => nameKey(doc.partyName) === nameKey(party);
+}
+
 export function findCustomer(state, name) {
   return uniqueByName(state.parties, name);
 }
@@ -705,17 +719,17 @@ function allocate(items, total) {
   return { parts, remainder: left };
 }
 
-export function openInvoicesOf(state, partyName) {
-  const key = nameKey(partyName);
+export function openInvoicesOf(state, party) {
+  const mine = ofParty(party);
   return (state.invoices || [])
-    .filter((inv) => inv.status !== 'cancelled' && nameKey(inv.partyName) === key && outstandingOf(state, inv) > 0.005)
+    .filter((inv) => inv.status !== 'cancelled' && mine(inv) && outstandingOf(state, inv) > 0.005)
     .sort(byDateThenId);
 }
 
-export function openBillsOf(state, partyName) {
-  const key = nameKey(partyName);
+export function openBillsOf(state, party) {
+  const mine = ofParty(party);
   return (state.purchases || [])
-    .filter((bill) => bill.status !== 'cancelled' && nameKey(bill.partyName) === key && billOutstanding(bill) > 0.005)
+    .filter((bill) => bill.status !== 'cancelled' && mine(bill) && billOutstanding(bill) > 0.005)
     .sort(byDateThenId);
 }
 
@@ -729,9 +743,9 @@ function existingMovementFor(state, line, docIds) {
     .sort((a, b) => daysApart(a.date, line.date) - daysApart(b.date, line.date))[0] || null;
 }
 
-function partyDocIds(list, partyName) {
-  const key = nameKey(partyName);
-  return (list || []).filter((doc) => doc.status !== 'cancelled' && nameKey(doc.partyName) === key).map((doc) => doc.id);
+function partyDocIds(list, party) {
+  const mine = ofParty(party);
+  return (list || []).filter((doc) => doc.status !== 'cancelled' && mine(doc)).map((doc) => doc.id);
 }
 
 function planReceiptMatch(state, line, intent) {
@@ -746,13 +760,15 @@ function planReceiptMatch(state, line, intent) {
   }
   const partyName = first ? first.partyName : String(intent.partyName || '').trim();
   if (!partyName) return fail('PARTY_REQUIRED', { kind: 'receipt' });
-  const party = findCustomer(state, partyName);
+  const namesakes = first ? [] : sameNamed(state.parties, partyName);
+  if (namesakes.length > 1) return fail('PARTY_AMBIGUOUS', { partyName, gstins: namesakes.map((item) => item.gstin || '') });
+  const party = (first && partyOfDocument(state.parties, first)) || findCustomer(state, partyName);
   if (!party) return fail('PARTY_NOT_FOUND', { partyName });
   if (!first) {
-    const recorded = existingMovementFor(state, line, partyDocIds(state.invoices, party.name));
+    const recorded = existingMovementFor(state, line, partyDocIds(state.invoices, party));
     if (recorded) return { ok: true, plan: { kind: 'books', movement: recorded } };
   }
-  const queue = [...(first ? [first] : []), ...openInvoicesOf(state, party.name).filter((inv) => !first || inv.id !== first.id)];
+  const queue = [...(first ? [first] : []), ...openInvoicesOf(state, party).filter((inv) => !first || inv.id !== first.id)];
   const split = allocate(queue.map((inv) => ({ id: inv.id, due: outstandingOf(state, inv) })), amountOf(line));
   if (split.remainder > 0.005) return fail('RECEIPT_UNALLOCATED', { partyName: party.name, remainder: split.remainder, invoiceIds: split.parts.map((part) => part.id) });
   return { ok: true, plan: { kind: 'receipt', partyName: party.name, date: line.date, allocations: split.parts.map((part) => ({ invoiceId: part.id, amount: part.amount })) } };
@@ -769,13 +785,15 @@ function planPaymentMatch(state, line, intent) {
   }
   const partyName = first ? first.partyName : String(intent.partyName || '').trim();
   if (!partyName) return fail('PARTY_REQUIRED', { kind: 'payment' });
-  const party = findSupplier(state, partyName);
+  const namesakes = first ? [] : sameNamed(state.vendors, partyName);
+  if (namesakes.length > 1) return fail('PARTY_AMBIGUOUS', { partyName, gstins: namesakes.map((item) => item.gstin || '') });
+  const party = (first && partyOfDocument(state.vendors, first)) || findSupplier(state, partyName);
   if (!party) return fail('PARTY_NOT_FOUND', { partyName });
   if (!first) {
-    const recorded = existingMovementFor(state, line, partyDocIds(state.purchases, party.name));
+    const recorded = existingMovementFor(state, line, partyDocIds(state.purchases, party));
     if (recorded) return { ok: true, plan: { kind: 'books', movement: recorded } };
   }
-  const queue = [...(first ? [first] : []), ...openBillsOf(state, party.name).filter((bill) => !first || bill.id !== first.id)];
+  const queue = [...(first ? [first] : []), ...openBillsOf(state, party).filter((bill) => !first || bill.id !== first.id)];
   const split = allocate(queue.map((bill) => ({ id: bill.id, due: billOutstanding(bill) })), amountOf(line));
   if (split.remainder > 0.005) return fail('PAYMENT_UNALLOCATED', { partyName: party.name, remainder: split.remainder, billIds: split.parts.map((part) => part.id) });
   for (const part of split.parts) {
@@ -1134,7 +1152,7 @@ function partySuggestions(state, line, money) {
   if (sideOf(line) === 'in') {
     for (const party of state.parties || []) {
       if (!namedIn(narration, party.name)) continue;
-      const open = openInvoicesOf(state, party.name);
+      const open = openInvoicesOf(state, party);
       if (!open.length) continue;
       const due = round2(open.reduce((sum, inv) => sum + outstandingOf(state, inv), 0));
       out.push({ kind: 'receipt', partyName: party.name, invoiceIds: open.map((inv) => inv.id), amount: due, why: `${party.name} is named in the narration and has ${open.length} open ${open.length === 1 ? 'invoice' : 'invoices'} worth ${money(due)}.` });
@@ -1142,7 +1160,7 @@ function partySuggestions(state, line, money) {
   } else {
     for (const vendor of state.vendors || []) {
       if (!namedIn(narration, vendor.name)) continue;
-      const open = openBillsOf(state, vendor.name);
+      const open = openBillsOf(state, vendor);
       if (!open.length) continue;
       const due = round2(open.reduce((sum, bill) => sum + billOutstanding(bill), 0));
       out.push({ kind: 'payment', partyName: vendor.name, billIds: open.map((bill) => bill.id), amount: due, why: `${vendor.name} is named in the narration and has ${open.length} open ${open.length === 1 ? 'bill' : 'bills'} worth ${money(due)}.` });

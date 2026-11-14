@@ -31,9 +31,22 @@ function add(target, value) {
   return target;
 }
 
+function exportedWithoutTax(invoices) {
+  let paise = 0;
+  for (const inv of invoices || []) {
+    if (!inv.export || inv.export.withTax) continue;
+    for (const line of inv.lines || []) if (Number(line.gstRate || 0) !== 0) paise += Math.round(Number(line.taxable || 0) * 100);
+  }
+  return paise / 100;
+}
+
+function followsOn(fy) {
+  return /^\d{4}-\d{2}$/.test(fy) && (Number(fy.slice(0, 4)) + 1) % 100 === Number(fy.slice(5, 7));
+}
+
 export function gstr9Draft(state, args = {}) {
   const fy = String(args.fy || '').trim() || fyOf(localToday().slice(0, 7));
-  if (!/^\d{4}-\d{2}$/.test(fy)) return { ok: false, error: 'BAD_FY', hint: 'Use the financial year as 2026-27.' };
+  if (!followsOn(fy)) return { ok: false, error: 'BAD_FY', hint: 'Use the financial year as 2026-27.' };
   const months = monthsOf(fy);
   const today = localToday().slice(0, 7);
   const outward = { taxable: 0, tax: heads(), creditNotes: { taxable: 0, tax: heads() }, debitNotes: { taxable: 0, tax: heads() }, b2b: 0, b2c: 0, invoices: 0 };
@@ -58,7 +71,7 @@ export function gstr9Draft(state, args = {}) {
     const summary = periodSummary(state, period);
     if (!summary.ok) continue;
     const s = summary.data;
-    outward.taxable = round2(outward.taxable + s.taxableSales + Number(s.creditNotes?.taxable || 0) - Number(s.debitNotes?.taxable || 0));
+    outward.taxable = round2(outward.taxable + s.grossTaxableSales - exportedWithoutTax(docs.invoices));
     add(outward.tax, { igst: Number(s.outputTax.igst) + Number(s.creditNotes?.igst || 0) - Number(s.debitNotes?.igst || 0), cgst: Number(s.outputTax.cgst) + Number(s.creditNotes?.cgst || 0) - Number(s.debitNotes?.cgst || 0), sgst: Number(s.outputTax.sgst) + Number(s.creditNotes?.sgst || 0) - Number(s.debitNotes?.sgst || 0) });
     outward.creditNotes.taxable = round2(outward.creditNotes.taxable + Number(s.creditNotes?.taxable || 0));
     add(outward.creditNotes.tax, s.creditNotes);
@@ -81,7 +94,7 @@ export function gstr9Draft(state, args = {}) {
     for (const inv of docs.invoices) {
       if (inv.status === 'cancelled') continue;
       for (const line of inv.lines || []) {
-        if (Number(line.gstRate || 0) === 0) {
+        if (Number(line.gstRate || 0) === 0 && !inv.export) {
           nilRated.taxable = round2(nilRated.taxable + Number(line.taxable || 0));
           nilRated.lines += 1;
           const bucket = zero[line.supply] || zero.unsplit;

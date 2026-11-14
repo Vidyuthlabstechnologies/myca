@@ -214,6 +214,7 @@ class _CashScreenState extends State<CashScreen> {
                   ),
                 ],
               ),
+              if (moneyCountry != 'AE') ...[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
@@ -227,6 +228,7 @@ class _CashScreenState extends State<CashScreen> {
                   label: const Text('Who to pay'),
                 ),
               ),
+              ],
               const SizedBox(height: 12),
               _Card(
                 children: [
@@ -293,9 +295,9 @@ class _CashScreenState extends State<CashScreen> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Amount to spend',
-                      prefixText: '₹ ',
+                      prefixText: moneyPrefix,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -452,18 +454,18 @@ class _BalanceSheetState extends State<_BalanceSheet> {
           TextField(
             controller: _bank,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Bank balance',
-              prefixText: '₹ ',
+              prefixText: moneyPrefix,
             ),
           ),
           const SizedBox(height: 10),
           TextField(
             controller: _cash,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Cash in hand',
-              prefixText: '₹ ',
+              prefixText: moneyPrefix,
             ),
           ),
           if (_error.isNotEmpty) ...[

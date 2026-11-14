@@ -1,5 +1,7 @@
 import { createSign, timingSafeEqual } from 'node:crypto';
 import { createStripe, stripeSignatureValid } from './stripe.mjs';
+import { US_RETURN_YEARS } from '../../platform/src/us-return.mjs';
+import { countryPack, servedPacks } from '../../platform/src/countries/index.mjs';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const TRIAL_DAYS = 14;
@@ -35,7 +37,7 @@ export const US_RETURN_PRICE_LINE = (price, listPrice = price) => (listPrice > p
 
 function launchEnd(day) {
   const text = String(day || '').trim();
-  return /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(text) ? Date.parse(`${text}T23:59:59-04:00`) || 0 : 0;
+  return /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(text) ? Date.parse(`${text}T23:59:59.999-04:00`) || 0 : 0;
 }
 const US_RETURN_YEARS_BACK = 3;
 const PLUS_LIVE = new Set(['active', 'trialing', 'past_due']);
@@ -74,6 +76,62 @@ function parseServiceAccount(text) {
   }
 }
 
+const OWN_BILLING = new Set(['IN', 'US']);
+export const COUNTRY_PLANS_NOT_OPEN = 'Plans open when this edition launches on Google Play. Until then it runs against the tax office test service and nothing is charged.';
+
+function productEnvName(planId) {
+  return `MYCA_PLAY_PRODUCT_${String(planId).toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
+}
+
+export function countryBillingFromEnv(env = process.env) {
+  return Object.fromEntries(servedPacks().filter((pack) => !OWN_BILLING.has(pack.code) && pack.billing?.plans?.length).map((pack) => [pack.code, {
+    packageName: unset(env[`MYCA_PLAY_PACKAGE_${pack.code}`]),
+    productIds: Object.fromEntries(pack.billing.plans.filter((plan) => plan.provider === 'play').map((plan) => [plan.id, unset(env[productEnvName(plan.id)])]).filter(([, id]) => id)),
+  }]));
+}
+
+function countryProduct(plan, own = {}) {
+  return plan.provider === 'play' ? (own.productIds || {})[plan.id] || plan.playProduct || '' : '';
+}
+
+export function countryPlan(planId) {
+  for (const pack of servedPacks()) {
+    if (OWN_BILLING.has(pack.code)) continue;
+    const plan = (pack.billing?.plans || []).find((entry) => entry.id === planId && entry.provider === 'play');
+    if (plan) return { id: plan.id, title: plan.title || plan.id, country: pack.code, limits: { invoicesPerMonth: null, members: plan.members || 1 }, features: [...(plan.features || ['books', 'post', 'chat'])] };
+  }
+  return null;
+}
+
+export function countryPlanOffers(code, overrides = {}) {
+  const pack = countryPack(code);
+  if (!pack || pack.status === 'planned' || OWN_BILLING.has(pack.code) || !pack.billing?.plans?.length) return null;
+  const own = overrides[pack.code] || {};
+  const productIds = own.productIds || {};
+  return {
+    country: pack.code,
+    currency: pack.billing.currency,
+    packageName: own.packageName || '',
+    opening: !own.packageName,
+    buyable: Boolean(own.packageName),
+    hint: own.packageName ? '' : COUNTRY_PLANS_NOT_OPEN,
+    plans: pack.billing.plans.map((plan) => ({
+      id: plan.id,
+      title: plan.title || plan.id,
+      kind: plan.kind,
+      price: plan.price,
+      currency: pack.billing.currency,
+      provider: plan.provider,
+      sells: plan.sells,
+      productId: countryProduct(plan, own),
+      placeholderProduct: plan.provider === 'play' && !productIds[plan.id],
+      buyable: Boolean(own.packageName) && plan.provider === 'play' && Boolean(countryProduct(plan, own)),
+      opening: !own.packageName || plan.provider !== 'play',
+      ...(plan.provider === 'play' ? { members: plan.members || 1, features: [...(plan.features || [])] } : {}),
+    })),
+  };
+}
+
 export function billingConfigFromEnv(env = process.env) {
   const prices = Object.fromEntries(String(env.MYCA_PLAN_PRICES || '').split(',').map((pair) => pair.split('=').map((part) => part.trim())).filter(([plan, price]) => PAID.includes(plan) && /^[0-9]{1,6}$/.test(price || '')).map(([plan, price]) => [plan, Number(price)]));
   return {
@@ -83,9 +141,11 @@ export function billingConfigFromEnv(env = process.env) {
     usPlus: { priceUsd: dollars(env.MYCA_US_PLUS_PRICE_USD, US_PLUS_PRICE_USD), productId: unset(env.MYCA_PLAY_PRODUCT_US_PLUS) },
     usExpertReview: { on: unset(env.MYCA_US_EXPERT_REVIEW) === '1', priceUsd: dollars(env.MYCA_US_EXPERT_REVIEW_PRICE_USD, US_EXPERT_REVIEW_PRICE_USD) },
     stripe: { secretKey: unset(env.MYCA_STRIPE_SECRET_KEY), webhookSecret: unset(env.MYCA_STRIPE_WEBHOOK_SECRET), plusPriceId: unset(env.MYCA_STRIPE_PRICE_US_PLUS), returnUrl: unset(env.MYCA_US_CHECKOUT_RETURN_URL) },
+    assuredProfessional: unset(env.MYCA_ASSURED_PROFESSIONAL),
     notifyToken: unset(env.MYCA_PLAY_NOTIFY_TOKEN),
     serviceAccount: parseServiceAccount(unset(env.MYCA_PLAY_SERVICE_ACCOUNT_JSON)),
     prices,
+    countries: countryBillingFromEnv(env),
   };
 }
 
@@ -145,7 +205,19 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   const usSold = () => usEnforced && usFilingOpen() === true;
   const notOpen = () => fail('US_EFILE_NOT_OPEN', { hint: US_EFILE_NOT_OPEN_HINT });
   const stripe = cardEnabled ? createStripe({ secretKey: cfg.stripe.secretKey, fetchImpl }) : null;
-  const planOfProduct = (productId) => PAID.find((plan) => cfg.productIds[plan] && cfg.productIds[plan] === productId) || null;
+  const countryProducts = new Map();
+  for (const [code, own] of Object.entries(cfg.countries || {})) {
+    if (!own?.packageName) continue;
+    const offer = countryPlanOffers(code, cfg.countries);
+    for (const plan of offer?.plans || []) if (plan.provider === 'play' && plan.productId) countryProducts.set(plan.productId, { plan: plan.id, country: code, packageName: own.packageName });
+  }
+  const countryPackages = new Set([...countryProducts.values()].map((entry) => entry.packageName));
+  const playOn = enabled || countryProducts.size > 0;
+  const planOfProduct = (productId) => PAID.find((plan) => cfg.productIds[plan] && cfg.productIds[plan] === productId) || countryProducts.get(productId)?.plan || null;
+  const planInfo = (planId) => PLANS[planId] || countryPlan(planId);
+  const isPaidPlan = (planId) => PAID.includes(planId) || [...countryProducts.values()].some((entry) => entry.plan === planId);
+  const packageOfPlan = (planId) => [...countryProducts.values()].find((entry) => entry.plan === planId)?.packageName || cfg.packageName;
+  const planOpen = (planId) => planId !== 'assured' || Boolean(cfg.assuredProfessional);
   let cachedToken = { value: '', until: 0 };
 
   async function accessToken() {
@@ -187,8 +259,8 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     return { ok: res.ok, status: res.status, data };
   }
 
-  async function lookup(purchaseToken) {
-    const out = await play('GET', `subscriptionsv2/tokens/${encodeURIComponent(purchaseToken)}`);
+  async function lookup(purchaseToken, packageName = cfg.packageName) {
+    const out = await play('GET', `subscriptionsv2/tokens/${encodeURIComponent(purchaseToken)}`, packageName);
     if (!out.ok) return { ok: false, status: out.status };
     const items = Array.isArray(out.data.lineItems) ? out.data.lineItems : [];
     const item = items.find((line) => planOfProduct(line.productId)) || items[0] || {};
@@ -208,7 +280,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
 
   async function acknowledge(found, purchaseToken) {
     if (!found.needsAck || !LIVE_STATUSES.has(found.status) || !found.productId) return;
-    const out = await play('POST', `subscriptions/${encodeURIComponent(found.productId)}/tokens/${encodeURIComponent(purchaseToken)}:acknowledge`);
+    const out = await play('POST', `subscriptions/${encodeURIComponent(found.productId)}/tokens/${encodeURIComponent(purchaseToken)}:acknowledge`, countryProducts.get(found.productId)?.packageName || cfg.packageName);
     if (!out.ok) log({ billing: 'acknowledge_failed', status: out.status });
   }
 
@@ -231,8 +303,13 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
 
   async function save(businessId, userId, purchaseToken, found) {
     const before = await row(businessId);
+    if (!replaces(before, purchaseToken, found)) {
+      log({ billing: 'superseded_purchase_ignored', businessId, status: found.status });
+      return false;
+    }
     await saveRow(businessId, userId, purchaseToken, found);
     await applyFirmCredits(businessId, before, found);
+    return true;
   }
 
   async function saveRow(businessId, userId, purchaseToken, found) {
@@ -247,6 +324,22 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   async function row(businessId) {
     const found = await db.query('select provider, provider_subscription_id as "token", product_id as "productId", plan, status, current_end as "currentEnd", test_purchase as "testPurchase", credit_months as "creditMonths" from subscriptions where business_id = $1', [businessId]);
     return found.rows[0] || null;
+  }
+
+  function paidUntilOf(sub) {
+    if (!sub?.currentEnd) return 0;
+    const live = LIVE_STATUSES.has(sub.status);
+    const creditDays = live || sub.status === 'expired' ? (sub.creditMonths || 0) * CREDIT_MONTH_DAYS : 0;
+    if (!live && !creditDays) return 0;
+    const graceDays = live && sub.status !== 'canceled' ? GRACE_DAYS : 0;
+    return new Date(sub.currentEnd).getTime() + (graceDays + creditDays) * DAY_MS;
+  }
+
+  function replaces(before, purchaseToken, found) {
+    if (!before || before.token === purchaseToken) return true;
+    if (found.linkedPurchaseToken && found.linkedPurchaseToken === before.token) return true;
+    if (!(isPaidPlan(before.plan) && paidUntilOf(before) > now())) return true;
+    return LIVE_STATUSES.has(found.status) && Boolean(found.currentEnd) && (!before.currentEnd || found.currentEnd.getTime() >= new Date(before.currentEnd).getTime());
   }
 
   async function ownerOfToken(purchaseToken) {
@@ -266,44 +359,45 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     const business = await db.query('select b.created_at as "createdAt", b.demo, b.kind, u.trial_started_at as "trialStartedAt" from businesses b left join users u on u.id = b.created_by where b.id = $1', [businessId]);
     if (business.rows[0]?.kind === 'household') {
       const plan = PLANS.household;
-      return { ok: true, enforced: enabled, plan: plan.id, planTitle: plan.title, limits: plan.limits, features: plan.features, trial: null, subscription: null, manageUrl: '', usReturn: { enforced: usSold(), filingOpen: usFilingOpen() === true, priceUsd: returnPrice(), listPriceUsd: cfg.usReturn.priceUsd, productId: cfg.usReturn.productId, checkout: checkoutKind() }, usPlus: await usPlus(businessId) };
+      return { ok: true, enforced: playOn, plan: plan.id, planTitle: plan.title, limits: plan.limits, features: plan.features, trial: null, subscription: null, manageUrl: '', usReturn: { enforced: usSold(), filingOpen: usFilingOpen() === true, priceUsd: returnPrice(), listPriceUsd: cfg.usReturn.priceUsd, productId: cfg.usReturn.productId, checkout: checkoutKind() }, usPlus: await usPlus(businessId) };
     }
     if (business.rows[0]?.demo) {
-      return { ok: true, enforced: enabled, plan: 'pro', planTitle: PLANS.pro.title, limits: PLANS.pro.limits, features: PLANS.pro.features, trial: null, demo: true, subscription: null, manageUrl: '' };
+      return { ok: true, enforced: playOn, plan: 'pro', planTitle: PLANS.pro.title, limits: PLANS.pro.limits, features: PLANS.pro.features, trial: null, demo: true, subscription: null, manageUrl: '' };
     }
     const createdAt = business.rows[0] ? new Date(business.rows[0].createdAt).getTime() : at;
     const firstBusinessAt = business.rows[0]?.trialStartedAt ? new Date(business.rows[0].trialStartedAt).getTime() : createdAt;
     const trialEndsAt = Math.min(createdAt, firstBusinessAt) + TRIAL_DAYS * DAY_MS;
     const sub = await row(businessId);
     const creditDays = (sub?.creditMonths || 0) * CREDIT_MONTH_DAYS;
-    const paidUntil = sub?.currentEnd ? new Date(sub.currentEnd).getTime() + (GRACE_DAYS + creditDays) * DAY_MS : 0;
-    const paying = Boolean(sub && LIVE_STATUSES.has(sub.status) && PAID.includes(sub.plan) && paidUntil > at);
+    const paidUntil = paidUntilOf(sub);
+    const paying = Boolean(sub && isPaidPlan(sub.plan) && paidUntil > at);
     const inTrial = !paying && at < trialEndsAt;
     const plan = paying ? sub.plan : inTrial ? 'pro' : 'lapsed';
     return {
       ok: true,
-      enforced: enabled,
+      enforced: playOn,
       plan,
-      planTitle: PLANS[plan].title,
-      limits: PLANS[plan].limits,
-      features: PLANS[plan].features,
+      planTitle: planInfo(plan).title,
+      limits: planInfo(plan).limits,
+      features: planInfo(plan).features,
       trial: inTrial ? { endsAt: new Date(trialEndsAt).toISOString(), daysLeft: Math.max(0, Math.ceil((trialEndsAt - at) / DAY_MS)) } : null,
       subscription: sub ? { provider: sub.provider, plan: sub.plan, productId: sub.productId, status: sub.status, renews: sub.status === 'active' || sub.status === 'in_grace_period', currentEnd: sub.currentEnd ? new Date(sub.currentEnd).toISOString() : null, testPurchase: sub.testPurchase, creditMonths: sub.creditMonths || 0, ...(sub.creditMonths ? { creditUntil: new Date(new Date(sub.currentEnd).getTime() + creditDays * DAY_MS).toISOString() } : {}) } : null,
-      manageUrl: sub?.provider === 'play' ? manageUrl(sub.productId) : '',
+      manageUrl: sub?.provider === 'play' ? manageUrl(sub.productId, packageOfPlan(sub.plan)) : '',
     };
   }
 
   async function allows(businessId, feature) {
-    if (!enabled) return { ok: true };
+    if (!playOn) return { ok: true };
     const got = await entitlement(businessId);
     if (got.features.includes(feature)) return { ok: true, entitlement: got };
-    const plans = cheapestWith(feature);
+    const own = countryPlan(got.plan);
+    const plans = own ? (countryPlanOffers(own.country, cfg.countries || {})?.plans || []).filter((plan) => (plan.features || []).includes(feature)).map((plan) => plan.title) : cheapestWith(feature);
     const hint = got.plan === 'lapsed' ? 'The free trial has ended, so the books are read-only: you can see and export everything. The owner can choose a plan under Plan and billing.' : `${plans.join(' or ')} includes this. The owner can upgrade under Plan and billing.`;
     return fail('PLAN_REQUIRED', { feature, plan: got.plan, hint });
   }
 
   async function withinLimit(businessId, limit, used) {
-    if (!enabled) return { ok: true };
+    if (!playOn) return { ok: true };
     const got = await entitlement(businessId);
     const cap = got.limits[limit];
     if (cap == null || used < cap) return { ok: true };
@@ -313,7 +407,8 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   function usTaxYearProblem(taxYear) {
     const year = Number(taxYear);
     const latest = new Date(now()).getUTCFullYear();
-    if (!Number.isInteger(year) || year > latest || year < latest - US_RETURN_YEARS_BACK) return fail('BAD_TAX_YEAR', { hint: `Pick a tax year from ${latest - US_RETURN_YEARS_BACK} to ${latest}.` });
+    const open = US_RETURN_YEARS.map(Number).filter((item) => item <= latest && item >= latest - US_RETURN_YEARS_BACK);
+    if (!Number.isInteger(year) || !open.includes(year)) return fail('BAD_TAX_YEAR', { supported: open, hint: open.length ? `MyCA files the ${open.join(' and ')} federal return${open.length > 1 ? 's' : ''}. Nothing has been charged.` : 'MyCA does not file a federal return for this year. Nothing has been charged.' });
     return null;
   }
 
@@ -518,6 +613,19 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     return fail('US_PLUS_REQUIRED', { priceUsd: cfg.usPlus.priceUsd, hint: `This is part of MyCA Plus, $${cfg.usPlus.priceUsd} a year. Cancel any time.` });
   }
 
+  function indiaPlans() {
+    return {
+      ok: true,
+      enabled,
+      store: 'play',
+      packageName: cfg.packageName,
+      trialDays: TRIAL_DAYS,
+      currency: 'INR',
+      plans: PAID.map((id) => PLANS[id]).map((plan) => ({ ...plan, monthlyRupees: cfg.prices[plan.id] ?? plan.monthlyRupees, productId: cfg.productIds[plan.id] || '', buyable: enabled && Boolean(cfg.productIds[plan.id]) && planOpen(plan.id), ...(plan.id === 'assured' ? { opening: !planOpen(plan.id), professional: cfg.assuredProfessional || '' } : {}) })),
+      ...offers(),
+    };
+  }
+
   function offers() {
     return {
       usReturn: { title: 'MyCA Return', priceUsd: returnPrice(), listPriceUsd: cfg.usReturn.priceUsd, launchOffer: launchOffer(), currency: 'USD', per: 'tax_year', priceLine: US_RETURN_PRICE_LINE(returnPrice(), cfg.usReturn.priceUsd), checkout: checkoutKind(), packageName: usPackage, productId: cfg.usReturn.productId, buyable: usEnforced },
@@ -591,13 +699,32 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       const year = Number(meta.taxYear);
       if (!Number.isInteger(year)) return { recorded: false, reason: 'no_tax_year', businessId };
       const priceUsd = Math.round(Number(session.amount_total || 0) / 100);
-      const saved = await db.query(
-        `insert into us_return_purchases (business_id, tax_year, provider, purchase_token, product_id, price_usd, test_purchase, created_by)
-         values ($1, $2, 'stripe', $3, $4, $5, $6, $7) on conflict do nothing returning tax_year`,
-        [businessId, year, String(session.id), CARD_RETURN_PRODUCT, priceUsd, session.livemode !== true, userId],
-      );
-      if (saved.rows.length) await audit(businessId, userId, 'billing.us_return_paid', { provider: 'stripe', taxYear: year, priceUsd, testPurchase: session.livemode !== true });
-      return { recorded: true, businessId, product: 'return', taxYear: year };
+      const paymentIntent = typeof session.payment_intent === 'string' ? session.payment_intent : String(session.payment_intent?.id || '');
+      let saved;
+      try {
+        saved = await db.query(
+          `insert into us_return_purchases (business_id, tax_year, provider, purchase_token, product_id, price_usd, test_purchase, created_by, payment_intent)
+           values ($1, $2, 'stripe', $3, $4, $5, $6, (select id from users where id = $7), $8) on conflict do nothing returning tax_year`,
+          [businessId, year, String(session.id), CARD_RETURN_PRODUCT, priceUsd, session.livemode !== true, userId, paymentIntent || null],
+        );
+      } catch (error) {
+        if (error?.code !== '23503') throw error;
+        log({ billing: 'stripe_payment_for_missing_business', sessionId: String(session.id) });
+        return { recorded: false, reason: 'no_business', businessId };
+      }
+      if (saved.rows.length) {
+        await audit(businessId, userId, 'billing.us_return_paid', { provider: 'stripe', taxYear: year, priceUsd, testPurchase: session.livemode !== true });
+        return { recorded: true, businessId, product: 'return', taxYear: year };
+      }
+      const held = await db.query('select purchase_token as "token" from us_return_purchases where business_id = $1 and tax_year = $2', [businessId, year]);
+      if (!held.rows[0]) return { recorded: false, reason: 'checkout_already_used', businessId };
+      if (held.rows[0].token === String(session.id)) return { recorded: true, businessId, product: 'return', taxYear: year };
+      const flagged = await db.query("select 1 from audit_log where business_id = $1 and action = 'billing.us_return_duplicate_payment' and metadata->>'sessionId' = $2 limit 1", [businessId, String(session.id)]);
+      if (!flagged.rows.length) {
+        log({ billing: 'us_return_duplicate_payment', alarm: 'stripe-duplicate-payment', taxYear: year });
+        await audit(businessId, userId, 'billing.us_return_duplicate_payment', { provider: 'stripe', taxYear: year, priceUsd, sessionId: String(session.id), paymentIntent, testPurchase: session.livemode !== true });
+      }
+      return { recorded: false, duplicate: true, businessId, product: 'return', taxYear: year };
     }
     if (meta.product === 'plus' && session.subscription) {
       const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription.id;
@@ -630,9 +757,29 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     const owner = String(found.data.metadata?.businessId || found.data.client_reference_id || '');
     if (owner !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This payment was made for another return.' });
     const out = await recordCheckout(found.data);
-    if (!out.recorded) return fail(out.reason === 'not_paid' ? 'PURCHASE_NOT_COMPLETE' : 'UNKNOWN_CHECKOUT', { hint: 'The card payment has not gone through yet.' });
+    if (!out.recorded && !out.duplicate) return fail(out.reason === 'not_paid' ? 'PURCHASE_NOT_COMPLETE' : 'UNKNOWN_CHECKOUT', { hint: 'The card payment has not gone through yet.' });
     if (out.product === 'return') return usReturn(businessId, out.taxYear);
     return usPlus(businessId);
+  }
+
+  async function chargeEvent(type, object) {
+    const paymentIntent = typeof object.payment_intent === 'string' ? object.payment_intent : String(object.payment_intent?.id || '');
+    const none = { ok: true, received: type, recorded: false };
+    if (!paymentIntent) return none;
+    if (type === 'charge.dispute.created') {
+      const found = await db.query(`select business_id as "businessId", tax_year as "taxYear" from us_return_purchases where provider = 'stripe' and payment_intent = $1`, [paymentIntent]);
+      const row = found.rows[0];
+      if (!row) return none;
+      log({ billing: 'us_return_disputed', alarm: 'stripe-dispute', taxYear: row.taxYear });
+      await audit(row.businessId, null, 'billing.us_return_disputed', { provider: 'stripe', taxYear: row.taxYear, disputeId: String(object.id || '').slice(0, 80), reason: String(object.reason || '').slice(0, 80), amountUsd: Math.round(Number(object.amount || 0) / 100) });
+      return { ...none, recorded: true };
+    }
+    if (object.refunded !== true) return none;
+    const removed = await db.query(`delete from us_return_purchases where provider = 'stripe' and payment_intent = $1 returning business_id as "businessId", tax_year as "taxYear", price_usd as "priceUsd"`, [paymentIntent]);
+    const row = removed.rows[0];
+    if (!row) return none;
+    await audit(row.businessId, null, 'billing.us_return_refunded', { provider: 'stripe', taxYear: row.taxYear, priceUsd: row.priceUsd, refundedUsd: Math.round(Number(object.amount_refunded || 0) / 100) });
+    return { ...none, recorded: true };
   }
 
   async function stripeWebhook(raw, signature) {
@@ -648,8 +795,9 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     const object = event?.data?.object || {};
     if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
       const out = await recordCheckout(object);
-      return { ok: true, received: event.type, recorded: out.recorded };
+      return { ok: true, received: event.type, recorded: out.recorded, ...(out.duplicate ? { duplicate: true } : {}) };
     }
+    if (event.type === 'charge.refunded' || event.type === 'charge.dispute.created') return chargeEvent(event.type, object);
     if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
       const end = Number(object.current_period_end || object.items?.data?.[0]?.current_period_end || 0);
       const status = event.type === 'customer.subscription.deleted' ? 'canceled_final' : String(object.status || '');
@@ -687,16 +835,10 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
 
   return {
     enabled,
-    plans: () => ({
-      ok: true,
-      enabled,
-      store: 'play',
-      packageName: cfg.packageName,
-      trialDays: TRIAL_DAYS,
-      currency: 'INR',
-      plans: PAID.map((id) => PLANS[id]).map((plan) => ({ ...plan, monthlyRupees: cfg.prices[plan.id] ?? plan.monthlyRupees, productId: cfg.productIds[plan.id] || '', buyable: enabled && Boolean(cfg.productIds[plan.id]) })),
-      ...offers(),
-    }),
+    plans: ({ country } = {}) => {
+      const local = country ? countryPlanOffers(country, cfg.countries || {}) : null;
+      return local ? { ok: true, trialDays: TRIAL_DAYS, ...local } : indiaPlans();
+    },
     entitlement,
     usEnforced,
     usFilingOpen: () => usFilingOpen() === true,
@@ -716,14 +858,16 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     withinLimit,
 
     async verify(businessId, userId, { productId, purchaseToken } = {}) {
-      if (!enabled) return fail('BILLING_NOT_CONFIGURED', { hint: 'The operator has not set up Google Play subscriptions yet.' });
+      const country = countryProducts.get(String(productId || '')) || null;
+      if (!enabled && !country) return fail('BILLING_NOT_CONFIGURED', { hint: 'The operator has not set up Google Play subscriptions yet.' });
       const token = String(purchaseToken || '');
-      if (!planOfProduct(productId) || !token || token.length > 2000) return fail('UNKNOWN_PLAN', { products: PAID.map((p) => cfg.productIds[p]).filter(Boolean) });
+      if (!planOfProduct(productId) || !token || token.length > 2000) return fail('UNKNOWN_PLAN', { products: [...PAID.map((p) => cfg.productIds[p]).filter(Boolean), ...countryProducts.keys()] });
+      if (!planOpen(planOfProduct(productId))) return fail('PLAN_NOT_OPEN', { hint: 'MyCA Assured opens once the independent professional who reviews and files your returns is named. Nothing was charged by MyCA; ask Google Play for a refund if you were.' });
       const holder = await ownerOfToken(token);
       if (holder && holder !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription already pays for another business.' });
       let found;
       try {
-        found = await lookup(token);
+        found = await lookup(token, country?.packageName || cfg.packageName);
       } catch (error) {
         log({ billing: 'play_auth_failed', status: error.status || 0 });
         return fail('PROVIDER_UNAVAILABLE', { hint: 'Google Play could not be reached. Your purchase is safe; open Plan and billing again in a minute.' });
@@ -731,18 +875,18 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       if (!found.ok) return fail('PURCHASE_NOT_FOUND', { status: found.status, hint: 'Google Play does not know this purchase.' });
       if (!found.plan || found.productId !== productId) return fail('PURCHASE_PRODUCT_MISMATCH');
       if (found.accountId && found.accountId !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription was bought for another business.' });
-      await save(businessId, userId, token, found);
+      if (!(await save(businessId, userId, token, found))) return fail('PURCHASE_SUPERSEDED', { hint: 'This Google Play purchase was replaced by a newer subscription for this business.', entitlement: await entitlement(businessId) });
       await acknowledge(found, token);
-      await audit(businessId, userId, 'billing.subscribe', { provider: 'play', plan: found.plan, status: found.status, testPurchase: found.testPurchase });
+      await audit(businessId, userId, 'billing.subscribe', { provider: 'play', plan: found.plan, ...(country ? { country: country.country } : {}), status: found.status, testPurchase: found.testPurchase });
       return { ok: true, plan: found.plan, status: found.status, testPurchase: found.testPurchase, entitlement: await entitlement(businessId) };
     },
 
     async refreshDue() {
       const summary = { checked: 0, changed: 0, failed: 0 };
-      if (!enabled) return summary;
+      if (!playOn) return summary;
       const at = now();
       const due = await db.query(
-        `select business_id as "businessId", provider_subscription_id as "token", status, current_end as "currentEnd"
+        `select business_id as "businessId", provider_subscription_id as "token", plan, status, current_end as "currentEnd"
            from subscriptions
           where provider = 'play' and status = any($1::text[]) and current_end is not null and current_end < $2 and current_end > $3
           order by current_end limit $4`,
@@ -752,7 +896,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
         summary.checked += 1;
         let found;
         try {
-          found = await lookup(sub.token);
+          found = await lookup(sub.token, packageOfPlan(sub.plan));
         } catch (error) {
           summary.failed += 1;
           log({ billing: 'renewal_check_failed', businessId: sub.businessId, status: error.status || 0 });
@@ -776,7 +920,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     },
 
     async notify(rawBody, givenToken, { pushVerified = false } = {}) {
-      if (!enabled || (!cfg.notifyToken && !pushVerified)) return { ok: false, statusCode: 404, error: 'NOT_FOUND' };
+      if (!playOn || (!cfg.notifyToken && !pushVerified)) return { ok: false, statusCode: 404, error: 'NOT_FOUND' };
       if (!pushVerified && !notifyTokenMatches(cfg.notifyToken, givenToken)) return { ok: false, statusCode: 401, error: 'BAD_TOKEN' };
       let message;
       let event;
@@ -786,11 +930,12 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       } catch {
         return { ok: true, ignored: true };
       }
-      if (event.packageName !== cfg.packageName || !event.subscriptionNotification?.purchaseToken) return { ok: true, ignored: true };
+      const fromPackage = String(event.packageName || '');
+      if (!fromPackage || !((enabled && fromPackage === cfg.packageName) || countryPackages.has(fromPackage)) || !event.subscriptionNotification?.purchaseToken) return { ok: true, ignored: true };
       const token = String(event.subscriptionNotification.purchaseToken);
       let found;
       try {
-        found = await lookup(token);
+        found = await lookup(token, fromPackage);
       } catch (error) {
         log({ billing: 'play_auth_failed', status: error.status || 0 });
         return { ok: false, statusCode: 503, error: 'PROVIDER_UNAVAILABLE' };
@@ -808,7 +953,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
         log({ billing: 'notify_unknown_purchase' });
         return { ok: true, unknown: true };
       }
-      await save(businessId, null, token, found);
+      if (!(await save(businessId, null, token, found))) return { ok: true, superseded: true };
       await acknowledge(found, token);
       await db.query("insert into billing_events (provider, event_id) values ('play', $1) on conflict do nothing", [String(message.messageId || message.message_id || `${token.slice(0, 40)}:${event.eventTimeMillis || ''}`).slice(0, 200)]);
       await audit(businessId, null, 'billing.event', { provider: 'play', notificationType: Number(event.subscriptionNotification.notificationType) || 0, status: found.status, plan: found.plan });

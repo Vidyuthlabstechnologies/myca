@@ -9,6 +9,10 @@ function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
 }
 
+function deducteeKeyOf(row) {
+  return row.pan || `NOPAN:${String(row.payee || '').toUpperCase()}`;
+}
+
 function deductor(state) {
   const company = state.company || {};
   return { name: company.name || '', tan: company.tan || '', pan: company.pan || '', address: company.address || '', gstin: company.gstin || '' };
@@ -33,7 +37,7 @@ export function form16A(state, args = {}) {
   const entries = (state.tdsEntries || []).filter((entry) => entry.section !== '192' && quarter.months.includes(entry.date.slice(0, 7)));
   const challans = challansFor(state, 'other', draft.quarter);
   const certificates = draft.deductees.map((row, index) => {
-    const own = entries.filter((entry) => (entry.pan || '') === row.pan && (entry.payee || '') === row.payee && entry.section === row.section);
+    const own = entries.filter((entry) => deducteeKeyOf(entry) === deducteeKeyOf(row) && entry.section === row.section);
     return {
       serial: index + 1,
       certificateNo: `16A/${draft.quarter.replace(/\s+/g, '-')}/${String(index + 1).padStart(3, '0')}`,

@@ -333,7 +333,7 @@ export const COUNTRIES = Object.freeze({
   "GB": {
     "code": "GB",
     "name": "United Kingdom",
-    "status": "planned",
+    "status": "beta",
     "currency": "GBP",
     "symbol": "£",
     "locale": "en-GB",
@@ -348,7 +348,7 @@ export const COUNTRIES = Object.freeze({
     "taxName": "VAT",
     "app": {
       "flavor": "uk",
-      "label": "MyCA GB",
+      "label": "MyCA UK",
       "edition": "GB"
     }
   },
@@ -378,7 +378,7 @@ export const COUNTRIES = Object.freeze({
   "AE": {
     "code": "AE",
     "name": "United Arab Emirates",
-    "status": "planned",
+    "status": "beta",
     "currency": "AED",
     "symbol": "AED",
     "locale": "en-AE",

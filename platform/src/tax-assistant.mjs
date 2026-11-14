@@ -81,7 +81,7 @@ function previousFy(fy) {
 function fyArg(value, fallback) {
   const text = String(value || '').trim();
   if (!text) return { ok: true, fy: fallback };
-  if (!FY_LABEL.test(text)) return fail('FY_INVALID', { hint: 'Use a financial year like 2025-26.' });
+  if (!FY_LABEL.test(text) || Number(text.slice(5)) !== (Number(text.slice(0, 4)) + 1) % 100) return fail('FY_INVALID', { hint: 'Use a financial year like 2025-26.' });
   return { ok: true, fy: text };
 }
 

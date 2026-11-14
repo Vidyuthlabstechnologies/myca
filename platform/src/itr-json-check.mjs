@@ -90,10 +90,10 @@ export function validateAgainstSchema(schema, data) {
     }
     if (value && typeof value === 'object' && !Array.isArray(value)) {
       const props = rule.properties || {};
-      for (const name of rule.required || []) if (!(name in value)) push(path ? `${path}.${name}` : name, 'REQUIRED', 'Required field is missing.');
+      for (const name of rule.required || []) if (!Object.hasOwn(value, name)) push(path ? `${path}.${name}` : name, 'REQUIRED', 'Required field is missing.');
       for (const [name, child] of Object.entries(value)) {
         const childPath = path ? `${path}.${name}` : name;
-        if (props[name]) visit(props[name], child, childPath);
+        if (Object.hasOwn(props, name)) visit(props[name], child, childPath);
         else if (rule.additionalProperties === false) push(childPath, 'NOT_ALLOWED', 'Field is not in the schema for this form.');
         else if (rule.additionalProperties && typeof rule.additionalProperties === 'object') visit(rule.additionalProperties, child, childPath);
       }

@@ -32,11 +32,15 @@ void main() {
     expect(planLimits(essentials), 'Unlimited invoices, up to 2 people');
     expect(planLimits(pro), 'Unlimited invoices, up to 5 people');
     expect(pro.productId, 'myca_pro_monthly');
-    expect(planPrice(essentials, null), '₹999 a month or ₹9,999 a year');
-    expect(planPrice(pro, null), '₹1,999 a month');
+    expect(planPrice(essentials, null), '₹999 a month plus GST');
+    expect(planPrice(pro, null), '₹1,999 a month plus GST');
     expect(wholeRupees(24999), '₹24,999');
     expect(wholeRupees(150000), '₹1,50,000');
-    expect(planPrice(pro, const StoreProduct(id: 'myca_pro_monthly', price: '₹549.00')), '₹549.00 a month on Google Play');
+    expect(planPrice(pro, const StoreProduct(id: 'myca_pro_monthly', price: '₹549.00')), '₹549.00 a month on Google Play, GST included');
+    expect(renewalTerms(pro, null), contains('until you cancel'));
+    final assured = PlanOffer.fromJson({'id': 'assured', 'title': 'MyCA Assured', 'monthlyRupees': 4999, 'buyable': false, 'opening': true, 'features': ['ca-assured'], 'limits': {}});
+    expect(assured.opening, isTrue);
+    expect(featureWords['ca-assured'], contains('not MyCA, is responsible'));
   });
 
   test('the entitlement line says trial, pending, on hold, ending or renewing', () {

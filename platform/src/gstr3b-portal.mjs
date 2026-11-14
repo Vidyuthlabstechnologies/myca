@@ -33,16 +33,17 @@ function lineSupply(line) {
   return String(line?.supply || '');
 }
 
-function exportsAndNonGst(invoices) {
+function exportsAndNonGst(docs) {
   const zero = { txval: 0, iamt: 0 };
   const fromRated = { txval: 0, iamt: 0 };
   let fromNil = 0;
   let nonGst = 0;
-  for (const inv of invoices) {
+  const signed = [...(docs.invoices || []).map((doc) => [doc, 1]), ...(docs.debitNotes || []).map((doc) => [doc, 1]), ...(docs.creditNotes || []).map((doc) => [doc, -1])];
+  for (const [inv, sign] of signed) {
     const exported = Boolean(inv.export) || String(inv.placeOfSupply || '') === '96';
     for (const line of inv.lines || []) {
-      const taxable = Number(line.taxable || 0);
-      const igst = Number(line.igst || 0);
+      const taxable = sign * Number(line.taxable || 0);
+      const igst = sign * Number(line.igst || 0);
       if (exported) {
         zero.txval += taxable;
         zero.iamt += igst;
@@ -82,7 +83,7 @@ export function gstr3bPortalJson(state, period, gstin) {
   if (!company.gstin) return fail('GSTIN_REQUIRED', { hint: 'Add the business GSTIN first.' });
   const draft = gstr3bFor(state, docs);
   const totals = draft.outward?.totals || {};
-  const extra = exportsAndNonGst(docs.invoices);
+  const extra = exportsAndNonGst(docs);
   const warnings = [];
   if (draft.missingHsn?.length) warnings.push(`Invoices without an HSN are counted in the totals: ${draft.missingHsn.join(', ')}.`);
   const outward = amounts(Number(totals.interTaxable || 0) + Number(totals.intraTaxable || 0) - extra.fromRated.txval, Number(totals.interIgst || 0) - extra.fromRated.iamt, totals.intraCgst, totals.intraSgst);
@@ -280,12 +281,12 @@ export async function requestGstr3bEvc(state, args = {}, actor) {
 export async function fileGstr3bOnPortal(state, args = {}, actor) {
   const found = foundSave(state, args);
   if (!found.ok) return found;
-  if (found.saved.filedAck) return fail('ALREADY_FILED', { ackNum: found.saved.filedAck });
+  if (found.saved.filedAck && !found.saved.filedMock) return fail('ALREADY_FILED', { ackNum: found.saved.filedAck });
   const built = sameDraft(state, found);
   if (!built.ok) return built;
   const review = approvedReview(state, found.period, found.gstin);
   if (!review.ok) return review;
-  const cashOwed = built.payment ? Number(built.payment.cash?.total || 0) + Number(built.payment.creditUsed || 0) : 0;
+  const cashOwed = built.payment ? Number(built.payment.cash?.total || 0) + Number(built.payment.reverseCharge?.total || 0) + Number(built.payment.creditUsed || 0) : 0;
   if (!found.saved.offsetOn && cashOwed > 0) return fail('NOT_SET_OFF', { hint: 'Set off the tax on the portal first ("pay GSTR-3B for 2026-09 on the portal").' });
   const pan = String(args.pan || state.company?.pan || '').trim().toUpperCase();
   if (!PAN.test(pan)) return fail('PAN_REQUIRED');
@@ -301,6 +302,7 @@ export async function fileGstr3bOnPortal(state, args = {}, actor) {
   }
   found.saved.filedAck = ackNum;
   found.saved.filedOn = localToday();
+  found.saved.filedMock = Boolean(out.mock);
   return { ok: true, period: found.period, gstin: found.gstin, ackNum, filing, mock: Boolean(out.mock) };
 }
 

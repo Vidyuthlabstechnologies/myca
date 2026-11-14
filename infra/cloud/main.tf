@@ -725,12 +725,20 @@ resource "google_logging_project_bucket_config" "myca" {
   location       = "global"
   bucket_id      = "${local.name}-logs"
   retention_days = var.log_retention_days
-  description    = "MyCA request, job and database logs kept for the CERT-In period"
+  description    = "Earlier MyCA log bucket in the global location. No longer written to; remove it once its last logs are older than 180 days."
+}
+
+resource "google_logging_project_bucket_config" "myca_regional" {
+  project        = var.project_id
+  location       = var.region
+  bucket_id      = "${local.name}-logs-${var.region}"
+  retention_days = var.log_retention_days
+  description    = "MyCA request, job and database logs, kept in the country's own region for the DPDP Rules one-year period (longer than CERT-In's 180 days)"
 }
 
 resource "google_logging_project_sink" "myca" {
   name                   = "${local.name}-logs"
-  destination            = "logging.googleapis.com/${google_logging_project_bucket_config.myca.id}"
+  destination            = "logging.googleapis.com/${google_logging_project_bucket_config.myca_regional.id}"
   unique_writer_identity = true
   filter                 = "(resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${local.name}\") OR (resource.type=\"cloudsql_database\" AND resource.labels.database_id=\"${var.project_id}:${local.stem}\") OR (resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=~\"^${local.name}\")"
 }

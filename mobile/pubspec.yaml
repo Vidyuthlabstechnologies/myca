@@ -53,6 +53,8 @@ dependencies:
   rive: ^0.14.11
   myca_design:
     path: ../design/flutter/myca_design
+  myca_fonts_arabic:
+    path: ../design/flutter/myca_fonts_arabic
   crypto: ^3.0.8
 
 dev_dependencies:

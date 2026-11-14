@@ -1,4 +1,4 @@
-import { isoDate, localToday } from './dates.mjs';
+import { isoDate, localToday, reportDate } from './dates.mjs';
 import { CHANNELS } from './settlements.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
@@ -211,7 +211,7 @@ export function parse26asCredits(text) {
     const section = normalSection(cells[idx.section]);
     if (!section) { otherSections += 1; continue; }
     const tan = String(cells[idx.tan] || '').replace(/\s+/g, '').toUpperCase();
-    const date = idx.date == null ? '' : isoDate(cells[idx.date]) || '';
+    const date = idx.date == null ? '' : reportDate(cells[idx.date]) || '';
     const taxDeducted = Math.abs(money(cells[idx.taxDeducted]) || 0);
     if (!TAN.test(tan)) { held.push({ row: n + 2, reason: 'BAD_TAN', value: tan }); continue; }
     if (!date) { held.push({ row: n + 2, reason: 'INVALID_DATE', tan }); continue; }

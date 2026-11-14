@@ -2,9 +2,10 @@
 
 Effective date: to be set when published.
 
-Data fiduciary (controller): ML Dynamic Solutions Private Limited, [registered address],
-support email [support address]. Grievance Officer: [name], [email], [address]; we reply
-within the time the law sets.
+Data fiduciary (controller): ML Dynamic Solutions Private Limited, CIN [CIN], [registered
+office address], support email [support address]. Grievance Officer: [name], [email],
+[phone]; we acknowledge within 48 hours and reply within 30 days. The in-app notice
+(`cloud/src/consent.mjs`, `LEGAL_INDIA`) holds the same fields; fill both.
 
 The bracketed fields are the only parts left for the owner (issue #148). The published copy
 is `deploy/public/privacy.html`; change both in the same commit. Every recipient below is
@@ -56,30 +57,45 @@ Each of these is reached only when you use the feature, and only with what that 
 
 Nobody else. We do not sell data and we run no advertising or analytics.
 
+## Where it is kept, and transfers outside India
+
+Your account and books are stored on Google Cloud in Mumbai, India, and our logs are kept
+in India. Two features can send information outside India, only when you use them: the
+language model provider (United States) and the email relay (a worldwide network). No
+transfer goes to a country the Government of India has restricted under s.16 of the Act.
+
 ## Your rights
 
-You can see everything MyCA holds about your business from inside the app, and download
-all of it as one file from the Businesses screen (the books, every uploaded document,
-who has access, connected systems and the audit trail). You can delete a business from
-the same screen, which removes its books and documents, and delete your account there
-too, or without the app at https://[site]/delete-account. Either way it disappears from
-the app at once and you are signed out of every device; thirty days later the business,
-or your name, phone number, email and Google account link, are erased for good. Signing
-in again within those thirty days cancels an account deletion. Records the law makes us
-keep (for example a filed return's acknowledgement) are kept only as long as it requires.
-Your rights under the Digital Personal Data Protection Act, 2023, including correction,
-erasure, grievance redressal and nominating someone to act for you, can be exercised by
-writing to the support email or the Grievance Officer above.
+Under the Digital Personal Data Protection Act, 2023 you can ask what we hold and who we
+shared it with, have it corrected, completed or erased, withdraw consent, nominate someone
+to act for you, and complain. In the app: Your businesses, Your privacy rights
+(`POST /v1/me/privacy-requests`); every request gets a reference, an acknowledgement within
+48 hours and an answer within 30 days. Or write to the Grievance Officer
+(https://[site]/grievance). You can download everything about a business from the
+Businesses screen, delete a business there, and delete your account there or at
+https://[site]/delete-account. Deleting the account withdraws consent: it disappears at once
+and thirty days later the name, phone number, email and Google account link are erased for
+good; signing in again within those thirty days cancels it. If you are not satisfied, you
+can complain to the Data Protection Board of India.
 
 ## Children
 
-MyCA is for business owners aged 18 and over and is not meant for children.
+MyCA is for people aged 18 and over. Everyone confirms they are 18 or over before using it
+(`consents.adult_declared`).
 
 ## Retention and security
 
-Books are kept while the business exists. Backups of the hosted database are kept for
-fourteen days. Data travels over HTTPS and is stored encrypted at rest by the cloud
-provider. Sign-in codes expire in five minutes.
+Books are kept while the business exists and erased thirty days after deletion. Backups are
+kept for fourteen days. Security logs and the access log are kept for one year (DPDP Rules
+2025), in India. Tax law asks the taxpayer to keep records for six years or more, so the
+export is complete and free. Data travels over HTTPS and is stored encrypted at rest. Sign-in
+codes expire in five minutes.
+
+## If there is a breach
+
+We tell affected people without delay, in the app and by email where known, and report to the
+Data Protection Board of India and CERT-In within the times the law sets
+(`docs/operations/INCIDENT-RESPONSE.md`).
 
 ## Changes
 

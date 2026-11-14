@@ -79,6 +79,9 @@ void expectTooltips(WidgetTester tester) {
 }
 
 Future<void> press(WidgetTester tester, Finder finder) async {
+  if (finder.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(finder, 200, scrollable: find.byType(Scrollable).first);
+  }
   await tester.ensureVisible(finder);
   await tester.pumpAndSettle();
   await tester.tap(finder);
@@ -369,6 +372,7 @@ void main() {
     expect(find.text('How MyCA uses your information'), findsOneWidget);
     expect(cloud.requests.where((r) => r.startsWith('GET /v1/businesses')), isEmpty, reason: 'no business data before consent');
 
+    await press(tester, find.text('I am 18 or over'));
     await press(tester, find.text('I agree'));
     expect(cloud.consents, ['privacy@v-test']);
     expect(find.text('What should we call you?'), findsOneWidget);

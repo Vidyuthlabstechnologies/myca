@@ -95,6 +95,11 @@ Each test file creates and drops its own database.
 MYCA_LISTEN_HOST=127.0.0.1 MYCA_DATABASE_URL=postgres://myca@127.0.0.1:54329/myca_dev MYCA_TOKEN_SECRET=<32+ random characters> MYCA_BOOKS_KEY=<32+ random characters> MYCA_DEV_OTP=1 PORT=8080 npm run dev
 ```
 
+For MyCA US with every outside service faked (Stripe test checkout, Google Play, the e-file
+partner, the MeF simulator), use `node scripts/us-sandbox.mjs` from the repository root instead:
+see `docs/release/US-SANDBOX.md`. `node scripts/us-sandbox.mjs --check` walks the whole US path
+and exits 0 when it works.
+
 `MYCA_GOOGLE_CLIENT_IDS` lists the OAuth client ids (comma-separated) whose Google ID
 tokens the API accepts; set it to the web client id the app passes as
 `MYCA_GOOGLE_SERVER_CLIENT_ID`. `MYCA_OIDC_ISSUER` with `MYCA_OIDC_CLIENT_IDS` turns on
@@ -271,7 +276,13 @@ How it holds together:
 - A cancelled subscription keeps its plan until the paid period ends; `on_hold` and `paused`
   drop to Free at once; three grace days follow the paid period otherwise.
 - Customers cancel or change payment method in Google Play. Switching plans means cancelling
-  and subscribing to the other one.
+  and subscribing to the other one. Once a newer purchase pays for the business, a late notice
+  for the old purchase changes nothing, and sending the old token again answers
+  `PURCHASE_SUPERSEDED`; a purchase Play links to the current one always replaces it.
+- A CA firm's applied invite credits run after the paid period ends, also once Google reports
+  the subscription expired. A credit is earned only when the invited person owns a business with
+  a live paid subscription that the firm's owner is not a member of.
+- Open invitations hold a seat: the member limit counts members plus invitations still open.
 - The API calls Google as its Cloud Run service account through the metadata server, so no key
   file is needed. `MYCA_PLAY_SERVICE_ACCOUNT_JSON` is there for running elsewhere.
 

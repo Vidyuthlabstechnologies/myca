@@ -1,4 +1,4 @@
-import { isoDate, localToday } from './dates.mjs';
+import { localToday, reportDate } from './dates.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 export const SETTLEMENT_KINDS = ['sale', 'tax', 'refund', 'fee', 'penalty', 'reimbursement', 'tcs', 'tds', 'adjustment'];
@@ -120,7 +120,7 @@ export function parseSettlementCsv(text, { channel } = {}) {
   let hasFileValue = false;
   for (const [n, cells] of rows.slice(1).entries()) {
     const rowNo = n + 2;
-    const date = idx.date == null ? '' : isoDate(cells[idx.date]) || '';
+    const date = idx.date == null ? '' : reportDate(cells[idx.date]) || '';
     const orderId = idx.orderId == null ? '' : String(cells[idx.orderId] || '').trim();
     const sku = idx.sku == null ? '' : String(cells[idx.sku] || '').trim();
     if (idx.settlementId != null && !settlementId) settlementId = String(cells[idx.settlementId] || '').trim();

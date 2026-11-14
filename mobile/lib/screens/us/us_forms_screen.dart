@@ -9,6 +9,7 @@ import '../../marks.dart';
 import '../../theme.dart';
 import '../../us/us_return.dart';
 import '../../widgets.dart';
+import 'us_fields.dart';
 import 'us_form_editor_screen.dart';
 
 class UsFormsScreen extends StatefulWidget {
@@ -99,11 +100,11 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
       }
       final fields = data['fields'] is Map ? (data['fields'] as Map).cast<String, Object?>() : const <String, Object?>{};
       await _edit(kind, fields: fields, documentSha: sha, readNote: 'Read from ${shortFileName(picked.name, 40)}. Check each box against the form before you save.');
-    } on MycaApiException catch (err) {
+    } on Object catch (err) {
       if (mounted) {
         setState(() {
           _reading = false;
-          _note = err.message;
+          _note = err is MycaApiException ? err.message : 'That file could not be read. Try a clear photo or a PDF, or choose "Type it in".';
         });
       }
     }
@@ -147,20 +148,18 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
                 const SizedBox(height: 6),
                 Text('Employers, banks and brokers send them by January 31. Look in your mail, email, and their websites.', style: text.bodySmall?.copyWith(color: Palette.muted)),
                 const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton(
-                        key: const Key('usForms.scan'),
-                        onPressed: _reading ? null : _scan,
-                        child: Text(_reading ? 'Reading…' : 'Snap or upload'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton(key: const Key('usForms.type'), onPressed: _reading ? null : _pickKind, child: const Text('Type it in')),
-                    ),
-                  ],
+                LayoutBuilder(
+                  builder: (context, box) {
+                    final scan = FilledButton(
+                      key: const Key('usForms.scan'),
+                      onPressed: _reading ? null : _scan,
+                      child: Text(_reading ? 'Reading…' : 'Snap or upload'),
+                    );
+                    final type = OutlinedButton(key: const Key('usForms.type'), onPressed: _reading ? null : _pickKind, child: const Text('Type it in'));
+                    final stacked = box.maxWidth < 340 || MediaQuery.textScalerOf(context).scale(10) > 13;
+                    if (stacked) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [scan, const SizedBox(height: 10), type]);
+                    return Row(children: [Expanded(child: scan), const SizedBox(width: 10), Expanded(child: type)]);
+                  },
                 ),
                 if (_note.isNotEmpty) ...[
                   const SizedBox(height: 12),
@@ -170,7 +169,7 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
                 if (loaded.connectionState != ConnectionState.done)
                   const Center(child: CircularProgressIndicator())
                 else if (loaded.hasError)
-                  EmptyNote(text: loaded.error is MycaApiException ? (loaded.error as MycaApiException).message : 'Your forms could not be loaded.')
+                  UsLoadError(inline: true, message: usLoadProblem(loaded.error, 'Your forms could not be loaded.'), onRetry: _reload)
                 else if (forms.isEmpty)
                   const EmptyNote(text: 'No forms yet. Start with your W-2 if you had a job.')
                 else
@@ -188,6 +187,7 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
                           ].join(' · '),
                           trailing: PopupMenuButton<String>(
                             key: Key('usForms.menu.${f.id}'),
+                            tooltip: 'Edit or remove this ${f.kind}',
                             onSelected: (choice) async {
                               if (choice == 'remove') return _remove(f);
                               final kind = formKindOf(f.kind, await _kinds!);

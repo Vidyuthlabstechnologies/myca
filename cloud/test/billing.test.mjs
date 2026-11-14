@@ -312,3 +312,18 @@ test('a CA firm\'s earned invite credits are applied at its next renewal and kee
   assert.equal((await firmBilling.entitlement(firm.businessId)).plan, 'lapsed', 'and then it runs out');
   api.clock.advance(-102 * DAY);
 });
+
+test('MyCA Assured cannot be sold until the independent professional is named', async () => {
+  const config = { packageName: PACKAGE, productIds: { assured: 'myca_assured' }, notifyToken: NOTIFY, serviceAccount: { clientEmail: 'play@test.iam.gserviceaccount.com', privateKey: 'x', tokenUri: 'https://oauth2.googleapis.com/token' }, prices: {} };
+  const closed = createBilling({ db: api.db, config });
+  const shut = closed.plans().plans.find((p) => p.id === 'assured');
+  assert.equal(shut.buyable, false);
+  assert.equal(shut.opening, true);
+  assert.equal((await closed.verify('x', 'y', { productId: 'myca_assured', purchaseToken: 'tok' })).error, 'PLAN_NOT_OPEN');
+  const open = createBilling({ db: api.db, config: { ...config, assuredProfessional: 'A. Rao, CA, ICAI membership 123456' } });
+  const sold = open.plans().plans.find((p) => p.id === 'assured');
+  assert.equal(sold.buyable, true);
+  assert.equal(sold.opening, false);
+  assert.match(sold.professional, /ICAI membership/);
+  assert.equal(billingConfigFromEnv({ MYCA_ASSURED_PROFESSIONAL: 'A. Rao' }).assuredProfessional, 'A. Rao');
+});

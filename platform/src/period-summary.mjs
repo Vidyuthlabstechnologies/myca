@@ -10,18 +10,39 @@ import { reverseChargeTotals } from './reverse-charge.mjs';
 
 const { filingPrep } = filing;
 
-function netOfNotes(outward, creditNotes, debitNotes) {
+function noteTaxableSplit(notes, supplierState) {
+  const paiseOf = { inter: 0, intra: 0, zero: 0 };
+  for (const note of notes || []) {
+    const lines = note.lines || [];
+    if (!lines.length) {
+      paiseOf[Number(note.igst || 0) > 0 ? 'inter' : 'intra'] += Math.round(Number(note.taxable || 0) * 100);
+      continue;
+    }
+    const inter = String(note.partyState || note.placeOfSupply || supplierState) !== String(supplierState);
+    for (const line of lines) {
+      const bucket = Number(line.gstRate || 0) === 0 ? 'zero' : inter ? 'inter' : 'intra';
+      paiseOf[bucket] += Math.round(Number(line.taxable || 0) * 100);
+    }
+  }
+  return { inter: paiseOf.inter / 100, intra: paiseOf.intra / 100, zero: paiseOf.zero / 100 };
+}
+
+function netOfNotes(outward, creditNotes, debitNotes, supplierState) {
   const totals = outward?.totals || {};
   const credit = creditNoteTotals(creditNotes);
   const debit = noteTotals(debitNotes);
+  const creditSplit = noteTaxableSplit(creditNotes, supplierState);
+  const debitSplit = noteTaxableSplit(debitNotes, supplierState);
   const r2 = (v) => Math.round(Number(v || 0) * 100) / 100;
   return {
     ...outward,
     grossTotals: totals,
+    grossNilExemptTaxable: outward?.nilExemptTaxable,
+    nilExemptTaxable: r2(Number(outward?.nilExemptTaxable || 0) - creditSplit.zero + debitSplit.zero),
     totals: {
-      interTaxable: r2(totals.interTaxable - credit.igstTaxable + debit.igstTaxable),
+      interTaxable: r2(totals.interTaxable - creditSplit.inter + debitSplit.inter),
       interIgst: r2(totals.interIgst - credit.igst + debit.igst),
-      intraTaxable: r2(totals.intraTaxable - credit.intraTaxable + debit.intraTaxable),
+      intraTaxable: r2(totals.intraTaxable - creditSplit.intra + debitSplit.intra),
       intraCgst: r2(totals.intraCgst - credit.cgst + debit.cgst),
       intraSgst: r2(totals.intraSgst - credit.sgst + debit.sgst),
     },
@@ -60,9 +81,10 @@ function withLiabilityHsn(invoices) {
 export function gstr3bFor(state, docs, inwardOverride) {
   const salesText = invoicesToSalesCsv(withLiabilityHsn(docs.invoices));
   const inwardText = inwardOverride || purchasesToInwardCsv(docs.purchases);
-  const result = filingPrep({ salesText, inwardText, supplierState: docs.gstin !== undefined ? companyAs(state, docs.gstin).state : state.company.state, fy: state.company.fy });
+  const supplierState = docs.gstin !== undefined ? companyAs(state, docs.gstin).state : state.company.state;
+  const result = filingPrep({ salesText, inwardText, supplierState, fy: state.company.fy });
   const draft = result.gstr3b || {};
-  return { ...draft, outward: netOfNotes(draft.outward, docs.creditNotes || [], docs.debitNotes || []), itc: lessPurchaseNotes(draft.itc, docs.purchaseNotes || []), period: docs.period, missingHsn: invoicesMissingHsn(docs.invoices) };
+  return { ...draft, outward: netOfNotes(draft.outward, docs.creditNotes || [], docs.debitNotes || [], supplierState), itc: lessPurchaseNotes(draft.itc, docs.purchaseNotes || []), period: docs.period, missingHsn: invoicesMissingHsn(docs.invoices) };
 }
 
 export function periodSummary(state, period, gstin) {
@@ -87,6 +109,7 @@ export function periodSummary(state, period, gstin) {
       purchaseNotes: noteTotals(docs.purchaseNotes),
       purchaseCount: docs.purchases.length,
       taxableSales: (Math.round(Number(outward.interTaxable || 0) * 100) + Math.round(Number(outward.intraTaxable || 0) * 100)) / 100,
+      grossTaxableSales: (Math.round(Number(gstr3b.outward?.grossTotals?.interTaxable || 0) * 100) + Math.round(Number(gstr3b.outward?.grossTotals?.intraTaxable || 0) * 100)) / 100,
       outputTax: taxByHead(outward.interIgst, outward.intraCgst, outward.intraSgst),
       inputCredit: taxByHead(credit.igst, credit.cgst, credit.sgst),
       reverseCharge: reverseChargeTotals(docs.purchases),

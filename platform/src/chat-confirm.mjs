@@ -10,10 +10,10 @@
 import { signPreview, filePreview } from './us-efile.mjs';
 import { importPayrollTaxFormsPreview } from './us-connectors.mjs';
 import { randomBytes } from 'node:crypto';
-import { setCurrentCountry } from './country.mjs';
+import { setCurrentCountry, countryOf } from './country.mjs';
 import { usTaxpayerPreview, usTaxFormPreview, removeUsTaxFormPreview, usInterviewPreview } from './us-return.mjs';
 import { ENGINE_WRITE_TOOLS } from './countries/manifests.mjs';
-import { enginePreview } from './countries/engines.mjs';
+import { enginePreview, engineBooks } from './countries/engines.mjs';
 import { salesTaxRatePreview, contractorPreview, nexusPreview, salesTaxReviewAnswerPreview, salesTaxPaymentPreview, salesTaxFilingPreview, sutaRatePreview, withholdingPreview, payrollImportPreview, usImportPreview } from './confirm-us.mjs';
 import { gstPaymentPreview, advanceTaxPreview, creditOpeningPreview, deductorPreview, tdsDepositPreview, filingPreview, reviewAnswerPreview, tdsReviewAnswerPreview, gstr2bPreview, imsPreview, registrationPreview, retireRegistrationPreview, tcsStatementPreview, credits26asPreview, tdsWithheldPreview, billTdsPreview, irnPreview } from './confirm-tax.mjs';
 import { amendmentPreview, documentPreview, receiptPreview, paymentPreview, paymentRunPreview, supplierBankPreview, purchaseOrderPreview, collectionReminderPreview, supplierReminderPreview, expensePreview, creditNotePreview, debitNotePreview, purchaseNotePreview, supplierNotePreview, reminderPreview, completeReminderPreview, invoiceTemplatePreview, invoiceNumberingPreview, transportPreview, businessAddressPreview, addressPreview, termsPreview, supplierTermsPreview, recurringPreview, stopRecurringPreview, quotePreview, markQuotePreview, convertPreview } from './confirm-sales-purchases.mjs';
@@ -75,11 +75,11 @@ const PREVIEWERS = {
   change_salary: salaryChangePreview,
   end_employment: leavingPreview,
   post_expense: expensePreview,
-  create_credit_note: creditNotePreview,
+  create_credit_note: (state, args) => (engineBooks(countryOf(state), 'create_credit_note', 'preview')?.(state, args) ?? creditNotePreview(state, args)),
   create_debit_note: debitNotePreview,
   create_purchase_note: purchaseNotePreview,
   record_supplier_debit_note: supplierNotePreview,
-  cancel_invoice: (state, args) => creditNotePreview(state, args, true),
+  cancel_invoice: (state, args) => (engineBooks(countryOf(state), 'cancel_invoice', 'preview')?.(state, args) ?? creditNotePreview(state, args, true)),
   gst_review_answer: reviewAnswerPreview,
   tds_review_answer: tdsReviewAnswerPreview,
   import_gstr2b: gstr2bPreview,

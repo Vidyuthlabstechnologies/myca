@@ -38,7 +38,7 @@ test('a valid Google token signs a new user in, with their name and a session, a
 test('a Google user works like any other: consent, a business, the books, no invitations', async () => {
   const signed = (await google(googleToken({ sub: '1002' }))).body;
   const token = signed.accessToken;
-  assert.equal((await api.call('POST', '/v1/me/consent', { token, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version } })).status, 200);
+  assert.equal((await api.call('POST', '/v1/me/consent', { token, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version, adult: true } })).status, 200);
   const created = await api.call('POST', '/v1/businesses', { token, body: { name: 'Rao Textiles', state: '29' } });
   assert.equal(created.status, 200, created.text);
   const snapshot = await api.call('GET', `/v1/businesses/${created.body.business.id}/snapshot`, { token });

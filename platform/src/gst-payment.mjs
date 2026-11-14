@@ -90,7 +90,7 @@ export function paymentFor(state, requested, { payOn, gstin } = {}) {
   cashAfterTcs.total = round2(cashAfterTcs.igst + cashAfterTcs.cgst + cashAfterTcs.sgst);
   const nil = summary.salesCount === 0 && summary.creditNoteCount === 0 && summary.purchaseCount === 0 && (summary.debitNoteCount || 0) === 0 && (summary.purchaseNoteCount || 0) === 0;
   const row = dueRow(state, period);
-  const filed = filingFor(state, 'GSTR-3B', period);
+  const filed = filingFor(state, 'GSTR-3B', period, gstin);
   let late = null;
   if (row && !filed && on > row.dueDate) {
     const interest = interestOn({ cash: cashAfterTcs.total, dueDate: row.dueDate, payOn: on });

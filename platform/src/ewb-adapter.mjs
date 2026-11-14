@@ -1,7 +1,7 @@
 import { EWB_REASONS, EWB_TRANSPORT_MODES, ewayBillPartA, ewbDate, ewbResult, findEwbInvoice, transportPayload } from './eway-bill.mjs';
 
 const EWB_NO = /^[0-9]{12}$/;
-const VEHICLE = /^[A-Z]{2}[0-9]{1,2}[A-Z]{0,3}[0-9]{4}$|^TM[A-Z0-9]{6}$/;
+const VEHICLE = /^[A-Z]{2}[0-9]{1,2}[A-Z]{0,3}[0-9]{4}$|^[0-9]{2}BH[0-9]{4}[A-Z]{1,2}$|^TM[A-Z0-9]{6}$/;
 const TRANSPORTER_ID = /^[0-9]{2}[A-Z0-9]{13}$/;
 const DDMMYYYY = /^[0-3][0-9]\/[0-1][0-9]\/20[0-9]{2}$/;
 const MOCK_TAG = { mock: true, simulated: true };
@@ -60,9 +60,10 @@ function placeArgs(params, { requireVehicle = false } = {}) {
   const transMode = modeArg(params.transMode ?? params.mode);
   if (!transMode) return fail('BAD_MODE');
   const vehicleNo = upper(params.vehicleNo);
-  if ((requireVehicle || transMode === '1') && !vehicleNo && !params.transDocNo) return fail('VEHICLE_REQUIRED');
-  if (vehicleNo && !VEHICLE.test(vehicleNo)) return fail('BAD_VEHICLE', { vehicleNo });
   const transDocNo = text(params.transDocNo ?? params.docNo, 15);
+  if (transMode === '1' && !vehicleNo) return fail('VEHICLE_REQUIRED', { hint: 'Movement by road needs the vehicle number in Part B.' });
+  if (requireVehicle && !vehicleNo && !transDocNo) return fail('VEHICLE_REQUIRED');
+  if (vehicleNo && !VEHICLE.test(vehicleNo)) return fail('BAD_VEHICLE', { vehicleNo });
   const transDocDate = dateArg(params.transDocDate ?? params.docDate);
   if (transDocNo && !DDMMYYYY.test(transDocDate)) return fail('BAD_TRANSPORT_DOC_DATE', { hint: 'Pass the transport document date as dd/mm/yyyy.' });
   if (transMode !== '1' && transMode !== '5' && !transDocNo) return fail('DOC_REQUIRED', { mode: transMode });
