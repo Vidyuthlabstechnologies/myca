@@ -192,6 +192,9 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - India counter billing (2026-11-14): `find_item` looks up a SKU by code or barcode, `set_sku_cost`
   stores barcode and selling price; the Android Counter sale screen scans with the camera, bills through
   `create_invoice` and prints the engine's figures on a 58/80 mm Bluetooth ESC/POS printer
+- Malaysia PCB (2026-11-14): `my_payroll` works out the monthly tax deduction by LHDN's computerised
+  method from `my.payroll.pcb` and the resident bands and rebate rules (categories 1 to 3, children,
+  bonus, year to date, zakat, TP1 deductions; flat rate for non-residents)
 
 
 ### Data import

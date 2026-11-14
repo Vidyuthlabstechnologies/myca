@@ -132,7 +132,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | SST-02 return, SST registration test | yes | Ahead of Xero |
 | Income tax estimate | yes | Ahead |
 | Bilingual (English, Malay) | yes (launch branch) | Parity |
-| Payroll statutory (EPF, SOCSO, EIS) | `my_payroll` from the Third Schedule and the PERKESO RM100-band tables | **Built now**; PCB, wages of RM300 or less and SOCSO second category still open |
+| Payroll statutory (EPF, SOCSO, EIS, PCB) | `my_payroll` from the Third Schedule, the PERKESO RM100-band tables and LHDN's computerised PCB method (categories, children, bonus, year to date, zakat) | **Built now**; wages of RM300 or less, SOCSO second category and CP39 file export still open |
 | Bank feeds and receipt extraction | no | Gap (Bukku) |
 | Inventory with batches/serials | basic | Gap (AutoCount) |
 
@@ -141,7 +141,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | # | Country | Gap | Why it matters | Suggested owner |
 |---|---|---|---|---|
 | 1 | US | Sign the e-file partner (1099-B/crypto CSV import is built) | No filing, no revenue; investors are the users TurboTax upsells hardest | US launch thread + owner |
-| 2 | Malaysia | PCB (monthly tax deduction) on top of the EPF/SOCSO/EIS payroll now built | SQL Account's payroll add-on is the main reason SMEs stay on desktop | Malaysia thread, from the official KWSP/PERKESO/LHDN tables |
+| 2 | Malaysia | PCB (monthly tax deduction) on top of the EPF/SOCSO/EIS payroll (BUILT; next: CP39 file for e-PCB Plus) | SQL Account's payroll add-on is the main reason SMEs stay on desktop | Malaysia thread, from the official KWSP/PERKESO/LHDN tables |
 | 3 | India | Barcode counter billing and thermal printing on Android (BUILT) | Retail shops pick Vyapar/myBillBook for this alone | India mobile thread |
 | 4 | UK | Open Banking bank feeds and receipt OCR on UK screens | Every rival has them; quarterly MTD updates need categorised bank lines | UK thread (TrueLayer or Yapily via a cloud port) |
 | 5 | India | Hindi and regional-language app | Vyapar's growth came from it | Design system thread |

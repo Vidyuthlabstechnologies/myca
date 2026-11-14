@@ -93,7 +93,7 @@ export const ENGINE = Object.freeze({
     cancel_my_einvoice: (state, args = {}) => ({ blockers: String(args.reason || '').trim() ? [] : ['Give the reason for cancelling.'], summary: `Cancel e-invoice ${args.uuid || ''} at LHDN.`, effects: ['The buyer sees it as cancelled; issue a new e-invoice if one is still owed.'], figures: {} }),
   }),
   words: Object.freeze({
-    my_payroll: (result) => (result.ok ? `Payroll for ${result.data.month}: wages ${money(result.data.totals.wages)}, EPF ${money(result.data.totals.epf)}, SOCSO ${money(result.data.totals.socso)}, EIS ${money(result.data.totals.eis)}, all due by ${result.data.dueBy}.` : ''),
+    my_payroll: (result) => (result.ok ? `Payroll for ${result.data.month}: wages ${money(result.data.totals.wages)}, EPF ${money(result.data.totals.epf)}, SOCSO ${money(result.data.totals.socso)}, EIS ${money(result.data.totals.eis)}, PCB ${money(result.data.totals.pcb)}, all due by ${result.data.dueBy}.` : ''),
     my_tax_estimate: (result) => {
       if (!result.ok) return '';
       const d = result.data;
