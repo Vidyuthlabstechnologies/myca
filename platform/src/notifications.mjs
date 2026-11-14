@@ -99,6 +99,7 @@ async function deliverEmail(env, message, fetchFn, options = {}) {
     method: 'POST',
     headers,
     body: JSON.stringify({ from, to: message.to, subject: message.subject, text: message.body }),
+    redirect: 'error',
     signal,
   });
   const data = await res.json().catch(() => ({}));

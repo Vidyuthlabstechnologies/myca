@@ -46,3 +46,26 @@ test('H18: a comma or formula character in a name cannot corrupt the generated c
   assert.equal(out.data.errors.length, 0, JSON.stringify(out.data.errors));
   assert.ok(find(out.data.deadlines, 'SELF', 'GSTR-3B', '2026-08'));
 });
+
+test('the deadlines tool refuses a month that is not a month, instead of looping on it', async () => {
+  for (const months of [['INV-0001'], ['2026-13'], ['2026-04', 'next month'], [], ['0001-01'], ['2026-04', '9999-12']]) {
+    const out = await runTool(firm(), 'deadlines', { asOfDate: '2026-09-22', months });
+    assert.equal(out.ok, false, JSON.stringify(months));
+    assert.match(out.error, /month/i);
+  }
+  const many = Array.from({ length: 61 }, (_, i) => `20${String(22 + Math.floor(i / 12)).padStart(2, '0')}-${String((i % 12) + 1).padStart(2, '0')}`);
+  assert.equal((await runTool(firm(), 'deadlines', { asOfDate: '2026-09-22', months: many })).ok, false);
+  const asked = await runTool(firm(), 'deadlines', { asOfDate: '2026-09-22', months: ['2026-10', '2026-10', '2026-11'] });
+  assert.equal(asked.ok, true);
+  assert.ok(asked.data.deadlines.length > 0);
+  assert.ok(asked.data.deadlines.every((row) => ['2026-10', '2026-11'].includes(row.dueDate.slice(0, 7))));
+});
+
+test('the deadline list itself drops a month that is not a month', async () => {
+  const { listDeadlines } = await import('../../sprints/sprint-4-deadlines/src/deadlines.mjs');
+  const clients = [{ clientId: 'SELF', name: 'Nalanda', entity: 'llp', turnover: 5000000, gst: 'TRUE' }];
+  assert.deepEqual(listDeadlines({ clients, months: ['INV-0001', 'NaN-NaN', ''] }), []);
+  const mixed = listDeadlines({ clients, months: ['INV-0001', '2026-10'] });
+  assert.ok(mixed.length > 0);
+  assert.ok(mixed.every((row) => row.dueDate.startsWith('2026-10')));
+});

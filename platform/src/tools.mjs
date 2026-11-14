@@ -55,7 +55,7 @@ import { auditTrail } from './audit-trail.mjs';
 import { import2b, creditAtRisk, reconcileDocuments } from './gstr2b-check.mjs';
 import { imsReview, decideIms } from './ims.mjs';
 import { booksCheck } from './books-check.mjs';
-import { deadlineRun, filingRows } from './deadline-run.mjs';
+import { askedMonths, deadlineRun, filingRows } from './deadline-run.mjs';
 import { listFilings, recordFiling } from './filings.mjs';
 import { draftSupplierReminder, recordSupplierReminder } from './supplier-reminders.mjs';
 import { addEmployee, changeSalary, endEmployment, listEmployees, setEmployeeBank } from './employees.mjs';
@@ -234,6 +234,11 @@ export const TOOLS = [
         const st = String(args.state).trim();
         if (st && !/^\d{2}$/.test(st)) return fail('INVALID_STATE_CODE');
         patch.state = st;
+      }
+      const gstinAfter = patch.gstin ?? company.gstin ?? '';
+      const stateAfter = patch.state ?? company.state ?? '';
+      if (gstinAfter && stateAfter && !['97', '99'].includes(gstinAfter.slice(0, 2)) && stateAfter !== gstinAfter.slice(0, 2)) {
+        return fail('STATE_NOT_GSTIN_STATE', { state: stateAfter, gstinState: gstinAfter.slice(0, 2), hint: 'The state is the first two digits of the GSTIN.' });
       }
       if (args.pan != null) {
         const pan = String(args.pan).trim().toUpperCase();
@@ -597,8 +602,8 @@ export const TOOLS = [
   {
     name: 'create_purchase',
     title: 'Record purchase bill',
-    description: 'Book a supplier invoice: purchases + AP (with GST input credit in India; in the US any sales tax paid is part of the cost).',
-    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo', 'salesTaxPaid', 'documentSha256'],
+    description: 'Book a supplier invoice: purchases + AP (with GST input credit in India; in the US any sales tax paid is part of the cost). In India set reverseCharge for a purchase where you pay the GST (an unregistered supplier or a notified service), or originCountry for an import of services; MyCA then books the tax as payable by you and numbers a self-invoice (SI-nnnn) that can get an IRN as RCMDOM or RCMIMP.',
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo', 'salesTaxPaid', 'documentSha256', 'reverseCharge', 'originCountry', 'partyAddress'],
     run: (state, args) => (countryOf(state) === 'US' ? createUsPurchase(state, args) : createPurchase(state, args)),
   },
   {
@@ -1654,7 +1659,7 @@ export const TOOLS = [
   {
     name: 'govt_generate_irn',
     title: 'Generate e-invoice IRN',
-    description: 'Build NIC Invoice JSON from a posted tax invoice, credit note (CN-) or debit note (DN-) and generate its IRN through the action gate (live switch and a matching CA approval). A note carries the original invoice as PrecDocDtls.',
+    description: 'Build NIC Invoice JSON from a posted tax invoice, credit note (CN-), debit note (DN-) or reverse charge self-invoice (SI-, or its BILL- number; sent as RCMDOM or RCMIMP with the supplier as URP) and generate its IRN through the action gate (live switch and a matching CA approval). A note carries the original invoice as PrecDocDtls.',
     args: ['invoiceId', 'provider', 'caApprovalId'],
     run: async (state, args = {}) => {
       if (!args.invoiceId) return fail('invoiceId required, e.g. INV-0001');
@@ -2738,7 +2743,9 @@ export const TOOLS = [
     description: 'Statutory due dates for the firm and every registered client (GSTR-1/3B, PMT-06, TDS, PF, advance tax, ITR, GSTR-9) from the dated rules, as of today. Due dates never roll over weekends or holidays.',
     run: (state, args = {}) => {
       const asOfDate = /^\d{4}-\d{2}-\d{2}$/.test(String(args.asOfDate || '')) ? args.asOfDate : localToday();
-      const run = deadlineRun(state, { asOfDate, months: args.months, holidaysText: args.holidaysText || '' });
+      const window = askedMonths(args.months, asOfDate);
+      if (!window.ok) return fail(window.error);
+      const run = deadlineRun(state, { asOfDate, months: window.months, holidaysText: String(args.holidaysText || '') });
       return ok({ asOfDate, ...run });
     },
   },

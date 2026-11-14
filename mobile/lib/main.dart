@@ -34,6 +34,7 @@ import 'screens/migration_flow.dart';
 import 'screens/sign_in_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/us/us_return_home_screen.dart';
+import 'growth.dart';
 import 'shared_file.dart';
 import 'theme.dart';
 import 'tour/tour.dart';
@@ -81,6 +82,7 @@ void main() {
         shareText: shareTextFromDevice,
         pdf: const PdfActions(share: sharePdfFromDevice, print: printPdfFromDevice),
         crashes: crashes,
+        funnel: config.hosted ? FunnelTracker(store: DeviceFunnelStore(), edition: editionFor(appFlavor)) : null,
         google: config.hosted && config.googleServerClientId.isNotEmpty && defaultTargetPlatform != TargetPlatform.windows
             ? DeviceGoogleAuth(config.googleServerClientId)
             : null,
@@ -185,7 +187,7 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
                   if (widget.state.testServer)
                     Column(
                       children: [
-                        const TestServerBanner(),
+                        TestServerBanner(sandbox: widget.state.sandboxServer),
                         Expanded(
                           child: MediaQuery.removePadding(
                             context: context,
@@ -237,7 +239,9 @@ class _Readable extends StatelessWidget {
 }
 
 class TestServerBanner extends StatelessWidget {
-  const TestServerBanner({super.key});
+  const TestServerBanner({super.key, this.sandbox = false});
+
+  final bool sandbox;
 
   @override
   Widget build(BuildContext context) {
@@ -249,7 +253,7 @@ class TestServerBanner extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Text(
-            'Test environment: nothing is filed, paid or sent',
+            sandbox ? 'Sandbox mode: nothing is filed with the government yet' : 'Test environment: nothing is filed, paid or sent',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
           ),

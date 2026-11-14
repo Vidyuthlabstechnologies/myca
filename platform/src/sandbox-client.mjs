@@ -1,3 +1,4 @@
+import { sameSecrets } from './held-secret.mjs';
 import { loadEnvFile, testModeEnabled } from './runtime-config.mjs';
 import { providerContext } from './provider-context.mjs';
 import { loadSandboxKeys, SANDBOX_HOSTS } from './sandbox-keys.mjs';
@@ -29,8 +30,25 @@ const irpSessions = new Map();
 const MAX_IRP_SESSIONS = 256;
 const IRP_SESSION_MS = 6 * 3600 * 1000;
 
-function irpSessionKey(client, creds) {
-  return [client.baseUrl, client.apiKey, creds.gstin, creds.username].map((part) => String(part || '').trim()).join('|');
+function holder(names, secrets) {
+  return { name: JSON.stringify(names.map((part) => String(part ?? ''))), secrets: secrets.map((part) => String(part ?? '')) };
+}
+
+function heldBy(entry, who) {
+  return Boolean(entry) && entry.name === who.name && sameSecrets(who.secrets, entry.secrets);
+}
+
+function platformHolder(client) {
+  return holder([client.baseUrl, client.apiKey], [client.apiSecret]);
+}
+
+function irpHolder(client, creds) {
+  return holder([client.baseUrl, client.apiKey, String(creds.gstin || '').trim().toUpperCase(), String(creds.username || '').trim()], [client.apiSecret, creds.password]);
+}
+
+function heldEntry(map, who) {
+  const entry = map.get(who.name);
+  return heldBy(entry, who) ? entry : null;
 }
 
 export function clearIrpSessions() {
@@ -127,8 +145,9 @@ export class SandboxClient {
     this.apiSecret = options.apiSecret ?? (scopedSecret || read('MYCA_GSP_API_SECRET') || (savedUsable ? saved.apiSecret : ''));
     this.keySource = options.apiKey != null ? 'explicit' : scopedKey ? scoped.key : read('MYCA_GSP_API_KEY') ? 'MYCA_GSP_API_KEY' : savedUsable ? 'saved' : 'none';
     this.apiVersion = options.apiVersion ?? '1.0.0';
-    this.fetchFn = options.fetchFn || ((...args) => globalThis.fetch(...args));
-    const cached = platformTokens.get(`${this.baseUrl}|${this.apiKey}`);
+    const send = options.fetchFn || ((...args) => globalThis.fetch(...args));
+    this.fetchFn = (url, init = {}) => send(url, { redirect: 'error', ...init });
+    const cached = heldEntry(platformTokens, platformHolder(this));
     this.token = cached?.token || null;
     this.tokenExpiresAt = cached?.expiresAt || 0;
     this.taxpayerToken = options.taxpayerToken || null;
@@ -140,7 +159,7 @@ export class SandboxClient {
       if (session?.token) this.sessions[kind] = { token: String(session.token), expiresAt: Number(session.expiresAt || 0), refreshToken: session.refreshToken ? String(session.refreshToken) : '' };
     }
     this.onSession = typeof options.onSession === 'function' ? options.onSession : null;
-    this.einvoiceKey = null;
+    this.einvoiceHolder = null;
     this.irpUser = options.irpUser || null;
   }
 
@@ -199,7 +218,8 @@ export class SandboxClient {
       }
       this.token = accessToken;
       this.tokenExpiresAt = now + (Number(data.expires_in || 82800) * 1000);
-      platformTokens.set(`${this.baseUrl}|${this.apiKey}`, { token: this.token, expiresAt: this.tokenExpiresAt });
+      const who = platformHolder(this);
+      platformTokens.set(who.name, { ...who, token: this.token, expiresAt: this.tokenExpiresAt });
       return { ok: true, expiresIn: Number(data.expires_in || 82800), message: 'Sandbox authentication successful' };
     } catch (err) {
       return { ok: false, error: String(err.message || err) };
@@ -213,6 +233,7 @@ export class SandboxClient {
       if (!auth.ok) return auth;
       token = this.token;
     }
+    if (/^[a-z][a-z0-9+.-]*:/i.test(endpoint) && !endpoint.startsWith(`${this.baseUrl}/`)) return { ok: false, error: 'ENDPOINT_HOST_REFUSED', hint: 'A Sandbox request goes to the configured Sandbox host only.' };
     const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
     const send = async (authToken) => this.fetchFn(url, {
       method: options.method || 'POST',
@@ -225,7 +246,8 @@ export class SandboxClient {
       let data = await res.json().catch(() => ({}));
       if (res.status === 401 && !options.token) {
         this.token = null;
-        platformTokens.delete(`${this.baseUrl}|${this.apiKey}`);
+        const who = platformHolder(this);
+        if (heldEntry(platformTokens, who)) platformTokens.delete(who.name);
         const retryAuth = await this.authenticate(true, options);
         if (!retryAuth.ok) return retryAuth;
         res = await send(this.token);
@@ -522,7 +544,7 @@ export class SandboxClient {
     if (res.ok && Number(data.Status) === 1 && data.access_token) {
       this.einvoiceToken = data.access_token;
       if (!this.irpUser) this.irpUser = { username: String(username || '').trim(), password: String(password || ''), gstin: String(gstin || '').trim().toUpperCase() };
-      this.einvoiceKey = irpSessionKey(this, this.irpCredentials());
+      this.einvoiceHolder = irpHolder(this, this.irpCredentials());
       const expires = Number(data.expiry || 0);
       this.einvoiceExpiresAt = expires > 0 ? expires : Date.now() + 6 * 3600 * 1000;
     }
@@ -551,7 +573,7 @@ export class SandboxClient {
     if (res.ok && Number(data.Status) === 1 && data.access_token) {
       const expires = Number(data.expiry || 0);
       this.einvoiceToken = data.access_token;
-      this.einvoiceKey = irpSessionKey(this, { username, gstin: String(gstin || '').trim().toUpperCase() });
+      this.einvoiceHolder = irpHolder(this, { username, password, gstin });
       this.einvoiceExpiresAt = expires > Date.now() ? expires : Date.now() + IRP_SESSION_MS;
       return { ok: true, status: res.status, expiresAt: this.einvoiceExpiresAt };
     }
@@ -563,23 +585,23 @@ export class SandboxClient {
   async irpToken(force = false) {
     const now = Date.now();
     const creds = this.irpCredentials();
-    const key = irpSessionKey(this, creds);
-    if (!force && this.einvoiceToken && this.einvoiceExpiresAt > now + 60000 && this.einvoiceKey === key) return { ok: true, token: this.einvoiceToken };
+    const who = irpHolder(this, creds);
+    if (!force && this.einvoiceToken && this.einvoiceExpiresAt > now + 60000 && heldBy(this.einvoiceHolder, who)) return { ok: true, token: this.einvoiceToken };
     if (!creds.username || !creds.password || !creds.gstin) {
       return { ok: false, error: 'EWB_API_USER_MISSING', hint: 'Save the e-invoice / e-way bill API username, password and GSTIN (created on the e-way bill portal for the GSP Sandbox by Quicko) first.' };
     }
-    const cached = irpSessions.get(key);
+    const cached = heldEntry(irpSessions, who);
     if (!force && cached && cached.expiresAt > now + 60000) {
       this.einvoiceToken = cached.token;
       this.einvoiceExpiresAt = cached.expiresAt;
-      this.einvoiceKey = key;
+      this.einvoiceHolder = who;
       return { ok: true, token: cached.token };
     }
     const auth = await this.ewayBillAuthenticate(creds);
     if (!auth.ok) return auth;
-    this.einvoiceKey = key;
-    irpSessions.delete(key);
-    irpSessions.set(key, { token: this.einvoiceToken, expiresAt: this.einvoiceExpiresAt });
+    this.einvoiceHolder = who;
+    irpSessions.delete(who.name);
+    irpSessions.set(who.name, { ...who, token: this.einvoiceToken, expiresAt: this.einvoiceExpiresAt });
     while (irpSessions.size > MAX_IRP_SESSIONS) irpSessions.delete(irpSessions.keys().next().value);
     return { ok: true, token: this.einvoiceToken };
   }
@@ -590,7 +612,8 @@ export class SandboxClient {
     let res = await this.request(endpoint, { method, body, token: session.token });
     if (res.status === 401) {
       this.einvoiceToken = null;
-      irpSessions.delete(irpSessionKey(this, this.irpCredentials()));
+      const who = irpHolder(this, this.irpCredentials());
+      if (heldEntry(irpSessions, who)) irpSessions.delete(who.name);
       session = await this.irpToken(true);
       if (!session.ok) return session;
       res = await this.request(endpoint, { method, body, token: session.token });

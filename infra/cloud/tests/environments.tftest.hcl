@@ -59,6 +59,29 @@ run "production_keeps_its_original_names" {
   }
 }
 
+run "a_failed_nightly_or_weekly_job_raises_an_alert" {
+  command = apply
+
+  variables {
+    alert_email = "ops@example.com"
+  }
+
+  assert {
+    condition     = length(google_monitoring_alert_policy.jobs) == 1
+    error_message = "With an alert address there must be an alert for a failed scheduled job."
+  }
+
+  assert {
+    condition     = google_monitoring_alert_policy.jobs[0].conditions[0].condition_matched_log[0].filter == "resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=~\"^myca-api-(daily|weekly)$\" AND severity>=ERROR"
+    error_message = "The alert must watch the daily and weekly scheduler jobs of this stack for errors."
+  }
+
+  assert {
+    condition     = google_cloud_scheduler_job.daily.name == "myca-api-daily"
+    error_message = "The alert filter and the daily job must share one name."
+  }
+}
+
 run "production_keeps_the_play_reviewer_sign_in_off_by_default" {
   command = apply
 
@@ -284,4 +307,84 @@ run "reviewer_phone_may_be_written_with_spaces" {
     condition     = anytrue([for env in google_cloud_run_v2_service.api.template[0].containers[0].env : env.name == "MYCA_REVIEWER_SIGN_IN" && env.value == "on"])
     error_message = "A number the server accepts must pass the plan."
   }
+}
+
+run "the_quicko_host_follows_the_provider_mode" {
+  command = plan
+
+  variables {
+    provider_mode   = "test"
+    gsp_environment = "live"
+  }
+
+  assert {
+    condition     = anytrue([for env in google_cloud_run_v2_service.api.template[0].containers[0].env : env.name == "MYCA_GSP_ENV" && env.value == "test"])
+    error_message = "In test mode MYCA_GSP_ENV must be test whatever gsp_environment says."
+  }
+}
+
+run "live_keys_can_wait_in_their_slots_while_production_runs_on_sandbox" {
+  command = plan
+
+  variables {
+    provider_mode          = "test"
+    gsp_test_api_key       = "key_test_abc"
+    gsp_test_api_secret    = "secret_test_abc"
+    gsp_live_api_key       = "key_live_abc"
+    gsp_live_api_secret    = "secret_live_abc"
+    stripe_test_secret_key = "sk_test_abc"
+    stripe_live_secret_key = "sk_live_abc"
+  }
+
+  assert {
+    condition     = length(google_cloud_scheduler_job.sandbox_smoke) == 1
+    error_message = "A test-mode server smoke-tests its sandboxes every night."
+  }
+
+  assert {
+    condition     = alltrue([for name in ["MYCA_GSP_TEST_API_KEY", "MYCA_GSP_LIVE_API_KEY", "MYCA_STRIPE_TEST_SECRET_KEY", "MYCA_STRIPE_LIVE_SECRET_KEY"] : contains(keys(google_secret_manager_secret.api), name)])
+    error_message = "Both slots are kept as secrets; the API picks one by provider_mode."
+  }
+}
+
+run "a_test_key_in_the_live_quicko_slot_is_refused" {
+  command = plan
+
+  variables {
+    gsp_live_api_key = "key_test_abc"
+  }
+
+  expect_failures = [var.gsp_live_api_key]
+}
+
+run "a_live_key_in_the_test_quicko_slot_is_refused" {
+  command = plan
+
+  variables {
+    gsp_test_api_key = "key_live_abc"
+  }
+
+  expect_failures = [var.gsp_test_api_key]
+}
+
+run "a_test_stripe_key_in_the_live_slot_is_refused" {
+  command = plan
+
+  variables {
+    stripe_live_secret_key = "sk_test_abc"
+  }
+
+  expect_failures = [var.stripe_live_secret_key]
+}
+
+run "staging_refuses_live_key_slots" {
+  command = plan
+
+  variables {
+    environment      = "staging"
+    provider_mode    = "simulated"
+    gsp_live_api_key = "key_live_abc"
+  }
+
+  expect_failures = [google_cloud_run_v2_service.api]
 }

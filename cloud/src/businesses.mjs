@@ -63,6 +63,7 @@ export function createBusinesses({ db, now = () => Date.now(), booksKey = '' }) 
           opening.company.entityType === 'household' ? 'household' : 'business',
         ]);
         const id = business.rows[0].id;
+        if (!demo && opening.company.entityType !== 'household') await q('update users set trial_started_at = $2 where id = $1 and trial_started_at is null', [userId, new Date(now())]);
         await q("insert into memberships (user_id, business_id, role) values ($1, $2, 'owner')", [userId, id]);
         await q('insert into books (business_id, version, state) values ($1, 0, $2::jsonb)', [id, storedState(booksKey, id, JSON.stringify(opening.state))]);
         if (demo) {

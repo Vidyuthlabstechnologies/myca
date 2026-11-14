@@ -62,10 +62,10 @@ Every recipient is reached only when the feature is used and configured on the s
 
 - Crash reports: the app now defaults to off and the notice has an unticked box, which matches "optional" above (#147).
 - Deletion: the app, the web page, `docs/operations/RETENTION.md` and the policy now all say "erased 30 days after the request".
-- The privacy policy (`docs/release/PRIVACY-POLICY.md`) names only the model and SMS providers under "Who else sees it". It must list the recipients in the table above before submission; that is issue #148, which also needs the Grievance Officer and legal address from the owner.
+- 2026-11-14: the privacy policy (`docs/release/PRIVACY-POLICY.md` and `deploy/public/privacy.html`) now lists every recipient in the table above and no longer says MyCA does not file returns. Issue #148 still needs the registered address, support email and Grievance Officer from the owner.
 - The policy says the hosted service runs in Google Cloud, Mumbai. Keep that line in step with where the API is actually deployed.
 
 ## Still to do by a person
 
 - Paste these answers into the Play Console and screenshot the summary.
-- Update the privacy policy (#148) so it lists the same recipients.
+- Fill the bracketed fields in the privacy policy (#148): registered address, support email, Grievance Officer.

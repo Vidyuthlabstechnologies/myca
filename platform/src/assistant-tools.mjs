@@ -6,6 +6,8 @@ const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'set_channel_c
 
 const TOOL_RISK = {
   create_invoice: 'writes_books',
+  share_invoice: 'internal_workflow',
+  govt_nic_mock: 'external_government_api',
   create_purchase: 'writes_books',
   record_receipt: 'writes_books',
   record_payment: 'writes_books',
@@ -203,6 +205,15 @@ const TOOL_RISK = {
   ...ENGINE_TOOL_RISK,
 };
 
+const MODEL_NEVER = new Set(['run_automation', 'read_document', 'sandbox_operation', 'nim_ask']);
+const MODEL_READS = new Set(['read_only', 'read_or_prepare']);
+
+export function modelTools(tools, needsConfirmation) {
+  return assistantTools(tools).filter((tool) => !MODEL_NEVER.has(tool.name)
+    && tool.risk !== 'external_government_api'
+    && (needsConfirmation(tool.name) || MODEL_READS.has(tool.risk)));
+}
+
 export function assistantTools(tools) {
   return tools
     .filter((tool) => !ASSISTANT_BLOCKED_TOOLS.has(tool.name))
@@ -214,6 +225,16 @@ export function assistantTools(tools) {
       strict: true,
       risk: TOOL_RISK[tool.name] || 'read_or_prepare',
     }));
+}
+
+export const MAX_EXACT_AMOUNT = 1e11;
+
+function lineValue(items) {
+  let total = 0;
+  for (const item of items) {
+    if (item && typeof item.qty === 'number' && typeof item.rate === 'number') total += Math.abs(item.qty * item.rate);
+  }
+  return total;
 }
 
 function valueType(value) {
@@ -234,6 +255,7 @@ function checkScalar(schema, value, path) {
   }
   if (schema.type === 'number' || schema.type === 'integer') {
     if (!Number.isFinite(value)) return `${path} must be finite`;
+    if (schema.maximum == null && Math.abs(value) > MAX_EXACT_AMOUNT) return `${path} is too large`;
     if (schema.minimum != null && value < schema.minimum) return `${path} must be >= ${schema.minimum}`;
     if (schema.maximum != null && value > schema.maximum) return `${path} must be <= ${schema.maximum}`;
     if (schema.exclusiveMinimum != null && value <= schema.exclusiveMinimum) return `${path} must be > ${schema.exclusiveMinimum}`;
@@ -250,7 +272,7 @@ function validateObject(schema, value, path = 'args') {
   }
   if (schema.additionalProperties === false) {
     for (const key of Object.keys(value)) {
-      if (!schema.properties?.[key]) return `${path}.${key} is not allowed`;
+      if (!Object.hasOwn(schema.properties || {}, key)) return `${path}.${key} is not allowed`;
     }
   }
   for (const [key, childSchema] of Object.entries(schema.properties || {})) {
@@ -263,6 +285,7 @@ function validateObject(schema, value, path = 'args') {
         const err = validateObject(childSchema.items, value[key][i], `${path}.${key}[${i}]`);
         if (err) return err;
       }
+      if (lineValue(value[key]) > MAX_EXACT_AMOUNT) return `${path}.${key} is too large`;
       continue;
     }
     const err = childSchema.type === 'object'

@@ -44,13 +44,18 @@ jobs:
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
       - name: Build and push the image
+        shell: bash
         run: |
+          set -euo pipefail
           gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
           docker build -f deploy/site/Dockerfile -t "$IMAGE" .
           docker push "$IMAGE"
+          pinned="$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE")"
+          [[ "$pinned" == *@sha256:* ]] || { echo "::error::the pushed image has no digest"; exit 1; }
+          echo "IMAGE_PINNED=$pinned" >> "$GITHUB_ENV"
 
-      - name: Roll out
-        run: gcloud run deploy myca-site --project "$PROJECT" --region "$REGION" --image "$IMAGE" --quiet
+      - name: Roll out the image by digest
+        run: gcloud run deploy myca-site --project "$PROJECT" --region "$REGION" --image "$IMAGE_PINNED" --quiet
 
       - name: Check the privacy policy answers
         shell: bash

@@ -7,8 +7,11 @@ submitted; nothing here is published by the repository.
 ## 1. Listing
 
 Rewritten 2026-11-10 to match the app as it is: it files GSTR-1 and GSTR-3B once the
-owner confirms with the EVC OTP, it has three paid plans, and it is not a government
-app. The India listing does not mention the US edition. `node scripts/check-listing.mjs`
+owner confirms with the EVC OTP, it has paid plans, and it is not a government
+app. Since 2026-11-14 the full description names no prices: Indian prices are being
+revised, and the price shown by Google Play in the app is the one that counts. Until
+the Play subscription products exist, billing is off on the server and every feature
+is free (`cloud/src/billing.mjs`, `enforced: false`), so testers are never asked to pay. The India listing does not mention the US edition. `node scripts/check-listing.mjs`
 checks the three text fields below against Play's limits (title 30, short description 80,
 full description 4,000 characters) and fails the local gate if one is over.
 
@@ -45,11 +48,7 @@ What else MyCA does
 - Export everything, at any time, in one file
 
 Plans
-Every new business gets a 14-day free trial of Pro. After the trial the books stay readable and exportable, and posting needs a plan:
-- Essentials: Rs 399 a month or Rs 3,999 a year, for 2 people
-- Pro: Rs 799 a month or Rs 7,999 a year, for 5 people, with portal filing, e-invoices, connectors and WhatsApp
-- CA firm: Rs 2,499 a month or Rs 24,999 a year, for 25 people
-Subscriptions are billed through Google Play and renew until you cancel.
+Your first business gets a 14-day free trial of Pro. Paid plans for more people, portal filing, e-invoices and connectors are billed through Google Play; the app shows the price before you are asked to pay, and subscriptions renew until you cancel. After a trial the books stay readable and exportable.
 
 Your data
 Your books are sealed per business on our servers and sent only over HTTPS. You can delete a business, or your whole account, from inside the app or from our website.
@@ -146,8 +145,10 @@ that path, run `node scripts/render-launcher-icons.cjs mobile/android/app/src/ma
 
 ## 6. What is still a person's job
 
+The click-by-click order for the Play Console is in `PLAY-CONSOLE-STEPS.md`.
+
 - Create the Play developer account for the legal entity and pay the registration fee.
-- Generate the upload keystore and put it in the four `ANDROID_*` GitHub secrets (`DEPLOYMENT.md`).
+- Put the upload keystore (made 2026-11-05) in the four `myca-android-*` Secret Manager secrets (`DEPLOYMENT.md`); CI reads it from there.
 - Decide the model provider and sign its terms (ADR-0004), and the SMS provider for phone sign-in.
 - Publish the privacy policy at a public URL and paste it into the listing.
 - Run the app on a real device once before internal testing; the release build has only run in CI.

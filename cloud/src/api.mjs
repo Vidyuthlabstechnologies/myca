@@ -1,6 +1,7 @@
 import { PARTNER_SIGNATURE_HEADER, efileRoute, partnerSignatureValid, normalizePartnerEvent, parseExternalId, applyPartnerEvent } from '../../platform/src/us-filing-partner.mjs';
 import { randomUUID } from 'node:crypto';
 import { mockModeEnabled, serviceProviderEnvironment } from '../../platform/src/runtime-config.mjs';
+import { runSmoke, serverSmokeEnv } from './sandbox-smoke.mjs';
 import { withProviderContext } from '../../platform/src/provider-context.mjs';
 import { createGovtActions } from './govt-actions.mjs';
 import { createGstPortal } from './gst-portal.mjs';
@@ -19,6 +20,7 @@ import { IMPORT_CONTENT_ARG, isImport } from '../../platform/src/import-document
 import { assertSecret } from './tokens.mjs';
 import { createBodyBudget, defaultBodyBudgetBytes } from './body-budget.mjs';
 import { createCrashReports } from './crash-reports.mjs';
+import { createGrowth } from './growth.mjs';
 import { PRIVACY_NOTICE, consentExempt, createConsent, noticeFor } from './consent.mjs';
 import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
@@ -100,8 +102,15 @@ export function businessStates(onDate) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+const RAW_BODIES = new WeakSet();
+
+function rawBody(body) {
+  RAW_BODIES.add(body);
+  return body;
+}
+
 export function gustoPage(ok, text) {
-  return { __html: `<!doctype html><meta charset="utf-8"><title>MyCA</title><body style="font:16px system-ui;background:#0c1220;color:#e8edf6;padding:40px"><h1>${ok ? 'Gusto is connected' : 'Gusto was not connected'}</h1><p>${htmlEscape(text)}</p><p>You can close this tab and go back to the MyCA app.</p></body>` };
+  return rawBody({ __html: `<!doctype html><meta charset="utf-8"><title>MyCA</title><body style="font:16px system-ui;background:#0c1220;color:#e8edf6;padding:40px"><h1>${ok ? 'Gusto is connected' : 'Gusto was not connected'}</h1><p>${htmlEscape(text)}</p><p>You can close this tab and go back to the MyCA app.</p></body>` });
 }
 
 function httpError(statusCode, error, extra = {}) {
@@ -308,7 +317,7 @@ export function clientAddress(req, hops = trustedProxyHops()) {
   return String(parts[parts.length - hops] || '').slice(0, 64);
 }
 
-export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', environment = 'local', healthTimeoutMs = 2000, playPush = {}, testSignIn = null, otpGlobalPerHour = OTP_MAX_GLOBAL_PER_HOUR, rateLimits: limitsGiven = LIMITS, adminUserIds = [], jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0, gspFetch = null }) {
+export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', environment = 'local', healthTimeoutMs = 2000, playPush = {}, testSignIn = null, otpGlobalPerHour = OTP_MAX_GLOBAL_PER_HOUR, rateLimits: limitsGiven = LIMITS, adminUserIds = [], jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0, gspFetch = null, smokeFetch = null, growth: growthConfig = {} }) {
   process.env.MYCA_HOSTED = '1';
   assertSecret(secret);
   const budget = createBodyBudget(Number.isSafeInteger(bodyBudgetBytes) && bodyBudgetBytes > 0 ? bodyBudgetBytes : defaultBodyBudgetBytes({ constrainedMemory: process.constrainedMemory(), ceiling: MAX_BUSINESS_BYTES }));
@@ -352,11 +361,12 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   };
   const members = createMembers({ db, secret, now, notify: otpSender && typeof otpSender.sendText === 'function' ? (phone, text) => otpSender.sendText(phone, text) : null });
   const crashes = createCrashReports({ db, now });
+  const growth = createGrowth({ db, now, siteUrl: growthConfig.siteUrl ?? process.env.MYCA_SITE_URL ?? '', reward: growthConfig.reward ?? process.env.MYCA_REFERRAL_REWARD ?? '' });
   const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain }, storedBytes: (businessId) => businesses.storedBytes(businessId), limitBytes: MAX_BUSINESS_BYTES });
-  const whatsApp = createWhatsApp({ db, withBooks, billing, withSharedBooks: runner.withSharedBooks, syncOf, config: whatsapp, sender: whatsappSender, now, log });
+  const rateLimits = createRateLimits({ db, now, limits: limitsGiven });
+  const whatsApp = createWhatsApp({ db, withBooks, billing, withSharedBooks: runner.withSharedBooks, syncOf, rateLimits, config: whatsapp, sender: whatsappSender, now, log });
   const consent = createConsent({ db, now });
   const recordAccess = createAccessLog(db);
-  const rateLimits = createRateLimits({ db, now, limits: limitsGiven });
   const isAdmin = (userId) => {
     const listed = typeof adminUserIds === 'function' ? adminUserIds() : adminUserIds;
     return Array.isArray(listed) && listed.some((id) => isUuid(id) && id.toLowerCase() === String(userId).toLowerCase());
@@ -509,7 +519,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (method === 'GET') {
         const verified = whatsApp.verify(url.searchParams);
         if (!verified.ok) throw httpError(verified.statusCode, verified.error);
-        return { __text: verified.text };
+        return rawBody({ __text: verified.text });
       }
       if (method === 'POST') {
         const raw = await readRaw(req, MAX_BODY_BYTES);
@@ -551,6 +561,14 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       log({ requestId, job: 'gst-sessions', ...summary });
       return { ok: true, job: 'gst-sessions', summary };
     }
+    if (parts[1] === 'jobs' && parts[2] === 'sandbox-smoke' && parts.length === 3 && method === 'POST') {
+      if (!jobTokenMatches(jobToken, req.headers[JOB_HEADER])) throw httpError(404, 'NOT_FOUND');
+      if (providerMode() !== 'test') return { ok: true, job: 'sandbox-smoke', skipped: `The service runs in ${providerMode()} mode; the smoke test runs only against sandboxes, in test mode.` };
+      const smoke = await runSmoke(serverSmokeEnv(process.env), smokeFetch ? { fetchFn: smokeFetch } : {});
+      const summary = smoke.refused ? { refused: smoke.refused } : Object.fromEntries(smoke.results.map((r) => [r.id, `${r.status}: ${r.detail}`]));
+      log({ requestId, job: 'sandbox-smoke', ok: smoke.ok && !smoke.refused, ...summary });
+      return { ok: true, job: 'sandbox-smoke', passed: smoke.ok && !smoke.refused, refused: smoke.refused || undefined, results: smoke.results };
+    }
     if (parts[1] === 'jobs' && parts[2] === 'daily' && parts.length === 3 && method === 'POST') {
       if (!jobTokenMatches(jobToken, req.headers[JOB_HEADER])) throw httpError(404, 'NOT_FOUND');
       return jobs.daily(requestId);
@@ -591,6 +609,27 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     if (parts[1] === 'crash-reports' && parts.length === 2 && method === 'POST') {
       await throttle('crash', user.userId);
       return crashes.record(await readJson(req, MAX_CRASH_BYTES));
+    }
+
+    if (parts[1] === 'funnel' && parts.length === 2 && method === 'POST') {
+      await throttle('funnel', user.userId);
+      return growth.record(user.userId, await readJson(req));
+    }
+
+    if (parts[1] === 'me' && parts[2] === 'referral') {
+      if (parts.length === 3 && method === 'GET') return growth.referral(user.userId);
+      if (parts.length === 4 && parts[3] === 'claim' && method === 'POST') {
+        await throttle('referralClaim', user.userId);
+        return growth.claim(user.userId, await readJson(req));
+      }
+      throw httpError(404, 'NOT_FOUND');
+    }
+
+    if (parts[1] === 'admin' && parts[2] === 'funnel' && parts.length === 3 && method === 'GET') {
+      if (!isAdmin(user.userId)) throw httpError(404, 'NOT_FOUND');
+      const days = Math.max(1, Math.min(365, Number(url.searchParams.get('days')) || 30));
+      log({ requestId, admin: 'funnel', userId: user.userId, days });
+      return { days, ...(await growth.digest({ sinceMs: now() - days * 24 * 60 * 60 * 1000, edition: url.searchParams.get('edition') || 'india' })) };
     }
 
     if (parts[1] === 'admin' && parts[2] === 'crashes' && parts.length === 3 && method === 'GET') {
@@ -874,7 +913,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         if (!connectors.enabled) return { ok: false, error: 'CONNECTORS_UNAVAILABLE', hint: 'The service has no connector key; ask the operator to set MYCA_CONNECTOR_KEY.' };
         const config = await connectors.load(businessId, channel);
         const flowIn = (q) => ({ config, save: (patch) => connectors.patch(businessId, channel, patch, q) });
-        if (action === 'gusto-connect') return gustoConnectUrl({ redirectUri: body.redirectUri || `${publicOrigin(req)}/v1/oauth/gusto/callback`, statePrefix: businessId }, flowIn());
+        if (action === 'gusto-connect') return gustoConnectUrl({ redirectUri: `${publicOrigin(req)}/v1/oauth/gusto/callback`, statePrefix: businessId }, flowIn());
         return withBooks(businessId, context, async (session, q) => {
           const flow = flowIn(q);
           const out = action === 'plaid-link-token' ? await plaidLinkToken(session.state, { userId: user.userId }, actor.actor, flow)
@@ -986,12 +1025,12 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     }
     log({ requestId, method: req.method, path: url ? url.pathname.replace(/[0-9a-f-]{36}/gi, ':id') : '(unreadable)', status, ...(body && body.error === 'SERVER_BUSY' ? { db: 'pool busy' } : {}) });
     const retry = status === 503 ? { 'retry-after': '2' } : status === 429 && body && Number.isSafeInteger(body.retryAfterSeconds) ? { 'retry-after': String(body.retryAfterSeconds) } : {};
-    if (body && typeof body === 'object' && typeof body.__html === 'string') {
+    if (body && typeof body === 'object' && RAW_BODIES.has(body) && typeof body.__html === 'string') {
       res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'", 'x-content-type-options': 'nosniff', 'cache-control': 'no-store', 'x-request-id': requestId, ...retry });
       res.end(body.__html);
       return;
     }
-    if (body && typeof body === 'object' && typeof body.__text === 'string') {
+    if (body && typeof body === 'object' && RAW_BODIES.has(body) && typeof body.__text === 'string') {
       res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': requestId, ...retry });
       res.end(body.__text);
       return;

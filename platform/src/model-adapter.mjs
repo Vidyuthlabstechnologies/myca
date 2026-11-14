@@ -49,6 +49,7 @@ async function callModel(unredacted, country = currentCountryCode()) {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': config.apiKey, 'anthropic-version': API_VERSION },
       body: JSON.stringify({ model: config.model, max_tokens: MAX_TOKENS, ...body }),
+      redirect: 'error',
       signal: controller.signal,
     });
     const declared = Number(res.headers.get('content-length') || 0);
@@ -90,7 +91,8 @@ export async function chooseTool({ message, tools, country = 'IN', history = [] 
   if (!called.ok) return called;
   const use = toolUseOf(called.response);
   if (!use) return { ok: false, error: 'MODEL_NO_TOOL' };
-  if (use.name === NO_ACTION) return { ok: false, error: 'MODEL_NO_MATCH', reason: String(use.input?.reason || '') };
+  if (use.name === NO_ACTION) return { ok: false, error: 'MODEL_NO_MATCH', reason: String(use.input?.reason || '').slice(0, 200) };
+  if (!offered.some((tool) => tool.name === use.name)) return { ok: false, error: 'MODEL_UNOFFERED_TOOL' };
   return { ok: true, name: String(use.name), args: use.input && typeof use.input === 'object' ? use.input : {} };
 }
 

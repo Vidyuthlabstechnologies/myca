@@ -39,6 +39,7 @@ export function newBook(company = {}) {
     invoiceSeq: 0,
     invoiceSeqByFy: {},
     billSeq: 0,
+    selfInvoiceSeq: 0,
     transferSeq: 100000,
     imports: [],
     lockThrough: '',
@@ -137,6 +138,7 @@ export function serializeBook(book) {
     invoiceSeq: book.invoiceSeq || 0,
     invoiceSeqByFy: book.invoiceSeqByFy || {},
     billSeq: book.billSeq || 0,
+    selfInvoiceSeq: book.selfInvoiceSeq || 0,
     transferSeq: book.transferSeq || 100000,
     imports: book.imports || [],
     lockThrough: book.lockThrough || '',
@@ -233,6 +235,7 @@ export function deserializeBook(raw) {
   book.invoiceSeq = raw.invoiceSeq || 0;
   book.invoiceSeqByFy = raw.invoiceSeqByFy && typeof raw.invoiceSeqByFy === 'object' ? raw.invoiceSeqByFy : {};
   book.billSeq = raw.billSeq || 0;
+  book.selfInvoiceSeq = raw.selfInvoiceSeq || 0;
   book.transferSeq = raw.transferSeq || 100000;
   book.imports = raw.imports || [];
   book.lockThrough = raw.lockThrough || '';

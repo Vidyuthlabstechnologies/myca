@@ -82,6 +82,8 @@ test('the Gusto connection runs through the hosted callback with a state that na
   setChannelClient(new ChannelClient({ fetchFn: fakeTransport(log) }));
   await withEnv({ MYCA_ENABLE_CHANNEL_PULLS: '1', MYCA_MOCK_MODE: '0', MYCA_PUBLIC_URL: 'https://api.myca.example' }, async () => {
     await post(luna, 'connectors', { channel: 'gusto', clientId: 'gusto-client-1', clientSecret: 'gusto-secret-1', environment: 'demo' });
+    const steered = await post(luna, 'gusto-connect', { redirectUri: 'https://attacker.example/steal' });
+    assert.equal(new URL(steered.body.data.url).searchParams.get('redirect_uri'), 'https://api.myca.example/v1/oauth/gusto/callback', 'a redirect address in the request is ignored');
     const connect = await post(luna, 'gusto-connect', {});
     assert.equal(connect.status, 200, connect.text);
     const url = new URL(connect.body.data.url);

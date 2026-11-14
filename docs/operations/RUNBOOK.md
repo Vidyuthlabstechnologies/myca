@@ -21,7 +21,7 @@ Cloud project are written and validated but not yet applied (see the last sectio
 | GitHub Actions `Build Windows installer`, `Build Android app` | Tag `v*` | Installers, APK and app bundle with SHA256 sums attached to the release. | Releases |
 | GitHub Actions `Deploy hosted API` | Push to `main` touching `cloud/`, `platform/src/` or `sprints/` | Suite first, then the image is built, pushed and rolled out; the old revision keeps serving until the new one answers `/v1/health`. | Actions |
 | Dependabot | Weekly | Grouped update PRs for Actions, `platform` dev dependencies, `cloud` and the Flutter packages. CI runs on each. | Pull requests |
-| Cloud Monitoring (`infra/cloud`) | Always, once `alert_email` is set | Uptime check on `/v1/health` every five minutes from three regions; alerts when it fails, on more than five 5xx responses in five minutes, and when p95 latency passes three seconds for ten minutes. A staging stack's alerts end in "(staging)". | Email |
+| Cloud Monitoring (`infra/cloud`) | Always, once `alert_email` is set | Uptime check on `/v1/health` every five minutes from three regions; alerts when it fails, on more than five 5xx responses in five minutes, when p95 latency passes three seconds for ten minutes, and when Cloud Scheduler gets no 2xx answer from the daily or weekly job. A staging stack's alerts end in "(staging)". | Email |
 
 ## 1a. Switches that are off until a person sets them
 
@@ -74,6 +74,17 @@ If the errors began with the newest revision, roll back as above and fix on a br
 `/v1/health` answers 503 with `DATABASE_UNAVAILABLE`, the database is the cause: check Cloud
 SQL → `myca` → Overview for a restart, maintenance or a full disk. Otherwise read the crash
 digest (`GET /v1/admin/crashes` as one of `MYCA_ADMIN_USER_IDS`) for the route that fails.
+
+**Scheduler alert: a job failed.** Cloud Scheduler called `/v1/jobs/daily` or
+`/v1/jobs/weekly` and got no 2xx answer after its retries, so the daily checks and the
+retention purge may not have run. Open Cloud Scheduler → `myca-api-daily` → Logs. A 404
+means the token differs: Terraform generates one job token and writes it to both the
+scheduler's `x-myca-job-token` header and the service's `MYCA_JOB_TOKEN`, so apply
+`infra/cloud` again. A 5xx or a timeout is in the API: read the `job` log lines and the
+crash digest. Then press "Force run"; the job is safe to run twice. The alert does not
+fire for a job that is paused or deleted, so run
+`gcloud scheduler jobs describe myca-api-daily` whenever you do the restore drill and
+check its state and last attempt time.
 
 **Cloud Run alert: slow.** Check Cloud Run → `myca-api` → Metrics: if the instance count sits
 at `max_instances`, raise it in `infra/cloud` and apply; if latency jumps after idle periods,

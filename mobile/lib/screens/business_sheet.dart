@@ -9,6 +9,7 @@ import '../widgets.dart';
 import 'businesses_screen.dart';
 import 'connections_screen.dart';
 import 'connectors_screen.dart';
+import 'invite_screen.dart';
 import 'migration_flow.dart';
 import 'people_screen.dart';
 import 'plan_screen.dart';
@@ -67,6 +68,16 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                       onTap: () {
                         navigator.pop();
                         navigator.push(MaterialPageRoute<void>(builder: (_) => const PlanScreen()));
+                      },
+                    ),
+                    RowCard(
+                      leading: const TintTile(tint: Tint.ask, mark: Mark.people),
+                      title: 'Invite a business owner',
+                      subtitle: 'Share your invite code, or use one you were sent',
+                      trailing: const Chevron(),
+                      onTap: () {
+                        navigator.pop();
+                        navigator.push(MaterialPageRoute<void>(builder: (_) => const InviteScreen()));
                       },
                     ),
                     RowCard(

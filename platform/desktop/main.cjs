@@ -5,6 +5,7 @@ const { writeFileSync, unlinkSync } = require('fs');
 const { randomBytes } = require('crypto');
 const { checkForUpdate } = require('./update-check.cjs');
 const { fetchAndVerify, runInstallerSilently } = require('./update-install.cjs');
+const { isAppUrl, externalTarget, fromApp } = require('./window-guard.cjs');
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : app.isPackaged ? 0 : 4780;
 if (app.isPackaged) process.env.MYCA_REQUIRE_SAFE_STORAGE = '1';
@@ -13,8 +14,10 @@ process.env.MYCA_API_TOKEN = apiToken;
 process.env.MYCA_TOKEN_IN_PAGE = '0';
 const MAX_HTML_BYTES = 5 * 1024 * 1024;
 let mainWindow = null;
+let appPort = 0;
 
 function createWindow(port) {
+  appPort = port;
   mainWindow = new BrowserWindow({
     width: 1480,
     height: 940,
@@ -26,22 +29,38 @@ function createWindow(port) {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
       preload: path.join(__dirname, 'preload.cjs'),
     },
   });
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    const target = externalTarget(url);
+    if (target) shell.openExternal(target);
+    return { action: 'deny' };
+  });
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (isAppUrl(url, port)) return;
+    event.preventDefault();
+    const target = externalTarget(url);
+    if (target) shell.openExternal(target);
+  });
+  mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault());
   mainWindow.loadURL(`http://127.0.0.1:${port}/?v=17`);
 }
 
-ipcMain.handle('myca:save-pdf', async (_event, payload = {}) => {
+ipcMain.handle('myca:save-pdf', async (event, payload = {}) => {
+  if (!fromApp(event, appPort)) return { ok: false, error: 'NOT_FROM_MYCA' };
   const html = String(payload.html || '');
   if (!html) return { ok: false, error: 'NO_CONTENT' };
   if (html.length > MAX_HTML_BYTES) return { ok: false, error: 'CONTENT_TOO_LARGE' };
   const suggested = String(payload.suggestedName || 'MyCA-document.pdf').replace(/[\\/:*?"<>|]/g, '-');
-  const tmpHtml = path.join(app.getPath('temp'), `myca-print-${Date.now()}.html`);
+  const tmpHtml = path.join(app.getPath('temp'), `myca-print-${randomBytes(12).toString('hex')}.html`);
   let win;
   try {
     const strict = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:">`;
-    writeFileSync(tmpHtml, /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (open) => `${open}${strict}`) : `${strict}${html}`, 'utf8');
+    writeFileSync(tmpHtml, /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (open) => `${open}${strict}`) : `${strict}${html}`, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
     win = new BrowserWindow({
       show: false,
       webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, javascript: false, webSecurity: true, allowRunningInsecureContent: false },
@@ -66,7 +85,8 @@ ipcMain.handle('myca:save-pdf', async (_event, payload = {}) => {
   }
 });
 
-ipcMain.handle('myca:open-external', async (_event, url) => {
+ipcMain.handle('myca:open-external', async (event, url) => {
+  if (!fromApp(event, appPort)) return { ok: false, error: 'NOT_FROM_MYCA' };
   const target = String(url || '');
   const allowed = /^mailto:[^<>\s]+$/i.test(target)
     || /^https:\/\/(wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)\//i.test(target);
@@ -76,7 +96,7 @@ ipcMain.handle('myca:open-external', async (_event, url) => {
 });
 
 ipcMain.on('myca:api-token', (event) => {
-  event.returnValue = apiToken;
+  event.returnValue = fromApp(event, appPort) ? apiToken : '';
 });
 
 async function offerUpdate() {

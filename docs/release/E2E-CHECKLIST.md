@@ -166,6 +166,20 @@ job "App against a running API") and nightly against staging (`app-smoke.yml`).
 or IGST only), I5 (wrong check digit refused) and X3 and I10 (the same confirm sent twice at once
 posts one invoice). A2 (deletion and erasure) is covered by `cloud/test/account-erasure.test.mjs`.
 These still run by hand on the devices, because the tests do not see the screens, a killed app or
-a slow network. Next to automate: I4 (mixed rates to the paise) and I7 (credit note and cancel
-move the trial balance exactly). Everything that needs a camera, a share sheet, Play or
-biometrics stays manual.
+a slow network.
+
+`cloud/test/e2e-verification.test.mjs` runs the server side of more steps against a fresh API
+on every push (CI job "Hosted API tests"):
+
+| Step | What the test proves |
+|---|---|
+| B1, B2, B3 | The state comes from the GSTIN; a wrong check digit, or a state that contradicts the GSTIN, is refused and nothing is saved; a business can start without a GSTIN |
+| I4 | 5%, 12%, 18% and exempt lines are each taxed at their own rate; totals and the trial balance agree to the paisa |
+| I7, I8 | A credit note and a cancellation lower GST payable by exactly their tax; a quote converts to an invoice with the same lines and total |
+| E1, E2 | An expense posts only after confirm; a bill's input GST lowers what is payable; paying it in full marks it paid |
+| R2, R6, A1 | The trial balance ties; the owner export holds every invoice, bill and expense with the screen's totals; nobody else can export |
+| C2, C4 | With no model, an off-topic request and an instruction to skip the rules add no ledger entry and change no figure |
+| X4 | Two phones of one owner confirming at once: every "posted" is in the books, no number is used twice |
+
+Everything that needs a camera, a share sheet, Play, biometrics, a killed app or a slow network
+stays manual.

@@ -47,6 +47,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      attestations: write
     env:
       COUNTRY: ${{ inputs.country }}
       REGION: ${{ inputs.region }}
@@ -82,16 +83,39 @@ jobs:
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
       - name: Build and push the image
+        shell: bash
         run: |
+          set -euo pipefail
           gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
           docker build -f cloud/Dockerfile -t "$IMAGE" .
           docker push "$IMAGE"
+          pinned="$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE")"
+          [[ "$pinned" == *@sha256:* ]] || { echo "::error::the pushed image has no digest"; exit 1; }
+          echo "IMAGE_PINNED=$pinned" >> "$GITHUB_ENV"
+          echo "IMAGE_NAME=${pinned%@*}" >> "$GITHUB_ENV"
+          echo "IMAGE_DIGEST=${pinned#*@}" >> "$GITHUB_ENV"
 
-      - name: Roll out; the previous revision keeps serving until the new one passes its probes
+      - name: Software bill of materials for the image
+        continue-on-error: true
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: ${{ env.IMAGE }}
+          format: cyclonedx-json
+          output-file: myca-api.sbom.cdx.json
+          artifact-name: myca-api-${{ inputs.environment }}.sbom.cdx.json
+          upload-release-assets: false
+
+      - name: Record where the image was built
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE_NAME }}
+          subject-digest: ${{ env.IMAGE_DIGEST }}
+
+      - name: Roll out the image by digest; the previous revision keeps serving until the new one passes its probes
         run: |
           gcloud run deploy "$SERVICE" \
             --project "$PROJECT" --region "$REGION" \
-            --image "$IMAGE" \
+            --image "$IMAGE_PINNED" \
             --quiet
 
       - name: Check the live health endpoint reports this stack

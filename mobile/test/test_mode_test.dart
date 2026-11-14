@@ -38,6 +38,29 @@ void main() {
     expect(find.byKey(const Key('test-server-banner')), findsNothing);
   });
 
+  testWidgets('the production server on sandbox keys says so on every screen', (tester) async {
+    final cloud = FakeCloud()
+      ..userName = 'Asha'
+      ..serverEnvironment = 'production'
+      ..providerMode = 'test';
+    await tester.pumpWidget(MycaApp(state: await ownerOn(cloud)));
+    await tester.pumpAndSettle();
+    expect(find.text('Sandbox mode: nothing is filed with the government yet'), findsOneWidget);
+    await tester.tap(find.byTooltip('Your business'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('test-server-banner')), findsOneWidget);
+  });
+
+  testWidgets('switching the server to live keys takes the sandbox banner away', (tester) async {
+    final cloud = FakeCloud()
+      ..userName = 'Asha'
+      ..serverEnvironment = 'production'
+      ..providerMode = 'live';
+    await tester.pumpWidget(MycaApp(state: await ownerOn(cloud)));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('test-server-banner')), findsNothing);
+  });
+
   testWidgets('a server that does not say where it runs shows no banner', (tester) async {
     final cloud = FakeCloud()..userName = 'Asha';
     await tester.pumpWidget(MycaApp(state: await ownerOn(cloud)));
@@ -79,5 +102,8 @@ void main() {
   test('the about line names a live service and an unreachable one plainly', () {
     expect(aboutLine(const ServerInfo(environment: 'production', version: '1')), 'MyCA $appVersion · live service');
     expect(aboutLine(null), 'MyCA $appVersion · server not reached');
+    expect(aboutLine(const ServerInfo(environment: 'production', version: '1', providerMode: 'test')), 'MyCA $appVersion · sandbox mode (test)');
+    expect(aboutLine(const ServerInfo(environment: 'production', version: '1', providerMode: 'simulated')), 'MyCA $appVersion · sandbox mode (simulated)');
+    expect(aboutLine(const ServerInfo(environment: 'production', version: '1', providerMode: 'live')), 'MyCA $appVersion · live service');
   });
 }

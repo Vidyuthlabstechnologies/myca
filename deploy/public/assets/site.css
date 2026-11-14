@@ -38,7 +38,7 @@ b, strong { font-weight: 600; }
 .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
 
 .brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; color: var(--ink); font-weight: 600; font-size: 19px; letter-spacing: -.38px; line-height: 1; }
-.brand img { width: 26px; height: 26px; }
+.brand img { width: 30px; height: 30px; }
 
 .site-header { position: sticky; top: 0; z-index: 20; background: rgba(250,250,247,.9); -webkit-backdrop-filter: saturate(1.4) blur(12px); backdrop-filter: saturate(1.4) blur(12px); border-bottom: 1px solid var(--line); }
 .site-header nav { display: flex; align-items: center; justify-content: space-between; height: 62px; gap: 16px; }
@@ -107,4 +107,30 @@ section.block + section.block { border-top: 1px solid var(--line); }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+.brand .ca { color: var(--accent); }
+
+.guide-hero { padding: 56px 20px 48px; }
+.guide-hero .display { max-width: 820px; }
+.guide-hero .display { margin-top: 10px; }
+.guide-hero .lede { margin-top: 18px; max-width: 640px; }
+.guide-hero .cta { margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap; }
+.guide-hero .fine { margin-top: 12px; font-size: 13.5px; color: var(--muted); }
+.guide-points { margin-top: 28px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.guide-points h3 { margin-bottom: 6px; }
+.guide-points p { color: var(--muted); font-size: 14.5px; }
+.faq { margin-top: 20px; max-width: 760px; }
+.faq details { border-top: 1px solid var(--line); padding: 14px 0; }
+.faq details:last-child { border-bottom: 1px solid var(--line); }
+.faq summary { cursor: pointer; font-weight: 600; }
+.faq details p { margin-top: 8px; color: var(--muted); }
+h2.more { margin: 44px 0 16px; font-size: 21px; font-weight: 600; letter-spacing: -.35px; }
+.tile-list li p { color: var(--muted); font-size: 14.5px; margin-top: 4px; }
+.tile-list a { text-decoration: none; }
+.chips { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.chips li { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 14px; }
+.invite .code { margin-top: 24px; font-size: 34px; font-weight: 600; letter-spacing: .18em; font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) {
+  .guide-hero { padding-top: 36px; }
+  .guide-points { grid-template-columns: 1fr; }
 }

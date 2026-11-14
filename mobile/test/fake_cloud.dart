@@ -51,6 +51,7 @@ class FakeCloud {
   bool approverIsSomeoneElse = false;
   bool filingSimulated = false;
   String serverEnvironment = '';
+  String providerMode = 'live';
   final filingApprovals = <Map<String, Object?>>[];
   int plaidLinkTokens = 0;
   int gustoConnects = 0;
@@ -85,6 +86,9 @@ class FakeCloud {
   int exports = 0;
   final replaced = <Map<String, dynamic>>[];
   final crashReports = <Map<String, Object?>>[];
+  final funnelSteps = <Map<String, Object?>>[];
+  final claimedCodes = <String>[];
+  int referralInvited = 0;
   bool crashServerDown = false;
   bool noticeAccepted = true;
   bool phoneOn = true;
@@ -162,7 +166,7 @@ class FakeCloud {
 
     if (path == '/v1/health/live') {
       if (serverEnvironment.isEmpty) return _json(404, {'ok': false, 'error': 'NOT_FOUND'});
-      return _json(200, {'ok': true, 'environment': serverEnvironment, 'providerMode': 'sandbox', 'version': 'test'});
+      return _json(200, {'ok': true, 'environment': serverEnvironment, 'providerMode': providerMode, 'version': 'test'});
     }
     if (path == '/v1/privacy-notice' && request.url.queryParameters['region'] == 'US') {
       return _json(200, {
@@ -286,6 +290,21 @@ class FakeCloud {
       final reports = (body['reports'] as List).cast<Map<String, Object?>>();
       crashReports.addAll(reports);
       return _json(200, {'ok': true, 'accepted': reports.length, 'refused': 0});
+    }
+    if (path == '/v1/funnel' && request.method == 'POST') {
+      final steps = (body['steps'] as List).cast<Map<String, Object?>>();
+      funnelSteps.addAll(steps);
+      return _json(200, {'ok': true, 'accepted': steps.length, 'refused': 0});
+    }
+    if (path == '/v1/me/referral' && request.method == 'GET') {
+      return _json(200, {'ok': true, 'code': 'AB2CD3EF', 'link': 'https://myca.example/r/AB2CD3EF', 'invited': referralInvited, 'converted': 0, 'reward': null});
+    }
+    if (path == '/v1/me/referral/claim' && request.method == 'POST') {
+      final code = '${body['code']}'.toUpperCase();
+      if (code == 'AB2CD3EF') return _json(200, {'ok': false, 'error': 'OWN_CODE'});
+      if (claimedCodes.isNotEmpty) return _json(200, {'ok': false, 'error': 'ALREADY_CLAIMED'});
+      claimedCodes.add(code);
+      return _json(200, {'ok': true});
     }
     if (path == '/v1/me' && request.method == 'GET') {
       return _json(200, {

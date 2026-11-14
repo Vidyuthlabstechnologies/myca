@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../api/models.dart';
 import '../api/myca_api.dart';
+import '../growth.dart';
 import 'token_store.dart';
 
 const _messages = {
@@ -40,6 +41,8 @@ const _messages = {
       'That GSTIN is not valid. Check it against your registration certificate.',
   'STATE_REQUIRED': 'Choose the state your business is in.',
   'INVALID_STATE_CODE': 'Choose the state your business is in.',
+  'STATE_NOT_GSTIN_STATE':
+      'The state must match your GSTIN: its first two digits are the state code.',
   'HOUSEHOLD_US_ONLY': 'A personal tax return is for US filers. Choose the United States first.',
   'UNKNOWN_KIND': 'Choose a personal return or a business.',
   'INVALID_EIN': 'An EIN has nine digits, like 12-3456789. It is on the IRS letter that gave you the number.',
@@ -476,12 +479,18 @@ class BusinessRef {
 }
 
 class ServerInfo {
-  const ServerInfo({required this.environment, required this.version});
+  const ServerInfo({required this.environment, required this.version, this.providerMode = ''});
 
   final String environment;
   final String version;
 
-  bool get isTest => environment.isNotEmpty && environment != 'production';
+  final String providerMode;
+
+  bool get isTestServer => environment.isNotEmpty && environment != 'production';
+
+  bool get isSandbox => !isTestServer && providerMode.isNotEmpty && providerMode != 'live';
+
+  bool get isTest => isTestServer || isSandbox;
 }
 
 class InvitationRef {
@@ -991,6 +1000,17 @@ class CloudSession {
     await call('POST', '/v1/crash-reports', {'reports': reports});
   }
 
+  Future<void> sendFunnelSteps(List<Map<String, Object?>> steps) async {
+    _accepted(await call('POST', '/v1/funnel', {'steps': steps}));
+  }
+
+  Future<ReferralInfo> referral() async => ReferralInfo.fromJson(_accepted(await call('GET', '/v1/me/referral')));
+
+  Future<String?> claimReferral(String code) async {
+    final body = await call('POST', '/v1/me/referral/claim', {'code': code});
+    return body['ok'] == true ? null : referralClaimMessage('${body['error'] ?? ''}');
+  }
+
   Future<void> requestCode(String phone) async {
     final (_, body) = await _send('POST', '/v1/auth/otp', {
       'phone': phone,
@@ -1161,7 +1181,11 @@ class CloudSession {
     try {
       final (status, body) = await _send('GET', '/v1/health/live', null, authed: false);
       if (status != 200 || body['ok'] != true) return null;
-      return ServerInfo(environment: '${body['environment'] ?? ''}', version: '${body['version'] ?? ''}');
+      return ServerInfo(
+        environment: '${body['environment'] ?? ''}',
+        version: '${body['version'] ?? ''}',
+        providerMode: '${body['providerMode'] ?? ''}',
+      );
     } on MycaApiException {
       return null;
     }

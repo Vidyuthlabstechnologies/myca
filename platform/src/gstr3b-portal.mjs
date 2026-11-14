@@ -9,10 +9,12 @@ import { documentsForPeriod, isReturnPeriod, fpOf } from './return-period.mjs';
 import { regArg, companyAs, scopeKey } from './registrations.mjs';
 import { localToday } from './dates.mjs';
 import { normalizeClientId } from './books.mjs';
+import { reverseChargeTotals } from './reverse-charge.mjs';
 
 const ARN = /^[A-Z0-9]{10,20}$/;
 const PAN = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 const TAX = 30002;
+const REVERSE_CHARGE = 30003;
 
 function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
@@ -88,13 +90,15 @@ export function gstr3bPortalJson(state, period, gstin) {
   const itc = draft.itc || {};
   const available = itc.available || {};
   const ineligible = itc.ineligible || {};
-  const importServices = Number(itc.importServicesIgst || 0);
-  const others = taxOnly(Number(available.igst || 0) - importServices, available.cgst, available.sgst);
+  const rcm = reverseChargeTotals(docs.purchases);
+  const importServices = rcm.eligibleImport.igst;
+  const otherRcm = rcm.eligibleOther;
+  const others = taxOnly(Number(available.igst || 0) - importServices - otherRcm.igst, Number(available.cgst || 0) - otherRcm.cgst, Number(available.sgst || 0) - otherRcm.sgst);
   const net = taxOnly(available.igst, available.cgst, available.sgst);
   const payment = paymentFor(state, docs.period, { gstin: regd.gstin });
   const late = payment.ok ? payment.data.late : null;
   const interest = late?.interest ? late.interest : 0;
-  const cash = payment.ok ? payment.data.cash : { igst: 0, cgst: 0, sgst: 0 };
+  const cash = cashWithReverseCharge(payment.ok ? payment.data : null);
   const cashTotal = Number(cash.igst || 0) + Number(cash.cgst || 0) + Number(cash.sgst || 0);
   const share = (head) => (cashTotal > 0 ? r2(interest * Number(cash[head] || 0) / cashTotal) : 0);
   const body = {
@@ -104,7 +108,7 @@ export function gstr3bPortalJson(state, period, gstin) {
       osup_det: outward,
       osup_zero: amounts(extra.zero.txval, extra.zero.iamt, 0, 0),
       osup_nil_exmp: { txval: r2(nilExempt) },
-      isup_rev: amounts(0, 0, 0, 0),
+      isup_rev: amounts(rcm.taxable, rcm.igst, rcm.cgst, rcm.sgst),
       osup_nongst: { txval: r2(extra.nonGst) },
     },
     inter_sup: {
@@ -116,7 +120,7 @@ export function gstr3bPortalJson(state, period, gstin) {
       itc_avl: [
         { ty: 'IMPG', ...taxOnly(0, 0, 0) },
         { ty: 'IMPS', ...taxOnly(importServices, 0, 0) },
-        { ty: 'ISRC', ...taxOnly(0, 0, 0) },
+        { ty: 'ISRC', ...taxOnly(otherRcm.igst, otherRcm.cgst, otherRcm.sgst) },
         { ty: 'ISD', ...taxOnly(0, 0, 0) },
         { ty: 'OTH', ...others },
       ],
@@ -141,7 +145,8 @@ export function gstr3bPortalJson(state, period, gstin) {
   if (interest > 0) warnings.push(`Interest of ₹${r2(interest)} for paying late is included.`);
   if (!payment.ok) warnings.push('The tax to pay could not be worked out, so no interest is included.');
   else if (payment.data.broughtForwardKnown === false) warnings.push('Credit carried from earlier months is not known to MyCA; check the electronic credit ledger on the portal.');
-  warnings.push('Reverse-charge purchases, imports of goods, ISD credit, credit reversals and cess are not in the books, so those rows are zero.');
+  if (rcm.count) warnings.push(`Reverse charge tax of ₹${rcm.total} on ${rcm.count} ${rcm.count === 1 ? 'purchase' : 'purchases'} is in 3.1(d) and must be paid in cash; its credit is in 4(A)(2) and 4(A)(3).`);
+  warnings.push('Imports of goods, ISD credit, credit reversals and cess are not in the books, so those rows are zero.');
   const hash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
   return { ok: true, period: docs.period, gstin: company.gstin, body, hash, warnings, payment: payment.ok ? payment.data : null };
 }
@@ -209,18 +214,29 @@ export async function gstr3bPortalLiability(state, args = {}, actor) {
   return { ok: true, period: found.period, gstin: found.gstin, liability: found.saved.liability, mock: Boolean(out.mock) };
 }
 
+function cashWithReverseCharge(payment) {
+  const cash = payment?.cash || {};
+  const rcm = payment?.reverseCharge || {};
+  return { igst: Number(cash.igst || 0) + Number(rcm.igst || 0), cgst: Number(cash.cgst || 0) + Number(rcm.cgst || 0), sgst: Number(cash.sgst || 0) + Number(rcm.sgst || 0) };
+}
+
 export function offsetPlan(payment, ledgerIds = {}) {
   const used = payment.used || {};
   const cash = payment.cash || {};
+  const rcm = payment.reverseCharge || {};
   const late = payment.late || null;
   const interest = Number(late?.interest || 0);
-  const cashTotal = Number(cash.igst || 0) + Number(cash.cgst || 0) + Number(cash.sgst || 0);
-  const share = (head) => (cashTotal > 0 ? r2(interest * Number(cash[head] || 0) / cashTotal) : 0);
+  const all = cashWithReverseCharge(payment);
+  const cashTotal = all.igst + all.cgst + all.sgst;
+  const share = (row, head) => (cashTotal > 0 ? r2(interest * Number(row[head] || 0) / cashTotal) : 0);
   const fee = r2(Number(late?.lateFee || 0) / 2);
   const ledger = (type) => Number(ledgerIds[type] || 0);
+  const rcmTotal = Number(rcm.igst || 0) + Number(rcm.cgst || 0) + Number(rcm.sgst || 0);
+  const cashRow = (type, row, lateFee) => ({ liab_ldg_id: ledger(type), trans_typ: type, ipd: r2(row.igst), cpd: r2(row.cgst), spd: r2(row.sgst), cspd: 0, i_intrpd: share(row, 'igst'), c_intrpd: share(row, 'cgst'), s_intrpd: share(row, 'sgst'), cs_intrpd: 0, c_lfeepd: lateFee, s_lfeepd: lateFee });
   return {
     pdcash: [
-      { liab_ldg_id: ledger(TAX), trans_typ: TAX, ipd: r2(cash.igst), cpd: r2(cash.cgst), spd: r2(cash.sgst), cspd: 0, i_intrpd: share('igst'), c_intrpd: share('cgst'), s_intrpd: share('sgst'), cs_intrpd: 0, c_lfeepd: fee, s_lfeepd: fee },
+      cashRow(TAX, cash, fee),
+      ...(rcmTotal > 0 ? [cashRow(REVERSE_CHARGE, rcm, 0)] : []),
     ],
     pditc: {
       liab_ldg_id: ledger(TAX),

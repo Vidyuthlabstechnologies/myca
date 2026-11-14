@@ -1,13 +1,14 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { normalizePhone } from './auth.mjs';
 import { engineRole } from './businesses.mjs';
 import { READ_ONLY_REPLY } from './billing.mjs';
 import { chatText } from './chat-text.mjs';
-import { wahaConfigFromEnv, wahaPhone, wahaSignatureMatches } from './waha.mjs';
+import { wahaConfigFromEnv, wahaPhone, wahaSignatureMatches, withoutNumbers } from './waha.mjs';
 
 const GRAPH_VERSION = 'v21.0';
 const MAX_TEXT = 2000;
 const REPLY_LIMIT = 4000;
+const TOO_MANY_REPLY = 'That is a lot of messages in one hour, so I am pausing here. Write again in a little while, or use the app.';
 const TIMEOUT_MS = 15000;
 
 function masked(phone) {
@@ -30,7 +31,7 @@ export function createWhatsAppSender({ phoneNumberId, accessToken, fetchImpl = f
           signal: controller.signal,
         });
         const body = await res.text();
-        if (!res.ok) throw new Error(`whatsapp answered ${res.status}: ${body.slice(0, 200)}`);
+        if (!res.ok) throw new Error(`whatsapp answered ${res.status}: ${withoutNumbers(body.slice(0, 200))}`);
         log({ whatsapp: 'sent', to: masked(phone) });
       } finally {
         clearTimeout(timer);
@@ -67,7 +68,11 @@ export function signatureMatches(appSecret, rawBody, header) {
   return timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(given, 'hex'));
 }
 
-export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks = null, syncOf = null, config = {}, sender = null, now = () => Date.now(), log = () => {} }) {
+export function messageKey(messageId) {
+  return createHash('sha256').update(String(messageId)).digest('hex');
+}
+
+export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks = null, syncOf = null, rateLimits = null, config = {}, sender = null, now = () => Date.now(), log = () => {} }) {
   const metaEnabled = config.provider !== 'waha' && Boolean(config.verifyToken) && Boolean(config.appSecret) && Boolean(sender);
   const wahaEnabled = config.provider === 'waha' && Boolean(config.waha?.webhookSecret) && Boolean(sender);
   const enabled = metaEnabled || wahaEnabled;
@@ -98,7 +103,7 @@ export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks 
   }
 
   async function seen(q, messageId) {
-    const inserted = await q('insert into whatsapp_messages (id, received_at) values ($1, $2) on conflict (id) do nothing returning id', [messageId, new Date(now()).toISOString()]);
+    const inserted = await q('insert into whatsapp_messages (id, received_at) values ($1, $2) on conflict (id) do nothing returning id', [messageKey(messageId), new Date(now()).toISOString()]);
     return inserted.rowCount === 0;
   }
 
@@ -111,7 +116,7 @@ export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks 
     const answer = await db.tx(async (q) => {
       if (await seen(q, messageId)) return { duplicate: true };
       const businesses = await businessesOf(q, phone);
-      if (!businesses.length) return { text: 'This number is not a member of any MyCA business. Sign in on the app with it first.' };
+      if (!businesses.length) return { stranger: true, text: 'This number is not a member of any MyCA business. Sign in on the app with it first.' };
       const pick = /^use\s+(\d{1,2})\s*$/i.exec(text.trim());
       let chosenId = await linked(q, phone);
       if (/^(?:switch|switch\s+business|businesses|which\s+business)\s*\??$/i.test(text.trim())) {
@@ -137,8 +142,15 @@ export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks 
     });
     if (answer.duplicate) return { ok: true, duplicate: true };
     if (answer.text) {
-      await reply(phone, answer.text);
-      return { ok: true, replied: true };
+      const allowed = rateLimits ? (await rateLimits.take(answer.stranger ? 'whatsappStranger' : 'whatsappMenu', phone)).ok : true;
+      if (allowed) await reply(phone, answer.text);
+      return allowed ? { ok: true, replied: true } : { ok: true, replied: false, rateLimited: true };
+    }
+    const taken = rateLimits ? await rateLimits.take('ask', answer.user.userId) : { ok: true };
+    if (!taken.ok) {
+      const told = (await rateLimits.take('askPaused', answer.user.userId)).ok;
+      if (told) await reply(phone, TOO_MANY_REPLY);
+      return { ok: true, replied: told, rateLimited: true };
     }
     const actor = { actor: { userId: answer.user.userId, role: engineRole(answer.user.role), name: answer.user.name || answer.user.userId } };
     const asked = chatText(text);

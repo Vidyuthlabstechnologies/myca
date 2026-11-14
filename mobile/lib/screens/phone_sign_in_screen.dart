@@ -5,6 +5,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../brand.dart';
 import '../cloud/cloud_session.dart';
+import '../secure_window.dart';
 import '../theme.dart';
 
 class PhoneSignInScreen extends StatefulWidget {
@@ -14,7 +15,7 @@ class PhoneSignInScreen extends StatefulWidget {
   State<PhoneSignInScreen> createState() => _PhoneSignInScreenState();
 }
 
-class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
+class _PhoneSignInScreenState extends State<PhoneSignInScreen> with SecureWindowWhileShown {
   final _phone = TextEditingController();
   final _code = TextEditingController();
   final _authCode = TextEditingController();

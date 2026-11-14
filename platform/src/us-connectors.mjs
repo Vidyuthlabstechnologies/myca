@@ -1,3 +1,4 @@
+import { connectorEnvironment } from './runtime-config.mjs';
 import { createHash, randomBytes } from 'node:crypto';
 import { performExternalAction } from './action-gate.mjs';
 import { loadChannelConfig, saveChannelConfig, publicChannelConfig, CONNECTOR_CHANNELS } from './channel-connectors.mjs';
@@ -141,7 +142,7 @@ export function gustoRedirectUri({ host = '127.0.0.1', port = 4780, https = fals
 export async function gustoConnectUrl(args = {}, options = {}) {
   const { config, save } = store('gusto', options);
   if (!config || !config.clientId || !config.clientSecret) return fail('CONNECTOR_NOT_CONFIGURED', { channel: 'gusto', hint: 'Save the Gusto client id and secret first.' });
-  const environment = config.environment === 'production' ? 'production' : 'demo';
+  const environment = connectorEnvironment(config.environment, 'demo') === 'production' ? 'production' : 'demo';
   const redirectUri = String(args.redirectUri || config.redirectUri || gustoRedirectUri({ port: Number(args.port || 4780) }));
   const oauthState = `${args.statePrefix ? `${args.statePrefix}.` : ''}${randomBytes(16).toString('hex')}`;
   const saved = await save({ oauthState, redirectUri });

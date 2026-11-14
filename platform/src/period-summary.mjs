@@ -6,6 +6,7 @@ import { creditNoteTotals } from './credit-notes.mjs';
 import { noteTotals } from './debit-notes.mjs';
 import { documentsForPeriod, fpOf, taxByHead } from './return-period.mjs';
 import { localToday } from './dates.mjs';
+import { reverseChargeTotals } from './reverse-charge.mjs';
 
 const { filingPrep } = filing;
 
@@ -88,6 +89,7 @@ export function periodSummary(state, period, gstin) {
       taxableSales: (Math.round(Number(outward.interTaxable || 0) * 100) + Math.round(Number(outward.intraTaxable || 0) * 100)) / 100,
       outputTax: taxByHead(outward.interIgst, outward.intraCgst, outward.intraSgst),
       inputCredit: taxByHead(credit.igst, credit.cgst, credit.sgst),
+      reverseCharge: reverseChargeTotals(docs.purchases),
       gstr1: file && !file.error
         ? { fp: file.fp, b2b: file.b2b.length, b2cl: file.b2cl.length, b2cs: file.b2cs.length, cdnr: (file.cdnr || []).length, cdnur: (file.cdnur || []).length, held: file.held || [], warnings: file.warnings || [], hash: file.hash, caveat: file.caveat }
         : { fp: fpOf(docs.period), b2b: 0, b2cl: 0, b2cs: 0, cdnr: 0, cdnur: 0, held: [], warnings: [], hash: '', caveat: '', error: file ? file.error : '' },

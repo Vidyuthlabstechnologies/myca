@@ -80,3 +80,9 @@ export function mockModeEnabled() {
   const raw = process.env.MYCA_MOCK_MODE ?? env.MYCA_MOCK_MODE ?? '';
   return TRUTHY.has(String(raw).trim().toLowerCase());
 }
+
+export function connectorEnvironment(given, sandboxName = 'sandbox') {
+  const asked = String(given || '').trim().toLowerCase();
+  if (asked !== 'production' && asked !== 'development') return sandboxName;
+  return providerEnvironment() === 'live' ? asked : sandboxName;
+}

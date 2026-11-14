@@ -84,7 +84,9 @@ export function paymentFor(state, requested, { payOn, gstin } = {}) {
   const tcsAvailable = tcsAvailableFor(state, period, { excludePeriod: period, gstin });
   const tcsUsed = { igst: round2(Math.min(result.cash.igst, tcsAvailable.igst)), cgst: round2(Math.min(result.cash.cgst, tcsAvailable.cgst)), sgst: round2(Math.min(result.cash.sgst, tcsAvailable.sgst)) };
   tcsUsed.total = round2(tcsUsed.igst + tcsUsed.cgst + tcsUsed.sgst);
-  const cashAfterTcs = { igst: round2(result.cash.igst - tcsUsed.igst), cgst: round2(result.cash.cgst - tcsUsed.cgst), sgst: round2(result.cash.sgst - tcsUsed.sgst) };
+  const rcm = summary.reverseCharge || { igst: 0, cgst: 0, sgst: 0 };
+  const reverseCharge = taxByHead(round2(rcm.igst), round2(rcm.cgst), round2(rcm.sgst));
+  const cashAfterTcs = { igst: round2(result.cash.igst - tcsUsed.igst + reverseCharge.igst), cgst: round2(result.cash.cgst - tcsUsed.cgst + reverseCharge.cgst), sgst: round2(result.cash.sgst - tcsUsed.sgst + reverseCharge.sgst) };
   cashAfterTcs.total = round2(cashAfterTcs.igst + cashAfterTcs.cgst + cashAfterTcs.sgst);
   const nil = summary.salesCount === 0 && summary.creditNoteCount === 0 && summary.purchaseCount === 0 && (summary.debitNoteCount || 0) === 0 && (summary.purchaseNoteCount || 0) === 0;
   const row = dueRow(state, period);
@@ -122,6 +124,7 @@ export function paymentFor(state, requested, { payOn, gstin } = {}) {
       used: result.used,
       creditUsed: result.creditUsed,
       cash: result.cash,
+      reverseCharge,
       tcsAvailable,
       tcsUsed,
       cashAfterTcs,
@@ -134,13 +137,15 @@ export function paymentFor(state, requested, { payOn, gstin } = {}) {
       late,
       rulesUsed,
       unreviewed,
-      notes: paymentNotes({ forward, nil, late, unreviewed, tcsUsed }),
+      notes: paymentNotes({ forward, nil, late, unreviewed, tcsUsed, reverseCharge }),
     },
   };
 }
 
-function paymentNotes({ forward, nil, late, unreviewed, tcsUsed }) {
+function paymentNotes({ forward, nil, late, unreviewed, tcsUsed, reverseCharge }) {
   const notes = [];
+  const rcmTotal = round2(Number(reverseCharge?.igst || 0) + Number(reverseCharge?.cgst || 0) + Number(reverseCharge?.sgst || 0));
+  if (rcmTotal > 0) notes.push(`Reverse charge tax of ${rcmTotal} on this month's purchases is paid in cash, as the law requires; input credit cannot pay it. Its credit is counted in this month's input credit.`);
   notes.push('Credit is set off head by head in the order the law sets: IGST credit against IGST first, then CGST and SGST; CGST credit against CGST then IGST; SGST credit against SGST then IGST. CGST credit is never used for SGST, nor SGST credit for CGST.');
   if (!forward.known) {
     notes.push(forward.beforeOpening

@@ -16,6 +16,7 @@ export const DELETION_GRACE_DAYS = 30;
 export const ACCESS_LOG_DAYS = 365;
 export const CRASH_REPORT_DAYS = 90;
 export const OTP_CHALLENGE_DAYS = 1;
+export const WHATSAPP_MESSAGE_DAYS = 30;
 
 export function createJobs({ db, secret = '', rateLimits = null, withBooks, connectors = null, syncChannels = null, pullsEnabled = () => false, sender = null, vault = null, billing = null, now = () => Date.now(), log = () => {} }) {
   async function purge(requestId) {
@@ -84,6 +85,7 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, conn
     summary.otpRows = (await db.query('delete from otp_challenges where created_at < $1', [new Date(now() - OTP_CHALLENGE_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     summary.rateRows = rateLimits ? await rateLimits.prune() : 0;
     summary.secondStepRows = (await db.query('delete from second_step_challenges where created_at < $1', [new Date(now() - OTP_CHALLENGE_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
+    summary.whatsappRows = (await db.query('delete from whatsapp_messages where received_at < $1', [new Date(now() - WHATSAPP_MESSAGE_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     return summary;
   }
 
