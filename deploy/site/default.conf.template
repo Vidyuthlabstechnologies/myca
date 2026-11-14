@@ -14,6 +14,7 @@ server {
   sub_filter_once off;
   sub_filter_types text/xml application/xml text/plain;
   sub_filter 'https://__SITE_ORIGIN__' 'https://$host';
+  sub_filter '__EARLY_ACCESS_URL__' '${MYCA_EARLY_ACCESS_URL}';
 
   location = / {
     try_files /index.html =404;

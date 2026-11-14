@@ -2,6 +2,8 @@ export const ORIGIN = 'https://__SITE_ORIGIN__';
 
 export const PLAY_ID = 'com.mldynamic.myca';
 
+export const EARLY_ACCESS_ACTION = '__EARLY_ACCESS_URL__';
+
 export const INDIA_PRICES = Object.freeze({ essentials: '₹399', pro: '₹799', firm: '₹2,499' });
 export const US_PRICES = Object.freeze({ returnList: '$129', returnLaunch: '$99', launchUntil: 'April 15, 2027', plus: '$249', expert: '$299' });
 

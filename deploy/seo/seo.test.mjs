@@ -53,8 +53,27 @@ test('prices and forms on the pages match the home page and the server', () => {
 });
 
 test('the nginx config fills in the real host and serves invite links', () => {
-  const conf = readFileSync(join(root, 'deploy', 'site', 'nginx.conf'), 'utf8');
+  const conf = readFileSync(join(root, 'deploy', 'site', 'default.conf.template'), 'utf8');
   assert.match(conf, /sub_filter 'https:\/\/__SITE_ORIGIN__' 'https:\/\/\$host';/);
   assert.match(conf, /sub_filter_types text\/xml application\/xml text\/plain;/);
   assert.match(conf, /location \^~ \/r\/ \{[\s\S]*?try_files \/invite\.html =404;/);
+});
+
+test('US pages carry an early-access form that stays hidden until its address is set', () => {
+  for (const page of PAGES) {
+    const html = renderPage(page);
+    if (page.edition !== 'us') {
+      assert.doesNotMatch(html, /__EARLY_ACCESS_URL__/, page.slug);
+      continue;
+    }
+    assert.match(html, /<form class="early-access" id="early-access-[a-z0-9-]+" method="post" action="__EARLY_ACCESS_URL__" hidden>/, page.slug);
+    assert.match(html, /name="email_address"/, page.slug);
+  }
+  const conf = readFileSync(join(root, 'deploy', 'site', 'default.conf.template'), 'utf8');
+  assert.match(conf, /sub_filter '__EARLY_ACCESS_URL__' '\$\{MYCA_EARLY_ACCESS_URL\}';/);
+  const docker = readFileSync(join(root, 'deploy', 'site', 'Dockerfile'), 'utf8');
+  assert.match(docker, /ENV MYCA_EARLY_ACCESS_URL=""/);
+  assert.match(docker, /ENV NGINX_ENVSUBST_FILTER="\^MYCA_"/);
+  assert.match(docker, /COPY deploy\/site\/default\.conf\.template \/etc\/nginx\/templates\/default\.conf\.template/);
+  assert.match(readFileSync(join(root, 'deploy', 'public', 'privacy.html'), 'utf8'), /early-access list/);
 });
