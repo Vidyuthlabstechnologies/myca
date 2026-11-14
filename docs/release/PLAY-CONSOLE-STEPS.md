@@ -117,8 +117,11 @@ Work down the list; each takes a minute with the sheets.
 
 ## 10. Subscriptions, later (#154)
 
-Not for closed testing. When the Indian prices are settled: **Monetise > Subscriptions**,
-create `essentials`, `pro` and `firm` with monthly and yearly base plans, add licence
-testers under **Setup > Licence testing**, then set `MYCA_PLAY_PRODUCT_ESSENTIALS`,
-`MYCA_PLAY_PRODUCT_PRO`, `MYCA_PLAY_PRODUCT_FIRM` on the server (`infra/cloud`). Billing
+Not for closed testing. The Indian prices are settled (2026-11-14): **Monetise >
+Subscriptions**, create `essentials` (₹999 a month, ₹9,999 a year), `pro` (₹1,999, ₹19,999)
+and `firm` (₹5,999, ₹59,999) with monthly and yearly base plans, add licence testers under
+**Setup > Licence testing**, then set `MYCA_PLAY_PRODUCT_ESSENTIALS`,
+`MYCA_PLAY_PRODUCT_PRO`, `MYCA_PLAY_PRODUCT_FIRM` on the server (`infra/cloud`). Create
+`assured` (₹4,999, ₹49,999) and set `MYCA_PLAY_PRODUCT_ASSURED` only once a CA team is signed
+to do its monthly GST and TDS filing. Billing
 turns on by itself once those are set; until then nobody is charged.

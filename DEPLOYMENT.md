@@ -460,7 +460,7 @@ secret for it. Secrets land in SSM under `/myca/api/*`.
 | The AI model | `model_api_key`, `model_name` | The assistant answers in its own words instead of the built-in patterns |
 | Email | `email_relay_url`, `email_from`, `email_relay_token` | Invoice and reminder emails through the relay in `email-relay/` |
 | Channel pulls | `channel_pulls` (default `true`) | Nightly read-only pulls from Amazon, Shopify and Razorpay for businesses that saved their keys |
-| Play subscriptions | `play_product_essentials`, `play_product_pro`, `play_product_firm`, `play_service_account_json` | Paid plans; there is no free plan, so set these before the trial of the first users ends |
+| Play subscriptions | `play_product_essentials`, `play_product_pro`, `play_product_assured` (only once a CA team is signed), `play_product_firm`, `play_service_account_json` | Paid plans; there is no free plan, so set these before the trial of the first users ends |
 
 The live ECS Express service was made outside Terraform, so until it is imported these
 values also have to be set on the service's task definition by hand.

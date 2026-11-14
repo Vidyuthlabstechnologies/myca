@@ -4,7 +4,7 @@ export const PLAY_ID = 'com.mldynamic.myca';
 
 export const EARLY_ACCESS_ACTION = '__EARLY_ACCESS_URL__';
 
-export const INDIA_PRICES = Object.freeze({ essentials: '₹399', pro: '₹799', firm: '₹2,499' });
+export const INDIA_PRICES = Object.freeze({ essentials: '₹999', pro: '₹1,999', assured: '₹4,999', firm: '₹5,999' });
 export const US_PRICES = Object.freeze({ returnList: '$129', returnLaunch: '$99', launchUntil: 'April 15, 2027', plus: '$249', expert: '$299' });
 
 export const US_FORMS = Object.freeze(['1040', 'Schedule 1', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule SE', 'Form 8949', 'Form 8812', 'Form 8863', 'Form 8995', 'W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T']);

@@ -291,11 +291,14 @@ terraform apply -var-file=myca.tfvars \
 
 Play setup (after `terraform apply`):
 
-1. Play Console > Monetize > Subscriptions: create three subscriptions, for example
-   `myca_essentials`, `myca_pro` and `myca_firm`. Give each a monthly and a yearly
-   auto-renewing base plan: Essentials ₹399 a month or ₹3,999 a year, Pro ₹799 or ₹7,999, CA
-   firm ₹2,499 or ₹24,999. Set `play_product_essentials`, `play_product_pro` and
-   `play_product_firm` to their product ids. There is no free plan: after the 14-day Pro
+1. Play Console > Monetize > Subscriptions: create the subscriptions, for example
+   `myca_essentials`, `myca_pro`, `myca_assured` and `myca_firm`. Give each a monthly and a
+   yearly auto-renewing base plan: Essentials ₹999 a month or ₹9,999 a year, Pro ₹1,999 or
+   ₹19,999, MyCA Assured ₹4,999 or ₹49,999, CA firm ₹5,999 or ₹59,999. Set
+   `play_product_essentials`, `play_product_pro`, `play_product_assured` and
+   `play_product_firm` to their product ids. Create MyCA Assured only once a CA team is signed
+   to review and file each Assured business's GST and TDS returns every month: until its
+   product id is set it shows in the app as a plan that cannot be bought yet. There is no free plan: after the 14-day Pro
    trial the books stay readable and exportable, and nothing new is posted until a plan is
    bought.
 2. Play Console > Users and permissions: invite the `api_service_account` output with "View
@@ -371,7 +374,7 @@ The server logs one `startup: services` line listing which optional services are
 | `MYCA_PLAY_SERVICE_ACCOUNT_JSON` | Play billing outside Cloud Run | metadata server on Cloud Run | yes | Play Developer API access. Refused in staging. |
 | `MYCA_PLAY_PUSH_AUDIENCE`, `MYCA_PLAY_PUSH_SERVICE_ACCOUNT` | for Play notifications | | no | Pub/Sub push with OIDC authentication: the audience set on the push subscription and the service account it signs as. Preferred. |
 | `MYCA_PLAY_NOTIFY_TOKEN` | alternative to push auth | | yes | Shared token, sent only in the `x-myca-notify-token` header. A `?token=` in the URL is refused so it never reaches access logs. |
-| `MYCA_PLAN_PRICES` | no | built-in prices | no | Display prices, e.g. `essentials=399,pro=799,firm=2499`. |
+| `MYCA_PLAN_PRICES` | no | built-in prices | no | Display prices, e.g. `essentials=999,pro=1999,assured=4999,firm=5999`. |
 | `MYCA_DOCUMENT_BUCKET` | no | documents in Postgres | no | Cloud Storage bucket for document bytes (GCS only). |
 | `MYCA_TALLY_HOST`, `MYCA_TALLY_PORT`, `MYCA_LISTEN_HOST`, `MYCA_API_TOKEN`, `MYCA_TOKEN_IN_PAGE`, `MYCA_REQUIRE_SAFE_STORAGE` | desktop only | | | Read by the Windows app's local server, not the hosted API. |
 
