@@ -71,20 +71,35 @@ MyCA US is not affiliated with the IRS or any government agency.
 
 ## Data safety and privacy labels
 
-Same categories for Play *Data safety* and App Store *App Privacy*:
+Same categories for Play *Data safety* and App Store *App Privacy*. Under Play's definitions, data sent to
+a service provider that processes it for MyCA (Google Cloud, Anthropic, Stripe) or sent because the user
+asked for it (handing the return to the e-file partner when they tap File) is not "shared"; it is still
+listed in the privacy notice. Checked against `docs/compliance/us/COMPLIANCE-REVIEW.md`.
 
-| Data | Collected | Why | Shared |
-|---|---|---|---|
-| Name, email, phone | Yes | Sign-in, the return | E-file partner, IRS (when filing) |
-| Government ID (SSN/ITIN) | Yes | The return | E-file partner and IRS only when filing |
-| Financial info (income forms, bank account for refund or payment) | Yes | The return, refund, payment | E-file partner, IRS |
-| Photos and files (tax forms) | Yes, when the user adds them | Reading the form | AI model with SSNs removed, not kept by it |
-| App activity, crash logs | Yes | Security and fixing errors | No |
+| Data | Collected | Why | Shared (Play's meaning) | Optional |
+|---|---|---|---|---|
+| Name, email, phone | Yes | Account, the return | No | No |
+| Government ID (SSN/ITIN) | Yes | The return | No (to the e-file partner only when the user files, and only with the separate IRC 7216 consent) | No |
+| Financial info (income forms, bank account for refund or payment, purchase history) | Yes | The return, refund, payment | No | No |
+| Photos and files (tax forms, IRS letters) | Yes, when the user adds them | Reading the form | No (read by the AI model as a service provider, SSNs removed, not kept by it) | Yes |
+| Device or other IDs (install id, device type) | Yes | Security, the e-file signature record | No | No |
+| App activity (screens reached, for the sign-up funnel) | Yes | Analytics | No | No |
+| Crash logs | Yes, only if the user turns them on | Fixing errors | No | Yes |
 
-Encrypted in transit and at rest: yes. Users can ask for deletion: yes, in the app (records the law
-requires a preparer to keep are kept for that period).
+Encrypted in transit: yes. Users can ask for deletion: yes, in the app and at the web deletion link
+(`/delete-account`, which must name "MyCA US"). Data kept after deletion: a return MyCA itself e-filed and
+its Form 8879 are kept three years, as the IRS requires (none in 2027, when the partner files).
+
+Target audience: 18 and over. Not designed for children.
 
 ## Financial features declaration (Play)
 
-"The app prepares and files personal income tax returns." It does not lend money, hold deposits or
-move money; refunds are paid by the IRS directly to the filer.
+There is no tax-filing category. Choose *Support services > Other* and describe it: "The app prepares
+personal income tax returns and hands them to an IRS-authorized e-file provider to file." It does not lend
+money, hold deposits or move money; refunds are paid by the IRS directly to the filer.
+
+## Payments (Play)
+
+Since 29 October 2025 Play Billing is not required for US users; card checkout for the return fee is
+allowed. If the card checkout stays inside the app, enrol in Play's alternative billing program (reporting
+and fees from 1 October 2026). MyCA Plus stays a Play subscription, and its screen states the renewal terms.

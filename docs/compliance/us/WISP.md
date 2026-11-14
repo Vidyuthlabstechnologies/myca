@@ -1,6 +1,6 @@
 # MyCA Written Information Security Plan (United States returns)
 
-Status: draft for the owner and counsel, 2026-11-11. Applies to every US individual return (Form 1040)
+Status: draft for the owner and counsel, 2026-11-11, updated 2026-11-14 (see `COMPLIANCE-REVIEW.md`). Applies to every US individual return (Form 1040)
 prepared, stored or e-filed with MyCA, and to the people, systems and vendors that touch it.
 
 This plan is what IRS Publication 4557 (*Safeguarding Taxpayer Data*), Publication 5708 (*Creating a
@@ -40,14 +40,15 @@ vault (uploaded files), and in transit between the phone, the API, the IRS and t
 | SSN and ITIN field encryption | Each SSN/ITIN is sealed again with AES-256-GCM under `MYCA_PII_KEY` (HKDF per household and person, the scope bound as authenticated data); only `{sealed, last4, kind}` is stored | `platform/src/us-identity.mjs` | Done (module); engine stores through it (tax engine thread) |
 | SSN never shown in full | Every tool result and the app show `***-**-1234`; the app's SSN field is obscured by default, has no autocorrect or keyboard learning, and is cleared after saving; a saved SSN is never sent back | `mobile/lib/us/tin.dart`, `mobile/lib/screens/us/us_fields.dart` | Done |
 | SSN kept out of the AI model | Every model request is redacted (SSN/ITIN patterns masked in text and tool blocks) before it leaves the server | `platform/src/model-adapter.mjs` via `redactModelRequest` | Done |
-| SSN kept out of logs and audit | Chat messages are redacted on entry; audit metadata is redacted in the books and in `audit_log` | `platform/src/router.mjs`, `platform/src/ca-api.mjs`, `cloud/src/books-runner.mjs` | Done |
+| SSN kept out of logs and audit | Chat messages are redacted on entry; audit metadata is redacted in the books and in `audit_log`; every server log line is redacted before it is written | `platform/src/router.mjs`, `platform/src/ca-api.mjs`, `cloud/src/books-runner.mjs`, `cloud/src/server.mjs` | Done |
 | Encryption in transit | TLS 1.2+ to Cloud Run; the IRS MeF A2A channel uses its own TLS and signed SOAP | Cloud Run; e-file thread | Done for the API |
 | Least privilege | Owner, accountant and staff roles; only the owner signs and files; invited tax pros see last-four only | `cloud/src/members.mjs` | Done; signing restricted to owner in e-file PR |
-| Multi-factor authentication | Two-step sign-in (TOTP and recovery codes) exists; Pub 1345 expects online providers to offer MFA | `cloud/src/second-factor.mjs` | Owner decision: require it before a US return can be signed |
+| Multi-factor authentication | Two-step sign-in (TOTP and recovery codes). Signing or e-filing a US return is refused without it in production (Pub 1345: second factor before transmitting) | `cloud/src/second-factor.mjs`, `cloud/src/us-safeguards.mjs` | Done for signing and filing; owner decision: require it at US account creation too (Pub 1345: MFA before reaching stored tax data) |
 | Bot protection at account creation | Pub 1345 asks for a challenge-response at sign-up | Google sign-in covers it; phone sign-in is India-only | Owner: confirm with counsel |
 | Device and IP capture at signing | Device id (random per install), device type and time from the app; IP from the request on the server | `us_sign_screen.dart`, e-file PR #222 | Done |
-| Signature records | Form 8879 data and consent kept with the return for 3 years | e-file thread | In progress |
-| Retention | Returns and 8879 kept at least 3 years (IRC 6107, Pub 1345), then deleted | `docs/operations/RETENTION.md` | Owner: add US schedule |
+| Signature records | Form 8879 data kept with the return; in 2027 the e-file partner, as ERO, keeps the signed 8879 | `platform/src/us-efile.mjs` | Done for the own route |
+| IRC 7216 consents | Separate signed consents (Rev. Proc. 2013-14 wording, typed-name signature, one year by default, withdrawable, exact text kept); SSNs go to the partner only with one | `cloud/src/us-7216.mjs`, migration 034 | Done (server); consent screens owed by the app |
+| Retention | A household MyCA itself e-filed is kept three years from the later of the due date and IRS receipt, then purged; everything else 30 days after deletion | `cloud/src/us-retention.mjs`, `cloud/src/jobs.mjs` | Done |
 | Secure deletion | Account erasure removes books and documents after the retention period | `cloud/migrations/019_account_erasure.sql` | Done for India; US retention to add |
 | Backups | Cloud SQL automated backups, encrypted by Google | `infra/cloud` | Done |
 | Vendor oversight | Google Cloud (hosting), Anthropic (model, no training on API data), IRS | Section 6 | Owner: file vendor agreements |
@@ -62,13 +63,18 @@ These were raised by the e-file thread and are tracked here.
 |---|---|
 | Extended Validation (EV) TLS certificate on the website that takes returns | Owner: Cloud Run's managed certificate is DV, not EV. Buy an EV certificate for the filing domain and put the API behind it |
 | Weekly external vulnerability scan of the website, by an approved scanning vendor | Owner: pick a vendor (PCI ASV list); record each scan |
-| Written privacy and safeguards policy published on the website | US privacy notice drafted (`cloud/src/consent.mjs`, `PRIVACY_NOTICE_US`); this WISP; publish both on the site |
+| Written privacy and safeguards policy published on the website, with the sentence "we maintain physical, electronic and procedural safeguards that comply with applicable law and federal standards", certified by a privacy seal vendor | US privacy notice (`PRIVACY_NOTICE_US`) carries the sentence; this WISP; owner: publish both and pick a seal vendor |
 | Challenge-response on account creation to stop bots | Owner: Google sign-in; add a check if phone or email sign-up is offered in the US |
 | Domain name registered with a US-based registrar | Owner: check the registrar of the filing domain |
-| Multi-factor authentication for taxpayer accounts | Owner decision above |
+| Multi-factor authentication for taxpayer accounts | Done before signing and filing (production); account creation is the owner decision above |
 | Report any security incident to the IRS by the next business day | Section 7 |
 
 ## 5. People
+
+- Nobody outside the United States gets access to the US production project, its database, its
+  backups or its logs. IRC section 7216 treats such access as a disclosure outside the US, which needs
+  each taxpayer's prior consent and cannot cover SSNs without an adequate safeguard (Treas. Reg.
+  301.7216-2(c)(2), 301.7216-3(b)(4); Rev. Proc. 2013-14 section 5.07).
 
 - Everyone with production access signs a confidentiality agreement and does security training before
   access, and again every year.
@@ -111,5 +117,5 @@ Follow `docs/operations/INCIDENT-RESPONSE.md`, plus for US returns:
 2. **The US entity.** The EFIN's Responsible Official and Principals must be US citizens or lawful
    permanent residents with fingerprints taken (Pub 3112). A US subsidiary or a US-resident principal is
    needed before the EFIN application.
-3. **Require two-step sign-in before signing a US return.**
+3. **Require two-step sign-in at US account creation.** Signing and filing already require it in production.
 4. **EV certificate and weekly scans** (section 4).
