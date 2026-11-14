@@ -5,6 +5,7 @@ import { stripeSignature } from '../src/stripe.mjs';
 import { signPartnerBody, PARTNER_SIGNATURE_HEADER } from '../../platform/src/us-filing-partner.mjs';
 import { startApi } from './helpers.mjs';
 import { JOB_HEADER } from '../src/jobs.mjs';
+import { PARTNER_TINS } from '../src/us-7216.mjs';
 
 const JOB_TOKEN = 'job-token-for-us-sandbox-edge-0123456789abcdef';
 const DAY = 24 * 60 * 60 * 1000;
@@ -446,10 +447,14 @@ test('SSNs never appear in logs, tool results, audit events, the books or the pa
   for (const ssn of [SSNS.primary, SSNS.spouse]) assert.ok(!holdsSsn(books, ssn), 'the books keep the SSN sealed, not in plain text');
 });
 
-test('with MYCA_US_FILER_SEND_TINS on, the partner gets both SSNs of a joint return, and still nothing is logged', async () => {
+test('with MYCA_US_FILER_SEND_TINS on and the filer\'s signed 7216 consent, the partner gets both SSNs of a joint return, and still nothing is logged', async () => {
   const who = await household('+919400000318');
   await prepare(who, year, { joint: true });
   await payFor(who);
+  const forms = await api.call('GET', '/v1/me/us-consents', { token: who.token });
+  const form = forms.body.consents.find((c) => c.document === PARTNER_TINS);
+  const signed = await api.call('POST', '/v1/me/us-consents', { token: who.token, body: { document: PARTNER_TINS, version: form.version, signedName: 'Jordan Rivera' } });
+  assert.equal(signed.status, 200, signed.text);
   process.env.MYCA_US_FILER_SEND_TINS = '1';
   let filed;
   try {
