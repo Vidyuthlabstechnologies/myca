@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108" role="img" aria-label="MyCA US themed icon">
+<style>text{font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;}</style>
+<g transform="translate(17 17) scale(0.77)"><mask id="tick-cut"><rect width="96" height="96" fill="#FFFFFF"/><path d="M55 49l7 7 12-15" fill="none" stroke="#000000" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/></mask>
+  <g mask="url(#tick-cut)">
+  <path d="M48 28c-8-6-18-7-28-5v44c10-2 20-1 28 5" fill="none" stroke="#000000" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M48 28c8-6 18-7 28-5v44c-10-2-20-1-28 5z" fill="#000000" stroke="#000000" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M48 28v44" stroke="#000000" stroke-width="5" stroke-linecap="round"/>
+  <path d="M55 49l7 7 12-15" fill="none" stroke="none" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M27 37h13M27 46h13M27 55h9" stroke="#000000" stroke-width="3" stroke-linecap="round" opacity="1"/></g></g>
+</svg>

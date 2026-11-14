@@ -154,12 +154,19 @@ class InvoiceShare {
 }
 
 class EInvoice {
-  const EInvoice({required this.status, required this.irn, required this.ackNo, required this.why});
+  const EInvoice({required this.status, required this.irn, required this.ackNo, required this.why, this.ackDate = '', this.signedQrCode = ''});
 
   factory EInvoice.fromJson(Object? json) {
     final map = _map(json);
-    return EInvoice(status: _text(map['status']), irn: _text(map['irn']), ackNo: _text(map['ackNo']), why: _text(map['why']));
+    return EInvoice(status: _text(map['status']), irn: _text(map['irn']), ackNo: _text(map['ackNo']), why: _text(map['why']), ackDate: _text(map['ackDate']), signedQrCode: _text(map['signedQrCode']));
   }
+
+  final String ackDate;
+  final String signedQrCode;
+
+  bool get onPdf => irn.isNotEmpty && (status == 'issued' || status == 'sandbox' || status == 'mock');
+
+  bool get valid => status == 'issued';
 
   final String status;
   final String irn;
@@ -579,6 +586,10 @@ class InvoiceDocument {
     this.exemptionReason = '',
     this.template = const InvoiceTemplate(),
     this.upiLink = '',
+    this.documentTitle = '',
+    this.reverseChargeLine = '',
+    this.exportEndorsement = '',
+    this.compositionDeclaration = '',
   });
 
   static InvoiceDocument? fromTool(Object? json) {
@@ -637,6 +648,10 @@ class InvoiceDocument {
       exemptionReason: _text(map['exemptionReason']),
       template: InvoiceTemplate.fromJson(map['template']),
       upiLink: _text(_map(map['upiPayment'])['link']),
+      documentTitle: _text(map['documentTitle']),
+      reverseChargeLine: _text(map['reverseChargeLine']),
+      exportEndorsement: _text(map['exportEndorsement']),
+      compositionDeclaration: _text(map['compositionDeclaration']),
       missing: [
         for (final code in (map['missing'] as List? ?? const [])) _text(code),
       ],
@@ -644,6 +659,10 @@ class InvoiceDocument {
   }
 
   final String upiLink;
+  final String documentTitle;
+  final String reverseChargeLine;
+  final String exportEndorsement;
+  final String compositionDeclaration;
   final String id;
   final String date;
   final String sellerName;
@@ -701,7 +720,15 @@ class InvoiceDocument {
 
   bool get isUs => country == 'US';
 
-  String get title => isQuote ? (documentKind == 'quote' || documentKind.isEmpty ? 'Quotation' : salesDocumentLabel(documentKind)) : (sellerGstin.isEmpty ? 'Invoice' : 'Tax invoice');
+  String get title => isQuote ? (documentKind == 'quote' || documentKind.isEmpty ? 'Quotation' : salesDocumentLabel(documentKind)) : documentTitle.isNotEmpty ? documentTitle : (sellerGstin.isEmpty ? 'Invoice' : 'Tax invoice');
+
+  List<String> get statutoryLines => [
+        if (!isQuote) ...[
+          if (reverseChargeLine.isNotEmpty) reverseChargeLine,
+          if (exportEndorsement.isNotEmpty) exportEndorsement,
+          if (compositionDeclaration.isNotEmpty) compositionDeclaration,
+        ],
+      ];
 
   String get subtotalLabel => isUs ? 'Subtotal' : 'Taxable value';
 

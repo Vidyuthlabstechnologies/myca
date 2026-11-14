@@ -14,6 +14,7 @@ import { planRecurring, findRecurring, everyWords } from './recurring.mjs';
 import { planQuote, findQuote, checkConvert, invoiceArgsFromQuote, kindTitle, kindOf, SALES_DOCUMENT_KINDS } from './quotes.mjs';
 import { gstSplit, partyStateOf, INVOICE_SUPPLY_TYPES, cessOf, hasCessInput, badCessInput } from './chart.mjs';
 import { postingDate, localToday } from './dates.mjs';
+import { engineBooks } from './countries/engines.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { lastGstRateFor, lastHsnFor, planPayment } from './invoice.mjs';
 import { planSupplierReminder } from './supplier-reminders.mjs';
@@ -67,6 +68,8 @@ function plusYear(iso) {
 }
 
 export function documentPreview(state, args, kind) {
+  const own = engineBooks(countryOf(state), kind === 'sale' ? 'create_invoice' : 'create_purchase', 'preview');
+  if (own) return own(state, args, kind);
   if (countryOf(state) === 'US') return usDocumentPreview(state, args, kind);
   const company = state.company || {};
   const date = postingDate(args.date);

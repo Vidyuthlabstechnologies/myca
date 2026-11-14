@@ -1,9 +1,10 @@
 import 'models.dart';
 
 class MycaApiException implements Exception {
-  const MycaApiException(this.message);
+  const MycaApiException(this.message, {this.code = ''});
 
   final String message;
+  final String code;
 
   @override
   String toString() => message;

@@ -58,6 +58,10 @@ function einvoice(state, args) {
 export const ENGINE = Object.freeze({
   country: 'AE',
   run: Object.freeze({
+    ae_business_profile: (state) => {
+      const business = savedProfile(state);
+      return { ok: true, data: { saved: Boolean(business), business: business || null, updatedAt: countrySlice(state, 'aeProfile').updatedAt || null } };
+    },
     ae_ct_estimate: (state, args = {}) => corporateTaxEstimate(args),
     ae_deadlines: (state, args = {}) => uaeDeadlines(args),
     ae_einvoice_check: (state, args = {}) => {

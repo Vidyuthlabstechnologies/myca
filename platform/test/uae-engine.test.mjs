@@ -353,6 +353,10 @@ test('the business profile is checked, saved with an audit event, and becomes th
   assert.equal(saved.data.business.emirate, 'DXB');
   assert.equal(saved.data.business.trn, '100123456700003');
   assert.ok(state.auditEvents.some((event) => event.action === 'ae_business_profile_set'));
+  assert.equal(ENGINE.run.ae_business_profile(createState()).data.saved, false);
+  const read = ENGINE.run.ae_business_profile(state);
+  assert.equal(read.data.business.nameAr, 'فالكون للتجارة ذ.م.م');
+  assert.equal(read.data.business.trn, '100123456700003');
   const check = ENGINE.run.ae_einvoice_check(state, { number: 'INV-1', issueDate: '2027-07-05', buyer, lines: invoice.lines });
   assert.equal(check.ok, true, JSON.stringify(check.problems));
   assert.equal(check.data.document.sellerEndpoint, '0235:1001234567');

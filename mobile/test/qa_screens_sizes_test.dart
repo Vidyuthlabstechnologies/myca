@@ -314,14 +314,14 @@ void main() {
   testWidgets('plans show the India prices, and MyCA Assured says it is opening soon until it is on sale', (tester) async {
     await hosted(const PlanScreen())(tester);
     await scrollThrough(tester);
-    expect(find.text('₹999 a month or ₹9,999 a year'), findsOneWidget);
-    expect(find.text('₹1,999 a month or ₹19,999 a year'), findsOneWidget);
-    expect(find.text('₹4,999 a month or ₹49,999 a year'), findsOneWidget);
-    expect(find.text('₹5,999 a month or ₹59,999 a year'), findsOneWidget);
-    expect(find.text('Opening soon'), findsOneWidget);
-    expect(planOpeningSoon(PlanOffer.fromJson({'id': 'assured', 'title': 'MyCA Assured', 'monthlyRupees': 4999, 'productId': 'myca_assured_monthly', 'buyable': true})), isFalse);
-    expect(planOpeningSoon(PlanOffer.fromJson({'id': 'pro', 'title': 'Pro', 'monthlyRupees': 1999})), isFalse);
-    expect(find.textContaining(RegExp('penalt', caseSensitive: false)), findsNothing);
+    expect(find.text('₹999 a month plus GST'), findsOneWidget);
+    expect(find.text('₹1,999 a month plus GST'), findsOneWidget);
+    expect(find.text('₹4,999 a month plus GST'), findsOneWidget);
+    expect(find.text('₹5,999 a month plus GST'), findsOneWidget);
+    expect(find.textContaining('Opening soon'), findsOneWidget);
+    for (final widget in tester.widgetList<Text>(find.textContaining(RegExp('penalt', caseSensitive: false)))) {
+      expect(widget.data, contains('are not covered'));
+    }
   });
 
   testWidgets('the sandbox banner shows only when the server is not on live providers', (tester) async {

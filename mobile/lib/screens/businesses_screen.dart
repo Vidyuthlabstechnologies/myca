@@ -10,6 +10,7 @@ import '../marks.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'invitation_cards.dart';
+import 'privacy_rights_screen.dart';
 
 String aboutLine(ServerInfo? server) {
   final where = server == null
@@ -225,6 +226,19 @@ class _BusinessesScreenState extends State<BusinessesScreen> {
                     title: 'Delete my account',
                     subtitle: 'Signs you out everywhere; businesses you alone own go with it',
                     onTap: _deleteAccount,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 26),
+              const SectionLabel('Privacy and legal'),
+              Panel(
+                children: [
+                  RowCard(
+                    key: const Key('legal.rights'),
+                    leading: const TintTile(tint: Tint.ask, mark: Mark.confirm),
+                    title: 'Your privacy rights',
+                    subtitle: 'Privacy notice, terms, Grievance Officer, and requests to see, correct or erase your data',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyRightsScreen())),
                   ),
                 ],
               ),

@@ -22,6 +22,9 @@ import 'fake_api.dart';
 import 'fake_cloud.dart';
 
 class FeeStore implements StoreBilling {
+  FeeStore({this.price = '\$129.00'});
+
+  final String price;
   final controller = StreamController<List<StorePurchase>>.broadcast();
   final bought = <String>[];
   final finished = <String>[];
@@ -31,7 +34,7 @@ class FeeStore implements StoreBilling {
   @override
   Future<bool> available() async => true;
   @override
-  Future<Map<String, StoreProduct>> products(Set<String> ids) async => {for (final id in ids) id: StoreProduct(id: id, price: '\$129.00')};
+  Future<Map<String, StoreProduct>> products(Set<String> ids) async => {for (final id in ids) id: StoreProduct(id: id, price: price)};
   @override
   Future<bool> buy(String productId, String accountId) async {
     bought.add('sub:$productId:$accountId');
@@ -571,7 +574,7 @@ void main() {
     await scrollTap(tester, find.byKey(const Key('usSign.sign')));
     expect(find.text('Choose any five digits except 00000.'), findsOneWidget);
     expect(find.textContaining('does not add up'), findsOneWidget);
-    expect(find.text('Tick the box to sign.'), findsOneWidget);
+    expect(find.text('Check the box to sign.'), findsOneWidget);
     expect(api.proposals, isEmpty);
 
     await tester.enterText(find.byKey(const Key('usSign.pin')), '24680');

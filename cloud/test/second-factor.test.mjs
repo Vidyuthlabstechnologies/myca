@@ -287,7 +287,7 @@ test('Google sign-in also stops at the second step when it is on', async () => {
   const signed = await google();
   assert.ok(signed.body.accessToken, signed.text);
   const token = signed.body.accessToken;
-  assert.equal((await api.call('POST', '/v1/me/consent', { token, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version } })).status, 200);
+  assert.equal((await api.call('POST', '/v1/me/consent', { token, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version, adult: true } })).status, 200);
   const started = await begin(token);
   assert.equal(started.status, 200, started.text);
   assert.equal(started.body.account, 'asha@example.com', 'a Google user is named by email in the authenticator app');
@@ -321,7 +321,7 @@ test('OpenID Connect sign-in also stops at the second step when it is on', async
     const signed = await oidc();
     assert.ok(signed.body.accessToken, signed.text);
     const token = signed.body.accessToken;
-    assert.equal((await other.call('POST', '/v1/me/consent', { token, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version } })).status, 200);
+    assert.equal((await other.call('POST', '/v1/me/consent', { token, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version, adult: true } })).status, 200);
     const started = await begin(token, other);
     assert.equal(started.status, 200, started.text);
     assert.equal(started.body.account, 'ravi@example.com');

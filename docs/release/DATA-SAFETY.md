@@ -65,6 +65,8 @@ Every recipient is reached only when the feature is used and configured on the s
 - 2026-11-14: the privacy policy (`docs/release/PRIVACY-POLICY.md` and `deploy/public/privacy.html`) now lists every recipient in the table above and no longer says MyCA does not file returns. Issue #148 still needs the registered address, support email and Grievance Officer from the owner.
 - The policy says the hosted service runs in Google Cloud, Mumbai. Keep that line in step with where the API is actually deployed.
 
+- 2026-11-14 (compliance pass): the in-app India notice now lists every recipient, the two features that can process data outside India, one-year logs, the rights request screen and the Board; consent records an 18-or-over declaration. Nothing new is collected, so the Data safety answers do not change. The rights requests a person writes are "Messages: Other in-app messages", already declared.
+
 ## Still to do by a person
 
 - Paste these answers into the Play Console and screenshot the summary.

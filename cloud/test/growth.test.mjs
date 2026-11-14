@@ -13,7 +13,8 @@ const steps = (token, list) => api.call('POST', '/v1/funnel', { token, body: { s
 test('a step keeps only a known name, an edition and a short source', () => {
   assert.deepEqual(cleanStep({ step: 'business_created', source: 'Web_GST-Billing', name: 'Asha', amount: 5000 }), { ok: true, step: { step: 'business_created', edition: 'india', source: 'web_gst-billing' } });
   assert.deepEqual(cleanStep({ step: 'return_started', edition: 'us' }), { ok: true, step: { step: 'return_started', edition: 'us', source: '' } });
-  for (const bad of [null, [], { step: 'drop table' }, { step: 'paid', edition: 'uk' }, { step: 'paid', source: 'has space' }, { step: 'paid', source: 'x'.repeat(41) }, { step: 'referral_claimed' }]) {
+  assert.deepEqual(cleanStep({ step: 'business_created', edition: 'uk' }), { ok: true, step: { step: 'business_created', edition: 'uk', source: '' } });
+  for (const bad of [null, [], { step: 'drop table' }, { step: 'paid', edition: 'uae' }, { step: 'paid', source: 'has space' }, { step: 'paid', source: 'x'.repeat(41) }, { step: 'referral_claimed' }]) {
     assert.equal(cleanStep(bad).ok, false, JSON.stringify(bad));
   }
 });

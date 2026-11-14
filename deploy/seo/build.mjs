@@ -31,7 +31,7 @@ function shell({ path, title, description, body, ld, edition = 'india' }) {
 <meta property="og:url" content="${url}">
 <meta property="og:title" content="${escape(title)}">
 <meta property="og:description" content="${escape(description)}">
-<meta property="og:image" content="${ORIGIN}/assets/og-image.png">
+<meta property="og:image" content="${ORIGIN}/assets/${edition === 'us' ? 'og-image-us.png' : 'og-image.png'}">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
@@ -60,14 +60,17 @@ ${body}
   <div class="wrap row">
     <div>
       <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="26" height="26"><span>My<span class="ca">CA</span></span></a>
-      <p>ML Dynamic Solutions Private Limited.</p>
+      <p>ML Dynamic Solutions Private Limited.${edition === 'us' ? '' : '<br><small class="legal-line">MyCA is software by ML Dynamic Solutions Private Limited. It is not a firm of chartered accountants and does not give tax or legal advice. GST filing goes through a licensed GST Suvidha Provider; MyCA is not affiliated with GSTN, the Income Tax Department or NIC.</small>'}</p>
     </div>
     <ul>
       <li><a href="/guides">Guides</a></li>
       <li><a href="/privacy">Privacy</a></li>
       <li><a href="/delete-account">Delete your account</a></li>
-      <li><a href="/status">Status</a></li>
-    </ul>
+${edition === 'us' ? '' : `      <li><a href="/terms">Terms</a></li>
+      <li><a href="/refunds">Refunds</a></li>
+      <li><a href="/disclaimer">Disclaimer</a></li>
+      <li><a href="/grievance">Grievance Officer</a></li>
+`}    </ul>
   </div>
 </footer>
 </body>
@@ -196,7 +199,7 @@ ${group('us', 'US federal taxes')}
 }
 
 export function renderSitemap() {
-  const paths = ['', GUIDE_INDEX.slug, ...PAGES.map((page) => page.slug), 'privacy'];
+  const paths = ['', GUIDE_INDEX.slug, ...PAGES.map((page) => page.slug), 'privacy', 'terms', 'refunds', 'disclaimer', 'grievance'];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${paths.map((path) => `  <url><loc>${ORIGIN}/${path}</loc></url>`).join('\n')}

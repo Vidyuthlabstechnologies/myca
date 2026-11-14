@@ -453,7 +453,7 @@ async function startApi({ db: wrap } = {}) {
     const otp = await call('POST', '/v1/auth/otp', { body: { phone: number } });
     const verified = await call('POST', '/v1/auth/verify', { body: { challengeId: otp.body.challengeId, phone: number, code: sender.last().code, deviceLabel: 'test phone' } });
     assert.equal(verified.status, 200, JSON.stringify(verified.body));
-    const agreed = await call('POST', '/v1/me/consent', { token: verified.body.accessToken, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version } });
+    const agreed = await call('POST', '/v1/me/consent', { token: verified.body.accessToken, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version, adult: true } });
     assert.equal(agreed.status, 200);
     return verified.body.accessToken;
   };

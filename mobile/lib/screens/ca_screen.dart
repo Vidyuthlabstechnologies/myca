@@ -235,7 +235,7 @@ class _CaScreenState extends State<CaScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Your CA')),
+      appBar: AppBar(title: Text(AppScope.of(context).edition == 'GB' ? 'Your accountant' : 'Your CA')),
       body: FutureBuilder<List<CaRequest>>(
         future: _requests,
         builder: (context, state) {
@@ -247,9 +247,9 @@ class _CaScreenState extends State<CaScreen> {
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
             children: [
               if (requests.isEmpty)
-                const EmptyNote(
+                EmptyNote(
                   text:
-                      'No open questions. Use "Ask my CA" on an invoice, a flagged item or a month\'s review; MyCA attaches the details.',
+                      AppScope.of(context).edition == 'GB' ? 'No open questions. Ask your accountant from an invoice or a flagged item; MyCA attaches the details.' : 'No open questions. Use "Ask my CA" on an invoice, a flagged item or a month\'s review; MyCA attaches the details.',
                 )
               else
                 Panel(
@@ -281,7 +281,7 @@ class _CaScreenState extends State<CaScreen> {
                 ),
               const SizedBox(height: 14),
               Text(
-                'Your CA sees these in MyCA once you have invited them from People.',
+                AppScope.of(context).edition == 'GB' ? 'Your accountant sees these in MyCA once you have invited them from People.' : 'Your CA sees these in MyCA once you have invited them from People.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],

@@ -10,4 +10,8 @@
   <url><loc>https://__SITE_ORIGIN__/us</loc></url>
   <url><loc>https://__SITE_ORIGIN__/us/self-employed-tax-return</loc></url>
   <url><loc>https://__SITE_ORIGIN__/privacy</loc></url>
+  <url><loc>https://__SITE_ORIGIN__/terms</loc></url>
+  <url><loc>https://__SITE_ORIGIN__/refunds</loc></url>
+  <url><loc>https://__SITE_ORIGIN__/disclaimer</loc></url>
+  <url><loc>https://__SITE_ORIGIN__/grievance</loc></url>
 </urlset>

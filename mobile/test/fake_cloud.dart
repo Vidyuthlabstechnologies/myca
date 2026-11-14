@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 class FakeCloud {
+  final List<Map<String, Object?>> privacyRequests = [];
   static const code = '428913';
   static const challengeId = '11111111-1111-4111-8111-111111111111';
   static const businessId = '22222222-2222-4222-8222-222222222222';
@@ -11,6 +12,7 @@ class FakeCloud {
   final requests = <String>[];
   final businesses = <Map<String, Object?>>[];
   final createdBodies = <Map<String, Object?>>[];
+  final requestedPhones = <String>[];
   final invoices = <Map<String, Object?>>[];
   final uploads = <String, String>{};
   final quickoCalls = <Map<String, Object?>>[];
@@ -59,7 +61,7 @@ class FakeCloud {
   bool pullsOn = true;
   List<Map<String, Object?>> plans = [
     {'id': 'essentials', 'title': 'Essentials', 'monthlyRupees': 999, 'yearlyRupees': 9999, 'productId': '', 'buyable': false, 'limits': {'invoicesPerMonth': null, 'members': 2}, 'features': ['books', 'post', 'chat', 'gst-reports', 'team']},
-    {'id': 'pro', 'title': 'Pro', 'monthlyRupees': 1999, 'yearlyRupees': 19999, 'productId': '', 'buyable': false, 'limits': {'invoicesPerMonth': null, 'members': 5}, 'features': ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team']},
+    {'id': 'pro', 'title': 'Pro', 'monthlyRupees': 1999, 'yearlyRupees': 19999, 'productId': '', 'buyable': false, 'opening': true, 'limits': {'invoicesPerMonth': null, 'members': 5}, 'features': ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team']},
     {'id': 'assured', 'title': 'MyCA Assured', 'monthlyRupees': 4999, 'yearlyRupees': 49999, 'productId': '', 'buyable': false, 'limits': {'invoicesPerMonth': null, 'members': 5}, 'features': ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team', 'ca-assured', 'accuracy-promise', 'priority-support']},
     {'id': 'firm', 'title': 'CA firm', 'monthlyRupees': 5999, 'yearlyRupees': 59999, 'productId': '', 'buyable': false, 'limits': {'invoicesPerMonth': null, 'members': 25}, 'features': ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team', 'priority-support']},
   ];
@@ -195,6 +197,9 @@ class FakeCloud {
         'notice': {
           'document': 'privacy',
           'version': 'v-test',
+          'requiresAdult': true,
+          'contact': {'grievanceOfficer': {'name': 'Asha Rao', 'email': 'grievance@myca.test', 'phone': '[phone, optional]'}},
+          'links': {'terms': 'https://myca.test/terms', 'refunds': 'https://myca.test/refunds', 'grievance': 'https://myca.test/grievance'},
           'title': 'How MyCA uses your information',
           'status': 'Draft for legal review.',
           'sections': [
@@ -232,6 +237,8 @@ class FakeCloud {
     }
     if (path == '/v1/auth/otp') {
       if (!phoneOn) return _json(503, {'ok': false, 'error': 'PHONE_SIGN_IN_UNAVAILABLE'});
+      requestedPhones.add('${body['phone']}');
+      if (RegExp(r'^\+1[2-9]\d{2}[2-9]\d{6}$').hasMatch('${body['phone']}')) return _json(200, {'ok': true, 'challengeId': challengeId, 'expiresInSeconds': 300});
       final phone = '${body['phone']}'.replaceAll(' ', '');
       if (!RegExp(r'^(\+91)?[6-9]\d{9}$').hasMatch(phone)) return _json(400, {'ok': false, 'error': 'INVALID_PHONE'});
       return _json(200, {'ok': true, 'challengeId': challengeId, 'expiresInSeconds': 300});
@@ -278,8 +285,18 @@ class FakeCloud {
       access = 'expired';
       return _json(401, {'ok': false, 'error': 'UNAUTHENTICATED', 'reason': 'TOKEN_EXPIRED'});
     }
+    if (path == '/v1/me/privacy-requests' && request.method == 'POST') {
+      if (body['kind'] == 'grievance' && '${body['message'] ?? ''}'.isEmpty) return _json(400, {'ok': false, 'error': 'MESSAGE_REQUIRED'});
+      final made = {'reference': 'DPR-20261114-ABC${privacyRequests.length}', 'kind': body['kind'], 'status': 'open', 'message': body['message'] ?? '', 'reply': '', 'createdAt': '2026-11-14T00:00:00.000Z', 'dueAt': '2026-12-14T00:00:00.000Z'};
+      privacyRequests.insert(0, made);
+      return _json(200, {'ok': true, 'request': made, 'replyWithinDays': 30});
+    }
+    if (path == '/v1/me/privacy-requests' && request.method == 'GET') {
+      return _json(200, {'ok': true, 'requests': privacyRequests, 'replyWithinDays': 30});
+    }
     if (path == '/v1/me/consent' && request.method == 'POST') {
       if (body['version'] != 'v-test' && body['version'] != 'us-test') return _json(400, {'ok': false, 'error': 'NOTICE_CHANGED'});
+      if (body['version'] == 'v-test' && body['adult'] != true) return _json(400, {'ok': false, 'error': 'ADULT_REQUIRED'});
       noticeAccepted = true;
       consents.add('${body['document']}@${body['version']}');
       return _json(200, {'ok': true});
@@ -408,6 +425,13 @@ class FakeCloud {
         return _json(200, {'ok': true, 'business': demo, 'seeded': 12});
       }
       final gstin = '${body['gstin'] ?? ''}';
+      if (body['country'] == 'GB') {
+        company = {'name': body['name'], 'gstin': '', 'state': '', 'country': 'GB'};
+        final made = {'id': businessId, 'name': body['name'], 'gstin': '', 'role': 'owner', 'country': 'GB', 'kind': 'business'};
+        businesses.add(made);
+        createdBodies.add(Map<String, Object?>.from(body));
+        return _json(200, {'ok': true, 'business': made});
+      }
       if (body['country'] == 'US') {
         final household = body['kind'] == 'household';
         company = {'name': body['name'], 'gstin': '', 'state': '', 'country': 'US', if (household) 'entityType': 'household'};

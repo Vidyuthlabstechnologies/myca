@@ -1,4 +1,5 @@
 import 'package:myca_design/myca_design.dart' show MycaThemeContext;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../api/myca_api.dart';
@@ -9,29 +10,48 @@ import '../theme.dart';
 import 'us_return.dart';
 
 class UsFilingFee {
-  const UsFilingFee({required this.taxYear, required this.enforced, required this.paid, required this.priceUsd, this.productId = '', this.testPurchase = false, this.checkout = 'play', this.priceLine = ''});
+  const UsFilingFee({
+    required this.taxYear,
+    required this.enforced,
+    required this.paid,
+    required this.priceUsd,
+    this.listPriceUsd = 0,
+    this.productId = '',
+    this.testPurchase = false,
+    this.checkout = 'play',
+    this.priceLine = '',
+    this.filingOpen = true,
+    this.purchased = false,
+  });
 
   factory UsFilingFee.fromJson(Map<String, dynamic> json, int taxYear) => UsFilingFee(
         taxYear: (json['taxYear'] as num?)?.toInt() ?? taxYear,
         enforced: json['enforced'] == true,
         paid: json['paid'] != false,
         priceUsd: (json['priceUsd'] as num?)?.toInt() ?? usFilingPriceUsd,
+        listPriceUsd: (json['listPriceUsd'] as num?)?.toInt() ?? 0,
         productId: '${json['productId'] ?? ''}',
         testPurchase: json['testPurchase'] == true,
         checkout: '${json['checkout'] ?? 'play'}',
         priceLine: '${json['priceLine'] ?? ''}',
+        filingOpen: json['filingOpen'] != false,
+        purchased: json['purchased'] == true,
       );
 
   final int taxYear;
   final bool enforced;
   final bool paid;
   final int priceUsd;
+  final int listPriceUsd;
   final String productId;
   final bool testPurchase;
   final String checkout;
   final String priceLine;
+  final bool filingOpen;
+  final bool purchased;
 
   bool get due => enforced && !paid;
+  bool get launchPrice => !purchased && listPriceUsd > priceUsd;
   bool get byCard => checkout == 'card';
   String get line => priceLine.isEmpty ? usPriceLine(priceUsd) : priceLine;
 }
@@ -99,7 +119,15 @@ class NoFilingFees implements UsFilingFees {
   Future<UsFilingFee> confirmCard(int taxYear, String sessionId) => status(taxYear);
 }
 
-String usFilingFeeLine(UsFilingFee fee) => 'Filing your ${fee.taxYear} return with the IRS is \$${fee.priceUsd}, paid once. One price for your federal return, with no upgrade fees. Preparing and checking it stay free.';
+String usFeeSpoken(UsFilingFee fee) => fee.launchPrice
+    ? 'Filing fee for your ${fee.taxYear} return: \$${fee.priceUsd} launch price, list price \$${fee.listPriceUsd}, paid once. Preparing and checking your return are free.'
+    : 'Filing fee for your ${fee.taxYear} return: \$${fee.priceUsd}, paid once. Preparing and checking your return are free.';
+
+String usFilingFeeLine(UsFilingFee fee) => fee.launchPrice
+    ? 'Filing your ${fee.taxYear} return with the IRS is \$${fee.priceUsd}, paid once. That is our launch price for this season; it is usually \$${fee.listPriceUsd}. One price for your federal return, with no upgrade fees. Preparing and checking it stay free.'
+    : 'Filing your ${fee.taxYear} return with the IRS is \$${fee.priceUsd}, paid once. One price for your federal return, with no upgrade fees. Preparing and checking it stay free.';
+
+const usFilingNotOpenLine = 'E-filing is not open in MyCA yet. Your return is saved and nothing has been charged. You can still review it and download it as a PDF.';
 
 class UsFilingFeeCard extends StatefulWidget {
   const UsFilingFeeCard({super.key, required this.fee, required this.fees, required this.store, required this.onPaid});
@@ -253,6 +281,7 @@ class _UsFilingFeeCardState extends State<UsFilingFeeCard> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final price = _product?.price ?? '\$${widget.fee.priceUsd}';
+    final storeDiffers = _product != null && num.tryParse(price.replaceAll(RegExp(r'[^0-9.]'), '')) != widget.fee.priceUsd;
     return Container(
       key: const Key('usFee.card'),
       padding: const EdgeInsets.all(16),
@@ -262,14 +291,24 @@ class _UsFilingFeeCardState extends State<UsFilingFeeCard> {
         children: [
           Text('One step before filing', style: text.titleMedium),
           const SizedBox(height: 6),
-          Text(usFilingFeeLine(widget.fee), style: text.bodyMedium),
+          Text(usFilingFeeLine(widget.fee), key: const Key('usFee.line'), semanticsLabel: usFeeSpoken(widget.fee), style: text.bodyMedium),
+          if (!widget.fee.byCard && _ready && storeDiffers) ...[
+            const SizedBox(height: 8),
+            Text('Google Play charges $price here, and that is the price you pay.', key: const Key('usFee.storePrice'), style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+          ],
           const SizedBox(height: 14),
           if (widget.fee.byCard)
             ..._cardButtons(text)
           else if (_ready)
             FilledButton(key: const Key('usFee.pay'), onPressed: _buying ? null : _buy, child: Text(_buying ? 'Opening Google Play…' : 'Pay $price and continue'))
           else
-            Text('Pay the filing fee in the MyCA app for Android, then come back here to file.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+            Text(
+              defaultTargetPlatform == TargetPlatform.android
+                  ? 'Google Play is not ready on this phone. Check that you are signed in to the Play Store, then open this screen again.'
+                  : 'The filing fee cannot be paid in this app on this device yet. Your return is saved; nothing has been charged.',
+              key: const Key('usFee.unavailable'),
+              style: text.bodySmall?.copyWith(color: Palette.muted),
+            ),
           if (_note.isNotEmpty) ...[const SizedBox(height: 10), Text(_note, key: const Key('usFee.note'), style: text.bodySmall?.copyWith(color: Palette.danger))],
         ],
       ),

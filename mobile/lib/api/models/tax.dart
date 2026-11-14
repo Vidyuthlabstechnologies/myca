@@ -751,7 +751,7 @@ class RulesStatus {
   final List<String> attention;
   final List<String> notes;
 
-  String get summary => '$records dated records, $attested reviewed by your accountant.';
+  String get summary => '$records dated records, $attested independently reviewed.';
 }
 
 List<Deadline> deadlinesFrom(Object? json) =>

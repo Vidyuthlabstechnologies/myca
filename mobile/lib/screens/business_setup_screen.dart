@@ -7,6 +7,7 @@ import '../migration.dart';
 import 'invitation_cards.dart';
 import '../theme.dart';
 import 'us/us_setup_screen.dart';
+import '../uk/uk_setup_screen.dart';
 
 class BusinessSetupScreen extends StatefulWidget {
   const BusinessSetupScreen({super.key});
@@ -98,6 +99,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     if (AppScope.of(context).edition == 'US') return const UsSetupScreen();
+    if (AppScope.of(context).edition == 'GB') return const UkSetupScreen();
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,

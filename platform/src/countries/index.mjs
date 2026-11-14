@@ -1,6 +1,7 @@
 import { INDIA } from './india.mjs';
 import { UNITED_STATES } from './united-states.mjs';
-import { UNITED_KINGDOM, CANADA, AUSTRALIA } from './planned.mjs';
+import { CANADA, AUSTRALIA } from './planned.mjs';
+import { UNITED_KINGDOM } from './united-kingdom.mjs';
 import { UNITED_ARAB_EMIRATES } from './uae.mjs';
 import { MALAYSIA } from './malaysia.mjs';
 
