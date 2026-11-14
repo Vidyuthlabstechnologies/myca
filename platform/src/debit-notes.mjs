@@ -36,7 +36,7 @@ export function notedAgainstBill(state, billId) {
 export function scaledLines(document, fraction, { supplierState, partyState }) {
   return (document.lines || []).map((line) => {
     const taxable = round2(Number(line.taxable || 0) * fraction);
-    const split = gstSplit({ taxable, rate: Number(line.gstRate || 0), supplierState, partyState });
+    const split = document.zeroRated ? { cgst: 0, sgst: 0, igst: 0, tax: 0 } : gstSplit({ taxable, rate: Number(line.gstRate || 0), supplierState, partyState });
     return {
       description: line.description,
       hsn: line.hsn,
@@ -52,22 +52,22 @@ export function scaledLines(document, fraction, { supplierState, partyState }) {
   });
 }
 
-export function settle(lines, requested) {
+export function settle(lines, requested, key = 'amount') {
   if (!lines.length) return lines;
-  const scaled = round2(lines.reduce((sum, line) => sum + line.amount, 0));
+  const scaled = round2(lines.reduce((sum, line) => sum + line[key], 0));
   const last = lines[lines.length - 1];
   last.taxable = round2(last.taxable + requested - scaled);
   last.amount = round2(last.taxable + last.cgst + last.sgst + last.igst);
   return lines;
 }
 
-export function totalsOf(lines) {
+export function totalsOf(lines, { reverseCharge = false } = {}) {
   const sum = (key) => round2(lines.reduce((total, line) => total + line[key], 0));
   const taxable = sum('taxable');
   const cgst = sum('cgst');
   const sgst = sum('sgst');
   const igst = sum('igst');
-  return { taxable, cgst, sgst, igst, total: round2(taxable + cgst + sgst + igst) };
+  return { taxable, cgst, sgst, igst, total: reverseCharge ? taxable : round2(taxable + cgst + sgst + igst) };
 }
 
 function commonChecks(state, document, args, { notFound }) {
@@ -157,11 +157,13 @@ export function planPurchaseNote(state, args = {}) {
   const company = state.company || {};
   const full = Math.abs(checked.requested - room) < 0.005 && alreadyNoted === 0;
   const supplierState = partyStateOf(bill.partyGstin) || bill.partyState || company.state;
-  const lines = full ? scaledLines(bill, 1, { supplierState, partyState: bill.registrationState || company.state }) : settle(scaledLines(bill, checked.requested / Number(bill.total), { supplierState, partyState: bill.registrationState || company.state }), checked.requested);
-  const totals = totalsOf(lines);
+  const reverseCharge = Boolean(bill.reverseCharge);
+  const supplierSide = bill.reverseCharge?.kind === 'import' ? '96' : supplierState;
+  const lines = full ? scaledLines(bill, 1, { supplierState: supplierSide, partyState: bill.registrationState || company.state }) : settle(scaledLines(bill, checked.requested / Number(bill.total), { supplierState: supplierSide, partyState: bill.registrationState || company.state }), checked.requested, reverseCharge ? 'taxable' : 'amount');
+  const totals = totalsOf(lines, { reverseCharge });
   const paid = round2((bill.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
   const refundDue = round2(Math.max(0, paid + Number(bill.tds?.amount || 0) + alreadyNoted + totals.total - Number(bill.total)));
-  return { ok: true, plan: { bill, date: checked.date, reason: checked.reason, full, lines, ...totals, alreadyNoted, paid, refundDue, itcEligible: bill.itcEligible !== false } };
+  return { ok: true, plan: { bill, date: checked.date, reason: checked.reason, full, lines, ...totals, alreadyNoted, paid, refundDue, itcEligible: bill.itcEligible !== false, reverseCharge } };
 }
 
 export function createPurchaseNote(state, args = {}) {
@@ -176,7 +178,11 @@ export function createPurchaseNote(state, args = {}) {
   const linked = TRANSFER_FLAGS.LINKED;
   const bundle = [{ id: nextTransferId(state), debitAccountId: vendor.accountId, creditAccountId: PURCHASES, amount: paise(plan.taxable), flags: linked, invoiceId: id, code: 'PURCHASE_NOTE', userData: plan.date }];
   const tax = round2(plan.cgst + plan.sgst + plan.igst);
-  if (plan.itcEligible) {
+  if (plan.reverseCharge) {
+    for (const head of ['cgst', 'sgst', 'igst']) {
+      if (plan[head] > 0) bundle.push({ id: nextTransferId(state), debitAccountId: OUTPUT[head], creditAccountId: plan.itcEligible ? INPUT[head] : PURCHASES, amount: paise(plan[head]), flags: linked, invoiceId: id, code: `PDN-RCM-${head.toUpperCase()}`, userData: plan.date });
+    }
+  } else if (plan.itcEligible) {
     for (const head of ['cgst', 'sgst', 'igst']) {
       if (plan[head] > 0) bundle.push({ id: nextTransferId(state), debitAccountId: vendor.accountId, creditAccountId: INPUT[head], amount: paise(plan[head]), flags: linked, invoiceId: id, code: `PDN-${head.toUpperCase()}`, userData: plan.date });
     }
@@ -202,6 +208,7 @@ export function createPurchaseNote(state, args = {}) {
     reason: plan.reason,
     full: plan.full,
     itcEligible: plan.itcEligible,
+    ...(plan.reverseCharge ? { reverseCharge: bill.reverseCharge } : {}),
     lines: plan.lines,
     taxable: plan.taxable,
     cgst: plan.cgst,

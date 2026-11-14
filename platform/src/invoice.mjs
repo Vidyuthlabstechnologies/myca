@@ -41,6 +41,10 @@ function exportPlan(input) {
   return { ok: true, plan: { currency, exchangeRate, withTax, shippingBillNo, shippingBillDate, portCode, ...(countryCode ? { countryCode } : {}) } };
 }
 
+function sumOf(lines, key) {
+  return Math.round(lines.reduce((s, l) => s + Number(l[key] || 0), 0) * 100) / 100;
+}
+
 function padInv(n) {
   return `INV-${String(n).padStart(4, '0')}`;
 }
@@ -167,7 +171,7 @@ export function createInvoice(state, input) {
     rate: Number(l.rate),
     gstRate: Number(l.gstRate),
   }));
-  if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate))) {
+  if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate) || s.gstRate < 0)) {
     return { ok: false, error: 'BAD_LINE' };
   }
   const exporting = exportPlan(input);
@@ -210,10 +214,10 @@ export function createInvoice(state, input) {
       amount: Math.round((taxable + split.tax) * 100) / 100,
     };
   });
-  const taxable = lines.reduce((s, l) => s + l.taxable, 0);
-  const cgst = lines.reduce((s, l) => s + l.cgst, 0);
-  const sgst = lines.reduce((s, l) => s + l.sgst, 0);
-  const igst = lines.reduce((s, l) => s + l.igst, 0);
+  const taxable = sumOf(lines, 'taxable');
+  const cgst = sumOf(lines, 'cgst');
+  const sgst = sumOf(lines, 'sgst');
+  const igst = sumOf(lines, 'igst');
   const total = Math.round((taxable + cgst + sgst + igst) * 100) / 100;
   const assignedSeq = !input.id;
   const seqBefore = state.invoiceSeq || 0;
@@ -381,7 +385,7 @@ export function createPurchase(state, input) {
     rate: Number(l.rate),
     gstRate: Number(l.gstRate),
   }));
-  if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate))) {
+  if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate) || s.gstRate < 0)) {
     return { ok: false, error: 'BAD_LINE' };
   }
   const grossTaxable = specs.reduce((sum, s) => sum + Math.round(s.qty * s.rate * 100) / 100, 0);
@@ -413,10 +417,10 @@ export function createPurchase(state, input) {
       amount: Math.round((taxable + split.tax) * 100) / 100,
     };
   });
-  const taxable = lines.reduce((s, l) => s + l.taxable, 0);
-  const cgst = lines.reduce((s, l) => s + l.cgst, 0);
-  const sgst = lines.reduce((s, l) => s + l.sgst, 0);
-  const igst = lines.reduce((s, l) => s + l.igst, 0);
+  const taxable = sumOf(lines, 'taxable');
+  const cgst = sumOf(lines, 'cgst');
+  const sgst = sumOf(lines, 'sgst');
+  const igst = sumOf(lines, 'igst');
   const total = rcm ? Math.round(taxable * 100) / 100 : Math.round((taxable + cgst + sgst + igst) * 100) / 100;
   let tds = null;
   if (wantsTds(input)) {

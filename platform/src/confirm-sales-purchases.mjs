@@ -37,7 +37,7 @@ function stateCodeOf(value) {
 export function amendmentPreview(state, args) {
   const planned = planAmendment(state, args);
   if (!planned.ok) {
-    const reason = { INVOICE_NOT_FOUND: `There is no invoice ${planned.invoiceId}.`, NOT_FILED: planned.hint, AMENDMENT_PERIOD_FILED: planned.hint, REASON_REQUIRED: 'Say why the invoice is being amended.', NOTHING_CHANGED: 'Nothing on the invoice would change.', INVALID_GSTIN: `${planned.partyGstin} is not a GSTIN.`, PERIOD_LOCKED: `The books are locked through ${planned.lockThrough}.`, DATE_BEFORE_INVOICE: 'An amendment cannot be dated before the invoice.', INVOICE_CANCELLED: 'That invoice is cancelled.' }[planned.error] || planned.error;
+    const reason = { INVOICE_NOT_FOUND: `There is no invoice ${planned.invoiceId}.`, NOT_FILED: planned.hint, AMENDMENT_PERIOD_FILED: planned.hint, REASON_REQUIRED: 'Say why the invoice is being amended.', NOTHING_CHANGED: 'Nothing on the invoice would change.', INVALID_GSTIN: `${planned.partyGstin} is not a GSTIN.`, PERIOD_LOCKED: `The books are locked through ${planned.lockThrough}.`, DATE_BEFORE_INVOICE: 'An amendment cannot be dated before the invoice.', AMENDMENT_TIME_BARRED: planned.hint, INVOICE_CANCELLED: 'That invoice is cancelled.' }[planned.error] || planned.error;
     return { blockers: [reason], summary: '', effects: [], figures: {} };
   }
   const p = planned.plan;
@@ -339,6 +339,7 @@ const CREDIT_NOTE_REASONS = {
   BAD_AMOUNT: () => 'The amount must be a positive number.',
   EXCEEDS_INVOICE: (p) => `Only ${money(p.room)} of ${p.invoiceId} is left to credit.`,
   PARTLY_CREDITED: (p) => `${p.invoiceId} already has a credit note; issue one for the rest instead of cancelling.`,
+  CREDIT_NOTE_TIME_BARRED: (p) => p.hint,
 };
 
 export function creditNotePreview(state, args, cancel = false) {
