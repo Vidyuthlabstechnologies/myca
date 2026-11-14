@@ -544,6 +544,7 @@ export const TAX_TOOL_SCHEMAS = {
       igst: { type: 'number', minimum: 0 },
       cgst: { type: 'number', minimum: 0 },
       sgst: { type: 'number', minimum: 0 },
+      cess: { type: 'number', minimum: 0 },
     },
   },
   prepare_gstr1: {

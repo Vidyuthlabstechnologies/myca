@@ -35,9 +35,9 @@ function doc(id, date, lines, extra = {}) {
 
 test('GSTR-1 table 12 (HSN summary): from May 2025 rows are split into hsn_b2b and hsn_b2c per the GSTN Phase-III advisory, with UQC, quantity, rate, tax by head and cess', () => {
   const json = invoicesToGstr1Json(company({ grossTurnoverPrevFy: 20000000 }), [
-    doc('INV-0001', '2026-08-02', [line('520811', 5, 10000, { qty: 10, unit: 'mtr', description: 'Cotton cloth' }), line('24022010', 40, 1000, { qty: 2, unit: 'box', description: 'Cigarettes', cess: 50 })], { partyGstin: BUYER }),
-    doc('INV-0002', '2026-08-03', [line('520811', 5, 2000, { qty: 2, unit: 'metre', description: 'Cotton cloth' }), line('998314', 18, 500, { qty: 3, description: 'IT support' })]),
-  ], '082026');
+    doc('INV-0001', '2025-12-02', [line('520811', 5, 10000, { qty: 10, unit: 'mtr', description: 'Cotton cloth' }), line('24022010', 40, 1000, { qty: 2, unit: 'box', description: 'Cigarettes', cess: 50 })], { partyGstin: BUYER }),
+    doc('INV-0002', '2025-12-03', [line('520811', 5, 2000, { qty: 2, unit: 'metre', description: 'Cotton cloth' }), line('998314', 18, 500, { qty: 3, description: 'IT support' })]),
+  ], '122025');
   assert.equal(json.hsn.data, undefined);
   assert.deepEqual(json.hsn.hsn_b2b, [
     { num: 1, hsn_sc: '24022010', desc: 'Cigarettes', uqc: 'BOX', qty: 2, rt: 40, txval: 1000, iamt: 0, camt: 200, samt: 200, csamt: 50 },

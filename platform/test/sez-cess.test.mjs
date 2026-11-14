@@ -166,15 +166,16 @@ test('CGST s.34 with IGST Act s.16: a credit note follows the SEZ treatment of i
 test('CGST s.37(3) with IGST Act s.7(5)(b): an amended SEZWP invoice stays IGST and goes to B2BA as SEWP; an invoice with cess is corrected by note', async () => {
   const state = books();
   const inv = (await runTool(state, 'create_invoice', sale({ supplyType: 'SEZWP' }))).invoice;
-  const cessSale = (await runTool(state, 'create_invoice', { partyName: 'Kiran Stores', partyGstin: BUYER_GJ, date: DAY, lines: [{ description: 'Fabric', hsn: '5208', qty: 1, rate: 1000, gstRate: 18, cessRate: 1 }] })).invoice;
+  const cessSale = (await runTool(state, 'create_invoice', { partyName: 'Kiran Stores', partyGstin: BUYER_GJ, date: CESS_DAY, lines: [{ description: 'Cigarettes', hsn: '2402', qty: 1, rate: 1000, gstRate: 28, cessRate: 1 }] })).invoice;
   assert.equal((await runTool(state, 'record_filing', { returnType: 'GSTR-1', period: PERIOD, arn: 'AA270926123456A', filedOn: '2026-10-11' })).ok, true);
+  assert.equal((await runTool(state, 'record_filing', { returnType: 'GSTR-1', period: CESS_PERIOD, arn: 'AA271225123456A', filedOn: '2026-01-11' })).ok, true);
   const out = await runTool(state, 'amend_invoice', { invoiceId: inv.id, reason: 'Rate was wrong', lines: [{ description: 'Fabric', hsn: '5208', qty: 100, rate: 1100, gstRate: 18 }], date: '2026-10-12' });
   assert.equal(out.ok, true, JSON.stringify(out));
   assert.deepEqual([inv.igst, inv.cgst, inv.total], [19800, 0, 129800]);
   assert.equal(trialBalance(state.ledger).balanced, true);
   const file = invoicesToGstr1Json(state.company, state.invoices, '102026', {});
   assert.equal(file.b2ba[0].inv[0].inv_typ, 'SEWP');
-  const refused = await runTool(state, 'amend_invoice', { invoiceId: cessSale.id, reason: 'x', lines: [{ description: 'Fabric', hsn: '5208', qty: 1, rate: 900, gstRate: 18 }], date: '2026-10-12' });
+  const refused = await runTool(state, 'amend_invoice', { invoiceId: cessSale.id, reason: 'x', lines: [{ description: 'Cigarettes', hsn: '2402', qty: 1, rate: 900, gstRate: 28 }], date: '2026-10-12' });
   assert.equal(refused.error, 'CESS_AMENDMENT_BY_NOTE');
 });
 
@@ -230,7 +231,7 @@ test('Compensation Cess Act s.8: cess on unregistered sales is reported as csamt
 
 test('Compensation Cess Act s.11 with IGST Act s.16: an SEZWOP supply carries no cess either', async () => {
   const state = books();
-  const out = await runTool(state, 'create_invoice', sale({ supplyType: 'SEZWOP' }, { gstRate: 28, cessRate: 12 }));
+  const out = await runTool(state, 'create_invoice', sale({ supplyType: 'SEZWOP', date: CESS_DAY }, { description: 'Cigarettes', hsn: '2402', gstRate: 28, cessRate: 12 }));
   assert.equal(out.ok, true, JSON.stringify(out));
   assert.deepEqual([out.invoice.lines[0].cess, out.invoice.cess, out.invoice.total], [0, 0, 100000]);
   assert.equal(balanceOf(state, '2103'), 0);
@@ -322,4 +323,113 @@ test('IGST Act s.16 and Cess Act s.8: the confirmation words say SEZ, deemed exp
   const cess = documentPreview(state, { partyName: 'Kiran Stores', partyGstin: BUYER_GJ, date: CESS_DAY, lines: [{ description: 'Pan masala', hsn: '21069020', qty: 1000, rate: 10, gstRate: 28, cessRate: 5, cessPerUnit: 0.5 }] }, 'sale');
   assert.match(cess.summary, /cess ₹1,000/);
   assert.equal(cess.figures.total, 13800);
+});
+
+test('2/2025-Compensation Cess (Rate) w.e.f. 22-Sep-2025: cess stays only on tobacco (chapter 24) and pan masala (2106 90 20)', async () => {
+  const state = books();
+  const car = { partyName: 'Kiran Stores', partyGstin: BUYER_GJ, date: '2025-09-22', lines: [{ description: 'Car', hsn: '87032291', qty: 1, rate: 500000, gstRate: 18, cessRate: 15 }] };
+  const refused = await runTool(state, 'create_invoice', car);
+  assert.equal(refused.ok, false);
+  assert.equal(refused.error, 'CESS_NOT_IN_FORCE');
+  assert.equal(refused.line, 1);
+  assert.match(refused.hint, /chapter 24/);
+  assert.equal((await runTool(state, 'create_invoice', { ...car, date: '2025-09-21', lines: [{ ...car.lines[0], gstRate: 28 }] })).ok, true);
+  assert.equal((await runTool(state, 'create_invoice', { ...car, lines: [{ description: 'Pan masala', hsn: '2106 90 20', qty: 10, rate: 100, gstRate: 28, cessRate: 60 }] })).ok, true);
+  assert.equal((await runTool(state, 'create_invoice', { ...car, date: '2026-01-31', lines: [{ description: 'Cigarettes', hsn: '24022090', qty: 10, rate: 100, gstRate: 28, cessPerUnit: 2 }] })).ok, true);
+  assert.equal((await runTool(state, 'create_invoice', { ...car, lines: [{ description: 'Mouth freshener', hsn: '21069099', qty: 10, rate: 100, gstRate: 18, cessRate: 5 }] })).error, 'CESS_NOT_IN_FORCE');
+  const bill = await runTool(state, 'create_purchase', { partyName: 'Auto Dealer', partyGstin: BUYER_GJ, date: '2025-10-01', lines: [{ description: 'Car', hsn: '8703', qty: 1, rate: 500000, gstRate: 18, cessRate: 15 }] });
+  assert.equal(bill.error, 'CESS_NOT_IN_FORCE');
+  const preview = documentPreview(state, car, 'sale');
+  assert.ok(preview.blockers.some((line) => /chapter 24/.test(line)), JSON.stringify(preview.blockers));
+});
+
+test('19/2025-Central Tax (Rate) w.e.f. 1-Feb-2026: compensation cess has ended, so an invoice or bill dated from then with cess is CESS_NOT_IN_FORCE', async () => {
+  const state = books();
+  const tobacco = { partyName: 'Kiran Stores', partyGstin: BUYER_GJ, date: '2026-02-01', lines: [{ description: 'Cigarettes', hsn: '24022090', qty: 10, rate: 100, gstRate: 40, cessRate: 5 }] };
+  const sold = await runTool(state, 'create_invoice', tobacco);
+  assert.equal(sold.error, 'CESS_NOT_IN_FORCE');
+  assert.match(sold.hint, /ended on 2026-02-01/);
+  const bought = await runTool(state, 'create_purchase', { ...tobacco, partyName: 'Gujarat Tobacco', lines: [{ description: 'Leaf', hsn: '2401', qty: 10, rate: 100, gstRate: 40, cessPerUnit: 1 }] });
+  assert.equal(bought.error, 'CESS_NOT_IN_FORCE');
+  assert.equal(state.invoices?.length || 0, 0);
+  assert.equal(state.purchases?.length || 0, 0);
+  assert.equal(documentPreview(state, tobacco, 'sale').blockers.some((line) => /ended/.test(line)), true);
+  const zeroCess = await runTool(state, 'create_invoice', { ...tobacco, lines: [{ ...tobacco.lines[0], cessRate: 0 }] });
+  assert.equal(zeroCess.ok, true, JSON.stringify(zeroCess));
+  const plain = await runTool(state, 'create_invoice', { ...tobacco, lines: [{ description: 'Cigarettes', hsn: '24022090', qty: 10, rate: 100, gstRate: 40 }] });
+  assert.equal(plain.ok, true, JSON.stringify(plain));
+});
+
+test('Compensation Cess Act s.8 with CGST s.34: a note dated after 1-Feb-2026 on an earlier invoice still adjusts its cess', async () => {
+  const state = books();
+  const inv = (await runTool(state, 'create_invoice', { partyName: 'Kiran Stores', partyGstin: BUYER_GJ, date: '2026-01-20', lines: [{ description: 'Pan masala', hsn: '21069020', qty: 1000, rate: 10, gstRate: 28, cessRate: 5, cessPerUnit: 0.5 }] })).invoice;
+  const cn = await runTool(state, 'create_credit_note', { invoiceId: inv.id, amount: 6900, reason: 'Half returned', date: '2026-02-10' });
+  assert.equal(cn.ok, true, JSON.stringify(cn));
+  assert.equal(cn.creditNote.cess, 500);
+  const file = gstr1(state, '022026');
+  assert.equal(file.cdnr[0].nt[0].itms[0].itm_det.csamt, 500);
+  assert.equal((file.held || []).length, 0, JSON.stringify(file.held));
+});
+
+test('GSTR-1 holds an invoice whose cess is not in force on its date instead of reporting csamt (2/2025-Compensation Cess (Rate), 19/2025-CT(R))', async () => {
+  const state = books();
+  const inv = (await runTool(state, 'create_invoice', { partyName: 'Kiran Stores', partyGstin: BUYER_GJ, date: '2026-01-20', lines: [{ description: 'Cigarettes', hsn: '24022090', qty: 10, rate: 100, gstRate: 40, cessRate: 5 }] })).invoice;
+  const car = (await runTool(state, 'create_invoice', { partyName: 'Kiran Stores', partyGstin: BUYER_GJ, date: '2025-09-15', lines: [{ description: 'Car', hsn: '8703', qty: 1, rate: 1000, gstRate: 28, cessRate: 15 }] })).invoice;
+  inv.date = '2026-02-05';
+  car.date = '2025-10-05';
+  const feb = gstr1(state, '022026');
+  assert.deepEqual(feb.b2b, []);
+  assert.deepEqual([feb.held[0].inum, feb.held[0].code, feb.held[0].line], [inv.id, 'CESS_NOT_IN_FORCE', 1]);
+  const oct = gstr1(state, '102025');
+  assert.deepEqual(oct.b2b, []);
+  assert.deepEqual([oct.held[0].inum, oct.held[0].code, oct.held[0].hsn], [car.id, 'CESS_NOT_IN_FORCE', '8703']);
+});
+
+test('E-way bill API: an SEZWOP or export-without-tax line sends 0 tax and cess rates because no tax is charged', async () => {
+  const state = books();
+  const wop = (await runTool(state, 'create_invoice', sale({ supplyType: 'SEZWOP', date: CESS_DAY }, { description: 'Cigarettes', hsn: '2402', gstRate: 28, cessRate: 12, cessPerUnit: 1 }))).invoice;
+  wop.transport = { mode: 'road', distanceKm: 30, vehicleNo: 'MH12AB1234', setOn: CESS_DAY };
+  const built = ewayBillPartA(state, wop);
+  assert.equal(built.ok, true, JSON.stringify(built));
+  const item = built.partA.itemList[0];
+  assert.deepEqual([item.igstRate, item.cgstRate, item.sgstRate, item.cessRate, item.cessNonadvol], [0, 0, 0, 0, 0]);
+  assert.deepEqual([built.partA.igstValue, built.partA.cessValue, built.partA.cessNonAdvolValue], [0, 0, 0]);
+  const exported = (await runTool(state, 'create_invoice', { partyName: 'Dubai Traders', date: DAY, exportSale: { currency: 'INR' }, lines: [{ description: 'Fabric', hsn: '5208', qty: 100, rate: 1000, gstRate: 18 }] })).invoice;
+  exported.transport = { mode: 'road', distanceKm: 30, vehicleNo: 'MH12AB1234', setOn: DAY };
+  const exp = ewayBillPartA(state, exported);
+  assert.equal(exp.ok, true, JSON.stringify(exp));
+  assert.deepEqual([exp.partA.itemList[0].igstRate, exp.partA.itemList[0].cgstRate, exp.partA.itemList[0].sgstRate], [0, 0, 0]);
+  const wp = (await runTool(state, 'create_invoice', sale({ supplyType: 'SEZWP' }))).invoice;
+  wp.transport = { mode: 'road', distanceKm: 30, vehicleNo: 'MH12AB1234', setOn: DAY };
+  assert.equal(ewayBillPartA(state, wp).partA.itemList[0].igstRate, 18);
+});
+
+test('Compensation Cess Act s.9 with CGST s.49: GSTR-3B set-off uses the cess credit carried in the ledger, not only this month\'s', () => {
+  const plan = offsetPlan({ used: {}, cash: {}, reverseCharge: {} }, {}, { output: 1000, input: 300, broughtForward: 500 });
+  assert.equal(plan.pditc.cs_pdcs, 800);
+  assert.equal(plan.pdcash[0].cspd, 200);
+  const more = offsetPlan({ used: {}, cash: {}, reverseCharge: {} }, {}, { output: 1000, input: 0, broughtForward: 4000 });
+  assert.deepEqual([more.pditc.cs_pdcs, more.pdcash[0].cspd], [1000, 0]);
+});
+
+test('Compensation Cess Act s.9: the cess credit balance set from the portal is carried month to month into GSTR-3B, with a warning when it is not known', async () => {
+  const state = books();
+  assert.equal((await runTool(state, 'create_purchase', { partyName: 'Gujarat Tobacco', partyGstin: BUYER_GJ, date: '2025-11-10', lines: [{ description: 'Leaf', hsn: '2401', qty: 100, rate: 100, gstRate: 28, cessRate: 10 }] })).ok, true);
+  assert.equal((await runTool(state, 'create_invoice', { partyName: 'Kiran Stores', partyGstin: BUYER_GJ, date: '2025-11-12', lines: [{ description: 'Cigarettes', hsn: '24022090', qty: 10, rate: 100, gstRate: 28, cessRate: 5 }] })).ok, true);
+  assert.equal((await runTool(state, 'create_invoice', { partyName: 'Kiran Stores', partyGstin: BUYER_GJ, date: CESS_DAY, lines: [{ description: 'Cigarettes', hsn: '24022090', qty: 100, rate: 100, gstRate: 28, cessRate: 5 }] })).ok, true);
+  const unknown = gstr3bPortalJson(state, CESS_PERIOD);
+  assert.equal(unknown.ok, true, JSON.stringify(unknown));
+  assert.equal(unknown.cess.broughtForwardKnown, false);
+  assert.ok(unknown.warnings.some((line) => /Cess credit carried from earlier months is not known/.test(line)), JSON.stringify(unknown.warnings));
+  assert.equal(offsetPlan(unknown.payment, {}, unknown.cess).pditc.cs_pdcs, 0);
+  const set = await runTool(state, 'set_gst_credit_opening', { period: '2025-11', igst: 0, cgst: 0, sgst: 0, cess: 200 });
+  assert.equal(set.ok, true, JSON.stringify(set));
+  assert.equal(state.gstCreditOpening.cess, 200);
+  const known = gstr3bPortalJson(state, CESS_PERIOD);
+  assert.equal(known.cess.broughtForwardKnown, true);
+  assert.equal(known.cess.broughtForward, 1150);
+  assert.equal(known.warnings.some((line) => /Cess credit carried/.test(line)), false);
+  const plan = offsetPlan(known.payment, {}, known.cess);
+  assert.deepEqual([plan.pditc.cs_pdcs, plan.pdcash[0].cspd], [500, 0]);
+  assert.equal((await runTool(state, 'set_gst_credit_opening', { period: '2025-11', cess: -1 })).error, 'BAD_AMOUNT');
 });

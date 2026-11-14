@@ -14,6 +14,7 @@ import { planRecurring, findRecurring, everyWords } from './recurring.mjs';
 import { planQuote, findQuote, checkConvert, invoiceArgsFromQuote, kindTitle, kindOf, SALES_DOCUMENT_KINDS } from './quotes.mjs';
 import { gstSplit, partyStateOf, INVOICE_SUPPLY_TYPES, cessOf, hasCessInput, badCessInput } from './chart.mjs';
 import { postingDate, localToday } from './dates.mjs';
+import { cessLineNotInForce, chargesCess } from './compensation-cess.mjs';
 import { engineBooks } from './countries/engines.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { lastGstRateFor, lastHsnFor, planPayment } from './invoice.mjs';
@@ -91,6 +92,8 @@ export function documentPreview(state, args, kind) {
   else if (supplyType && !String(args.partyGstin || '').trim()) blockers.push(supplyType === 'DEXP' ? 'A deemed export needs the recipient\'s GSTIN.' : 'A supply to an SEZ unit or developer needs its GSTIN.');
   if (supplyType === 'DEXP' && (args.lines || []).some((l) => String(l?.hsn ?? '').trim().startsWith('99'))) blockers.push('Deemed exports under section 147 cover goods only, not services.');
   if ((args.lines || []).some((l) => badCessInput(l))) blockers.push('Cess is a percentage and/or rupees per unit, zero or more.');
+  const cessOutOfForce = date ? cessLineNotInForce(args.lines || [], date, chargesCess) : null;
+  if (cessOutOfForce) blockers.push(`${(args.lines || []).length > 1 ? `Line ${cessOutOfForce.line}: ` : ''}${cessOutOfForce.hint}`);
   const regd = regArg(state, args.registrationGstin);
   if (!regd.ok) blockers.push(`${args.registrationGstin} is not a registration of this business.`);
   const ownState = regd.ok ? regd.registration.state : company.state;

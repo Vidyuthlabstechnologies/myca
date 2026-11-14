@@ -1141,8 +1141,8 @@ export const TOOLS = [
   {
     name: 'set_gst_credit_opening',
     title: 'GST credit balance',
-    description: 'Record the electronic credit ledger balance by head at the start of a month, from the GST portal, so set-off counts credit brought forward from earlier months.',
-    args: ['period', 'igst', 'cgst', 'sgst'],
+    description: 'Record the electronic credit ledger balance by head (IGST, CGST, SGST and compensation cess) at the start of a month, from the GST portal, so set-off counts credit brought forward from earlier months.',
+    args: ['period', 'igst', 'cgst', 'sgst', 'cess'],
     run: (state, args = {}) => setCreditOpening(state, args),
   },
   {

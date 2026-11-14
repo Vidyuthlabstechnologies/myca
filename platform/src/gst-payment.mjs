@@ -171,14 +171,17 @@ export function planCreditOpening(state, args = {}) {
     if (!Number.isFinite(value) || value < 0) return fail('BAD_AMOUNT', { head });
     heads[head] = round2(value);
   }
-  return { ok: true, opening: { period, ...heads, total: round2(heads.igst + heads.cgst + heads.sgst) }, was: creditOpening(state) };
+  const cessSaid = args.cess != null && args.cess !== '';
+  const cess = cessSaid ? Number(args.cess) : null;
+  if (cessSaid && (!Number.isFinite(cess) || cess < 0)) return fail('BAD_AMOUNT', { head: 'cess' });
+  return { ok: true, opening: { period, ...heads, total: round2(heads.igst + heads.cgst + heads.sgst), ...(cessSaid ? { cess: round2(cess) } : {}) }, was: creditOpening(state) };
 }
 
 export function setCreditOpening(state, args = {}) {
   const plan = planCreditOpening(state, args);
   if (!plan.ok) return plan;
   const actor = state.__actor;
-  state.gstCreditOpening = { period: plan.opening.period, igst: plan.opening.igst, cgst: plan.opening.cgst, sgst: plan.opening.sgst, setOn: localToday(), by: String(actor?.userId || args.actorId || '') };
+  state.gstCreditOpening = { period: plan.opening.period, igst: plan.opening.igst, cgst: plan.opening.cgst, sgst: plan.opening.sgst, ...(plan.opening.cess != null ? { cess: plan.opening.cess } : {}), setOn: localToday(), by: String(actor?.userId || args.actorId || '') };
   return { ok: true, opening: plan.opening, was: plan.was };
 }
 

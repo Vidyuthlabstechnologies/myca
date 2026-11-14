@@ -10,6 +10,7 @@ import { regArg, docFieldsFor } from './registrations.mjs';
 import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
 import { gstin as gstinRules } from './sprint-load.mjs';
 import { needsSelfInvoice, reverseChargeOf } from './reverse-charge.mjs';
+import { cessLineNotInForce, chargesCess } from './compensation-cess.mjs';
 import { COMPOSITION_DECLARATION, documentTitleOf, exportEndorsementOf, hsnShownOn, reverseChargeLineOf } from './invoice-compliance.mjs';
 
 function badGstin(value) {
@@ -54,12 +55,12 @@ function supplyTypePlan(input) {
   return { ok: true, supplyType: said };
 }
 
-export function cessProblem(rawLines) {
+export function cessProblem(rawLines, date) {
   const bad = rawLines.findIndex((line) => badCessInput(line));
   if (bad >= 0) return { ok: false, error: 'BAD_CESS', line: bad + 1, hint: 'Cess is a percentage and/or rupees per unit, zero or more.' };
   const onZero = rawLines.findIndex((line) => hasCessInput(line) && line.supply != null && line.supply !== '');
   if (onZero >= 0) return { ok: false, error: 'CESS_ON_ZERO_RATE_SUPPLY', line: onZero + 1 };
-  return null;
+  return cessLineNotInForce(rawLines, date, chargesCess);
 }
 
 function cessFields(line, taxable, qty, levied) {
@@ -194,7 +195,7 @@ export function createInvoice(state, input) {
   if (gstinProblem) return gstinProblem;
   const rawLines = input.lines || [];
   if (!rawLines.length) return { ok: false, error: 'NO_LINES' };
-  const saleCessProblem = cessProblem(rawLines);
+  const saleCessProblem = cessProblem(rawLines, date);
   if (saleCessProblem) return saleCessProblem;
   const unrated = rawLines.findIndex((l) => l.gstRate == null || l.gstRate === '');
   if (unrated >= 0) return { ok: false, error: 'RATE_REQUIRED', line: unrated + 1 };
@@ -453,7 +454,7 @@ export function createPurchase(state, input) {
   }
   const grossTaxable = specs.reduce((sum, s) => sum + Math.round(s.qty * s.rate * 100) / 100, 0);
   if (grossTaxable <= 0) return { ok: false, error: 'ZERO_AMOUNT' };
-  const billCessProblem = cessProblem(rawLines);
+  const billCessProblem = cessProblem(rawLines, date);
   if (billCessProblem) return billCessProblem;
   const reverse = reverseChargeOf(input);
   if (!reverse.ok) return reverse;

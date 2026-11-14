@@ -162,8 +162,9 @@ export function ewayBillPartA(state, invoice) {
     });
   }
   const goods = (invoice.lines || []).filter((line) => !isService(line));
+  const untaxed = invoice.supplyType === 'SEZWOP' || (exported && !invoice.export.withTax);
   const itemList = goods.map((line) => {
-    const rate = Number(line.gstRate || 0);
+    const rate = untaxed ? 0 : Number(line.gstRate || 0);
     const inter = ['SEZWP', 'SEZWOP'].includes(invoice.supplyType) || Number(line.igst || 0) > 0 || (Number(line.cgst || 0) === 0 && Number(line.sgst || 0) === 0 && Number(invoice.igst || 0) > 0);
     return {
       productName: clean(line.description || line.item || 'Goods', 100) || 'Goods',
@@ -175,8 +176,8 @@ export function ewayBillPartA(state, invoice) {
       igstRate: inter ? rate : 0,
       cgstRate: inter ? 0 : rate / 2,
       sgstRate: inter ? 0 : rate / 2,
-      cessRate: Number(line.cessRate || 0),
-      cessNonadvol: Number(line.cessPerUnit || 0),
+      cessRate: untaxed ? 0 : Number(line.cessRate || 0),
+      cessNonadvol: untaxed ? 0 : Number(line.cessPerUnit || 0),
     };
   });
   const sumOf = (field) => round2(goods.reduce((sum, line) => sum + Number(line[field] || 0), 0));

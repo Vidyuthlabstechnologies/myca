@@ -487,7 +487,7 @@ function fmtToolResultCore(name, result, args) {
   }
   if (name === 'set_gst_credit_opening' && result.opening) {
     const o = result.opening;
-    return `Recorded the GST credit balance at the start of ${monthWords(o.period)}: IGST ${money(o.igst)}, CGST ${money(o.cgst)}, SGST ${money(o.sgst)}. Set-off from that month on counts it.`;
+    return `Recorded the GST credit balance at the start of ${monthWords(o.period)}: IGST ${money(o.igst)}, CGST ${money(o.cgst)}, SGST ${money(o.sgst)}${o.cess != null ? `, cess ${money(o.cess)}` : ''}. Set-off from that month on counts it.`;
   }
   if (name === 'tds_review_answer' && result.review) {
     const review = result.review;

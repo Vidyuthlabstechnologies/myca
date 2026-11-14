@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
 import { runSandboxOperation } from './sandbox-adapter.mjs';
 import { gstr3bFor } from './period-summary.mjs';
-import { paymentFor } from './gst-payment.mjs';
+import { paymentFor, creditOpening } from './gst-payment.mjs';
 import { reviewOf } from './gst-review.mjs';
 import { recordFiling, filingFor } from './filings.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { documentsForPeriod, isReturnPeriod, fpOf } from './return-period.mjs';
-import { regArg, companyAs, scopeKey } from './registrations.mjs';
+import { regArg, companyAs, scopeKey, isPrincipal } from './registrations.mjs';
 import { localToday } from './dates.mjs';
 import { normalizeClientId } from './books.mjs';
 import { reverseChargeTotals } from './reverse-charge.mjs';
@@ -52,6 +52,23 @@ export function cessTotals(docs) {
     else input -= cessOf(note);
   }
   return { outward: r2(outward), zero: r2(zero), output: r2(outward + zero), input: r2(input), ineligible: r2(ineligible) };
+}
+
+function monthAfter(period) {
+  const [y, m] = period.split('-').map(Number);
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+}
+
+export function cessBroughtForward(state, period, gstin) {
+  const opening = isPrincipal(state, gstin) ? creditOpening(state) : null;
+  if (!opening || opening.cess == null || period < opening.period) return { known: false, credit: 0 };
+  let carried = Number(opening.cess || 0);
+  for (let month = opening.period; month < period; month = monthAfter(month)) {
+    const docs = documentsForPeriod(state, month, '', gstin);
+    const totals = docs.ok && docs.period ? cessTotals(docs) : { input: 0, output: 0 };
+    carried = r2(Math.max(0, carried + totals.input - totals.output));
+  }
+  return { known: true, credit: r2(carried) };
 }
 
 function savesOf(state) {
@@ -116,7 +133,8 @@ export function gstr3bPortalJson(state, period, gstin) {
   const extra = exportsAndNonGst(docs);
   const warnings = [];
   if (draft.missingHsn?.length) warnings.push(`Invoices without an HSN are counted in the totals: ${draft.missingHsn.join(', ')}.`);
-  const cess = cessTotals(docs);
+  const cessForward = cessBroughtForward(state, docs.period, regd.gstin);
+  const cess = { ...cessTotals(docs), broughtForward: cessForward.credit, broughtForwardKnown: cessForward.known };
   const outward = amounts(Number(totals.interTaxable || 0) + Number(totals.intraTaxable || 0) - extra.fromRated.txval, Number(totals.interIgst || 0) - extra.fromRated.iamt, totals.intraCgst, totals.intraSgst, cess.outward);
   const nilExempt = Math.max(0, Number(draft.outward?.nilExemptTaxable || 0) - extra.fromNil - extra.nonGst);
   const itc = draft.itc || {};
@@ -178,7 +196,8 @@ export function gstr3bPortalJson(state, period, gstin) {
   if (!payment.ok) warnings.push('The tax to pay could not be worked out, so no interest is included.');
   else if (payment.data.broughtForwardKnown === false) warnings.push('Credit carried from earlier months is not known to MyCA; check the electronic credit ledger on the portal.');
   if (rcm.count) warnings.push(`Reverse charge tax of ₹${rcm.total} on ${rcm.count} ${rcm.count === 1 ? 'purchase' : 'purchases'} is in 3.1(d) and must be paid in cash; its credit is in 4(A)(2) and 4(A)(3).`);
-  if (cess.output || cess.input) warnings.push(`Compensation cess: ₹${cess.output} on supplies and ₹${cess.input} of cess credit; cess credit can be used only against cess.`);
+  if (cess.output || cess.input) warnings.push(`Compensation cess: ₹${cess.output} on supplies and ₹${cess.input} of cess credit${cess.broughtForward > 0 ? ` plus ₹${cess.broughtForward} brought forward` : ''}; cess credit can be used only against cess.`);
+  if (cess.output && !cess.broughtForwardKnown) warnings.push('Cess credit carried from earlier months is not known to MyCA; check the cess balance in the electronic credit ledger on the portal.');
   warnings.push(cess.output || cess.input ? 'Imports of goods, ISD credit and credit reversals are not in the books, so those rows are zero.' : 'Imports of goods, ISD credit, credit reversals and cess are not in the books, so those rows are zero.');
   const hash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
   return { ok: true, period: docs.period, gstin: company.gstin, body, hash, warnings, payment: payment.ok ? payment.data : null, cess };
@@ -269,7 +288,7 @@ function cashWithReverseCharge(payment) {
 }
 
 export function offsetPlan(payment, ledgerIds = {}, cess = {}) {
-  const cessCredit = r2(Math.max(0, Math.min(Number(cess.input || 0), Number(cess.output || 0))));
+  const cessCredit = r2(Math.max(0, Math.min(Number(cess.input || 0) + Number(cess.broughtForward || 0), Number(cess.output || 0))));
   const cessCash = r2(Math.max(0, Number(cess.output || 0) - cessCredit));
   const used = payment.used || {};
   const cash = payment.cash || {};

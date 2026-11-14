@@ -172,6 +172,16 @@ test('the GSTR-9 exemption is open-ended from FY 2024-25 and not claimed before 
 const RULE_37 = 'gst.rule37.payment-days';
 const RULE_37A = 'gst.rule37a.deadlines';
 
+test('2/2025-Compensation Cess (Rate) and 19/2025-Central Tax (Rate): cess on any notified goods to 21-Sep-2025, only chapter 24 and pan masala to 31-Jan-2026, none from 1-Feb-2026', () => {
+  assert.deepEqual(rule('gst.compensation-cess', '2025-09-21').value, { levied: true, hsnPrefixes: null });
+  assert.deepEqual(rule('gst.compensation-cess', '2025-09-22').value, { levied: true, hsnPrefixes: ['24', '21069020'] });
+  assert.deepEqual(rule('gst.compensation-cess', '2026-01-31').value, { levied: true, hsnPrefixes: ['24', '21069020'] });
+  assert.deepEqual(rule('gst.compensation-cess', '2026-02-01').value, { levied: false, hsnPrefixes: [] });
+  assert.equal(rule('gst.compensation-cess', '2017-06-30').ok, false);
+  assert.match(rule('gst.compensation-cess', '2025-09-22').record.source, /2\/2025-Compensation Cess \(Rate\)/);
+  assert.match(rule('gst.compensation-cess', '2026-02-01').record.source, /19\/2025-Central Tax \(Rate\)/);
+});
+
 test('Rule 37 gives 180 days from the invoice date to pay the supplier, before and after the 1-Oct-2022 substitution', () => {
   for (const onDate of ['2017-07-01', '2022-09-30', '2022-10-01', '2026-09-21']) {
     const result = rule(RULE_37, onDate);

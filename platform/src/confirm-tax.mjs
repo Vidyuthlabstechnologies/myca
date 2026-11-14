@@ -97,7 +97,7 @@ export function creditOpeningPreview(state, args) {
   const o = plan.opening;
   return {
     blockers: [],
-    summary: `GST credit balance at the start of ${o.period}: IGST ${money(o.igst)}, CGST ${money(o.cgst)}, SGST ${money(o.sgst)}, ${money(o.total)} in all${plan.was ? ` (replaces the balance set for ${plan.was.period})` : ''}.`,
+    summary: `GST credit balance at the start of ${o.period}: IGST ${money(o.igst)}, CGST ${money(o.cgst)}, SGST ${money(o.sgst)}, ${money(o.total)} in all${o.cess != null ? `, and cess ${money(o.cess)}` : ''}${plan.was ? ` (replaces the balance set for ${plan.was.period})` : ''}.`,
     effects: ["From that month on, the amount to pay counts this credit brought forward, set off before the month's own credit."],
     figures: { period: o.period, igst: o.igst, cgst: o.cgst, sgst: o.sgst },
   };

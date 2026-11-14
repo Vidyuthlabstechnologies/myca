@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto';
 import { invoiceAsFiled, amendmentsInPeriod } from './invoice-amendments.mjs';
 import { rules, gstin as gstinLib } from './sprint-load.mjs';
 import { hsnSummary, documentsIssued, isVoided } from './gstr1-tables.mjs';
+import { cessLineNotInForce, carriesCessAmount } from './compensation-cess.mjs';
 
 const FP_RE = /^(0[1-9]|1[0-2])\d{4}$/;
 
@@ -54,9 +55,11 @@ function invTyp(doc) {
   return INV_TYP[doc?.supplyType] || 'R';
 }
 
-function holdReason(inv) {
-  const bad = (inv.lines || []).find((l) => !rateInForce(l.gstRate || 0, inv.date));
+function holdReason(inv, taxDate = inv.date) {
+  const bad = (inv.lines || []).find((l) => !rateInForce(l.gstRate || 0, taxDate));
   if (bad) return { code: 'RATE_NOT_IN_FORCE', rate: Number(bad.gstRate || 0) };
+  const cess = cessLineNotInForce(inv.lines, taxDate, carriesCessAmount);
+  if (cess) return { code: 'CESS_NOT_IN_FORCE', line: cess.line, ...(cess.hsn != null ? { hsn: cess.hsn } : {}), rule: cess.rule, hint: cess.hint };
   if (inv.partyGstin) {
     const check = gstinLib.validateGstin(inv.partyGstin, { onDate: inv.date });
     if (!check.ok) return { code: 'INVALID_GSTIN', gstin: String(inv.partyGstin), errors: check.errors.map((e) => e.code) };
@@ -143,8 +146,9 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
     ...(opts.creditNotes || []).map((note) => ({ ...note, ntty: 'C', sign: -1 })),
     ...(opts.debitNotes || []).map((note) => ({ ...note, ntty: 'D', sign: 1 })),
   ].filter((note) => note.date && fpFromDate(note.date) === fp);
+  const noteHoldReason = (note) => holdReason(note, allInvoices.get(note.invoiceId)?.date || note.invoiceDate || note.date);
   for (const note of notesInPeriod) {
-    const reason = holdReason(note);
+    const reason = noteHoldReason(note);
     if (reason) {
       held.push({ inum: note.id, idt: ddmmyyyy(note.date), ...reason, creditNote: true });
       continue;
@@ -228,7 +232,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
   const aato = turnover(opts.aato ?? company.aato ?? gt);
   const hsnEntries = [
     ...inPeriod.filter((inv) => !isVoided(inv) && !holdReason(inv)).map((inv) => ({ doc: inv, sign: 1, original: inv })),
-    ...notesInPeriod.filter((note) => !holdReason(note)).map((note) => ({ doc: note, sign: note.sign, original: allInvoices.get(note.invoiceId) || note })),
+    ...notesInPeriod.filter((note) => !noteHoldReason(note)).map((note) => ({ doc: note, sign: note.sign, original: allInvoices.get(note.invoiceId) || note })),
   ];
   const hsn = hsnSummary(hsnEntries, { fp, aato });
   body.hsn = hsn.table;
