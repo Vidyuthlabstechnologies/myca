@@ -1,5 +1,6 @@
 import { MANIFEST as SHARED } from './shared/manifest.mjs';
 import { MANIFEST as MALAYSIA } from './malaysia/manifest.mjs';
+import { MANIFEST as UAE } from './uae/manifest.mjs';
 
 export const EVERY_COUNTRY = '*';
 export const TOOL_ACCESS = Object.freeze(['read', 'write']);
@@ -17,6 +18,7 @@ export const CAPABILITIES = Object.freeze({
 export const MANIFESTS = Object.freeze([
   SHARED,
   MALAYSIA,
+  UAE,
 ]);
 
 const TOOL_NAME = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
