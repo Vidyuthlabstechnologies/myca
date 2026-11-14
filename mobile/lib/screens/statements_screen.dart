@@ -198,7 +198,7 @@ class _StatementsScreenState extends State<StatementsScreen> {
   Future<StatementView?> _load() async {
     _error = '';
     _note = '';
-    final span = statementSpan(_period, DateTime.now(), yearStartMonth: moneyCountry == 'US' ? 1 : 4);
+    final span = statementSpan(_period, DateTime.now(), yearStartMonth: moneyCountry == 'US' || moneyCountry == 'AE' ? 1 : 4);
     final args = <String, Object?>{
       if (_kind == StatementKind.balanceSheet) 'asOf': span.to else ...{'from': span.from, 'to': span.to},
       if (_kind == StatementKind.customer) 'party': _customer.text.trim(),

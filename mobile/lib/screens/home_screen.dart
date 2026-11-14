@@ -12,6 +12,7 @@ import '../format.dart';
 import '../marks.dart';
 import '../registers.dart';
 import '../theme.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'ask_screen.dart';
 import 'bank_screen.dart';
@@ -307,7 +308,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const RegisterScreen(kind: RegisterKind.purchases),
                     ),
                     onExpenses: () => _open(const ExpensesScreen()),
-                    onPayroll: () => _open(const EmployeesScreen()),
+                    onPayroll: company.country == 'AE' ? null : () => _open(const EmployeesScreen()),
                   ),
                 );
               },
@@ -357,7 +358,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   trailing: const Chevron(),
                   onTap: () => _open(const ExpensesScreen()),
                 ),
-                if (snapshot.activeUser?.role != 'staff' &&
+                if (company.country != 'AE' &&
+                    snapshot.activeUser?.role != 'staff' &&
                     snapshot.activeUser?.role != 'accountant')
                   RowCard(
                     leading: const TintTile(tint: Tint.ask, mark: Mark.employee),
@@ -418,8 +420,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.people),
-                  title: 'Your CA',
-                  subtitle: 'Questions you asked and their answers',
+                  title: company.country == 'AE' ? UaeStrings.of(context).yourAccountant : 'Your CA',
+                  subtitle: company.country == 'AE' ? UaeStrings.of(context).yourAccountantSubtitle : 'Questions you asked and their answers',
                   trailing: const Chevron(),
                   onTap: () => _open(const CaScreen()),
                 ),

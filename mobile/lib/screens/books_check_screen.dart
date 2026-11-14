@@ -10,6 +10,7 @@ import '../widgets.dart';
 import 'business_sheet.dart';
 import 'register_screen.dart';
 import 'taxes_screen.dart';
+import 'uae/uae_taxes_screen.dart';
 
 class BooksCheckScreen extends StatefulWidget {
   const BooksCheckScreen({super.key});
@@ -41,7 +42,7 @@ class _BooksCheckScreenState extends State<BooksCheckScreen> {
   void _open(CheckFinding finding) {
     final snapshot = AppScope.of(context).snapshot;
     final Widget? screen = switch (finding.action) {
-      'taxes' => const TaxesScreen(),
+      'taxes' => snapshot?.company.country == 'AE' ? const UaeTaxesScreen() : const TaxesScreen(),
       'sales' => const RegisterScreen(kind: RegisterKind.sales),
       'purchases' => const RegisterScreen(kind: RegisterKind.purchases),
       _ => null,

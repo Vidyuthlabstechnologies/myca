@@ -20,9 +20,14 @@ class UaeVatReturn {
   bool get ok => data.isNotEmpty;
 }
 
-Future<UaeVatReturn> loadUaeVatReturn(MycaApi api, String period, List<Map<String, Object?>> lines, {Map<String, Object?>? touristRefunds}) async {
+Future<UaeVatReturn> loadUaeVatReturn(MycaApi api, String period, List<Map<String, Object?>> lines, {Map<String, Object?>? touristRefunds, bool fromBooks = false, String lang = 'en'}) async {
   try {
-    final result = await api.query('ae_vat_return', {'period': period, 'lines': lines, 'touristRefunds': ?touristRefunds});
+    final result = await api.query('ae_vat_return', {
+      'period': period,
+      if (fromBooks) 'fromBooks': true else 'lines': lines,
+      'touristRefunds': ?touristRefunds,
+      if (lang == 'ar') 'lang': 'ar',
+    });
     return UaeVatReturn(data: toolData(result), failure: uaeFailure(result), problems: uaeProblems(result));
   } on MycaApiException catch (err) {
     return UaeVatReturn(data: const {}, failure: err.message, problems: const []);
@@ -42,6 +47,8 @@ class _UaeVatReturnScreenState extends State<UaeVatReturnScreen> {
   late UaeQuarter _quarter;
   Future<UaeVatReturn>? _return;
   bool _editing = false;
+  bool _fromBooks = true;
+  bool _prefilling = false;
   final _sales = {for (final emirate in emirates) emirate.code: TextEditingController()};
   final _zero = TextEditingController();
   final _exempt = TextEditingController();
@@ -60,7 +67,59 @@ class _UaeVatReturnScreenState extends State<UaeVatReturnScreen> {
     super.didChangeDependencies();
     if (_return != null) return;
     _quarter = widget.quarter ?? UaeQuarter.containing(AppScope.of(context).now()).previous;
-    _return = _load(const []);
+    _return = _loadBooks();
+  }
+
+  Future<UaeVatReturn> _loadBooks() => loadUaeVatReturn(AppScope.of(context).api, _quarter.period, const [], fromBooks: true, lang: UaeStrings.of(context).ar ? 'ar' : 'en');
+
+  void _useBooks() {
+    setState(() {
+      _fromBooks = true;
+      _editing = false;
+      _note = '';
+      _return = _loadBooks();
+    });
+  }
+
+  Future<void> _startEditing() async {
+    setState(() {
+      _editing = true;
+      _prefilling = true;
+    });
+    final s = UaeStrings.of(context);
+    try {
+      final data = toolData(await AppScope.of(context).api.query('ae_vat_lines', {'period': _quarter.period, if (s.ar) 'lang': 'ar'}));
+      if (mounted && _all.every((c) => c.text.trim().isEmpty)) _prefill(uaeRows(data['lines']));
+    } on MycaApiException {
+      _prefilling = false;
+    }
+    if (mounted) setState(() => _prefilling = false);
+  }
+
+  void _prefill(List<Map<String, dynamic>> lines) {
+    final sums = <TextEditingController, num>{};
+    for (final line in lines) {
+      final supply = uaeText(line['kind']) == 'supply';
+      final treatment = uaeText(line['treatment']).isEmpty ? 'standard' : uaeText(line['treatment']);
+      final TextEditingController? target = supply
+          ? switch (treatment) {
+              'standard' => _sales[uaeText(line['emirate'])],
+              'zero-rated' => _zero,
+              'exempt' => _exempt,
+              _ => null,
+            }
+          : switch (treatment) {
+              'standard' => _expenses,
+              'reverse-charge' => _reverse,
+              'import' => _imports,
+              'import-adjustment' => _importAdjust,
+              _ => null,
+            };
+      if (target != null) sums[target] = (sums[target] ?? 0) + uaeNum(line['net']);
+    }
+    for (final entry in sums.entries) {
+      if (entry.value != 0) entry.key.text = (entry.value * 100).round() % 100 == 0 ? '${entry.value.round()}' : entry.value.toStringAsFixed(2);
+    }
   }
 
   @override
@@ -110,6 +169,7 @@ class _UaeVatReturnScreenState extends State<UaeVatReturnScreen> {
     setState(() {
       _note = '';
       _editing = false;
+      _fromBooks = false;
       _return = _load(lines, tourist: tourist);
     });
   }
@@ -121,7 +181,7 @@ class _UaeVatReturnScreenState extends State<UaeVatReturnScreen> {
         c.clear();
       }
       _note = '';
-      _return = _load(const []);
+      _return = _fromBooks ? _loadBooks() : _load(const []);
     });
   }
 
@@ -160,18 +220,29 @@ class _UaeVatReturnScreenState extends State<UaeVatReturnScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          if (!_editing)
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: OutlinedButton.icon(
-                key: const ValueKey('uae.vat.edit'),
-                onPressed: () => setState(() => _editing = true),
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                label: Text(s.ar ? 'أدخل أرقام الربع' : 'Enter the quarter\'s figures'),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                key: const ValueKey('uae.vat.books'),
+                label: Text(s.fillFromBooks),
+                selected: _fromBooks && !_editing,
+                onSelected: (_) => _useBooks(),
               ),
-            )
-          else
-            _form(s, text),
+              if (!_editing)
+                OutlinedButton.icon(
+                  key: const ValueKey('uae.vat.edit'),
+                  onPressed: _startEditing,
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: Text(s.ar ? 'أدخل أرقام الربع' : 'Enter the quarter\'s figures'),
+                ),
+            ],
+          ),
+          if (_editing) ...[
+            const SizedBox(height: 14),
+            if (_prefilling) const Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator())) else _form(s, text),
+          ],
           if (_note.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(_note, key: const ValueKey('uae.vat.note'), style: text.bodyMedium?.copyWith(color: Palette.danger)),
@@ -186,7 +257,7 @@ class _UaeVatReturnScreenState extends State<UaeVatReturnScreen> {
               final result = snap.data;
               if (result == null || !result.ok) {
                 if (result != null && result.problems.isNotEmpty) return UaeNotes(title: s.couldNotWorkOut, notes: result.problems, danger: true);
-                return UaeError(detail: result?.failure ?? '', onRetry: () => setState(() { _return = _load(_lines() ?? const []); }));
+                return UaeError(detail: result?.failure ?? '', onRetry: () => setState(() { _return = _fromBooks ? _loadBooks() : _load(_lines() ?? const []); }));
               }
               return _boxes(result.data, s, f, text);
             },
@@ -240,10 +311,19 @@ class _UaeVatReturnScreenState extends State<UaeVatReturnScreen> {
     final refund = data['refund'] == true;
     final payable = uaeNum(data['payable']);
     final warnings = [for (final w in (data['warnings'] as List? ?? const [])) '$w'];
+    final books = uaeMap(data['fromBooks']);
     return Column(
       key: const ValueKey('uae.vat.boxes'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (books.isNotEmpty) ...[
+          Text(
+            s.fromBooksCounts(uaeNum(books['invoices']).toInt(), uaeNum(books['creditNotes']).toInt(), uaeNum(books['purchases']).toInt()),
+            key: const ValueKey('uae.vat.fromBooks'),
+            style: text.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+        ],
         UaePanel(children: [
           UaeFigure(
             key: const ValueKey('uae.vat.due'),

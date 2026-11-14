@@ -108,3 +108,132 @@ final Map<String, UaeWalk> uaeWalks = {
     await uaeScrollTo(t, 'uae.einvoice.problems');
   },
 };
+
+Future<void> uaeHomeRow(WidgetTester tester, String title) async {
+  final row = find.text(title);
+  await tester.scrollUntilVisible(row, 200, scrollable: uaeList, maxScrolls: 100);
+  await tester.pumpAndSettle();
+  await tester.tap(row.last);
+  await tester.pumpAndSettle();
+}
+
+Future<void> openNewEntry(WidgetTester tester, String row) async {
+  await tester.tap(find.byTooltip('New entry'));
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(find.text(row));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(row));
+  await tester.pumpAndSettle();
+}
+
+Future<void> openFromRegister(WidgetTester tester, String register, String party, String chip) async {
+  await uaeHomeRow(tester, register);
+  await tester.ensureVisible(find.text(party).last);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(party).last);
+  await tester.pumpAndSettle();
+  await tester.tap(find.widgetWithText(ActionChip, chip));
+  await tester.pumpAndSettle();
+}
+
+Future<void> openUaeSale(WidgetTester tester, {String party = 'Gulf Star General Trading LLC', bool viaRegister = false}) async {
+  if (viaRegister) return openFromRegister(tester, 'Sales', party, 'Sale');
+  await openNewEntry(tester, 'I sold something');
+  await tester.enterText(find.byType(TextField).last, party.split(' ').first);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(party).last);
+  await tester.pumpAndSettle();
+}
+
+Future<void> openUaeBill(WidgetTester tester, {String party = 'Emirates Office Supplies', bool viaRegister = false}) async {
+  if (viaRegister) return openFromRegister(tester, 'Purchases', party, 'Bill');
+  await openNewEntry(tester, 'I bought something');
+  await tester.enterText(find.byType(TextField).last, party.split(' ').first);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(party).last);
+  await tester.pumpAndSettle();
+}
+
+Future<void> pickFromMenu(WidgetTester tester, String key, String item) async {
+  await uaeTap(tester, key);
+  await tester.tap(find.text(item).last);
+  await tester.pumpAndSettle();
+}
+
+Future<void> fillUaeSale(WidgetTester tester) async {
+  await uaeType(tester, 'uae.sale.line.0.description', 'Consulting, November');
+  await uaeType(tester, 'uae.sale.line.0.qty', '2');
+  await uaeType(tester, 'uae.sale.line.0.rate', '5000');
+  await uaeTap(tester, 'uae.sale.addLine');
+  await uaeType(tester, 'uae.sale.line.1.description', 'Export freight');
+  await uaeType(tester, 'uae.sale.line.1.rate', '1000');
+}
+
+Future<void> fillUaeBill(WidgetTester tester) async {
+  await uaeType(tester, 'uae.bill.billNo', 'EOS-7781');
+  await uaeType(tester, 'uae.bill.line.0.description', 'Toner');
+  await uaeType(tester, 'uae.bill.line.0.rate', '4000');
+  await uaeTap(tester, 'uae.bill.addLine');
+  await uaeType(tester, 'uae.bill.line.1.description', 'Cloud software licence');
+  await uaeType(tester, 'uae.bill.line.1.rate', '2000');
+}
+
+Future<void> openUaeInvoice(WidgetTester tester, {String party = 'Desert Rose Interiors', String id = 'INV-0002'}) async {
+  await uaeHomeRow(tester, 'Sales');
+  await tester.ensureVisible(find.text(party).last);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(party).last);
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(find.text('Invoice $id').last);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Invoice $id').last);
+  await tester.pumpAndSettle();
+}
+
+const uaeSavedProfile = <String, Object?>{'name': 'Al Noor Trading LLC', 'emirate': 'DXB', 'trn': '100123456700003'};
+
+final Map<String, UaeWalk> uaeEntryWalks = {
+  'new_sale': (t, api) async {
+    api.savedProfile = uaeSavedProfile;
+    await openUaeSale(t, viaRegister: true);
+    await fillUaeSale(t);
+    await uaeScrollTo(t, 'uae.sale.total');
+  },
+  'new_sale_preview': (t, api) async {
+    api.savedProfile = uaeSavedProfile;
+    await openUaeSale(t, viaRegister: true);
+    await fillUaeSale(t);
+    await uaeTap(t, 'uae.sale.preview');
+    await uaeScrollTo(t, 'uae.sale.held');
+  },
+  'new_sale_problems': (t, api) async {
+    await openUaeSale(t, viaRegister: true);
+    await uaeType(t, 'uae.sale.line.0.description', 'Consulting');
+    await uaeType(t, 'uae.sale.line.0.rate', '0');
+    await uaeTap(t, 'uae.sale.preview');
+    await uaeScrollTo(t, 'uae.sale.problems');
+  },
+  'new_bill': (t, api) async {
+    await openUaeBill(t, viaRegister: true);
+    await fillUaeBill(t);
+    await uaeScrollTo(t, 'uae.bill.total');
+  },
+  'new_bill_posted': (t, api) async {
+    await openUaeBill(t, viaRegister: true);
+    await fillUaeBill(t);
+    await uaeTap(t, 'uae.bill.preview');
+    await t.tap(find.byType(FilledButton).last);
+    await t.pumpAndSettle();
+    await uaeScrollTo(t, 'uae.bill.done');
+  },
+  'invoice': (t, api) async {
+    await openUaeInvoice(t);
+    await uaeScrollTo(t, 'uae.invoice.credit');
+  },
+  'credit_note_sheet': (t, api) async {
+    await openUaeInvoice(t);
+    await uaeTap(t, 'uae.invoice.credit');
+    await t.enterText(find.byKey(const ValueKey('uae.credit.reason')), 'Two site visits not made');
+    await t.pumpAndSettle();
+  },
+};

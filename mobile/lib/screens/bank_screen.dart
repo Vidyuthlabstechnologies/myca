@@ -703,7 +703,7 @@ class _TransferSheetState extends State<_TransferSheet> {
             TextField(
               controller: _amount,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹ '),
+              decoration: InputDecoration(labelText: 'Amount', prefixText: moneyPrefix),
             ),
             const SizedBox(height: 10),
             TextField(
@@ -1003,7 +1003,7 @@ class _AccountSheetState extends State<_AccountSheet> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(labelText: 'Last 4 digits of the account number (optional)'),
             ),
-            if (_kind == 'bank') ...[
+            if (_kind == 'bank' && moneyCountry != 'AE') ...[
               const SizedBox(height: 10),
               TextField(
                 controller: _ifsc,

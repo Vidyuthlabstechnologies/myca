@@ -5,6 +5,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../uae/uae_strings.dart';
 import '../registers.dart';
 import '../marks.dart';
 import '../proposal_flow.dart';
@@ -156,7 +157,7 @@ class _RecurringScreenState extends State<RecurringScreen> with ProposalFlow {
                       TextField(
                         controller: _amount,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Amount paid each time', prefixText: '₹ ', helperText: 'Including any GST'),
+                        decoration: InputDecoration(labelText: 'Amount paid each time', prefixText: moneyPrefix, helperText: moneyCountry == 'AE' ? UaeStrings.of(context).includingVat : 'Including any GST'),
                       ),
                       const SizedBox(height: 10),
                       TextField(
@@ -164,12 +165,14 @@ class _RecurringScreenState extends State<RecurringScreen> with ProposalFlow {
                         textCapitalization: TextCapitalization.words,
                         decoration: const InputDecoration(labelText: 'Paid to (optional)'),
                       ),
+                      if (moneyCountry != 'AE') ...[
                       const SizedBox(height: 10),
                       TextField(
                         controller: _rate,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: const InputDecoration(labelText: 'GST rate inside the amount (optional)', suffixText: '%'),
                       ),
+                      ],
                       const SizedBox(height: 10),
                       DropdownButtonFormField<String>(
                         isExpanded: true,

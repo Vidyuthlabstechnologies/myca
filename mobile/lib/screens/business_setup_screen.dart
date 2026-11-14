@@ -6,6 +6,7 @@ import '../cloud/cloud_session.dart';
 import '../migration.dart';
 import 'invitation_cards.dart';
 import '../theme.dart';
+import '../uae/uae_strings.dart';
 import 'us/us_setup_screen.dart';
 
 class BusinessSetupScreen extends StatefulWidget {
@@ -78,6 +79,82 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
     }
   }
 
+  Future<void> _createUae() async {
+    final s = UaeStrings.of(context);
+    final name = _name.text.trim();
+    if (name.isEmpty) return setState(() => _error = s.needBusinessName);
+    final state = AppScope.of(context);
+    setState(() {
+      _busy = true;
+      _error = '';
+    });
+    try {
+      await state.cloud!.createBusiness(name: name, country: 'AE');
+      await state.refresh();
+    } on MycaApiException catch (err) {
+      if (mounted) setState(() => _error = err.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _uaeSetup(BuildContext context, TextTheme text) {
+    final s = UaeStrings.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        actions: [
+          TextButton(onPressed: AppScope.of(context).signOut, child: Text(s.signOut)),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          children: [
+            FutureBuilder<Me>(
+              future: _me,
+              builder: (context, loaded) {
+                final invitations = loaded.data?.invitations ?? const <InvitationRef>[];
+                if (invitations.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    InvitationCards(invitations: invitations, onChanged: _answered),
+                    const SizedBox(height: 10),
+                    const Divider(),
+                    const SizedBox(height: 18),
+                  ],
+                );
+              },
+            ),
+            Text(s.setupTitle, style: text.headlineMedium),
+            const SizedBox(height: 6),
+            Text(s.setupLine, style: text.bodyLarge?.copyWith(color: Palette.muted)),
+            const SizedBox(height: 24),
+            TextField(
+              key: const Key('setup.uae.name'),
+              controller: _name,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(labelText: s.businessName),
+            ),
+            if (_error.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+            ],
+            const SizedBox(height: 24),
+            FilledButton(
+              key: const Key('setup.uae.continue'),
+              onPressed: _busy ? null : _createUae,
+              child: Text(_busy ? s.settingUp : s.continueLabel),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _tryDemo() async {
     final state = AppScope.of(context);
     setState(() {
@@ -98,6 +175,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     if (AppScope.of(context).edition == 'US') return const UsSetupScreen();
+    if (AppScope.of(context).edition == 'AE') return _uaeSetup(context, text);
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,

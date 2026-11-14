@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../marks.dart';
 import '../registers.dart';
 import '../theme.dart';
+import '../uae/uae_edition.dart';
 import '../widgets.dart';
 import 'ask_screen.dart';
 import 'bill_capture_screen.dart';
@@ -21,6 +22,7 @@ Future<void> showNewEntrySheet(BuildContext context) {
     startEntry(context, kind);
   }
 
+  final ae = uaeEdition(context);
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -52,6 +54,7 @@ Future<void> showNewEntrySheet(BuildContext context) {
               subtitle: 'Add a supplier bill',
               onTap: () => entry(RegisterKind.purchases),
             ),
+            if (!ae)
             _SheetRow(
               tint: Tint.purchases,
               mark: Mark.comingUp,

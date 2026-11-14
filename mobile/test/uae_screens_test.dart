@@ -24,7 +24,8 @@ void main() {
       expect(find.byKey(const ValueKey('uae.vat.quarter')), findsOneWidget);
       expect(_shown(tester, 'uae.vat.quarter'), ar ? 'يوليو - سبتمبر 2026' : 'Jul–Sep 2026');
       expect(api.queryArgs.last.args['period'], '2026-07/2026-09');
-      expect(api.queryArgs.last.args['lines'], isEmpty);
+      expect(api.queryArgs.last.args['fromBooks'], isTrue);
+      expect(find.byKey(const ValueKey('uae.vat.fromBooks')), findsOneWidget);
       await fillVatQuarter(tester);
       final lines = api.queryArgs.last.args['lines'] as List;
       expect(lines, containsAll([

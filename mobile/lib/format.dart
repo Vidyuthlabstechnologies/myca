@@ -2,6 +2,8 @@ import 'package:myca_design/myca_design.dart' show MycaCountry, MycaDateStyle, M
 
 String moneyCountry = 'IN';
 
+String get moneyPrefix => moneyCountry == 'AE' ? 'AED ' : '₹ ';
+
 final _us = MycaFormat(MycaCountry.of('US'));
 final _ae = MycaFormat(MycaCountry.of('AE'));
 

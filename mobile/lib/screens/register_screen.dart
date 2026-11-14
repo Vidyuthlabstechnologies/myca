@@ -4,6 +4,8 @@ import '../api/models.dart';
 import '../app_state.dart';
 import '../registers.dart';
 import '../theme.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'party_picker.dart';
 import 'party_screen.dart';
@@ -46,6 +48,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _newParty() async {
     final created = await showNewPartySheet(context, widget.kind);
     if (created == null || !mounted) return;
+    if (uaeEdition(context)) {
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => uaeEntryScreen(widget.kind, created)));
+      return;
+    }
     _openParty(created.name, created.gstin, openComposer: true);
   }
 
@@ -65,7 +71,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _newParty,
         icon: const Icon(Icons.add),
-        label: Text(_sales ? 'New customer' : 'New supplier'),
+        label: Text(uaeEdition(context) ? UaeStrings.of(context).newParty(_sales) : (_sales ? 'New customer' : 'New supplier')),
       ),
       body: RefreshIndicator(
         onRefresh: state.refresh,

@@ -5,6 +5,8 @@ import '../app_state.dart';
 import '../proposal_flow.dart';
 import '../marks.dart';
 import '../theme.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 
 class AskScreen extends StatefulWidget {
@@ -93,6 +95,9 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                 ? ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
+                      if (uaeEdition(context))
+                        EmptyNote(text: UaeStrings.of(context).askIntro)
+                      else
                       const EmptyNote(
                         text:
                             'Ask about your GST, deadlines or invoices. '
@@ -106,6 +111,7 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                         runSpacing: 8,
                         children: [
                           for (final starter in _starters)
+                            if (!uaeEdition(context) || starter != 'Dhanda kaisa chal raha hai?')
                             ActionChip(
                               label: Text(starter),
                               onPressed: () => _send(starter),

@@ -76,6 +76,7 @@ class Invoice {
     this.dueDate = '',
     this.termsDays,
     this.msme = false,
+    this.raw = const <String, dynamic>{},
   });
 
   factory Invoice.fromJson(Object? json) {
@@ -98,6 +99,7 @@ class Invoice {
         for (final line in _maps(map['lines']))
           if (line['gstRate'] is num) line['gstRate'] as num,
       ],
+      raw: map,
     );
   }
 
@@ -113,6 +115,9 @@ class Invoice {
   final String dueDate;
   final int? termsDays;
   final bool msme;
+  final Map<String, dynamic> raw;
+
+  String get partyTrn => _text(raw['partyTrn']);
 
   bool get paid => status == 'paid';
 

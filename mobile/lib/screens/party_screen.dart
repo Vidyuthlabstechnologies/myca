@@ -9,11 +9,15 @@ import '../format.dart';
 import '../proposal_flow.dart';
 import '../registers.dart';
 import '../theme.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import '../widgets/utf16_limit.dart';
 import 'invoice_screen.dart';
 import 'remind_customer_screen.dart';
 import 'statements_screen.dart';
+import 'uae/uae_document_screen.dart';
+import 'uae/uae_invoice_screen.dart';
 
 part 'party_screen/composer.dart';
 part 'party_screen/supplier_terms_sheet.dart';
@@ -55,7 +59,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   String _challanReason = 'job-work';
   String _repeat = '';
   List<SalesTaxRate> _salesTaxRates = const [];
-  late _Composer _composer = widget.openComposer
+  late _Composer _composer = widget.openComposer && !uaeEdition(context)
       ? _Composer.document
       : _Composer.none;
   String? _invoiceId;
@@ -74,6 +78,8 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
 
   bool get _us => (AppScope.of(context).snapshot?.company.country ?? 'IN') == 'US';
 
+  bool get _ae => uaeEdition(context);
+
   bool get _ownsBooks {
     final role = AppScope.of(context).snapshot?.activeUser?.role;
     return role == 'owner' || role == 'admin';
@@ -86,9 +92,9 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_us && _sales && _salesTaxRates.isEmpty) _loadSalesTaxRates();
-    if (!_sales && !_us && !_risksLoaded) _loadRisks();
+    if (!_sales && !_us && !_ae && !_risksLoaded) _loadRisks();
     final snapshot = AppScope.of(context).snapshot;
-    if (!_sales && !_us && (!_duesAsked || !identical(snapshot, _duesFor))) _loadDues(snapshot);
+    if (!_sales && !_us && !_ae && (!_duesAsked || !identical(snapshot, _duesFor))) _loadDues(snapshot);
   }
 
   Future<void> _loadDues(Snapshot? snapshot) async {
@@ -190,6 +196,34 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     super.dispose();
   }
 
+  String _aeSubtitle(Party party) {
+    final s = UaeStrings.of(context);
+    String trn = '';
+    for (final doc in party.documents.reversed) {
+      if (doc.partyTrn.isNotEmpty) {
+        trn = doc.partyTrn;
+        break;
+      }
+    }
+    if (trn.isEmpty && party.gstin.isNotEmpty) trn = party.gstin;
+    return trn.isEmpty ? (_sales ? s.customer : s.supplier) : s.trnOf(trn);
+  }
+
+  void _openAe(Party party) {
+    String trn = '';
+    for (final doc in party.documents.reversed) {
+      if (doc.partyTrn.isNotEmpty) {
+        trn = doc.partyTrn;
+        break;
+      }
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _sales ? UaeSaleScreen(partyName: party.name, partyTrn: trn) : UaePurchaseScreen(partyName: party.name, partyTrn: trn),
+      ),
+    );
+  }
+
   num _stillOwed(Invoice doc) => _sales
       ? doc.owedAfter(AppScope.of(context).snapshot?.creditNotes ?? const <CreditNote>[])
       : doc.owed;
@@ -245,7 +279,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       controller: _amount,
       autofocus: true,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: const InputDecoration(labelText: 'Reduce the bill by', prefixText: '₹ '),
+      decoration: InputDecoration(labelText: 'Reduce the bill by', prefixText: moneyPrefix),
     ),
     const SizedBox(height: 10),
     TextField(
@@ -654,7 +688,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
           onTap: _sales
               ? () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => InvoiceScreen(invoiceId: doc.id),
+                    builder: (_) => _ae ? UaeInvoiceScreen(invoiceId: doc.id) : InvoiceScreen(invoiceId: doc.id),
                   ),
                 )
               : null,
@@ -721,7 +755,9 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    party.gstin.isEmpty
+                    _ae
+                        ? _aeSubtitle(party)
+                        : party.gstin.isEmpty
                         ? (_sales ? 'Customer' : 'Supplier')
                         : party.gstin,
                     style: Theme.of(
@@ -747,7 +783,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                 ),
               ),
             ),
-          if (_sales && !_us)
+          if (_sales && !_us && !_ae)
             IconButton(
               tooltip: 'Remind customer',
               icon: const Icon(Icons.notifications_active_outlined),
@@ -793,15 +829,15 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
               terms: _sales
                   ? (snapshot?.termsFor(party.name, party.gstin))
                   : null,
-              onDocument: () => _open(_Composer.document, party),
+              onDocument: _ae ? () => _openAe(party) : () => _open(_Composer.document, party),
               onPayment: () => _open(_Composer.payment, party),
-              onTdsWithheld: _sales && !_us && party.unpaid.isNotEmpty
+              onTdsWithheld: _sales && !_us && !_ae && party.unpaid.isNotEmpty
                   ? () => _tdsWithheld(party)
                   : null,
-              onQuote: _sales ? () => _open(_Composer.quote, party) : null,
-              onDebitNote: !_sales && party.documents.any((d) => !d.cancelled) ? () => _open(_Composer.purchaseNote, party) : null,
+              onQuote: _sales && !_ae ? () => _open(_Composer.quote, party) : null,
+              onDebitNote: !_sales && !_ae && party.documents.any((d) => !d.cancelled) ? () => _open(_Composer.purchaseNote, party) : null,
               onTerms: _sales ? () => _setTerms(party) : null,
-              onSupplierTerms: !_sales && !_us && _ownsBooks ? () => _setSupplierTerms(party) : null,
+              onSupplierTerms: !_sales && !_us && !_ae && _ownsBooks ? () => _setSupplierTerms(party) : null,
             )
           else
             _ComposerCard(
@@ -1091,7 +1127,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       decoration: InputDecoration(
         labelText: _sales ? 'Amount received' : 'Amount paid',
-        prefixText: '₹ ',
+        prefixText: moneyPrefix,
       ),
     ),
     const SizedBox(height: 10),
@@ -1100,7 +1136,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       children: [
         for (final mode in const ['bank', 'cash'])
           ChoiceChip(
-            label: Text(mode == 'bank' ? 'Bank or UPI' : 'Cash'),
+            label: Text(mode == 'bank' ? (_ae ? UaeStrings.of(context).bank : 'Bank or UPI') : 'Cash'),
             selected: _mode == mode,
             selectedColor: Palette.sunken,
             showCheckmark: false,
