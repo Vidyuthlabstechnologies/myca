@@ -404,7 +404,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const jobs = createJobs({ db, secret, rateLimits, withBooks, readBooks: (...args) => runner.withReadOnlyBooks(...args), connectors, syncChannels, pullsEnabled: channelPullsEnabled, sender: whatsappSender, vault, billing, now, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
   const openId = createOidcVerifier({ issuer: oidc.issuer || '', clientIds: oidc.clientIds || [], jwksUrl: oidc.jwksUrl || '', keys: oidcKeys, now });
-  const apple = createAppleVerifier({ clientIds: appleClientIds, keys: appleKeys || createAppleKeys({ now }), now });
+  const apple = createAppleVerifier({ clientIds: appleClientIds, keys: appleKeys || createAppleKeys({ now }), now, db });
   if (!auth.phoneEnabled && !google.enabled && !openId.enabled && !apple.enabled) throw new Error('no sign-in method: configure an SMS sender, MYCA_GOOGLE_CLIENT_IDS, MYCA_APPLE_CLIENT_IDS or MYCA_OIDC_ISSUER with MYCA_OIDC_CLIENT_IDS');
 
   const pushAudience = String(playPush.audience || '').trim();

@@ -474,3 +474,14 @@ test('2026: non-itemizers deduct up to $1,000 of cash gifts ($2,000 joint, not Q
   assert.equal(itemized.data.schedules.A['14'], 4500);
   assert.equal(run('single', [w2(60000)], { answers: { charityCash: 1500 } }, '2025').data.lines['13b'], 0);
 });
+
+test('IRC 199A(i) from 2026: business income flags the minimum QBI deduction as not applied, without blocking filing; 2025 does not', () => {
+  const business = { businesses: [{ name: 'Studio', grossReceipts: 9000, totalExpenses: 1000 }] };
+  const y2026 = run('single', [w2(30000)], business, '2026');
+  const flagged = y2026.data.unsupported.find((item) => item.form === 'QBI minimum deduction');
+  assert.equal(flagged.required, false);
+  assert.ok(codes(y2026).includes('QBI_MINIMUM_NOT_APPLIED'));
+  assert.ok(!needs(y2026).includes('QBI minimum deduction'));
+  assert.ok(!codes(run('single', [w2(30000)], business, '2025')).includes('QBI_MINIMUM_NOT_APPLIED'));
+  assert.ok(!codes(run('single', [w2(30000)], {}, '2026')).includes('QBI_MINIMUM_NOT_APPLIED'));
+});

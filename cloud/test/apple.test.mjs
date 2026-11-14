@@ -129,6 +129,19 @@ test('wrong audience, wrong issuer, expired, forged, bad or missing nonce are re
   assert.equal((await api.db.query('select count(*)::int as n from users')).rows[0].n, before);
 });
 
+test('a token and nonce that already signed someone in are refused the second time, until the nonce is forgotten', async () => {
+  const { raw, token } = signed({ sub: '001234.replay.0001', email: 'replay@example.com', email_verified: true });
+  const first = await apple({ idToken: token, rawNonce: raw });
+  assert.equal(first.status, 200, first.text);
+  const again = await apple({ idToken: token, rawNonce: raw });
+  assert.equal(again.status, 400, again.text);
+  assert.equal(again.body.error, 'APPLE_NONCE_REUSED');
+  const stored = await api.db.query('select nonce_hash from apple_used_nonces where nonce_hash = $1', [hashNonce(hashNonce(raw))]);
+  assert.equal(stored.rowCount, 1, 'only a hash of the nonce is kept');
+  const fresh = signed({ sub: '001234.replay.0001' });
+  assert.equal((await apple({ idToken: fresh.token, rawNonce: fresh.raw })).status, 200, 'a new nonce signs in again');
+});
+
 test('an Apple account is the same person as nobody else: a Google or OIDC subject with the same id is another account', async () => {
   const { raw, token } = signed({ sub: '1001' });
   const out = await apple({ idToken: token, rawNonce: raw });
