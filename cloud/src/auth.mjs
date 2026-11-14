@@ -31,7 +31,9 @@ export function normalizePhone(input) {
   const match = /^(?:\+?91|0)?([6-9]\d{9})$/.exec(digits);
   if (match) return `+91${match[1]}`;
   const northAmerica = /^\+1([2-9]\d{2}[2-9]\d{6})$/.exec(digits);
-  return northAmerica ? `+1${northAmerica[1]}` : '';
+  if (northAmerica) return `+1${northAmerica[1]}`;
+  const malaysia = /^\+60(1\d{8,9})$/.exec(digits);
+  return malaysia ? `+60${malaysia[1]}` : '';
 }
 
 function codeHash(salt, code) {
