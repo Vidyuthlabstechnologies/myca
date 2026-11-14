@@ -159,6 +159,55 @@ const migrationPaths = [
   ),
 ];
 
+const gbBankCsv = ImportOption(
+  title: 'Bank statement (CSV)',
+  howTo: 'Download the statement from your bank or building society as CSV for the months you want. Most UK banks offer it under Statements or Export.',
+  extensions: ['csv'],
+  tool: 'import_bank',
+  extraArgs: {'type': 'csv'},
+);
+
+const gbMigrationPaths = [
+  MigrationPath(
+    source: BooksSource.spreadsheet,
+    title: 'Excel, Google Sheets or a CSV file',
+    subtitle: 'Records kept in a spreadsheet',
+    mark: Mark.spreadsheet,
+    tint: Tint.ask,
+    promise: 'MyCA cannot read a free-form sheet yet. Start from your bank statement, then add sales and bills as you go.',
+    imports: [gbBankCsv],
+  ),
+  MigrationPath(
+    source: BooksSource.otherApp,
+    title: 'Another bookkeeping app',
+    subtitle: 'QuickBooks, Xero, FreeAgent, Sage and others',
+    mark: Mark.otherApp,
+    tint: Tint.ask,
+    promise: 'MyCA cannot read this app\'s export yet. Start from your bank statement so your money trail is in, then add sales and bills as you go.',
+    imports: [gbBankCsv],
+  ),
+  MigrationPath(
+    source: BooksSource.paper,
+    title: 'Paper, or my accountant has them',
+    subtitle: 'Receipts, invoices, or with an accountant or bookkeeper',
+    mark: Mark.paper,
+    tint: Tint.expense,
+    promise: 'Start from your bank statement, then add sales and bills as you go. Keep the paper records: HMRC can ask to see them.',
+    imports: [gbBankCsv],
+  ),
+  MigrationPath(
+    source: BooksSource.fresh,
+    title: 'Starting fresh',
+    subtitle: 'New business, or a clean start',
+    mark: Mark.fresh,
+    tint: Tint.sales,
+    promise: 'Nothing to bring across. Your first sale or bill starts the books.',
+    imports: [],
+  ),
+];
+
+List<MigrationPath> migrationPathsFor(String edition) => edition == 'GB' ? gbMigrationPaths : migrationPaths;
+
 MigrationPath pathFor(BooksSource source) =>
     migrationPaths.firstWhere((path) => path.source == source);
 

@@ -5,6 +5,7 @@ import '../cloud/cloud_session.dart';
 import '../app_state.dart';
 import '../marks.dart';
 import '../theme.dart';
+import '../uk/uk_plan_screen.dart';
 import '../widgets.dart';
 import 'businesses_screen.dart';
 import 'connections_screen.dart';
@@ -34,6 +35,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
             children: [
               Text(company.name, style: text.headlineSmall),
               const SizedBox(height: 4),
+              if (state.edition != 'GB')
               Text(
                 company.gstin.isEmpty
                     ? 'Not registered for GST'
@@ -67,7 +69,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                       trailing: const Chevron(),
                       onTap: () {
                         navigator.pop();
-                        navigator.push(MaterialPageRoute<void>(builder: (_) => const PlanScreen()));
+                        navigator.push(MaterialPageRoute<void>(builder: (_) => state.edition == 'GB' ? const UkPlanScreen() : const PlanScreen()));
                       },
                     ),
                     RowCard(
@@ -102,6 +104,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                         },
                       ),
                     if (user?.role == 'owner')
+                    if (state.edition != 'GB')
                       RowCard(
                         leading: const TintTile(tint: Tint.ask, mark: Mark.cloudBooks),
                         title: 'Connections to banks and apps',

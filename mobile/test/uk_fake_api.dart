@@ -23,6 +23,36 @@ const fakeDevice = <String, Object?>{
   'appVersion': '1.0.0+1',
 };
 
+const hmrcPreamble = 'Before you can submit the information displayed here in response to your notice to file from HM Revenue & Customs, you must read and agree to the following statement.';
+
+const hmrcTaxpayerWords = 'I declare that the information and tax return I have submitted are (taken together) correct and complete to the best of my knowledge. I understand that I may have to pay financial penalties and face prosecution if I give false information.';
+
+const hmrcAgentWords = 'I confirm that my client has received a copy of all the information being filed and approved the information as being correct and complete to the best of their knowledge and belief. My client understands that they may have to pay financial penalties and face prosecution if they give false information.';
+
+final sa302Breakdown = <String, Object?>{
+  'income': {'selfEmployment': 42000, 'ukProperty': 8000, 'foreignProperty': null, 'employment': 0, 'total': 50000},
+  'personalAllowance': 12570,
+  'allowancesAndDeductions': 12570,
+  'taxableIncome': 37430,
+  'bands': [
+    {'source': 'Pay, pensions and profit', 'name': 'BRT', 'rate': 20, 'income': 37430, 'tax': 7486},
+  ],
+  'incomeTaxCharged': 7486,
+  'reliefs': null,
+  'incomeTaxDue': 7486,
+  'class2Nics': 0,
+  'class4Nics': 1745.8,
+  'totalNics': 1745.8,
+  'studentLoan': 500,
+  'capitalGainsTax': null,
+  'taxDeducted': null,
+  'totalDue': 9731.8,
+};
+
+final calculationErrors = <Map<String, Object?>>[
+  {'id': 'C55001', 'text': 'A final declaration cannot be made while quarterly updates are missing.'},
+];
+
 final estimateData = <String, Object?>{
   'taxYear': '2026-27',
   'residence': 'england',
@@ -67,6 +97,15 @@ class GbFakeApi implements MycaApi {
   Map<String, Object?> estimate = estimateData;
   bool vatReady = true;
   final calculations = <Map<String, Object?>>[];
+  final returns = <Map<String, Object?>>[];
+  bool calculationHasErrors = false;
+  bool calculationWarns = false;
+  bool sendDeclarationWords = true;
+  String refuseCalculation = '';
+  List<Map<String, Object?>> estimateProblems = const [];
+  List<Map<String, Object?>> vatProblems = const [];
+  List<Map<String, Object?>> quarterProblems = const [];
+  final itsaSent = <Map<String, Object?>>[];
 
   @override
   Future<Snapshot> snapshot() async => Snapshot.fromJson({
@@ -99,15 +138,87 @@ class GbFakeApi implements MycaApi {
     _pending[token] = Proposal(name, args);
     final summary = switch (name) {
       'submit_gb_vat_return' => 'Send the VAT return for period ${ukBody(args)['periodKey']}: pay £1,600.00.',
-      'submit_gb_final_declaration' => 'Send the ${args['taxYear']} final declaration to HMRC: Income Tax and NICs due £9,731.80.',
+      'submit_gb_final_declaration' => _amending(args) ? 'Confirm the amendment to the ${args['taxYear']} tax return to HMRC: Income Tax and NICs due £9,731.80.' : 'Send the ${args['taxYear']} final declaration to HMRC: Income Tax and NICs due £9,731.80.',
       'submit_gb_itsa_update' => 'Send the cumulative self-employment update for ${args['taxYear']}.',
       _ => 'Do $name.',
     };
     return ChatReply.fromJson({
       'reply': summary,
       'awaitingConfirmation': true,
-      'preview': {'token': token, 'summary': summary, 'effects': ['HMRC records it straight away and it cannot be changed.']},
+      'preview': {
+        'token': token,
+        'summary': summary,
+        'effects': [
+          if (name == 'submit_gb_final_declaration') 'Declaration: ${args['declaredBy'] == 'agent' ? hmrcAgentWords : hmrcTaxpayerWords}',
+          'HMRC records it straight away and it cannot be changed.',
+        ],
+      },
     });
+  }
+
+  bool _amending(Map<String, Object?> args) => calculations.any((c) => c['calculationId'] == args['calculationId'] && c['calculationType'] == 'intent-to-amend');
+
+  Map<String, Object?>? _sentReturn(Object? taxYear) => returns.where((r) => r['taxYear'] == taxYear).lastOrNull;
+
+  Map<String, Object?> _calculation(Map<String, Object?> args) {
+    final type = '${args['calculationType'] ?? 'in-year'}';
+    final sent = _sentReturn(args['taxYear']);
+    final refusal = refuseCalculation.isNotEmpty
+        ? refuseCalculation
+        : type == 'intent-to-amend' && sent == null
+            ? 'NO_RETURN_TO_AMEND'
+            : type == 'intent-to-finalise' && sent != null
+                ? 'FINAL_DECLARATION_ALREADY_SENT'
+                : '';
+    if (refusal.isNotEmpty) {
+      return {
+        'ok': false,
+        'error': refusal,
+        'hint': switch (refusal) {
+          'AMENDMENT_WINDOW_CLOSED' => 'Amendments for ${args['taxYear']} had to reach HMRC by 2026-01-31. Ask HMRC about an overpayment relief claim instead.',
+          'TAX_YEAR_NOT_ENDED' => 'The final declaration for ${args['taxYear']} can be made from 2027-04-06.',
+          'NO_RETURN_TO_AMEND' => 'An amendment needs a final declaration already sent through software for this year.',
+          'FINAL_DECLARATION_ALREADY_SENT' => 'The return for this year is already with HMRC. To change it, ask for an amendment calculation instead.',
+          _ => '',
+        },
+      };
+    }
+    final errors = calculationHasErrors ? calculationErrors : const <Map<String, Object?>>[];
+    return _ok({
+      'calculationId': 'c-${calculations.length + 1}',
+      'taxYear': args['taxYear'],
+      'calculationType': type,
+      'incomeTax': 7486,
+      'nics': 1745.8,
+      'totalIncomeTaxAndNicsDue': 9731.8,
+      'totalTaxableIncome': 37430,
+      'breakdown': sa302Breakdown,
+      'messages': {
+        'info': const <Map<String, Object?>>[],
+        'warnings': calculationWarns ? [{'id': 'C22201', 'text': 'Your property income allowance claim has been capped.'}] : const <Map<String, Object?>>[],
+        'errors': errors,
+      },
+      'blockedByErrors': errors.isNotEmpty,
+    });
+  }
+
+  Map<String, Object?> _declare(Map<String, Object?> args) {
+    final amending = _amending(args);
+    final receipt = <String, Object?>{
+      'taxYear': args['taxYear'],
+      'calculationId': args['calculationId'],
+      'type': amending ? 'confirm-amendment' : 'final-declaration',
+      'totalDue': 9731.8,
+      'declaredBy': args['declaredBy'] ?? 'taxpayer',
+      'declarationText': args['declaredBy'] == 'agent' ? hmrcAgentWords : hmrcTaxpayerWords,
+      'environment': 'test',
+      'correlationId': 'corr-3',
+      'at': '2026-11-14T10:10:00.000Z',
+      'amendmentWindowCloses': '${(int.tryParse('${args['taxYear']}'.split('-').first) ?? 0) + 3}-01-31',
+    };
+    returns.removeWhere((r) => r['taxYear'] == args['taxYear']);
+    returns.add(receipt);
+    return _ok(receipt);
   }
 
   static Map<String, Object?> ukBody(Map<String, Object?> args) => (args['body'] as Map?)?.cast<String, Object?>() ?? const {};
@@ -127,18 +238,19 @@ class GbFakeApi implements MycaApi {
       'set_gb_taxpayer' => _ok({'saved': true, 'name': p.args['name'] ?? '', 'utr': '••••••7890', 'nino': '•••••456C', 'vrn': '•••••9973', 'residence': p.args['residence'] ?? 'england', 'studentLoans': p.args['studentLoans'] ?? const []}),
       'submit_gb_vat_return' => _ok({'vrn': '999999973', 'periodKey': ukBody(p.args)['periodKey'], 'processingDate': '2026-11-14T10:05:00.000Z', 'formBundleNumber': '256660290587', 'paymentIndicator': 'DD', 'chargeRefNumber': 'XM002610011594', 'netVatDue': 1600, 'environment': 'test', 'correlationId': 'corr-1'}),
       'submit_gb_itsa_update' => _ok({'kind': p.args['kind'], 'businessId': p.args['businessId'], 'taxYear': p.args['taxYear'], 'periodEnd': '2026-07-05', 'environment': 'test', 'correlationId': 'corr-2', 'hint': 'Updates are cumulative: the next one replaces this from the start of the tax year.'}),
-      'trigger_gb_itsa_calculation' => _ok({'calculationId': 'c-${calculations.length + 1}', 'taxYear': p.args['taxYear'], 'calculationType': p.args['calculationType'] ?? 'in-year', 'incomeTax': 7486, 'nics': 2245.8, 'totalIncomeTaxAndNicsDue': 9731.8, 'totalTaxableIncome': 37430}),
-      'submit_gb_final_declaration' => _ok({'taxYear': p.args['taxYear'], 'calculationId': p.args['calculationId'], 'type': 'intent-to-finalise', 'totalDue': 9731.8, 'environment': 'test', 'correlationId': 'corr-3', 'at': '2026-11-14T10:10:00.000Z'}),
+      'trigger_gb_itsa_calculation' => _calculation(p.args),
+      'submit_gb_final_declaration' => _declare(p.args),
       _ => _ok(const {}),
     };
     if (p.tool == 'finish_gb_hmrc_connection' && result['ok'] == true) connected = true;
     if (p.tool == 'disconnect_gb_hmrc') connected = false;
     if (p.tool == 'sync_gb_hmrc') lastSync = true;
     if (p.tool == 'submit_gb_vat_return') vatSent = true;
-    if (p.tool == 'trigger_gb_itsa_calculation') calculations.add(ukDataOf(result));
+    if (p.tool == 'submit_gb_itsa_update') itsaSent.add({...p.args});
+    if (p.tool == 'trigger_gb_itsa_calculation' && result['ok'] != false) calculations.add(ukDataOf(result));
     final ok = result['ok'] != false;
     return ChatReply.fromJson({
-      'reply': ok ? 'Done.' : 'That code is from a different sign-in.',
+      'reply': ok ? 'Done.' : 'That did not work.',
       'posted': ok,
       'tools': [
         {'name': p.tool, 'result': result},
@@ -175,14 +287,34 @@ class GbFakeApi implements MycaApi {
       {'typeOfBusiness': 'self-employment', 'businessId': 'XAIS12345678901', 'from': '2026-04-06', 'to': '2026-07-05', 'due': '2026-08-07', 'status': 'fulfilled'},
     ],
     'calculations': calculations,
+    'returns': [
+      for (final r in returns) {'taxYear': r['taxYear'], 'type': r['type'], 'calculationId': r['calculationId'], 'totalDue': r['totalDue'], 'declaredBy': r['declaredBy'], 'at': r['at'], 'environment': r['environment'], 'amendmentWindowCloses': r['amendmentWindowCloses']},
+    ],
+    if (sendDeclarationWords) 'declarationWords': {'source': 'HMRC MTD Income Tax end-to-end service guide', 'preamble': hmrcPreamble, 'taxpayer': hmrcTaxpayerWords, 'agent': hmrcAgentWords},
     'fraudHeaderCheck': null,
     'missingSettings': const [],
   };
+
+  Map<String, Object?> _badAmount(List<Map<String, Object?>> problems) => {
+    'ok': false,
+    'error': 'BAD_AMOUNT',
+    'problems': problems,
+    'hint': [for (final p in problems) '${p['field']}: ${p['why']}'].join(' '),
+  };
+
+  List<Map<String, Object?>> history(Object? kind) => [
+    for (final r in returns.reversed) {'kind': 'final-declaration', 'at': r['at'], 'environment': r['environment'], 'reference': r['calculationId'], 'period': r['taxYear'], 'amount': r['totalDue'], 'type': r['type'], 'declaredBy': r['declaredBy'], 'declarationText': r['declarationText']},
+    for (final u in itsaSent.reversed) {'kind': 'itsa-update', 'at': '2026-11-14T10:06:00.000Z', 'environment': 'test', 'reference': 'corr-2', 'period': '${u['taxYear']} to 2026-07-05', 'business': u['businessId'], 'businessKind': u['kind']},
+    if (vatSent) {'kind': 'vat', 'at': '2026-11-14T10:05:00.000Z', 'environment': 'test', 'reference': '256660290587', 'period': '26A2', 'amount': 1600, 'chargeRefNumber': 'XM002610011594', 'paymentIndicator': 'DD'},
+  ].where((row) => kind == null || kind == 'all' || row['kind'] == kind).toList();
 
   @override
   Future<Object?> query(String name, [Map<String, Object?> args = const {}]) async {
     queries.add(QueryCall(name, args));
     switch (name) {
+      case 'gb_hmrc_history':
+        final rows = history(args['kind']);
+        return _ok({'count': rows.length, 'submissions': rows});
       case 'gb_hmrc_status':
         return _ok(status());
       case 'gb_tax_calendar':
@@ -209,8 +341,9 @@ class GbFakeApi implements MycaApi {
         final what = switch (args['kind']) { 'utr' => 'UTR', 'nino' => 'National Insurance number', _ => 'VAT registration number' };
         return _ok({'kind': args['kind'], 'what': what, 'value': value, 'valid': valid, if (!valid) 'why': 'That is not a valid $what.'});
       case 'gb_tax_estimate':
-        return _ok(estimate);
+        return estimateProblems.isEmpty ? _ok(estimate) : _badAmount(estimateProblems);
       case 'gb_vat_return_check':
+        if (vatProblems.isNotEmpty) return _badAmount(vatProblems);
         final body = {'periodKey': '${args['periodKey']}', 'vatDueSales': 2000, 'vatDueAcquisitions': 0, 'totalVatDue': 2000, 'vatReclaimedCurrPeriod': 400, 'netVatDue': 1600, 'totalValueSalesExVAT': 10000, 'totalValuePurchasesExVAT': 2000, 'totalValueGoodsSuppliedExVAT': 0, 'totalAcquisitionsExVAT': 0, 'finalised': false};
         return _ok({
           'scheme': 'standard',
@@ -246,8 +379,8 @@ class GbFakeApi implements MycaApi {
           'body': {'periodDates': {'periodStartDate': args['periodStartDate'], 'periodEndDate': args['periodEndDate']}, 'periodIncome': {'turnover': 12000}, 'periodExpenses': {'consolidatedExpenses': 400}},
           'consolidated': true,
           'totals': {'income': 12000, 'expenses': 400, 'disallowable': 0, 'profit': 11600},
-          'problems': const [],
-          'ready': true,
+          'problems': quarterProblems,
+          'ready': quarterProblems.isEmpty,
         });
     }
     return {'ok': false, 'error': 'UNKNOWN_TOOL'};

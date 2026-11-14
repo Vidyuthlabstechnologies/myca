@@ -74,6 +74,8 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
 
   bool get _us => (AppScope.of(context).snapshot?.company.country ?? 'IN') == 'US';
 
+  bool get _uk => AppScope.of(context).edition == 'GB';
+
   bool get _ownsBooks {
     final role = AppScope.of(context).snapshot?.activeUser?.role;
     return role == 'owner' || role == 'admin';
@@ -245,7 +247,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       controller: _amount,
       autofocus: true,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: const InputDecoration(labelText: 'Reduce the bill by', prefixText: '₹ '),
+      decoration: InputDecoration(labelText: 'Reduce the bill by', prefixText: moneyPrefix),
     ),
     const SizedBox(height: 10),
     TextField(
@@ -309,12 +311,12 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     if (_us) return _submitUsDocument(amount);
     final rate = parseRate(_rate.text);
     if (amount == null) {
-      return setState(() => _formError = 'Enter the amount before GST.');
+      return setState(() => _formError = 'Enter the amount before $salesTaxName.');
     }
     if (rate == null) {
       return setState(
         () => _formError =
-            'Enter the GST rate, for example 5 or 18. Use 0 if there is none.',
+            _uk ? 'Enter the VAT rate, for example 20 or 5. Use 0 if there is none.' : 'Enter the GST rate, for example 5 or 18. Use 0 if there is none.',
       );
     }
     final tdsProblem = _sales ? null : _tds.problem();
@@ -332,7 +334,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       if ((args['partyGstin'] as String).isEmpty) args.remove('partyGstin');
       args.remove('supplierInvoiceNo');
       await propose(
-        '$what: ${rupees(amount)} + GST at ${rateLabel(rate)}%, ${(repeatEveryLabels[_repeat] ?? _repeat).toLowerCase()}',
+        '$what: ${rupees(amount)} + $salesTaxName at ${rateLabel(rate)}%, ${(repeatEveryLabels[_repeat] ?? _repeat).toLowerCase()}',
         'add_recurring',
         {
           ...args,
@@ -346,7 +348,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       return;
     }
     await propose(
-      '$what: ${rupees(amount)} + GST at ${rateLabel(rate)}%${!_sales && _tds.chosen ? ', TDS ${_tds.option.section}' : ''}',
+      '$what: ${rupees(amount)} + $salesTaxName at ${rateLabel(rate)}%${!_sales && _tds.chosen ? ', TDS ${_tds.option.section}' : ''}',
       _sales ? 'create_invoice' : 'create_purchase',
       {
         ...documentArgs(
@@ -388,12 +390,12 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     }
     final rate = parseRate(_rate.text);
     if (amount == null) {
-      return setState(() => _formError = 'Enter the amount before GST.');
+      return setState(() => _formError = 'Enter the amount before $salesTaxName.');
     }
     if (rate == null) {
       return setState(
         () => _formError =
-            'Enter the GST rate, for example 5 or 18. Use 0 if there is none.',
+            _uk ? 'Enter the VAT rate, for example 20 or 5. Use 0 if there is none.' : 'Enter the GST rate, for example 5 or 18. Use 0 if there is none.',
       );
     }
     setState(() => _composer = _Composer.none);
@@ -408,7 +410,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     if (_docKind != 'quote') args['kind'] = _docKind;
     if (_docKind == 'challan') args['reason'] = _challanReason;
     await propose(
-      '${salesDocumentLabel(_docKind)}: ${rupees(amount)} + GST at ${rateLabel(rate)}%${_docKind == 'challan' ? ' (${(challanReasonLabels[_challanReason] ?? _challanReason).toLowerCase()})' : ''}',
+      '${salesDocumentLabel(_docKind)}: ${rupees(amount)} + $salesTaxName at ${rateLabel(rate)}%${_docKind == 'challan' ? ' (${(challanReasonLabels[_challanReason] ?? _challanReason).toLowerCase()})' : ''}',
       'create_quote',
       args,
     );
@@ -795,13 +797,13 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                   : null,
               onDocument: () => _open(_Composer.document, party),
               onPayment: () => _open(_Composer.payment, party),
-              onTdsWithheld: _sales && !_us && party.unpaid.isNotEmpty
+              onTdsWithheld: _sales && !_us && !_uk && party.unpaid.isNotEmpty
                   ? () => _tdsWithheld(party)
                   : null,
               onQuote: _sales ? () => _open(_Composer.quote, party) : null,
               onDebitNote: !_sales && party.documents.any((d) => !d.cancelled) ? () => _open(_Composer.purchaseNote, party) : null,
               onTerms: _sales ? () => _setTerms(party) : null,
-              onSupplierTerms: !_sales && !_us && _ownsBooks ? () => _setSupplierTerms(party) : null,
+              onSupplierTerms: !_sales && !_us && !_uk && _ownsBooks ? () => _setSupplierTerms(party) : null,
             )
           else
             _ComposerCard(
@@ -989,10 +991,9 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
         controller: _billNo,
         textCapitalization: TextCapitalization.characters,
         inputFormatters: const [Utf16LengthLimit(16)],
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           labelText: 'Supplier\'s bill number',
-          helperText:
-              'As printed on the bill. It is how the bill is found in GSTR-2B.',
+          helperText: _uk ? 'As printed on the bill.' : 'As printed on the bill. It is how the bill is found in GSTR-2B.',
           counterText: '',
         ),
       ),
@@ -1007,9 +1008,9 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
             autofocus: true,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Amount before GST',
-              prefixText: '₹ ',
+            decoration: InputDecoration(
+              labelText: 'Amount before $salesTaxName',
+              prefixText: moneyPrefix,
             ),
           ),
         ),
@@ -1019,8 +1020,8 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
           child: TextField(
             controller: _rate,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'GST',
+            decoration: InputDecoration(
+              labelText: salesTaxName,
               suffixText: '%',
             ),
           ),
@@ -1091,7 +1092,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       decoration: InputDecoration(
         labelText: _sales ? 'Amount received' : 'Amount paid',
-        prefixText: '₹ ',
+        prefixText: moneyPrefix,
       ),
     ),
     const SizedBox(height: 10),
