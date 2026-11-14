@@ -6,7 +6,7 @@ import { quarterlyPeriods, mtdItMandate, selfEmploymentCumulative, ukPropertyCum
 import { checkGbIdentifier, utrValid, ninoValid, vrnValid, normaliseUtr, normaliseNino, normaliseVrn } from './identifiers.mjs';
 import { parseTaxYear, gbMoney, monthEndPlus } from './rules.mjs';
 import { amendmentWindowCloses, declarationFor } from './declarations.mjs';
-import { createGbInvoice, createGbPurchase, gbDocumentPreview, vatLinesFromBooks } from './books.mjs';
+import { createGbInvoice, createGbPurchase, gbDocumentPreview, vatLinesFromBooks, createGbCreditNote, cancelGbInvoice, gbCreditNotePreview } from './books.mjs';
 import {
   hmrcStatus, hmrcHistory, startHmrcConnection, finishHmrcConnection, disconnectHmrc, syncHmrc, submitGbVatReturn, submitGbItsaUpdate,
   triggerGbCalculation, submitGbFinalDeclaration, calculationBlockers,
@@ -93,6 +93,8 @@ export const ENGINE = Object.freeze({
   books: Object.freeze({
     create_invoice: Object.freeze({ run: (state, args = {}) => createGbInvoice(state, args), preview: (state, args = {}) => gbDocumentPreview(state, args, 'sale') }),
     create_purchase: Object.freeze({ run: (state, args = {}) => createGbPurchase(state, args), preview: (state, args = {}) => gbDocumentPreview(state, args, 'purchase') }),
+    create_credit_note: Object.freeze({ run: (state, args = {}) => createGbCreditNote(state, args), preview: (state, args = {}) => gbCreditNotePreview(state, args, false) }),
+    cancel_invoice: Object.freeze({ run: (state, args = {}) => cancelGbInvoice(state, args), preview: (state, args = {}) => gbCreditNotePreview(state, args, true) }),
   }),
   run: Object.freeze({
     connect_gb_hmrc: (state, args = {}) => startHmrcConnection(state, args),
@@ -118,8 +120,8 @@ export const ENGINE = Object.freeze({
         if (!books.ok) return books;
         const out = buildVatReturn({ scheme: profile.vatScheme, flatRateBasisPoints: profile.flatRateBasisPoints, ...args, sales: books.sales, purchases: books.purchases });
         if (!out.ok) return out;
-        const notes = [...out.data.notes, `Built from ${books.documents} invoices and bills in the books from ${args.from} to ${args.to}.`, ...(books.skipped ? [`${books.skipped} documents in this period were not made in the UK edition and are left out.`] : [])];
-        return { ...out, data: { ...out.data, notes, fromBooks: { from: args.from, to: args.to, documents: books.documents, skipped: books.skipped } } };
+        const notes = [...out.data.notes, `Built from ${books.documents} invoices and bills${books.creditNotes ? ` and ${books.creditNotes} credit notes` : ''} in the books from ${args.from} to ${args.to}.`, ...(books.skipped ? [`${books.skipped} documents in this period were not made in the UK edition and are left out.`] : [])];
+        return { ...out, data: { ...out.data, notes, fromBooks: { from: args.from, to: args.to, documents: books.documents, creditNotes: books.creditNotes, skipped: books.skipped } } };
       }
       return buildVatReturn({ scheme: profile.vatScheme, flatRateBasisPoints: profile.flatRateBasisPoints, ...args });
     },

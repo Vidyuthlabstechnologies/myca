@@ -8,7 +8,7 @@ import 'uae_walks.dart';
 void main() {
   tearDown(() => moneyCountry = 'IN');
 
-  for (final walk in uaeWalks.entries) {
+  for (final walk in {...uaeWalks, ...uaeEntryWalks}.entries) {
     for (final language in ['en', 'ar']) {
       for (final (label, size) in uaeSizes) {
         testWidgets('${walk.key} $language at $label lays out without overflow', (tester) async {

@@ -96,6 +96,7 @@ class _UaeCtEstimateScreenState extends State<UaeCtEstimateScreen> {
         ...amounts,
         'electSmallBusinessRelief': _sbr,
         'qualifyingFreeZonePerson': _qfzp,
+        if (UaeStrings.of(context).ar) 'lang': 'ar',
       });
       data = toolData(result);
       problems = uaeProblems(result);

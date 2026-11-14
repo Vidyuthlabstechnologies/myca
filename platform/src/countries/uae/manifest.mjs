@@ -1,9 +1,11 @@
-const schema = (properties = {}, required = []) => Object.freeze({ type: 'object', additionalProperties: false, properties: Object.freeze(properties), ...(required.length ? { required: Object.freeze(required) } : {}) });
+const schema = (properties = {}, required = []) => Object.freeze({ type: 'object', additionalProperties: false, properties: Object.freeze({ ...properties, lang: Object.freeze({ type: 'string', enum: Object.freeze(['en', 'ar']) }) }), ...(required.length ? { required: Object.freeze(required) } : {}) });
 const object = { type: 'object' };
 const list = { type: 'array', items: { type: 'object' } };
 const text = { type: 'string' };
 const number = { type: 'number' };
 const flag = { type: 'boolean' };
+const saleLine = { type: 'array', items: { type: 'object', additionalProperties: false, properties: { description: text, qty: number, rate: number, treatment: { type: 'string', enum: ['standard', 'zero-rated', 'exempt', 'out-of-scope'] } } } };
+const billLine = { type: 'array', items: { type: 'object', additionalProperties: false, properties: { description: text, qty: number, rate: number, treatment: { type: 'string', enum: ['standard', 'reverse-charge', 'import', 'import-adjustment', 'zero-rated', 'exempt', 'out-of-scope'] }, vat: number, blocked: flag, recoveryBasisPoints: number } } };
 const einvoiceFields = { type: text, number: text, issueDate: text, dueDate: text, currency: text, exchangeRate: number, buyer: object, seller: object, lines: list, original: object, transaction: object, paymentMeans: text, reverseChargeNarrative: text };
 
 export const MANIFEST = Object.freeze({
@@ -57,6 +59,12 @@ export const MANIFEST = Object.freeze({
       schema: schema({ kind: { type: 'string', enum: ['vat-late-return', 'vat-late-payment', 'ct-late-return', 'ct-late-payment'] }, dueDate: text, doneOn: text, taxUnpaid: number, repeatWithin24Months: flag }, ['kind', 'dueDate']),
     }),
     Object.freeze({
+      name: 'ae_vat_lines', title: 'VAT lines from the books',
+      description: 'The UAE sales, credit notes and purchase bills of one VAT period, as the lines ae_vat_return totals: each with its VAT treatment, emirate, net and VAT and the document it came from. Read-only.',
+      access: 'read',
+      schema: schema({ period: text }, ['period']),
+    }),
+    Object.freeze({
       name: 'ae_vat_registration', title: 'Must I register for UAE VAT?',
       description: 'Compare the last twelve months of taxable supplies, and those expected in the next 30 days, with the AED 375,000 mandatory and AED 187,500 voluntary thresholds. Read-only.',
       access: 'read',
@@ -64,9 +72,27 @@ export const MANIFEST = Object.freeze({
     }),
     Object.freeze({
       name: 'ae_vat_return', title: 'Prepare the UAE VAT return',
-      description: 'Fill the VAT 201 boxes for one tax period (written 2026-01/2026-03 or 2026-Q1) from sale and purchase lines: standard-rated sales by emirate, reverse charge, zero-rated, exempt, imports, recoverable input tax, and the payable or refundable total with the due date 28 days after the period. The business files it on EmaraTax. Read-only.',
+      description: 'Fill the VAT 201 boxes for one tax period (written 2026-01/2026-03 or 2026-Q1) from the books (fromBooks true), from sale and purchase lines, or both: standard-rated sales by emirate, reverse charge, zero-rated, exempt, imports, recoverable input tax, and the payable or refundable total with the due date 28 days after the period. The business files it on EmaraTax. Read-only.',
       access: 'read',
-      schema: schema({ period: text, lines: list, touristRefunds: object, customsImports: object, annualTurnover: number }, ['period', 'lines']),
+      schema: schema({ period: text, fromBooks: flag, lines: list, touristRefunds: object, customsImports: object, annualTurnover: number }, ['period']),
+    }),
+    Object.freeze({
+      name: 'create_ae_credit_note', title: 'UAE credit note',
+      description: 'Reduce a posted UAE sales invoice by a credit note (the rest of it when no amount is given), reversing sales and output VAT in proportion. The invoice is never edited.',
+      access: 'write',
+      schema: schema({ invoiceId: text, amount: number, date: text, reason: text }, ['invoiceId', 'reason']),
+    }),
+    Object.freeze({
+      name: 'create_ae_invoice', title: 'UAE sales invoice',
+      description: 'Post a UAE tax invoice: receivable, sales and 5% output VAT on standard-rated lines (zero-rated, exempt and out-of-scope lines carry none), reported in the VAT 201 box of the emirate it was made from. Foreign currency needs the AED exchange rate.',
+      access: 'write',
+      schema: schema({ id: text, partyName: text, buyerTrn: text, emirate: text, date: text, currency: text, exchangeRate: number, paymentTermsDays: number, partyAddress: text, lines: saleLine }, ['lines']),
+    }),
+    Object.freeze({
+      name: 'create_ae_purchase', title: 'UAE purchase bill',
+      description: 'Book a supplier bill: cost, recoverable input VAT and the supplier payable. Reverse-charge and import lines account for VAT both ways; blocked VAT (entertainment, private cars) is cost. Input VAT needs the supplier TRN.',
+      access: 'write',
+      schema: schema({ id: text, partyName: text, supplierTrn: text, supplierInvoiceNo: text, date: text, currency: text, exchangeRate: number, lines: billLine }, ['lines']),
     }),
     Object.freeze({
       name: 'issue_ae_einvoice', title: 'Issue a UAE e-invoice',
