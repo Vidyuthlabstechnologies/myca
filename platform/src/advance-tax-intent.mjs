@@ -17,6 +17,6 @@ export function planAdvanceTaxFromChat(state, text) {
   if (!ASK.test(raw)) return null;
   const args = {};
   if (/\bold\s+regime\b/i.test(raw)) args.regime = 'old';
-  if (/\bpresumptive\b|\b44ad\b|\bsection\s+58\b/i.test(raw)) args.presumptive = true;
+  if (/\bpresumptive\b|\b44ada?\b|\bsection\s+58\b/i.test(raw)) args.presumptive = true;
   return { kind: 'tool', name: 'advance_tax', args };
 }

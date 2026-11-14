@@ -1,37 +1,63 @@
+export const LEGAL_INDIA = Object.freeze({
+  company: 'ML Dynamic Solutions Private Limited',
+  cin: '[CIN, to be filled before release]',
+  registeredOffice: '606, 6th Floor, Gowra Fountainhead, Patrika Nagar, Madhapur, HITEC City, Hyderabad, Telangana 500081 [confirm this is the registered office]',
+  supportEmail: '[support email, to be filled before release]',
+  grievanceOfficer: Object.freeze({
+    name: '[Grievance Officer name, to be appointed before release]',
+    designation: 'Grievance Officer',
+    email: '[grievance email, to be filled before release]',
+    phone: '[phone, optional]',
+  }),
+  replyWithinDays: 30,
+  acknowledgeWithinHours: 48,
+});
+
 export const PRIVACY_NOTICE = {
   document: 'privacy',
-  version: 'draft-2026-11-14',
+  version: 'india-2026-11-14',
+  region: 'IN',
+  requiresAdult: true,
   title: 'How MyCA uses your information',
   status: 'Draft for legal review. Not yet approved for release.',
-  controller: 'ML Dynamic Solutions Private Limited, 606, 6th Floor, Gowra Fountainhead, Patrika Nagar, Madhapur, HITEC City, Hyderabad, Telangana 500081',
+  controller: `${LEGAL_INDIA.company}, ${LEGAL_INDIA.registeredOffice}`,
+  contact: LEGAL_INDIA,
   sections: [
     {
       heading: 'Who we are',
-      body: 'MyCA is provided by ML Dynamic Solutions Private Limited, Hyderabad. We decide why and how your information is used, and we are responsible for it.',
+      body: `MyCA is software provided by ${LEGAL_INDIA.company} (CIN ${LEGAL_INDIA.cin}), ${LEGAL_INDIA.registeredOffice}. We are the data fiduciary for your account: we decide why and how your information is used, and we are responsible for it. For the people named in your books, such as your customers, suppliers and staff, you decide what is recorded and we process it for you. MyCA is not a firm of Chartered Accountants and does not give tax or legal advice.`,
     },
     {
-      heading: 'What we collect',
-      body: 'Your mobile number, or the name and email address of the Google account you choose, to sign you in. Your name, so people you work with know who recorded what. The books of the businesses you keep in MyCA: invoices, bills, expenses, receipts and payments, the customers and suppliers named in them, and files you upload. Which phone you signed in on, and a record of every change made to the books and by whom. Crash reports, with names, amounts, GSTINs and phone numbers removed, only if you switch them on. Which setup steps you have reached in the app, such as adding a business, starting a trial or paying, with no names or amounts, and the invite code you joined with, if any, so we can see where people get stuck.',
+      heading: 'What we collect, and why',
+      body: 'Each item is used only for the purpose next to it. Your mobile number, or the name and email of the Google account you choose: to sign you in and keep your account secure. Your name: so the people you work with see who recorded what. A random id for each phone you sign in on: so you can see and sign out your devices. The books of your businesses (invoices, bills, expenses, payroll, bank lines, tax figures, GSTIN and PAN, and the customers, suppliers and staff named in them) and the files you upload: to keep your books, prepare and, when you confirm, file your returns, and remind you of due dates. Messages you send the assistant: to carry out what you ask. Your Google Play subscription: to know which plan you have paid for. Crash reports, only if you switch them on, with names, amounts, GSTINs and phone numbers removed: to fix the app. Which setup steps you reach, with no names or amounts, and the invite code you joined with: to see in totals where people get stuck. A record of every change to the books and who looked at them: for security and so you can check it. We do not collect location, contacts, SMS or advertising ids, and we do not sell your information or use it for advertising.',
     },
     {
-      heading: 'Why we use it',
-      body: 'To keep your books, prepare your GST figures, remind you of due dates, let the people you invite work with you, keep your account secure, fix problems in the app, and see in totals across everyone where people get stuck. We do not sell your information or use it for advertising.',
+      heading: 'Who we share it with',
+      body: 'Only what a feature needs, and only when you use it. Members you invite to a business see what their role allows. Google checks a Google sign-in and a Play subscription. The SMS provider receives your number and the code, for phone sign-in. The GST Suvidha Provider (Quicko) receives the return, your GSTIN and the OTP step, when you file a GST return or make an e-way bill. The NIC e-invoice and e-way bill systems receive the invoice, when you make an IRN or e-way bill. The language model provider receives the text of a chat message that matches no built-in action and the bill you ask MyCA to read, only when the service has a model switched on; it never works out a figure. The WhatsApp gateway and the email relay receive the message and the recipient, when you send one. Services you connect yourself receive what that connection syncs. Google Cloud hosts everything on our behalf. Nobody else, unless the law requires it.',
     },
     {
       heading: 'Where it is kept',
-      body: 'On servers in India. MyCA does not file returns or send anything to the government or anyone else unless you confirm it first.',
+      body: 'Your account and books are stored on Google Cloud servers in Mumbai, India, and our logs are kept in India. Two features can send information outside India, and only when you use them: the language model provider, which may process a chat message or a bill in the United States, and the email relay, which runs on a worldwide network. MyCA does not file a return or send anything to the government unless you confirm it first.',
     },
     {
       heading: 'How long we keep it',
-      body: 'While you use MyCA. Tax and company law may require business records to be kept for a number of years after a period ends; where they do, the books are kept for that time and then deleted. [Retention periods to be confirmed by counsel.]',
+      body: 'While you use MyCA. When you delete a business or your account it disappears from the app at once and is erased for good thirty days later; signing in again within those thirty days cancels an account deletion. Backups age out within fourteen days after that. Security logs and the record of who looked at your books are kept for one year, as the law asks. Tax law asks you, the taxpayer, to keep your records for six years or more, so download a copy before you delete; the download is free and complete. [Retention periods to be confirmed by counsel.]',
     },
     {
-      heading: 'Your rights',
-      body: 'You can ask to see the information we hold about you, correct it, or have it erased, and you can withdraw this consent at any time by deleting your account in the app. Withdrawing does not affect what was done before. You can complain to our Grievance Officer, and if you are not satisfied, to the Data Protection Board of India.',
+      heading: 'Your rights and how to use them',
+      body: `Under the Digital Personal Data Protection Act, 2023 you can ask what we hold and who we shared it with, have it corrected, completed or erased, withdraw this consent, nominate someone to act for you if you die or cannot act, and complain. In the app: Settings, then Your privacy rights, where every request gets a reference number. You can also write to the Grievance Officer below. We acknowledge within ${LEGAL_INDIA.acknowledgeWithinHours} hours and reply within ${LEGAL_INDIA.replyWithinDays} days. You withdraw consent by deleting your account in Settings, as easily as you gave it; withdrawing does not affect what was done before. If you are not satisfied with our answer, you can complain to the Data Protection Board of India.`,
+    },
+    {
+      heading: 'Age',
+      body: 'MyCA is for people aged 18 or over who keep books for a business. Please do not use it if you are under 18.',
+    },
+    {
+      heading: 'If something goes wrong',
+      body: 'If your information is ever exposed in a breach, we will tell you without delay inside the app and by email where we have it, with what happened, what it means for you and what you can do, and we will report it to the Data Protection Board of India and to CERT-In as the law requires.',
     },
     {
       heading: 'Contact',
-      body: 'Grievance Officer: [Name], [email], ML Dynamic Solutions Private Limited, Hyderabad. [To be appointed before release.]',
+      body: `${LEGAL_INDIA.grievanceOfficer.designation}: ${LEGAL_INDIA.grievanceOfficer.name}, ${LEGAL_INDIA.grievanceOfficer.email}, ${LEGAL_INDIA.company}, ${LEGAL_INDIA.registeredOffice}. Support: ${LEGAL_INDIA.supportEmail}.`,
     },
   ],
 };
@@ -85,11 +111,17 @@ export const PRIVACY_NOTICE_US = {
 
 const NOTICES = [PRIVACY_NOTICE, PRIVACY_NOTICE_US];
 
+export function legalLinks(siteUrl) {
+  const base = String(siteUrl || '').trim().replace(/\/+$/, '');
+  if (!/^https:\/\/[^\s/]+/.test(base)) return {};
+  return { privacy: `${base}/privacy`, terms: `${base}/terms`, refunds: `${base}/refunds`, disclaimer: `${base}/disclaimer`, grievance: `${base}/grievance`, deleteAccount: `${base}/delete-account` };
+}
+
 export function noticeFor(region) {
   return String(region || '').toUpperCase() === 'US' ? PRIVACY_NOTICE_US : PRIVACY_NOTICE;
 }
 
-const EXEMPT = new Set(['GET me', 'DELETE me', 'POST me/consent', 'POST crash-reports', 'GET reference/states']);
+const EXEMPT = new Set(['GET me', 'DELETE me', 'POST me/consent', 'POST crash-reports', 'GET reference/states', 'GET me/privacy-requests', 'POST me/privacy-requests']);
 
 export function consentExempt(method, parts) {
   return EXEMPT.has(`${method} ${parts.slice(1).join('/')}`);
@@ -114,10 +146,13 @@ export function createConsent({ db, now = () => Date.now() }) {
       if (!notice) {
         return { ok: false, error: 'NOTICE_CHANGED', version: PRIVACY_NOTICE.version };
       }
+      if (notice.requiresAdult && body.adult !== true) {
+        return { ok: false, error: 'ADULT_REQUIRED', hint: 'Confirm that you are 18 or over to use MyCA. If the box is missing, update the app.' };
+      }
       await db.query(
-        `insert into consents (user_id, document, version, device_id, accepted_at) values ($1, $2, $3, $4, $5)
+        `insert into consents (user_id, document, version, device_id, accepted_at, adult_declared) values ($1, $2, $3, $4, $5, $6)
          on conflict (user_id, document, version) do nothing`,
-        [userId, notice.document, notice.version, deviceId || null, new Date(now())],
+        [userId, notice.document, notice.version, deviceId || null, new Date(now()), body.adult === true],
       );
       return { ok: true, document: notice.document, version: notice.version };
     },

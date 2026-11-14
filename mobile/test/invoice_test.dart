@@ -116,6 +116,29 @@ void main() {
     expect(withQr.length, greaterThan(plain.length));
   });
 
+  test('an e-invoice PDF carries the IRN, ack and signed QR, the reverse-charge line and the bill of supply title', () async {
+    final api = FakeMycaApi(signedIn: true);
+    final json = await api.query('invoice_document', {'id': 'INV-0002'}) as Map<String, dynamic>;
+    final data = Map<String, dynamic>.from(json['data'] as Map);
+    data['documentTitle'] = 'Tax invoice';
+    data['reverseChargeLine'] = 'Tax payable on reverse charge: No';
+    data['einvoice'] = {'status': 'issued', 'irn': 'a' * 64, 'ackNo': '112010036563310', 'ackDate': '2026-10-03 11:05:00', 'signedQrCode': 'eyJhbGciOiJSUzI1NiJ9.signed.qr', 'why': ''};
+    final doc = InvoiceDocument.fromTool({'ok': true, 'data': data})!;
+    expect(doc.einvoice!.onPdf, isTrue);
+    expect(doc.einvoice!.valid, isTrue);
+    expect(doc.statutoryLines, ['Tax payable on reverse charge: No']);
+    final withIrn = await buildInvoicePdf(doc, regular: fontBytes(invoiceFontRegular), bold: fontBytes(invoiceFontBold));
+    data['einvoice'] = {'status': 'ready', 'irn': '', 'why': ''};
+    final plain = await buildInvoicePdf(InvoiceDocument.fromTool({'ok': true, 'data': data})!, regular: fontBytes(invoiceFontRegular), bold: fontBytes(invoiceFontBold));
+    expect(withIrn.length, greaterThan(plain.length));
+    data['einvoice'] = {'status': 'sandbox', 'irn': 'b' * 64, 'ackNo': '1', 'signedQrCode': 'sandbox.qr', 'why': ''};
+    expect(InvoiceDocument.fromTool({'ok': true, 'data': data})!.einvoice!.valid, isFalse);
+    data['documentTitle'] = 'Bill of supply';
+    expect(InvoiceDocument.fromTool({'ok': true, 'data': data})!.title, 'Bill of supply');
+    data.remove('documentTitle');
+    expect(InvoiceDocument.fromTool({'ok': true, 'data': data})!.title, 'Tax invoice');
+  });
+
   test('the invoice design from the server is read, with the standard design when none is set', () {
     final design = InvoiceTemplate.fromJson({'accent': '#1d4ed8', 'layout': 'minimal', 'signatory': 'Asha Rao', 'footer': 'Thank you', 'terms': 'Net 30', 'bankWords': 'HDFC Bank, A/c 50100123456789, IFSC HDFC0001234', 'showHsn': false});
     expect(design.accent, 0xFF1D4ED8);

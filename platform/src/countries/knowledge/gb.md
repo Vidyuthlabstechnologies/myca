@@ -105,3 +105,54 @@ needed to offer software. Books plus quarterly updates fit what MyCA already doe
 - Whether a UK-qualified reviewer is wanted, which brings adviser registration.
 - The National Insurance and income tax computation is not needed for quarterly updates but is
   needed for the final declaration; HMRC's API returns its own calculation, which MyCA can show.
+
+## Rates and HMRC API facts checked on 2026-11-14
+
+Read from GOV.UK, gov.scot and the HMRC Developer Hub API specifications on 2026-11-14 for the
+UK engine (`platform/src/countries/united-kingdom/`, rules `gb.*` in `sprints/statutory-rules`).
+
+- Personal allowance £12,570, frozen to April 2031; basic band £37,700; additional rate from
+  £125,140. Class 4 6% between £12,570 and £50,270, 2% above. Class 2 is voluntary: £3.50 a week
+  and small profits threshold £6,845 in 2025-26; £3.65 and £7,105 in 2026-27. Blind person's
+  allowance £3,130 then £3,250.
+  Source: https://www.gov.uk/government/publications/rates-and-allowances-income-tax/income-tax-rates-and-allowances-current-and-past
+  and https://www.gov.uk/self-employed-national-insurance-rates
+- Scottish bands 2026-27 (gross income): starter 19% to £16,537, basic 20% to £29,526,
+  intermediate 21% to £43,662, higher 42% to £75,000, advanced 45% to £125,140, top 48%.
+  Source: https://www.gov.scot/publications/scottish-income-tax-2026-2027/
+- Dividend allowance £500; dividend rates 10.75%, 35.75% and 39.35% from 6 April 2026. From
+  6 April 2027 savings rates become 22%, 42% and 47%, a separate property income rate of 22%,
+  42% and 47% starts in England, Wales and Northern Ireland, and allowances are set against
+  other income before property, savings and dividends. The engine has no 2027-28 rules yet.
+  Source: https://www.gov.uk/government/publications/budget-2025-overview-of-tax-legislation-and-rates-ootlar
+- CGT 18% and 24%, annual exempt amount £3,000; Business Asset Disposal Relief 14% in 2025-26
+  and 18% from 6 April 2026. Source: https://www.gov.uk/capital-gains-tax/rates
+- Student loans 2025-26: Plan 1 £26,065, Plan 2 £28,470, Plan 4 £32,745, Postgraduate £21,000;
+  Plan 5 repayments start April 2026. 2026-27: Plan 1 £26,900, Plan 2 £29,385, Plan 4 £33,795,
+  Plan 5 £25,000, Postgraduate £21,000. 2027-28: Plan 5 £26,025 (SLC, 12 November 2026), Plan 2
+  and Postgraduate frozen. Source: https://www.gov.uk/repaying-your-student-loan/what-you-pay
+- High Income Child Benefit Charge from £60,000, full at £80,000. VAT registration £90,000,
+  deregistration £88,000.
+- Penalties: no penalty points for late MTD Income Tax quarterly updates in 2026-27. Late
+  payment penalties for MTD Income Tax are 3% at day 15, 3% at day 30 and 10% a year from day
+  31 in 2026-27, rising to 4% and 4% in 2027-28; VAT late payment penalties also rise from
+  1 April 2027 (rates not yet found). Late payment interest is base rate plus 4%: 7.75%, then
+  8.00% from 24 November 2026.
+  Source: https://www.gov.uk/government/publications/rates-and-allowances-hmrc-interest-rates-for-late-and-early-payments
+- ICO data protection fee since 17 February 2025: £52, £78 and £3,763 by tier, £5 less by
+  Direct Debit. Source: https://ico.org.uk/for-organisations/data-protection-fee/
+- HMRC API versions: VAT (MTD) 1.0, Business Details 2.0, Obligations 3.0, Self-Employment
+  Business 5.0, Property Business 6.0, Individual Calculations 8.0 (9.0 is sandbox only), Test
+  Fraud Prevention Headers 1.0; Accept `application/vnd.hmrc.X.Y+json`. Access tokens last 4
+  hours; refresh tokens are single-use and expire after 18 months. Rate limit 3 requests a
+  second per application. The mobile connection method needs 18 fraud prevention headers, and
+  Gov-Vendor-Version needs an entry for the app and one for the server.
+  Source: https://developer.service.hmrc.gov.uk/api-documentation/docs/api and
+  https://developer.service.hmrc.gov.uk/guides/fraud-prevention/connection-method/mobile-app-via-server/
+- Launch timing: every MTD Income Tax API page says HMRC is no longer accepting production
+  credential requests for new 2026-27 quarterly update products because the market window has
+  closed. A new product can go live for quarterly updates from the 2027-28 window. MTD VAT has no
+  such window. Source: https://developer.service.hmrc.gov.uk/api-documentation/docs/api/service/self-employment-business-api/5.0
+- Not published by HMRC: the UTR and VAT number check-digit algorithms. The engine uses the
+  widely used public versions (UTR weights 6,7,8,9,10,5,4,3,2 with the table 21987654321; VAT
+  modulus 97 and the 9755 variant).

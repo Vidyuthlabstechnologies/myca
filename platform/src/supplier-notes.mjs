@@ -27,9 +27,10 @@ export function planSupplierNote(state, args = {}) {
   const supplierNoteNo = String(args.supplierNoteNo || '').trim();
   if (supplierNoteNo.length > 16) return { ok: false, error: 'SUPPLIER_NUMBER_TOO_LONG', supplierNoteNo };
   const company = state.company || {};
-  const supplierState = partyStateOf(bill.partyGstin) || bill.partyState || company.state;
-  const lines = settle(scaledLines(bill, requested / Number(bill.total), { supplierState, partyState: bill.registrationState || company.state }), requested);
-  const totals = totalsOf(lines);
+  const reverseCharge = Boolean(bill.reverseCharge);
+  const supplierState = bill.reverseCharge?.kind === 'import' ? '96' : partyStateOf(bill.partyGstin) || bill.partyState || company.state;
+  const lines = settle(scaledLines(bill, requested / Number(bill.total), { supplierState, partyState: bill.registrationState || company.state }), requested, reverseCharge ? 'taxable' : 'amount');
+  const totals = totalsOf(lines, { reverseCharge });
   const itcEligible = bill.itcEligible !== false;
   return { ok: true, plan: { bill, date, reason, supplierNoteNo, lines, ...totals, itcEligible, alreadyAdded: round2(supplierNotesAgainst(state, billId).reduce((sum, note) => sum + Number(note.total || 0), 0)) } };
 }
@@ -45,6 +46,7 @@ export function recordSupplierNote(state, args = {}) {
     date: plan.date,
     supplierInvoiceNo: plan.supplierNoteNo,
     itcEligible: plan.itcEligible,
+    ...(plan.bill.reverseCharge ? { reverseCharge: true, ...(plan.bill.reverseCharge.originCountry ? { originCountry: plan.bill.reverseCharge.originCountry } : {}), ...(plan.bill.partyAddress ? { partyAddress: plan.bill.partyAddress } : {}) } : {}),
     lines: plan.lines.map((line) => ({ description: line.description, hsn: line.hsn, qty: 1, rate: line.taxable, gstRate: line.gstRate })),
   });
   if (!created.ok) return created;

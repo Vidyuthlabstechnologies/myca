@@ -22,7 +22,8 @@ import { assertSecret } from './tokens.mjs';
 import { createBodyBudget, defaultBodyBudgetBytes } from './body-budget.mjs';
 import { createCrashReports } from './crash-reports.mjs';
 import { createGrowth } from './growth.mjs';
-import { PRIVACY_NOTICE, consentExempt, createConsent, noticeFor } from './consent.mjs';
+import { PRIVACY_NOTICE, consentExempt, createConsent, legalLinks, noticeFor } from './consent.mjs';
+import { createPrivacyRequests } from './privacy-requests.mjs';
 import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
 import { createOidcVerifier } from './oidc.mjs';
@@ -39,7 +40,7 @@ import { chatText } from './chat-text.mjs';
 import { htmlEscape } from '../../platform/src/text-safe.mjs';
 import { DEMO_BLOCKED_ACTIONS, seedDemo } from './demo.mjs';
 import { createRateLimits, LIMITS } from './rate-limits.mjs';
-import { ENGINE_WRITE_TOOLS } from '../../platform/src/countries/manifests.mjs';
+import { ENGINE_WRITE_TOOLS, ENGINE_PROVIDER_TOOLS, ENGINE_ADDRESS_TOOLS } from '../../platform/src/countries/manifests.mjs';
 
 const INDIA_OFFSET_MS = 330 * 60 * 1000;
 
@@ -346,6 +347,10 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
 
   // Confirming a US filing: the server names the business for the e-file partner's webhook
   // (whatever proposed it, app or chat), and the call runs at the service's provider setting.
+  function asEngineProviderCall(session, run) {
+    return ENGINE_PROVIDER_TOOLS.includes(session.state.pendingChatAction?.name) ? withProviderContext({ environment: serviceProviderEnvironment() }, run) : run();
+  }
+
   function asUsFiling(session, businessId, run) {
     const pending = session.state.pendingChatAction;
     if (pending?.name === US_FILE_TOOL) pending.args = { ...(pending.args || {}), partnerScope: businessId };
@@ -375,6 +380,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const rateLimits = createRateLimits({ db, now, limits: limitsGiven });
   const whatsApp = createWhatsApp({ db, withBooks, billing, withSharedBooks: runner.withSharedBooks, syncOf, rateLimits, config: whatsapp, sender: whatsappSender, now, log });
   const consent = createConsent({ db, now });
+  const privacyRequests = createPrivacyRequests({ db, now });
   const recordAccess = createAccessLog(db);
   const isAdmin = (userId) => {
     const listed = typeof adminUserIds === 'function' ? adminUserIds() : adminUserIds;
@@ -446,7 +452,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (!database) throw httpError(503, 'DATABASE_UNAVAILABLE', { environment, providerMode: providerMode(), database: 'unreachable' });
       return { ok: true, environment, providerMode: providerMode(), database: 'ok', version };
     }
-    if (parts[1] === 'privacy-notice' && parts.length === 2 && method === 'GET') return { ok: true, notice: noticeFor(url.searchParams.get('region')) };
+    if (parts[1] === 'privacy-notice' && parts.length === 2 && method === 'GET') return { ok: true, notice: { ...noticeFor(url.searchParams.get('region')), links: legalLinks(growthConfig.siteUrl ?? process.env.MYCA_SITE_URL ?? '') } };
     if (parts[1] === 'plans' && parts.length === 2 && method === 'GET') return billing.plans();
     if (parts[1] === 'billing' && parts[2] === 'play' && parts[3] === 'notify' && parts.length === 4 && method === 'POST') {
       if (url.searchParams.has('token')) throw httpError(401, 'TOKEN_IN_QUERY', { hint: `Send the token in the ${PLAY_NOTIFY_HEADER} header, or use Pub/Sub push authentication.` });
@@ -591,6 +597,28 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
 
     if (parts[1] === 'me' && parts[2] === 'consent' && parts.length === 3 && method === 'POST') {
       return consent.accept(user.userId, user.deviceId, await readJson(req));
+    }
+
+    if (parts[1] === 'me' && parts[2] === 'privacy-requests' && parts.length === 3) {
+      if (method === 'GET') return privacyRequests.mine(user.userId);
+      if (method === 'POST') {
+        await throttle('privacyRequest', user.userId);
+        return privacyRequests.create(user.userId, await readJson(req));
+      }
+      throw httpError(404, 'NOT_FOUND');
+    }
+
+    if (parts[1] === 'admin' && parts[2] === 'privacy-requests') {
+      if (!isAdmin(user.userId)) throw httpError(404, 'NOT_FOUND');
+      if (parts.length === 3 && method === 'GET') {
+        log({ requestId, admin: 'privacy-requests', userId: user.userId });
+        return privacyRequests.queue({ openOnly: url.searchParams.get('all') !== '1' });
+      }
+      if (parts.length === 4 && method === 'POST') {
+        log({ requestId, admin: 'privacy-request-answer', userId: user.userId, reference: parts[3] });
+        return privacyRequests.answer(parts[3], await readJson(req));
+      }
+      throw httpError(404, 'NOT_FOUND');
     }
 
     if (parts[1] === 'me' && parts[2] === 'second-step') {
@@ -907,7 +935,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (action === 'invitations') {
         const team = await billing.allows(businessId, 'team');
         if (!team.ok) return team;
-        const seats = await billing.withinLimit(businessId, 'members', (await businesses.members(businessId)).length);
+        const seats = await billing.withinLimit(businessId, 'members', (await businesses.members(businessId)).length + (await members.seatsHeld(businessId, body.phone)));
         if (!seats.ok) return seats;
         return members.invite(businessId, context, body);
       }
@@ -966,7 +994,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           if (!paid.ok) return paid;
         }
         if (!PROPOSABLE.has(name)) throw httpError(400, 'NOT_PROPOSABLE', { tool: name });
-        const proposed = name === 'sign_us_return' ? withRequestAddress(args, clientAddress(req)) : name === US_FILE_TOOL ? { ...args, partnerScope: businessId } : args;
+        const proposed = name === 'sign_us_return' || ENGINE_ADDRESS_TOOLS.includes(name) ? withRequestAddress(args, clientAddress(req)) : name === US_FILE_TOOL ? { ...args, partnerScope: businessId } : args;
         return withBooks(businessId, context, (session) => session.propose(name, proposed, actor));
       }
       if (action === 'confirm') {
@@ -976,7 +1004,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           // Requests run with provider calls off; filing a US return is the one confirm that may
           // reach the IRS or the e-file partner, at the service's own provider setting.
           if (session.state.pendingChatAction?.name === US_FILE_TOOL) return asUsFiling(session, businessId, () => session.confirm(body.token, actor));
-          return session.confirm(body.token, actor);
+          return asEngineProviderCall(session, () => session.confirm(body.token, actor));
         });
       }
       if (action === 'discard') return withBooks(businessId, context, (session) => session.discard(actor));

@@ -2,7 +2,7 @@ import { createInvoice } from './invoice.mjs';
 import { createCreditNote, outstandingOf } from './credit-notes.mjs';
 import { createAccounts, createTransfers, paise, TRANSFER_FLAGS } from './ledger.mjs';
 import { gstin as gstinRules } from './sprint-load.mjs';
-import { isoDate, postingDate, localToday } from './dates.mjs';
+import { postingDate, localToday, reportDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { CHANNELS } from './settlements.mjs';
 import { recordOrderStockMoves } from './sku-margins.mjs';
@@ -127,7 +127,7 @@ export function parseOrdersCsv(text, { channel } = {}) {
     const rowNo = n + 2;
     if (cells.every((c) => !String(c || '').trim())) continue;
     const orderId = String(cells[idx.orderId] || '').trim();
-    const date = isoDate(cells[idx.date]) || '';
+    const date = reportDate(cells[idx.date]) || '';
     const state = stateCodeFromName(cells[idx.state]);
     const gstRate = money(cells[idx.gstRate]);
     let taxable = idx.taxable == null ? null : money(cells[idx.taxable]);

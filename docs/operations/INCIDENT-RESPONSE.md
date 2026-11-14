@@ -26,14 +26,33 @@ DPDP report needs it.
 
 ## 3. Tell the people who must know
 
-Under the Digital Personal Data Protection Act, 2023 and its Rules, a personal data
-breach is reported to the Data Protection Board of India and to each affected person
-without delay, with a fuller report to the Board within 72 hours of becoming aware of
-it. Check the current Rules before sending; this page is not legal advice.
+Two clocks start when someone at MyCA first becomes aware of the incident. Write the time down.
 
-- **Affected people:** what happened, when, what data, what they should do (sign in again, watch for phishing, check their filings), and who to contact. Send it from inside the app and by email where known.
+| Who | When | Law | How |
+|---|---|---|---|
+| CERT-In | Within **6 hours** of noticing a reportable incident (data breach, data leak, unauthorised access to systems or data, compromise of the cloud account, ransomware and the other types in Annex I of the directions) | CERT-In directions of 28 April 2022 under s.70B(6) IT Act | Email incident@cert-in.org.in with the form from cert-in.org.in; name the point of contact registered with CERT-In |
+| Data Protection Board of India | **Without delay** a first intimation; a full report within **72 hours** of becoming aware | DPDP Act 2023 s.8(6); DPDP Rules 2025 r.7 | Through the Board's online portal once it is open |
+| Each affected person | **Without delay** | DPDP Rules 2025 r.7(1) | In the app (a banner on sign-in) and by email where known |
+
+The Board's 72-hour report covers: the facts, circumstances and reasons of the breach; what
+was done to reduce the risk; the findings about the person who caused it, if known; what was
+done to stop it happening again; and a report of the notices sent to the people affected.
+Check the current Rules before sending; this page is not legal advice.
+
+### Notice to each affected person (r.7(1) asks for all five points)
+
+> **What happened:** On [date] at [time IST] we found that [plain description]. **What it
+> means for you:** [which of your data: name, phone, email, GSTIN, invoices…] may have been
+> seen by [someone outside MyCA]. [Likely consequences.] **What we have done:** [contained,
+> keys changed, signed everyone out…]. **What you can do:** sign in again, watch for messages
+> asking for OTPs or payments, check your recent filings in the app. **Who to contact:** our
+> Grievance Officer, [name], [email], [phone], reference [incident id].
+
 - **Affected businesses:** the owner of each business whose books were involved, with the same details.
-- **Partners:** the GSP, Google Play (if the app or billing was involved) and any provider whose key leaked.
+- **Partners:** the GSP (Quicko), Google Play (if the app or billing was involved) and any provider whose key leaked.
+
+Keep a copy of every notice, its send time and the list of recipients for the Board's report,
+and keep the incident log for at least one year (DPDP Rules 2025 r.8(3)).
 
 ## 4. Recover and learn
 

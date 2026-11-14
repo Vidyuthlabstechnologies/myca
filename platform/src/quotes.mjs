@@ -78,7 +78,8 @@ function planQuoteLines(state, args = {}) {
   const raw = Array.isArray(args.lines) ? args.lines : [];
   if (!raw.length) return { ok: false, error: 'NO_LINES' };
   const company = state.company || {};
-  const pos = partyStateOf(partyGstin) || company.state;
+  const givenState = String(args.partyState ?? '').trim();
+  const pos = (/^\d{1,2}$/.test(givenState) ? givenState.padStart(2, '0') : '') || partyStateOf(partyGstin) || company.state;
   const lines = [];
   if (countryOf(state) === 'US') return planUsQuote(state, { date, validDays, partyName, raw, args });
   for (const line of raw) {
@@ -185,6 +186,7 @@ export function invoiceArgsFromQuote(quote, args = {}) {
   return {
     partyName: quote.partyName,
     ...(quote.partyGstin ? { partyGstin: quote.partyGstin } : {}),
+    ...(quote.country !== 'US' && quote.placeOfSupply ? { partyState: quote.placeOfSupply } : {}),
     date: args.date == null || args.date === '' ? localToday() : args.date,
     lines: quote.lines.map((line) => (quote.country === 'US' ? { description: line.description, qty: line.qty, rate: line.rate, taxable: line.taxable > 0 } : { description: line.description, hsn: line.hsn, qty: line.qty, rate: line.rate, gstRate: line.gstRate })),
     ...(quote.country === 'US' ? (quote.taxExempt ? { taxExempt: true, exemptionReason: quote.exemptionReason } : { taxJurisdiction: quote.taxJurisdiction }) : {}),
