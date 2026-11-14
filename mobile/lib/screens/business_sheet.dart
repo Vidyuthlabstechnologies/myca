@@ -34,6 +34,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
             children: [
               Text(company.name, style: text.headlineSmall),
               const SizedBox(height: 4),
+              if (state.edition != 'GB')
               Text(
                 company.gstin.isEmpty
                     ? 'Not registered for GST'
@@ -102,6 +103,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                         },
                       ),
                     if (user?.role == 'owner')
+                    if (state.edition != 'GB')
                       RowCard(
                         leading: const TintTile(tint: Tint.ask, mark: Mark.cloudBooks),
                         title: 'Connections to banks and apps',

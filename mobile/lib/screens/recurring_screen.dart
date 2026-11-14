@@ -70,7 +70,7 @@ class _RecurringScreenState extends State<RecurringScreen> with ProposalFlow {
     if (what.isEmpty) return setState(() => _error = 'Say what it is for, for example broadband or rent.');
     final rateText = _rate.text.trim();
     final rate = rateText.isEmpty ? null : parseRate(rateText);
-    if (rateText.isNotEmpty && rate == null) return setState(() => _error = 'Enter the GST rate as a number, or leave it blank.');
+    if (rateText.isNotEmpty && rate == null) return setState(() => _error = 'Enter the $salesTaxName rate as a number, or leave it blank.');
     setState(() => _error = '');
     await propose(
       'Expense: ${rupees(amount)} for $what, ${(repeatEveryLabels[_every] ?? _every).toLowerCase()}',
@@ -156,7 +156,7 @@ class _RecurringScreenState extends State<RecurringScreen> with ProposalFlow {
                       TextField(
                         controller: _amount,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Amount paid each time', prefixText: '₹ ', helperText: 'Including any GST'),
+                        decoration: InputDecoration(labelText: 'Amount paid each time', prefixText: moneyPrefix, helperText: 'Including any $salesTaxName'),
                       ),
                       const SizedBox(height: 10),
                       TextField(
@@ -168,7 +168,7 @@ class _RecurringScreenState extends State<RecurringScreen> with ProposalFlow {
                       TextField(
                         controller: _rate,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'GST rate inside the amount (optional)', suffixText: '%'),
+                        decoration: InputDecoration(labelText: '$salesTaxName rate inside the amount (optional)', suffixText: '%'),
                       ),
                       const SizedBox(height: 10),
                       DropdownButtonFormField<String>(

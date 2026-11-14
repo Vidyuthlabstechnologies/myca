@@ -7,6 +7,10 @@ final _ae = MycaFormat(MycaCountry.of('AE'));
 
 final _gb = MycaFormat(MycaCountry.of('GB'));
 
+String get moneyPrefix => moneyCountry == 'GB' ? '£ ' : '₹ ';
+
+String get salesTaxName => moneyCountry == 'GB' ? 'VAT' : 'GST';
+
 String rupees(num amount) {
   if (moneyCountry == 'US') return dollars(amount);
   if (moneyCountry == 'GB') return pounds(amount);

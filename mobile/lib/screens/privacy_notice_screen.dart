@@ -133,6 +133,8 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                   subtitle: Text(
                     us
                         ? 'Off unless you check it. Only what went wrong in the app, with names, amounts, Social Security numbers and phone numbers removed. You can change this later under Your account.'
+                        : state.edition == 'GB'
+                        ? 'Off unless you tick it. Only what went wrong in the app, with names, amounts, tax references and phone numbers removed. You can change this later under Your business.'
                         : 'Off unless you tick it. Only what went wrong in the app, with names, amounts, GSTINs and phone numbers removed. You can change this later under Your business.',
                   ),
                 ),

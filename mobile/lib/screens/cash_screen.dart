@@ -293,9 +293,9 @@ class _CashScreenState extends State<CashScreen> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Amount to spend',
-                      prefixText: '₹ ',
+                      prefixText: moneyPrefix,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -452,18 +452,18 @@ class _BalanceSheetState extends State<_BalanceSheet> {
           TextField(
             controller: _bank,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Bank balance',
-              prefixText: '₹ ',
+              prefixText: moneyPrefix,
             ),
           ),
           const SizedBox(height: 10),
           TextField(
             controller: _cash,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Cash in hand',
-              prefixText: '₹ ',
+              prefixText: moneyPrefix,
             ),
           ),
           if (_error.isNotEmpty) ...[

@@ -3,6 +3,7 @@ import { randomInt } from 'node:crypto';
 export const FUNNELS = Object.freeze({
   india: Object.freeze(['signed_in', 'business_created', 'first_entry', 'plan_viewed', 'trial_started', 'paid']),
   us: Object.freeze(['signed_in', 'return_started', 'documents_added', 'return_reviewed', 'plan_viewed', 'paid', 'filed']),
+  uk: Object.freeze(['signed_in', 'business_created', 'first_entry', 'plan_viewed', 'trial_started', 'paid']),
 });
 export const OTHER_STEPS = Object.freeze(['tour_finished', 'referral_shared', 'team_invited', 'referral_claimed']);
 export const MAX_STEPS_PER_REQUEST = 10;

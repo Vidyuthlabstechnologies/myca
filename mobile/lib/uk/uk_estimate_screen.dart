@@ -25,6 +25,20 @@ const _incomeWords = <String, String>{
   'dividends': 'Dividends',
 };
 
+const estimateFieldPaths = <String, String>{
+  'employment': 'income.employment',
+  'turnover': 'income.selfEmployment.turnover',
+  'expenses': 'income.selfEmployment.expenses',
+  'propertyIncome': 'income.property.income',
+  'propertyExpenses': 'income.property.expenses',
+  'savings': 'income.savingsInterest',
+  'dividends': 'income.dividends',
+  'gains': 'gains.other',
+  'paye': 'taxPaid.paye',
+  'childBenefit': 'childBenefit',
+  'pension': 'pensionContributionsNet',
+};
+
 String bandWords(String band) => _bandWords[band] ?? band.replaceAll('-', ' ');
 
 class UkEstimate {
@@ -71,6 +85,7 @@ class _UkEstimateScreenState extends State<UkEstimateScreen> {
   };
   bool _busy = false;
   String _problem = '';
+  Map<String, String> _fieldProblems = const {};
   UkEstimate? _estimate;
 
   @override
@@ -109,11 +124,13 @@ class _UkEstimateScreenState extends State<UkEstimateScreen> {
     setState(() {
       _busy = true;
       _problem = '';
+      _fieldProblems = const {};
     });
     final result = await ukQuery(AppScope.of(context).api, 'gb_tax_estimate', _args());
     if (!mounted) return;
     setState(() {
       _busy = false;
+      _fieldProblems = ukFieldProblems(result);
       if (ukOk(result)) {
         _estimate = UkEstimate(toolData(result));
       } else {
@@ -123,7 +140,14 @@ class _UkEstimateScreenState extends State<UkEstimateScreen> {
     });
   }
 
-  Widget _field(String key, String label, [String? helper]) => UkMoneyField(controller: _c[key]!, label: label, helper: helper, onChanged: (_) => setState(() {}));
+  Widget _field(String key, String label, [String? helper]) => UkMoneyField(
+    key: Key('uk.estimate.$key'),
+    controller: _c[key]!,
+    label: label,
+    helper: helper,
+    error: _fieldProblems[estimateFieldPaths[key]],
+    onChanged: (_) => setState(() => _fieldProblems = {..._fieldProblems}..remove(estimateFieldPaths[key])),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -164,6 +188,8 @@ class _UkEstimateScreenState extends State<UkEstimateScreen> {
           _field('childBenefit', 'Child Benefit received in the year'),
           _field('pension', 'Personal pension contributions', 'What you paid in, before the tax relief your provider claims'),
           if (_problem.isNotEmpty) UkProblem(_problem),
+          for (final p in _fieldProblems.entries)
+            if (!estimateFieldPaths.containsValue(p.key)) UkNote(p.value, warn: true),
           UkWideButton(label: _busy ? 'Working it out…' : 'Work out my tax', onPressed: _busy ? null : _work),
           if (estimate != null) _EstimateView(estimate: estimate),
           const UkFooter(),

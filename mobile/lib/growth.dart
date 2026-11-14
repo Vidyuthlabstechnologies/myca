@@ -1,6 +1,13 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 const usFunnelAllowed = bool.fromEnvironment('MYCA_US_FUNNEL');
+const ukFunnelAllowed = bool.fromEnvironment('MYCA_UK_FUNNEL');
+
+String funnelEdition(String edition) => switch (edition.toUpperCase()) {
+  'US' => 'us',
+  'GB' || 'UK' => 'uk',
+  _ => 'india',
+};
 
 abstract class FunnelStore {
   Future<Set<String>> sent();
@@ -34,14 +41,15 @@ class MemoryFunnelStore implements FunnelStore {
 typedef SendFunnelSteps = Future<void> Function(List<Map<String, Object?>> steps);
 
 class FunnelTracker {
-  FunnelTracker({required this.store, required String edition, this.usAllowed = usFunnelAllowed}) : edition = edition.toUpperCase() == 'US' ? 'us' : 'india';
+  FunnelTracker({required this.store, required String edition, this.usAllowed = usFunnelAllowed, this.ukAllowed = ukFunnelAllowed}) : edition = funnelEdition(edition);
 
   final FunnelStore store;
   final String edition;
   final bool usAllowed;
+  final bool ukAllowed;
   final Set<String> _inFlight = {};
 
-  bool get active => edition == 'india' || usAllowed;
+  bool get active => edition == 'india' || (edition == 'us' && usAllowed) || (edition == 'uk' && ukAllowed);
 
   Future<int> reach(Iterable<String> steps, SendFunnelSteps send, {String source = ''}) async {
     if (!active) return 0;
@@ -89,9 +97,9 @@ class ReferralInfo {
 
   String? get firmLine => firm ? '${reward ?? 'Each client who joins with your code and pays earns your firm a credit.'} ${creditsEarned == 1 ? '1 credit' : '$creditsEarned credits'} waiting for your next renewal.' : null;
 
-  String shareText({required bool us}) {
-    final where = link ?? (us ? 'MyCA US on the app store' : 'MyCA on Google Play');
-    final what = us ? 'I file my taxes with MyCA.' : 'I keep my books and GST in MyCA.';
+  String shareText({required bool us, bool uk = false}) {
+    final where = link ?? (us ? 'MyCA US on the app store' : uk ? 'MyCA UK on Google Play' : 'MyCA on Google Play');
+    final what = us ? 'I file my taxes with MyCA.' : uk ? 'I keep my books and VAT in MyCA.' : 'I keep my books and GST in MyCA.';
     return '$what Get it at $where and use my invite code $code when you sign up.';
   }
 }
