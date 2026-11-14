@@ -9,6 +9,7 @@ const approvalId = { type: 'string' };
 
 export const MANIFEST = Object.freeze({
   country: 'GB',
+  books: Object.freeze(['create_invoice', 'create_purchase', 'create_credit_note', 'cancel_invoice']),
   capabilities: Object.freeze({
     'income-tax': Object.freeze({ status: 'beta', roles: Object.freeze({ profile: 'set_gb_taxpayer', estimate: 'gb_tax_estimate', review: 'gb_itsa_quarter_check' }) }),
     'indirect-tax': Object.freeze({ status: 'beta', roles: Object.freeze({ summary: 'gb_vat_return_check', return: 'submit_gb_vat_return' }) }),

@@ -1,6 +1,7 @@
 import { createSign, timingSafeEqual } from 'node:crypto';
 import { createStripe, stripeSignatureValid } from './stripe.mjs';
 import { US_RETURN_YEARS } from '../../platform/src/us-return.mjs';
+import { countryPack, servedPacks } from '../../platform/src/countries/index.mjs';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const TRIAL_DAYS = 14;
@@ -75,6 +76,48 @@ function parseServiceAccount(text) {
   }
 }
 
+const OWN_BILLING = new Set(['IN', 'US']);
+export const COUNTRY_PLANS_NOT_OPEN = 'Plans open when this edition launches on Google Play. Until then it runs against the tax office test service and nothing is charged.';
+
+function productEnvName(planId) {
+  return `MYCA_PLAY_PRODUCT_${String(planId).toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
+}
+
+export function countryBillingFromEnv(env = process.env) {
+  return Object.fromEntries(servedPacks().filter((pack) => !OWN_BILLING.has(pack.code) && pack.billing?.plans?.length).map((pack) => [pack.code, {
+    packageName: unset(env[`MYCA_PLAY_PACKAGE_${pack.code}`]),
+    productIds: Object.fromEntries(pack.billing.plans.filter((plan) => plan.provider === 'play').map((plan) => [plan.id, unset(env[productEnvName(plan.id)])]).filter(([, id]) => id)),
+  }]));
+}
+
+export function countryPlanOffers(code, overrides = {}) {
+  const pack = countryPack(code);
+  if (!pack || pack.status === 'planned' || OWN_BILLING.has(pack.code) || !pack.billing?.plans?.length) return null;
+  const own = overrides[pack.code] || {};
+  const productIds = own.productIds || {};
+  return {
+    country: pack.code,
+    currency: pack.billing.currency,
+    packageName: own.packageName || '',
+    opening: true,
+    buyable: false,
+    hint: COUNTRY_PLANS_NOT_OPEN,
+    plans: pack.billing.plans.map((plan) => ({
+      id: plan.id,
+      title: plan.title || plan.id,
+      kind: plan.kind,
+      price: plan.price,
+      currency: pack.billing.currency,
+      provider: plan.provider,
+      sells: plan.sells,
+      productId: plan.provider === 'play' ? productIds[plan.id] || plan.playProduct || '' : '',
+      placeholderProduct: plan.provider === 'play' && !productIds[plan.id],
+      buyable: false,
+      opening: true,
+    })),
+  };
+}
+
 export function billingConfigFromEnv(env = process.env) {
   const prices = Object.fromEntries(String(env.MYCA_PLAN_PRICES || '').split(',').map((pair) => pair.split('=').map((part) => part.trim())).filter(([plan, price]) => PAID.includes(plan) && /^[0-9]{1,6}$/.test(price || '')).map(([plan, price]) => [plan, Number(price)]));
   return {
@@ -88,6 +131,7 @@ export function billingConfigFromEnv(env = process.env) {
     notifyToken: unset(env.MYCA_PLAY_NOTIFY_TOKEN),
     serviceAccount: parseServiceAccount(unset(env.MYCA_PLAY_SERVICE_ACCOUNT_JSON)),
     prices,
+    countries: countryBillingFromEnv(env),
   };
 }
 
@@ -543,6 +587,19 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     return fail('US_PLUS_REQUIRED', { priceUsd: cfg.usPlus.priceUsd, hint: `This is part of MyCA Plus, $${cfg.usPlus.priceUsd} a year. Cancel any time.` });
   }
 
+  function indiaPlans() {
+    return {
+      ok: true,
+      enabled,
+      store: 'play',
+      packageName: cfg.packageName,
+      trialDays: TRIAL_DAYS,
+      currency: 'INR',
+      plans: PAID.map((id) => PLANS[id]).map((plan) => ({ ...plan, monthlyRupees: cfg.prices[plan.id] ?? plan.monthlyRupees, productId: cfg.productIds[plan.id] || '', buyable: enabled && Boolean(cfg.productIds[plan.id]) && planOpen(plan.id), ...(plan.id === 'assured' ? { opening: !planOpen(plan.id), professional: cfg.assuredProfessional || '' } : {}) })),
+      ...offers(),
+    };
+  }
+
   function offers() {
     return {
       usReturn: { title: 'MyCA Return', priceUsd: returnPrice(), listPriceUsd: cfg.usReturn.priceUsd, launchOffer: launchOffer(), currency: 'USD', per: 'tax_year', priceLine: US_RETURN_PRICE_LINE(returnPrice(), cfg.usReturn.priceUsd), checkout: checkoutKind(), packageName: usPackage, productId: cfg.usReturn.productId, buyable: usEnforced },
@@ -752,16 +809,10 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
 
   return {
     enabled,
-    plans: () => ({
-      ok: true,
-      enabled,
-      store: 'play',
-      packageName: cfg.packageName,
-      trialDays: TRIAL_DAYS,
-      currency: 'INR',
-      plans: PAID.map((id) => PLANS[id]).map((plan) => ({ ...plan, monthlyRupees: cfg.prices[plan.id] ?? plan.monthlyRupees, productId: cfg.productIds[plan.id] || '', buyable: enabled && Boolean(cfg.productIds[plan.id]) && planOpen(plan.id), ...(plan.id === 'assured' ? { opening: !planOpen(plan.id), professional: cfg.assuredProfessional || '' } : {}) })),
-      ...offers(),
-    }),
+    plans: ({ country } = {}) => {
+      const local = country ? countryPlanOffers(country, cfg.countries || {}) : null;
+      return local ? { ok: true, trialDays: TRIAL_DAYS, ...local } : indiaPlans();
+    },
     entitlement,
     usEnforced,
     usFilingOpen: () => usFilingOpen() === true,

@@ -3,28 +3,29 @@ import 'package:flutter/material.dart';
 import 'uk_common.dart';
 
 class UkPlan {
-  const UkPlan({required this.id, required this.title, required this.price, required this.forWho, required this.includes});
+  const UkPlan({required this.id, required this.title, required this.price, required this.forWho, required this.includes, required this.productId});
 
   final String id;
   final String title;
   final String price;
   final String forWho;
   final List<String> includes;
+  final String productId;
 }
 
 const ukPlans = <UkPlan>[
-  UkPlan(id: 'uk-sole-trader', title: 'Sole Trader', price: '£49 a month', forWho: 'One sole trader or landlord', includes: [
+  UkPlan(id: 'uk-sole-trader', productId: 'myca_uk_sole_trader_monthly', title: 'Sole Trader', price: '£49 a month', forWho: 'One sole trader or landlord', includes: [
     'Digital records, invoices and bills with VAT',
     'MTD for Income Tax: quarterly updates, calculations, final declaration and amendments',
     'MTD for VAT: nine-box returns built from your books',
     'Tax estimate, deadline calendar and penalty points guide',
   ]),
-  UkPlan(id: 'uk-business', title: 'Business', price: '£99 a month', forWho: 'A growing business with staff or an accountant in the books', includes: [
+  UkPlan(id: 'uk-business', productId: 'myca_uk_business_monthly', title: 'Business', price: '£99 a month', forWho: 'A growing business with staff or an accountant in the books', includes: [
     'Everything in Sole Trader',
     'More people in the same books',
     'Priority help',
   ]),
-  UkPlan(id: 'uk-accountant', title: 'Accountant firm', price: '£499 a month', forWho: 'Firms filing for many clients', includes: [
+  UkPlan(id: 'uk-accountant', productId: 'myca_uk_accountant_monthly', title: 'Accountant firm', price: '£499 a month', forWho: 'Firms filing for many clients', includes: [
     'Everything in Business, for every client',
     'File as the agent with HMRC\'s agent declaration',
   ]),

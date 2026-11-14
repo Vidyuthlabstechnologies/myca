@@ -453,6 +453,7 @@ void main() {
     expect(find.textContaining('₹'), findsNothing);
     expect(find.textContaining('GST'), findsNothing);
     expect(find.text(ukPlansNotOpen), findsOneWidget);
+    expect(ukPlans.map((plan) => plan.productId), ['myca_uk_sole_trader_monthly', 'myca_uk_business_monthly', 'myca_uk_accountant_monthly']);
   });
 
   testWidgets('changing an amount after checking clears the declaration and needs a new check', (tester) async {

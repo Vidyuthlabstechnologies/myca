@@ -63,6 +63,11 @@ export const ENGINE_EXTERNAL_ACTIONS = TABLES.externalActions;
 export const ENGINE_PROVIDER_TOOLS = TABLES.providerTools;
 export const ENGINE_ADDRESS_TOOLS = TABLES.addressTools;
 
+export function engineTakesOver(toolName, country) {
+  const manifest = manifestFor(country);
+  return Boolean(manifest && (manifest.books || []).includes(String(toolName || '')));
+}
+
 export function engineToolOwner(toolName) {
   return TABLES.owners.get(String(toolName || '')) || '';
 }
