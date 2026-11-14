@@ -7,7 +7,6 @@ String funnelEdition(String edition) => switch (edition.toUpperCase()) {
   'US' => 'us',
   'GB' || 'UK' => 'uk',
   'MY' => 'my',
-  'AE' || 'UAE' => 'ae',
   _ => 'india',
 };
 
