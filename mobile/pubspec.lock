@@ -636,6 +636,13 @@ packages:
       relative: true
     source: path
     version: "1.0.0"
+  myca_fonts_arabic:
+    dependency: "direct main"
+    description:
+      path: "../design/flutter/myca_fonts_arabic"
+      relative: true
+    source: path
+    version: "1.0.0"
   objective_c:
     dependency: transitive
     description:

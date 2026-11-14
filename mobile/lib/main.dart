@@ -39,6 +39,7 @@ import 'shared_file.dart';
 import 'theme.dart';
 import 'tour/tour.dart';
 import 'tour/tour_coach.dart';
+import 'uae/uae_format.dart';
 
 void main() {
   LicenseRegistry.addLicense(() async* {
@@ -179,8 +180,11 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
             scaffoldMessengerKey: _messenger,
             title: 'MyCA',
             debugShowCheckedModeBanner: false,
-            theme: widget.state.edition == 'US' ? MycaDesign.forFlavor('us').light : mycaTheme(),
-            darkTheme: widget.state.edition == 'US' ? MycaDesign.forFlavor('us').dark : mycaTheme(Brightness.dark),
+            theme: widget.state.edition == 'AE' ? uaeDesign.light : widget.state.edition == 'US' ? MycaDesign.forFlavor('us').light : mycaTheme(),
+            darkTheme: widget.state.edition == 'AE' ? uaeDesign.dark : widget.state.edition == 'US' ? MycaDesign.forFlavor('us').dark : mycaTheme(Brightness.dark),
+            localizationsDelegates: widget.state.edition == 'AE' ? MycaDesign.localizationsDelegates : null,
+            supportedLocales: widget.state.edition == 'AE' ? uaeDesign.supportedLocales : const [Locale('en', 'US')],
+            localeResolutionCallback: widget.state.edition == 'AE' ? uaeResolveLocale : null,
             builder: (context, child) => PaletteSync(
               brightness: Theme.of(context).brightness,
               child: ListenableBuilder(

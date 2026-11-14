@@ -5,6 +5,7 @@ import { ewayBillStatus, transportWords } from './eway-bill.mjs';
 import { countryOf } from './country.mjs';
 import { invoiceTemplateOf, bankWords } from './invoice-template.mjs';
 import { isTdsReceipt, tdsReceiptLabel, tdsWithheldOn } from './tds-credits.mjs';
+import { COMPOSITION_DECLARATION, documentTitleOf, einvoiceProofOf, exportEndorsementOf, hsnShownOn, reverseChargeLineOf } from './invoice-compliance.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const text = (value) => String(value ?? '').trim();
@@ -60,7 +61,7 @@ function common(state, doc) {
     igst: round2(doc.igst),
     total: round2(doc.total),
     missing,
-    template: (() => { const t = invoiceTemplateOf(state); return { ...t, bankWords: bankWords(t.bank) }; })(),
+    template: (() => { const t = invoiceTemplateOf(state); return { ...t, showHsn: hsnShownOn(state, doc, t), bankWords: bankWords(t.bank) }; })(),
     ...(us ? { country: 'US', subtotal: round2(doc.subtotal ?? doc.taxable), salesTax: round2(doc.salesTax ?? doc.salesTaxPaid ?? 0), taxJurisdiction: text(doc.taxJurisdiction), taxRate: Number(doc.taxRate || 0), taxExempt: Boolean(doc.taxExempt), exemptionReason: text(doc.exemptionReason) } : { country: 'IN' }),
   };
 }
@@ -84,6 +85,10 @@ export function invoiceDocument(state, id) {
     data: {
       ...common(state, invoice),
       kind: 'invoice',
+      documentTitle: documentTitleOf(state, invoice),
+      reverseChargeLine: reverseChargeLineOf(state, invoice),
+      exportEndorsement: exportEndorsementOf(state, invoice),
+      ...(state.company?.composition === true ? { compositionDeclaration: COMPOSITION_DECLARATION } : {}),
       receipts,
       received,
       tdsWithheld: tdsWithheldOn(invoice),
@@ -126,9 +131,9 @@ function einvoiceWords(state, invoice) {
   if ((state.company?.country || 'IN') !== 'IN') return null;
   if (invoice.status === 'cancelled') return { status: 'not-applicable', irn: '', why: 'The invoice is cancelled.' };
   if (!invoice.partyGstin && !invoice.export) return { status: 'not-applicable', irn: '', why: 'E-invoicing applies to invoices to registered buyers (B2B); this one is to an unregistered buyer.' };
-  if (invoice.irn) return { status: 'issued', irn: invoice.irn, ackNo: invoice.ackNo || '', why: 'IRN issued by the IRP.' };
-  if (invoice.sandboxIrn) return { status: 'sandbox', irn: invoice.sandboxIrn, ackNo: invoice.sandboxAckNo || '', why: 'Sandbox IRN from the NIC test IRP. It is not valid for a real supply; switch e-invoicing to live to issue the real one.' };
-  if (invoice.mockIrn) return { status: 'mock', irn: invoice.mockIrn, ackNo: invoice.mockAckNo || '', why: 'Simulated IRN; nothing reached the IRP.' };
+  if (invoice.irn) return { status: 'issued', irn: invoice.irn, ackNo: invoice.ackNo || '', ...einvoiceProofOf(invoice), why: 'IRN issued by the IRP.' };
+  if (invoice.sandboxIrn) return { status: 'sandbox', irn: invoice.sandboxIrn, ackNo: invoice.sandboxAckNo || '', ...einvoiceProofOf(invoice, 'sandbox'), why: 'Sandbox IRN from the NIC test IRP. It is not valid for a real supply; switch e-invoicing to live to issue the real one.' };
+  if (invoice.mockIrn) return { status: 'mock', irn: invoice.mockIrn, ackNo: invoice.mockAckNo || '', ...einvoiceProofOf(invoice, 'mock'), why: 'Simulated IRN; nothing reached the IRP.' };
   return { status: 'ready', irn: '', why: 'If your turnover brings you into e-invoicing, generate the IRN; it goes through the action gate and needs a CA approval before anything reaches the IRP.' };
 }
 
