@@ -76,7 +76,7 @@ void main() {
     expect(find.text('Self-billed invoice'), findsOneWidget);
     expect(find.text('Supplier: Shenzhen Brightway Electronics Co Ltd'), findsOneWidget);
     expect(find.text('Valid'), findsOneWidget);
-    expect(find.byKey(const Key('myDetail.qr')), findsOneWidget);
+    expect(find.byKey(const Key('myDetail.qr')), findsNothing);
     final row = api.books.malaysia.einvoices.first;
     expect(row['kind'], 'self-billed');
     expect(row['supplierTin'], 'EI00000000030');

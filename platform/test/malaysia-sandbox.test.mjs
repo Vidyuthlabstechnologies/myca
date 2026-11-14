@@ -8,9 +8,8 @@ import { buildMyInvoisDocument, submissionEntry } from '../src/countries/malaysi
 import { performExternalAction } from '../src/action-gate.mjs';
 import { createState } from '../src/store.mjs';
 
-const SANDBOX_ENV = { MYCA_PROVIDER_ENV: 'off', MYCA_MOCK_MODE: '0', MYCA_MYINVOIS_CLIENT_ID: '', MYCA_MYINVOIS_CLIENT_SECRET: '', MYCA_MYINVOIS_CERT_PATH: '', MYCA_MYINVOIS_KEY_PATH: '' };
+const SANDBOX_ENV = { MYCA_PROVIDER_ENV: 'off', MYCA_MOCK_MODE: '0', MYCA_MYINVOIS_CLIENT_ID: '', MYCA_MYINVOIS_CLIENT_SECRET: '', MYCA_MYINVOIS_CERT_PATH: '', MYCA_MYINVOIS_KEY_PATH: '', MYCA_MYINVOIS_SANDBOX: '1' };
 const HOUR = 3600000;
-const LINK = /^https:\/\/preprod\.myinvois\.hasil\.gov\.my\/[A-Z0-9]{26}\/share\/[A-Z0-9]{40}$/;
 
 const supplier = {
   name: 'Kedai Contoh Sdn Bhd', tin: 'C20830570210', idType: 'BRN', idValue: '202001234567', msic: '46510', phone: '+60123456789',
@@ -79,8 +78,11 @@ async function issueAndValidate(state, number, extra = {}) {
   return { sent, status };
 }
 
-test('with no MyInvois client id and live calls not on, the built-in sandbox answers', () => {
+test('the built-in sandbox answers only when switched on, with no client id and live calls off', () => {
   assert.equal(myInvoisMode(), 'sandbox');
+  process.env.MYCA_MYINVOIS_SANDBOX = '';
+  assert.equal(myInvoisMode(), 'off', 'an unconfigured server never pretends to send to LHDN');
+  process.env.MYCA_MYINVOIS_SANDBOX = '1';
   process.env.MYCA_MYINVOIS_CLIENT_ID = 'real-client';
   assert.equal(myInvoisMode(), 'off');
   process.env.MYCA_PROVIDER_ENV = 'live';
@@ -182,7 +184,7 @@ test('another taxpayer cannot submit for the business or read its documents', as
   assert.equal(theirs.lhdn.error.errorCode, 'NotFound');
 });
 
-test('issue, read in progress then valid, details, the QR share link, and the book listing', async () => {
+test('issue, read in progress then valid, details, no LHDN share link for a sandbox document, and the book listing', async () => {
   const state = business();
   const sent = await ENGINE.run.issue_my_einvoice(state, { number: 'INV-1', buyer, lines });
   assert.equal(sent.ok, true);
@@ -195,7 +197,7 @@ test('issue, read in progress then valid, details, the QR share link, and the bo
   clock += MYINVOIS_SANDBOX_VALIDATION_MS;
   const done = await ENGINE.run.my_einvoice_status(state, { submissionUid: sent.data.submissionUid });
   assert.equal(done.data.overallStatus, 'Valid');
-  assert.match(done.data.documents[0].link, LINK);
+  assert.equal(done.data.documents[0].link, '', 'a simulated document has no real LHDN validation link');
   const details = await ENGINE.run.my_einvoice_details(state, { uuid: sent.data.uuid });
   assert.equal(details.data.status, 'Valid');
   assert.equal(details.data.totalPayable, 1080);
@@ -206,7 +208,7 @@ test('issue, read in progress then valid, details, the QR share link, and the bo
   const book = ENGINE.run.my_einvoices(state, {});
   assert.equal(book.data.total, 1);
   assert.equal(book.data.documents[0].status, 'valid');
-  assert.match(book.data.documents[0].link, LINK);
+  assert.equal(book.data.documents[0].link, '');
   assert.ok(book.data.documents[0].cancellableUntil > new Date(clock).toISOString());
   assert.equal(ENGINE.run.my_einvoices(state, { status: 'cancelled' }).data.total, 0);
   assert.equal(ENGINE.run.my_einvoices(state, { status: 'lost' }).error, 'BAD_STATUS');

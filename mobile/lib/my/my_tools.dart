@@ -312,6 +312,8 @@ class MyEinvoice {
   bool get adjustable => valid && uuid.isNotEmpty && !received && (type == 'invoice' || type == 'self-billed-invoice');
   bool get sandbox => environment == 'mock' || environment == 'test' || environment == 'sandbox';
 
+  bool get simulated => environment == 'mock' || environment == 'sandbox';
+
   DateTime? get validatedTime => DateTime.tryParse(validatedAt.isNotEmpty ? validatedAt : at);
 
   MyEinvoice withStatus(MyDocumentStatus doc) => MyEinvoice(

@@ -28,7 +28,7 @@ void main() {
   setUp(() => moneyCountry = 'MY');
   tearDown(() => moneyCountry = 'IN');
 
-  testWidgets('a business e-invoice is checked, confirmed, sent to LHDN, validated and shared with its QR code', (tester) async {
+  testWidgets('a business e-invoice is checked, confirmed, sent and passes in the sandbox, with no made-up LHDN link', (tester) async {
     final api = MyTestApi();
     final shared = <String>[];
     final state = myState(api, share: (text) async {
@@ -50,10 +50,11 @@ void main() {
     expect(api.calls.where((call) => call == 'propose:issue_my_einvoice'), hasLength(1));
     expect(find.text('e-Invoice INV-2026-0200'), findsOneWidget);
     expect(find.text('Valid'), findsOneWidget);
-    expect(find.byKey(const Key('myDetail.qr')), findsOneWidget);
+    expect(find.byKey(const Key('myDetail.qr')), findsNothing);
+    expect(find.byKey(const Key('myDetail.share')), findsNothing);
+    expect(find.textContaining('Nothing was sent to LHDN'), findsOneWidget);
     expect(find.textContaining('You can cancel it for another 72 h 0 min'), findsOneWidget);
-    await tapKey(tester, 'myDetail.share');
-    expect(shared.single, startsWith('https://preprod.myinvois.hasil.gov.my/'));
+    expect(shared, isEmpty);
     final sent = api.args['propose:issue_my_einvoice']!;
     expect((sent['buyer'] as Map)['tin'], 'C20880050010');
     expect(((sent['lines'] as List).single as Map)['taxRateBasisPoints'], 800);
@@ -210,6 +211,22 @@ void main() {
     await typeKey(tester, 'myCreate.line0.price', '999999999999');
     await tapKey(tester, 'myCreate.check');
     expect(find.text('That amount is too large.'), findsOneWidget);
+  });
+
+  testWidgets('an e-invoice LHDN validated shows its QR code and shares its validation link', (tester) async {
+    final api = MyTestApi();
+    final shared = <String>[];
+    final row = Map<String, Object?>.from(api.books.malaysia.einvoices.first)..['environment'] = 'test';
+    final record = MyEinvoice.fromJson(row);
+    await tester.pumpWidget(myApp(myState(api, share: (text) async {
+      shared.add(text);
+      return true;
+    }), MyEinvoiceDetailScreen(record: record)));
+    await settle(tester);
+    expect(find.byKey(const Key('myDetail.qr')), findsOneWidget);
+    expect(find.textContaining('LHDN has validated this e-invoice'), findsOneWidget);
+    await tapKey(tester, 'myDetail.share');
+    expect(shared.single, startsWith('https://preprod.myinvois.hasil.gov.my/'));
   });
 
   testWidgets('a validated e-invoice is cancelled within 72 hours with a reason', (tester) async {

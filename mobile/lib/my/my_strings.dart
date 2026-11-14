@@ -358,6 +358,7 @@ class MyStrings {
   String get refreshStatus => _t('Check the status again', 'Semak status sekali lagi');
   String get checkingStatus => _t('Asking LHDN…', 'Bertanya kepada LHDN…');
   String get statusValidSelfBilledBody => _t('LHDN has validated this self-billed e-invoice. Share the QR code or link with your supplier.', 'LHDN telah mengesahkan e-Invois bil kendiri ini. Kongsi kod QR atau pautan dengan pembekal anda.');
+  String get statusValidSandboxBody => _t('Sandbox: these checks pass, so LHDN would validate this e-invoice. Nothing was sent to LHDN, so there is no validation QR code or link.', 'Kotak pasir: semakan ini lulus, jadi LHDN akan mengesahkan e-Invois ini. Tiada apa-apa dihantar kepada LHDN, jadi tiada kod QR atau pautan pengesahan.');
   String get statusValidBody => _t('LHDN has validated this e-invoice. Share the QR code or link with your buyer.', 'LHDN telah mengesahkan e-Invois ini. Kongsi kod QR atau pautan dengan pembeli anda.');
   String get statusInvalidBody => _t('LHDN found problems. Fix them and send it again as a new e-invoice.', 'LHDN menemui masalah. Betulkan dan hantar semula sebagai e-Invois baharu.');
   String get statusProgressBody => _t('LHDN is still validating it. This usually takes a few seconds.', 'LHDN masih mengesahkannya. Biasanya ini mengambil masa beberapa saat.');

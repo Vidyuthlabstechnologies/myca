@@ -42,7 +42,7 @@ function mockUid(seed) {
 export function myInvoisMode() {
   if (mockModeEnabled()) return 'mock';
   const environment = providerEnvironment();
-  if (environment !== 'live' && !setting('MYCA_MYINVOIS_CLIENT_ID')) return 'sandbox';
+  if (environment !== 'live' && !setting('MYCA_MYINVOIS_CLIENT_ID') && setting('MYCA_MYINVOIS_SANDBOX') === '1') return 'sandbox';
   return environment;
 }
 
@@ -112,6 +112,7 @@ function lhdnFailure(out, fallback) {
 
 function shareLink(uuid, longId) {
   const mode = myInvoisMode();
+  if (mode === 'sandbox' || mode === 'mock') return '';
   return myInvoisShareLink(mode === 'live' ? 'live' : 'test', uuid, longId);
 }
 

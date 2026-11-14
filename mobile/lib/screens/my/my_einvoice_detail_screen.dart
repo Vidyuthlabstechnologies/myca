@@ -67,7 +67,7 @@ class _MyEinvoiceDetailScreenState extends State<MyEinvoiceDetailScreen> {
     final record = _record;
     if (record.uuid.isEmpty) return false;
     if (record.status == 'invalid' && record.errors.isEmpty) return true;
-    if (record.valid && (record.link.isEmpty || (record.validatedAt.isEmpty && record.until.isEmpty))) return true;
+    if (record.valid && ((record.link.isEmpty && !record.simulated) || (record.validatedAt.isEmpty && record.until.isEmpty))) return true;
     return false;
   }
 
@@ -184,7 +184,9 @@ class _MyEinvoiceDetailScreenState extends State<MyEinvoiceDetailScreen> {
     final open = canAct && left > Duration.zero;
     final totals = record.totals;
     final money = totals == null || totals.currency == 'MYR' ? ringgit : (num value) => '${totals.currency} ${value.toStringAsFixed(2)}';
+    final simulated = record.simulated;
     final (body, tone) = switch (record.status) {
+      'valid' when simulated => (t.statusValidSandboxBody, MyTone.good),
       'valid' => (record.selfBilled ? t.statusValidSelfBilledBody : t.statusValidBody, MyTone.good),
       'invalid' => (t.statusInvalidBody, MyTone.danger),
       'rejected' => (t.statusRejectedBody, MyTone.danger),
@@ -240,7 +242,7 @@ class _MyEinvoiceDetailScreenState extends State<MyEinvoiceDetailScreen> {
               ],
               if (_note.isNotEmpty) ...[const SizedBox(height: 12), MyNote(_note, tone: MyTone.good)],
               if (_error.isNotEmpty) ...[const SizedBox(height: 12), MyErrorBox(message: _error, onRetry: _refresh)],
-              if (record.valid && record.link.isNotEmpty) ...[
+              if (record.valid && record.link.isNotEmpty && !simulated) ...[
                 MySection(t.qrTitle),
                 Center(
                   child: Container(
