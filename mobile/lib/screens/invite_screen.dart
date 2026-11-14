@@ -102,6 +102,11 @@ class _InviteScreenState extends State<InviteScreen> {
                   ),
                 ],
               ),
+              if (info.firmLine != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(info.firmLine!, key: const Key('invite-firm-credits'), style: text.bodyMedium),
+                ),
               const SizedBox(height: 12),
               FilledButton.icon(onPressed: () => _share(info), icon: const Icon(Icons.share_outlined, size: 18), label: const Text('Share your invite')),
               const SizedBox(height: 28),

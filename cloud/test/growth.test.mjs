@@ -133,3 +133,41 @@ test('erasing a person removes their steps, code and referrals', async () => {
     assert.equal(left.rows[0].n, 0, table);
   }
 });
+
+test('only a CA firm earns a credit, once, when the client it invited pays', async () => {
+  const subscribe = (businessId, plan) => api.db.query(
+    `insert into subscriptions (business_id, provider, provider_subscription_id, product_id, plan, status, current_end)
+     values ($1, 'play', $2, $3, $4, 'active', $5)`,
+    [businessId, `tok-${businessId}`, `myca_${plan}_monthly`, plan, new Date(api.clock.now + 20 * 86400000)],
+  );
+  const firm = await api.ownerWithBusiness('+919700000401', { name: 'Rao and Co', state: '29' });
+  await subscribe(firm.businessId, 'firm');
+  const shop = await api.ownerWithBusiness('+919700000402', { name: 'Kiran Stores', state: '29' });
+  await subscribe(shop.businessId, 'pro');
+
+  const firmView = (await api.call('GET', '/v1/me/referral', { token: firm.token })).body;
+  assert.equal(firmView.firm, true);
+  assert.deepEqual(firmView.credits, { earned: 0, applied: 0, monthsEarned: 0 });
+  const shopView = (await api.call('GET', '/v1/me/referral', { token: shop.token })).body;
+  assert.equal(shopView.firm, false);
+
+  const client = await api.ownerWithBusiness('+919700000403', { name: 'Meera Fabrics', state: '29' });
+  await subscribe(client.businessId, 'pro');
+  assert.deepEqual((await api.call('POST', '/v1/me/referral/claim', { token: client.token, body: { code: firmView.code } })).body, { ok: true });
+  assert.equal((await api.db.query('select count(*)::int as n from referral_credits')).rows[0].n, 0, 'no credit before paying');
+  await steps(client.token, [{ step: 'paid' }]);
+  await steps(client.token, [{ step: 'paid' }]);
+  const { rows } = await api.db.query('select referrer_user_id, firm_business_id, client_plan, months, status from referral_credits');
+  assert.deepEqual(rows, [{ referrer_user_id: firm.user.id, firm_business_id: firm.businessId, client_plan: 'pro', months: 1, status: 'earned' }]);
+  const after = (await api.call('GET', '/v1/me/referral', { token: firm.token })).body;
+  assert.deepEqual(after.credits, { earned: 1, applied: 0, monthsEarned: 1 });
+
+  const friend = await api.ownerWithBusiness('+919700000404', { name: 'Sri Traders', state: '29' });
+  await steps(friend.token, [{ step: 'paid' }]);
+  await api.call('POST', '/v1/me/referral/claim', { token: friend.token, body: { code: shopView.code } });
+  assert.equal((await api.db.query('select count(*)::int as n from referral_credits where referrer_user_id = $1', [shop.user.id])).rows[0].n, 0, 'a shop earns nothing');
+  const paidFirst = await api.ownerWithBusiness('+919700000405', { name: 'Late Joiner', state: '29' });
+  await steps(paidFirst.token, [{ step: 'paid' }]);
+  await api.call('POST', '/v1/me/referral/claim', { token: paidFirst.token, body: { code: firmView.code } });
+  assert.equal((await api.call('GET', '/v1/me/referral', { token: firm.token })).body.credits.earned, 2, 'a client who paid before claiming still earns the firm a credit');
+});

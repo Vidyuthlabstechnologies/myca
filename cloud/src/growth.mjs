@@ -14,6 +14,40 @@ const EDITIONS = new Set(Object.keys(FUNNELS));
 const CLIENT_STEPS = new Set([...FUNNELS.india, ...FUNNELS.us, ...OTHER_STEPS.filter((step) => step !== 'referral_claimed')]);
 const SOURCE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 const DAY_MS = 86400000;
+const FIRM_PLAN = 'firm';
+const LIVE = ['active', 'in_grace_period', 'canceled'];
+export const FIRM_CREDIT_MONTHS = 1;
+
+async function firmOf(q, userId, at) {
+  const found = await q(
+    `select s.business_id from memberships m join subscriptions s on s.business_id = m.business_id
+      where m.user_id = $1 and m.role = 'owner' and s.plan = $2 and s.status = any($3) and s.current_end > $4
+      order by s.current_end desc limit 1`,
+    [userId, FIRM_PLAN, LIVE, at],
+  );
+  return found.rows[0]?.business_id || null;
+}
+
+async function clientPlan(q, userId, at) {
+  const found = await q(
+    `select s.plan from memberships m join subscriptions s on s.business_id = m.business_id
+      where m.user_id = $1 and m.role = 'owner' and s.status = any($2) and s.current_end > $3
+      order by s.current_end desc limit 1`,
+    [userId, LIVE, at],
+  );
+  return found.rows[0]?.plan || '';
+}
+
+async function creditFirm(q, referredUserId, referrerUserId, at) {
+  const firm = await firmOf(q, referrerUserId, at);
+  if (!firm) return false;
+  const saved = await q(
+    `insert into referral_credits (referred_user_id, referrer_user_id, firm_business_id, client_plan, months, earned_at)
+     values ($1, $2, $3, $4, $5, $6) on conflict (referred_user_id) do nothing`,
+    [referredUserId, referrerUserId, firm, await clientPlan(q, referredUserId, at), FIRM_CREDIT_MONTHS, at],
+  );
+  return saved.rowCount > 0;
+}
 
 export function cleanStep(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, error: 'BAD_STEP' };
@@ -61,7 +95,10 @@ export function createGrowth({ db, now = () => Date.now(), siteUrl = '', reward 
       [userId, step, edition, source, at],
     );
     if (step === 'paid') {
-      await db.query('update referrals set converted_at = $2 where referred_user_id = $1 and converted_at is null', [userId, at]);
+      await db.tx(async (q) => {
+        const converted = await q('update referrals set converted_at = $2 where referred_user_id = $1 and converted_at is null returning referrer_user_id', [userId, at]);
+        if (converted.rowCount) await creditFirm(q, userId, converted.rows[0].referrer_user_id, at);
+      });
     }
   }
 
@@ -101,13 +138,23 @@ export function createGrowth({ db, now = () => Date.now(), siteUrl = '', reward 
            from referrals where referrer_user_id = $1`,
         [userId],
       );
+      const at = new Date(now());
+      const firm = Boolean(await firmOf((sql, params) => db.query(sql, params), userId, at));
+      const credits = await db.query(
+        `select count(*) filter (where status = 'earned')::int as earned, count(*) filter (where status = 'applied')::int as applied,
+                coalesce(sum(months) filter (where status = 'earned'), 0)::int as "monthsEarned"
+           from referral_credits where referrer_user_id = $1`,
+        [userId],
+      );
       return {
         ok: true,
         code,
         link: referralLink(siteUrl, code),
         invited: counts.rows[0].invited,
         converted: counts.rows[0].converted,
-        reward: reward || null,
+        firm,
+        credits: credits.rows[0],
+        reward: firm ? reward || null : null,
       };
     },
 
@@ -129,6 +176,7 @@ export function createGrowth({ db, now = () => Date.now(), siteUrl = '', reward 
         const at = new Date(now());
         const paid = await q("select 1 from funnel_steps where user_id = $1 and step = 'paid'", [userId]);
         await q('insert into referrals (referred_user_id, referrer_user_id, claimed_at, converted_at) values ($1, $2, $3, $4)', [userId, referrer, at, paid.rowCount ? at : null]);
+        if (paid.rowCount) await creditFirm(q, userId, referrer, at);
         await q(
           `insert into funnel_steps (user_id, step, edition, source, first_at, last_at, hits)
            values ($1, 'referral_claimed', 'india', 'referral', $2, $2, 1)
@@ -172,6 +220,10 @@ export function createGrowth({ db, now = () => Date.now(), siteUrl = '', reward 
            from referrals where claimed_at >= $1`,
         [since],
       );
+      const credits = await db.query(
+        `select count(*)::int as earned, coalesce(sum(months), 0)::int as months from referral_credits where earned_at >= $1 and status <> 'void'`,
+        [since],
+      );
       const extras = Object.fromEntries(OTHER_STEPS.map((step) => [step, reached[step] || 0]));
       return {
         ok: true,
@@ -179,7 +231,7 @@ export function createGrowth({ db, now = () => Date.now(), siteUrl = '', reward 
         steps,
         other: extras,
         sources: sources.rows.map((row) => ({ source: row.source || 'direct', signedIn: row.signedIn, paid: row.paid, conversion: rate(row.paid, row.signedIn) })),
-        referrals: { ...referrals.rows[0], conversion: rate(referrals.rows[0].converted, referrals.rows[0].claimed) },
+        referrals: { ...referrals.rows[0], conversion: rate(referrals.rows[0].converted, referrals.rows[0].claimed), firmCredits: credits.rows[0] },
       };
     },
   };
