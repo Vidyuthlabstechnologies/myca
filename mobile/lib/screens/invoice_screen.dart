@@ -946,7 +946,7 @@ class _TransportSheetState extends State<_TransportSheet> {
           ),
           if (_error.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w600)),
+            Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w600)),
           ],
           const SizedBox(height: 16),
           SizedBox(
@@ -1153,7 +1153,7 @@ class _CreditNoteSheetState extends State<_CreditNoteSheet> {
             const SizedBox(height: 10),
             Text(
               _error,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Palette.danger,
                 fontWeight: FontWeight.w600,
               ),

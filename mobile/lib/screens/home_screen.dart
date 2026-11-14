@@ -488,7 +488,7 @@ class _UsTaxesPanel extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     return Material(
       color: Palette.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard), side: const BorderSide(color: Palette.line)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard), side: BorderSide(color: Palette.line)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -547,7 +547,7 @@ class _SalesTaxPanel extends StatelessWidget {
         : '${first!.state} ${salesTaxPeriodWords(first.lastPeriod!)}';
     return Material(
       color: Palette.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard), side: const BorderSide(color: Palette.line)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard), side: BorderSide(color: Palette.line)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -617,7 +617,7 @@ class _TodayPanel extends StatelessWidget {
       color: Palette.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radiusCard),
-        side: const BorderSide(color: Palette.line),
+        side: BorderSide(color: Palette.line),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -679,7 +679,7 @@ class _TodayPanel extends StatelessWidget {
                             style: text.labelSmall,
                           ),
                           const SizedBox(height: 4),
-                          Text(
+                          Amount(
                             rupees(gst.outputTax.total),
                             style: text.headlineMedium?.copyWith(
                               fontFeatures: moneyFigures,
@@ -759,7 +759,7 @@ class _FirstSaleCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward, color: Palette.accent, size: 20),
+              Icon(Icons.arrow_forward, color: Palette.accent, size: 20),
             ],
           ),
         ),
@@ -927,7 +927,7 @@ class _AskBarState extends State<_AskBar> {
       onSubmitted: (_) => _send(),
       decoration: InputDecoration(
         hintText: 'Tell or ask MyCA anything',
-        prefixIcon: const Padding(
+        prefixIcon: Padding(
           padding: EdgeInsets.all(12),
           child: MarkIcon(mark: Mark.ask, size: 20, color: Palette.muted),
         ),

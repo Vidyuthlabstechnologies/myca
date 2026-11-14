@@ -271,7 +271,7 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
                 const SectionLabel('Filing status'),
-                if (_errors['status'] != null) Text(_errors['status']!, style: const TextStyle(color: Palette.danger)),
+                if (_errors['status'] != null) Text(_errors['status']!, style: TextStyle(color: Palette.danger)),
                 RadioGroup<String>(
                   groupValue: _status.isEmpty ? null : _status,
                   onChanged: (value) => setState(() => _status = value ?? ''),
@@ -339,7 +339,7 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
                 ),
                 if (_note.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                  Text(_note, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
                 ],
                 const SizedBox(height: 22),
                 FilledButton(key: const Key('usProfile.save'), onPressed: _busy ? null : _save, child: Text(_busy ? 'Saving…' : 'Save')),

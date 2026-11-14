@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'accessibility_test.dart' show open, screens;
+import 'screen_walks.dart' show open, screens;
 import 'fake_api.dart';
 import 'ims_test.dart' show decideInSheet, openIms;
 

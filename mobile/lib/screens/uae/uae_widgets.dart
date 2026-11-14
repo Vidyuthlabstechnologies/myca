@@ -263,7 +263,7 @@ class UaeConfirmBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Palette.surface,
           border: Border(top: BorderSide(color: Palette.line)),
         ),

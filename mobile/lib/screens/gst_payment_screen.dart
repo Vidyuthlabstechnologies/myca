@@ -103,7 +103,7 @@ class _GstPaymentScreenState extends State<GstPaymentScreen> with ProposalFlow {
                   ),
                   if (_error.isNotEmpty) ...[
                     const SizedBox(height: 10),
-                    Text(_error, style: const TextStyle(color: Palette.danger)),
+                    Text(_error, style: TextStyle(color: Palette.danger)),
                   ],
                   const SizedBox(height: 14),
                   FilledButton(onPressed: busy ? null : _preview, child: const Text('Preview')),

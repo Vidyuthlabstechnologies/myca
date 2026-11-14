@@ -164,7 +164,7 @@ class _RecordFilingScreenState extends State<RecordFilingScreen>
                   ),
                   if (_error.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    Text(_error, style: const TextStyle(color: Palette.danger)),
+                    Text(_error, style: TextStyle(color: Palette.danger)),
                   ],
                   const SizedBox(height: 16),
                   FilledButton(

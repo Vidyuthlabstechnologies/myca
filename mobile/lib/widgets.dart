@@ -183,6 +183,23 @@ class RowCard extends StatelessWidget {
   }
 }
 
+class Amount extends StatelessWidget {
+  const Amount(this.value, {super.key, this.style, this.alignment = Alignment.centerLeft});
+
+  final String value;
+  final TextStyle? style;
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: alignment,
+      child: Text(value, style: style, maxLines: 1, softWrap: false),
+    );
+  }
+}
+
 class AmountRow extends StatelessWidget {
   const AmountRow({
     super.key,
@@ -228,7 +245,7 @@ class Chevron extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      const Icon(Icons.chevron_right, color: Palette.faint, size: 20);
+      Icon(Icons.chevron_right, color: Palette.faint, size: 20);
 }
 
 class SectionLabel extends StatelessWidget {
@@ -328,7 +345,7 @@ class Bubble extends StatelessWidget {
       BubbleTone.posted => Palette.accent,
       _ => Palette.muted,
     };
-    final foreground = mine ? Colors.white : Palette.ink;
+    final foreground = mine ? Palette.onInk : Palette.ink;
     final stampColor = switch (stamp) {
       'Unpaid' || 'Part paid' || 'Declined' || 'Expired' => Palette.warn,
       'Cancelled' => Palette.danger,
@@ -394,8 +411,9 @@ class Bubble extends StatelessWidget {
               if (amount != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Text(
+                  child: Amount(
                     amount!,
+                    alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
                     style: TextStyle(
                       color: foreground,
                       fontSize: 20,
@@ -410,7 +428,7 @@ class Bubble extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     note,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Palette.muted,
                       fontSize: 13,
                       height: 1.35,
@@ -458,7 +476,7 @@ class ProposalBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Palette.surface,
           border: Border(top: BorderSide(color: Palette.line)),
         ),

@@ -185,7 +185,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
               const SizedBox(height: 12),
               Text(
                 _error,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Palette.danger,
                   fontWeight: FontWeight.w500,
                 ),

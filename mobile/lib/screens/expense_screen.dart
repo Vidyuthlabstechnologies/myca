@@ -207,7 +207,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
                   const SizedBox(height: 10),
                   Text(
                     _error,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Palette.danger,
                       fontWeight: FontWeight.w600,
                     ),

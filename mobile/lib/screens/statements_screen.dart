@@ -259,8 +259,9 @@ class _StatementsScreenState extends State<StatementsScreen> {
           const SizedBox(height: 12),
           DropdownButtonFormField<StatementPeriod>(
             initialValue: _period,
+            isExpanded: true,
             decoration: InputDecoration(labelText: _kind == StatementKind.balanceSheet ? 'As at the end of' : 'Period'),
-            items: [for (final p in StatementPeriod.values) DropdownMenuItem(value: p, child: Text(periodLabels[p]!))],
+            items: [for (final p in StatementPeriod.values) DropdownMenuItem(value: p, child: Text(periodLabels[p]!, overflow: TextOverflow.ellipsis))],
             onChanged: (p) {
               if (p == null) return;
               _period = p;
@@ -305,14 +306,20 @@ class _StatementsScreenState extends State<StatementsScreen> {
                           if (section.lines.isEmpty) const ListTile(title: Text('Nothing in this period')),
                           for (final line in section.lines)
                             ListTile(
-                              title: Text(line.label),
+                              title: AmountRow(
+                                start: Text(line.label),
+                                amount: rupees(line.amount),
+                                style: text.titleSmall?.copyWith(fontFeatures: moneyFigures),
+                              ),
                               subtitle: line.detail.isEmpty ? null : Text(line.detail),
-                              trailing: Text(rupees(line.amount), style: text.titleSmall),
                             ),
                           if (section.total != null)
                             ListTile(
-                              title: Text(section.totalLabel, style: text.titleSmall),
-                              trailing: Text(rupees(section.total!), style: text.titleSmall),
+                              title: AmountRow(
+                                start: Text(section.totalLabel, style: text.titleSmall),
+                                amount: rupees(section.total!),
+                                style: text.titleSmall?.copyWith(fontFeatures: moneyFigures),
+                              ),
                             ),
                         ],
                       ),

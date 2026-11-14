@@ -163,7 +163,7 @@ class _UsSetupScreenState extends State<UsSetupScreen> {
               ),
             if (_error.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+              Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
             ],
             const SizedBox(height: 24),
             FilledButton(

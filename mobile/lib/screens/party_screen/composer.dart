@@ -152,7 +152,7 @@ class _ComposerCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   error,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Palette.danger,
                     fontWeight: FontWeight.w600,
                   ),

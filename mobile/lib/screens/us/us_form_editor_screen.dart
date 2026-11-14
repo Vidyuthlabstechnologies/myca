@@ -128,6 +128,7 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
         return UsStateField(key: Key('usForm.${f.key}'), value: _choices[f.key], label: label, errorText: _errors[f.key], onChanged: (v) => setState(() => _choices[f.key] = v));
       case 'term':
         return DropdownButtonFormField<String>(
+          isExpanded: true,
           key: Key('usForm.${f.key}'),
           initialValue: _choices[f.key],
           decoration: InputDecoration(labelText: label, errorText: _errors[f.key]),
@@ -186,7 +187,7 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
             for (final f in widget.kind.fields) ...[_field(f), const SizedBox(height: 12)],
             if (_note.isNotEmpty) ...[
               const SizedBox(height: 4),
-              Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+              Text(_note, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
             ],
             const SizedBox(height: 18),
             FilledButton(key: const Key('usForm.save'), onPressed: _busy ? null : _save, child: Text(_busy ? 'Saving…' : 'Save')),

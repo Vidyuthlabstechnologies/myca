@@ -214,7 +214,7 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
                       _input(q),
                       if (_note.isNotEmpty) ...[
                         const SizedBox(height: 12),
-                        Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                        Text(_note, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
                       ],
                       const SizedBox(height: 24),
                       Row(

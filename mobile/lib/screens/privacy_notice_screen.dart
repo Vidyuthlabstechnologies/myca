@@ -117,7 +117,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                   ),
                 ),
                 if (!widget.readOnly) Container(
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: Palette.surface,
                     border: Border(top: BorderSide(color: Palette.line)),
                   ),
@@ -128,7 +128,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                       if (_error.isNotEmpty) ...[
                         Text(
                           _error,
-                          style: const TextStyle(color: Palette.danger),
+                          style: TextStyle(color: Palette.danger),
                         ),
                         const SizedBox(height: 8),
                       ],

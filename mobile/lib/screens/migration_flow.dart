@@ -251,7 +251,7 @@ class _BusinessStepState extends State<_BusinessStep> {
           const SizedBox(height: 12),
           Text(
             _error,
-            style: const TextStyle(
+            style: TextStyle(
               color: Palette.danger,
               fontWeight: FontWeight.w600,
             ),

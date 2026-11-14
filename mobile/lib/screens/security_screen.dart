@@ -160,7 +160,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
   }
 
   Widget _loading(AsyncSnapshot<Object?> loaded) => loaded.hasError
-      ? Text('${loaded.error}', style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))
+      ? Text('${loaded.error}', style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))
       : const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()));
 
   @override
@@ -204,7 +204,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
           ),
           if (_error.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+            Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
           ],
           if (_note.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -229,7 +229,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                           title: device.label,
                           subtitle: _when(device),
                           trailing: device.current
-                              ? const StatusTag(text: 'This phone', color: Palette.accent)
+                              ? StatusTag(text: 'This phone', color: Palette.accent)
                               : TextButton(onPressed: _busy ? null : () => _signOutDevice(device), child: const Text('Sign out')),
                         ),
                     ],

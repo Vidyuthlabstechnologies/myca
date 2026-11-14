@@ -176,7 +176,7 @@ class _CashScreenState extends State<CashScreen> {
                 children: [
                   Text('BANK AND CASH NOW', style: text.labelSmall),
                   const SizedBox(height: 6),
-                  Text(
+                  Amount(
                     rupees(forecast.startAmount),
                     style: text.displaySmall?.copyWith(
                       fontWeight: FontWeight.w400,
@@ -470,7 +470,7 @@ class _BalanceSheetState extends State<_BalanceSheet> {
             const SizedBox(height: 10),
             Text(
               _error,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Palette.danger,
                 fontWeight: FontWeight.w600,
               ),
