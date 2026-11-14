@@ -1,4 +1,5 @@
 export const HMRC_HOSTS = Object.freeze({ live: 'api.service.hmrc.gov.uk', test: 'test-api.service.hmrc.gov.uk' });
+export const HMRC_SIGN_IN_HOSTS = Object.freeze({ live: 'www.tax.service.gov.uk', test: 'test-www.tax.service.gov.uk' });
 export const HMRC_SCOPES = Object.freeze(['read:vat', 'write:vat', 'read:self-assessment', 'write:self-assessment']);
 export const CALCULATION_TYPES = Object.freeze(['in-year', 'intent-to-finalise', 'intent-to-amend']);
 export const FINAL_TYPES = Object.freeze({ 'intent-to-finalise': 'final-declaration', 'intent-to-amend': 'confirm-amendment' });
@@ -41,7 +42,7 @@ function guard(condition, error, extra = {}) {
 }
 
 export function authorizeUrl(config, { state, scopes = HMRC_SCOPES }) {
-  const url = new URL('/oauth/authorize', hmrcBase(config.environment));
+  const url = new URL('/oauth/authorize', `https://${config.environment === 'live' ? HMRC_SIGN_IN_HOSTS.live : HMRC_SIGN_IN_HOSTS.test}`);
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('client_id', config.clientId);
   url.searchParams.set('scope', scopes.join(' '));
@@ -51,6 +52,7 @@ export function authorizeUrl(config, { state, scopes = HMRC_SCOPES }) {
 }
 
 async function readBody(response) {
+  if (typeof response.text !== 'function') return typeof response.json === 'function' ? response.json().catch(() => null) : null;
   const text = await response.text();
   if (!text) return null;
   try { return JSON.parse(text); } catch { return { raw: text.slice(0, 2000) }; }
@@ -76,6 +78,17 @@ async function tokenCall(config, form) {
 
 export function exchangeCode(config, code) {
   return tokenCall(config, { grant_type: 'authorization_code', code, redirect_uri: config.redirectUri });
+}
+
+export async function applicationToken(config) {
+  const response = await config.transport(`${hmrcBase(config.environment)}/oauth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+    body: new URLSearchParams({ client_id: config.clientId, client_secret: config.clientSecret, grant_type: 'client_credentials' }).toString(),
+  });
+  const body = await readBody(response);
+  if (!response.ok) return hmrcError(response.status, body);
+  return body?.access_token ? { ok: true, data: { accessToken: body.access_token } } : { ok: false, error: 'HMRC_TOKEN_MALFORMED' };
 }
 
 export function refreshTokens(config, refreshToken) {

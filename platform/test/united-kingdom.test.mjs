@@ -394,7 +394,7 @@ test('HMRC tokens are sealed with the server key, bound to their scope, or kept 
 
 test('the HMRC sign-in link asks for VAT and Self Assessment scopes with the state', () => {
   const url = new URL(authorizeUrl({ environment: 'test', clientId: 'cid', redirectUri: 'https://example.org/cb' }, { state: 'xyz' }));
-  assert.equal(url.host, 'test-api.service.hmrc.gov.uk');
+  assert.equal(url.host, 'test-www.tax.service.gov.uk');
   assert.equal(url.searchParams.get('scope'), 'read:vat write:vat read:self-assessment write:self-assessment');
   assert.equal(url.searchParams.get('state'), 'xyz');
   assert.equal(API_VERSIONS.calculations, '8.0');
@@ -474,7 +474,7 @@ test('in the HMRC sandbox every call carries the version, the bearer token and t
       const state = gbState();
       runEngineTool('set_gb_taxpayer', state, { vrn: '999999973' });
       const link = runEngineTool('connect_gb_hmrc', state, {});
-      assert.match(link.data.authorizeUrl, /^https:\/\/test-api\.service\.hmrc\.gov\.uk\/oauth\/authorize\?/);
+      assert.match(link.data.authorizeUrl, /^https:\/\/test-www\.tax\.service\.gov\.uk\/oauth\/authorize\?/);
       const done = await runEngineTool('finish_gb_hmrc_connection', state, { code: 'code-12345678', state: link.data.state });
       assert.equal(done.ok, true, JSON.stringify(done));
       assert.equal(new URLSearchParams(calls[0].init.body).get('grant_type'), 'authorization_code');

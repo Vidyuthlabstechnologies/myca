@@ -8,7 +8,7 @@ import { buildFraudHeaders, fraudHeaderGaps } from './fraud-headers.mjs';
 import {
   authorizeUrl, exchangeCode, refreshTokens, vatObligations, submitVatReturn, viewVatReturn, vatLiabilities, vatPayments,
   listBusinesses, incomeObligations, putSelfEmploymentCumulative, putPropertyCumulative, triggerCalculation, retrieveCalculation,
-  submitFinalDeclaration, validateFraudHeaders, CALCULATION_TYPES, isBusinessId, isCalculationId, HMRC_SCOPES,
+  submitFinalDeclaration, validateFraudHeaders, applicationToken, CALCULATION_TYPES, isBusinessId, isCalculationId, HMRC_SCOPES,
 } from './hmrc-client.mjs';
 import { vatReturnProblems } from './vat.mjs';
 import { normaliseNino, normaliseVrn, ninoValid, vrnValid } from './identifiers.mjs';
@@ -321,7 +321,12 @@ export async function syncHmrc(state, args = {}) {
     const check = await hmrcCall(state, args, {
       actionId: 'hmrc_fraud_headers_test', params: { what: 'validate' },
       fixture: () => ({ ok: true, mock: true, data: { code: 'VALID_HEADERS', message: 'All headers appear to be valid' } }),
-      run: (config) => validateFraudHeaders(config),
+      run: async (config) => {
+        const settings = hmrcSettings();
+        const server = await applicationToken({ ...config, clientId: settings.clientId, clientSecret: settings.clientSecret });
+        if (!server.ok) return server;
+        return validateFraudHeaders({ ...config, accessToken: server.data.accessToken });
+      },
     });
     store.fraudHeaderCheck = { at: new Date().toISOString(), ok: check.ok, code: check.data?.code || check.hmrcCode || check.error, message: check.data?.message || check.message || '', warnings: check.data?.warnings || [], errors: check.data?.errors || check.errors || [], gaps: check.fraudHeaderGaps || [] };
     report.pulled.push('fraud-header-check');
