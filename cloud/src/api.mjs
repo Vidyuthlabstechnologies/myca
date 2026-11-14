@@ -14,7 +14,7 @@ import { createAuth, isUuid, OTP_MAX_GLOBAL_PER_HOUR } from './auth.mjs';
 import { createSecondFactor } from './second-factor.mjs';
 import { createDevices } from './devices.mjs';
 import { createBusinesses, engineRole } from './businesses.mjs';
-import { publicCountries } from './residency.mjs';
+import { publicCountries, residencyRefusal } from './residency.mjs';
 import { US_RETURN_YEARS } from '../../platform/src/us-return.mjs';
 import { createBooksRunner } from './books-runner.mjs';
 import { createMembers } from './members.mjs';
@@ -945,6 +945,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (action === 'replace') {
         const state = body.books && !body.state ? body.books : body.state;
         if (!state || typeof state !== 'object') return { ok: false, error: 'INVALID_BACKUP', hint: 'Send the file saved by "Download everything" or a backup from the Windows app.' };
+        const elsewhere = residencyRefusal(state.company && typeof state.company === 'object' ? state.company.country : '');
+        if (elsewhere) return elsewhere;
         const out = await runner.replaceBooks(businessId, context, { version: 1, state, documents: body.documents || {}, exportedAt: body.exportedAt || '' });
         if (out.ok !== false) await businesses.rename(businessId, state.company || {});
         return out;

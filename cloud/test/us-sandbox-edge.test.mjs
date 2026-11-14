@@ -4,6 +4,10 @@ import { createBilling } from '../src/billing.mjs';
 import { stripeSignature } from '../src/stripe.mjs';
 import { signPartnerBody, PARTNER_SIGNATURE_HEADER } from '../../platform/src/us-filing-partner.mjs';
 import { startApi } from './helpers.mjs';
+import { JOB_HEADER } from '../src/jobs.mjs';
+
+const JOB_TOKEN = 'job-token-for-us-sandbox-edge-0123456789abcdef';
+const DAY = 24 * 60 * 60 * 1000;
 
 const STRIPE_HOOK = 'whsec_test_sandbox_edge';
 const PARTNER_HOOK = 'whsec-partner-sandbox-edge-0123456789';
@@ -53,6 +57,7 @@ before(async () => {
   Object.assign(process.env, PARTNER_ENV);
   globalThis.fetch = async (url, init) => (String(url).startsWith('https://api.partner.example/') ? fakePartner(url, init) : realFetch(url, init));
   api = await startApi({
+    jobToken: JOB_TOKEN,
     billing: ({ db, now }) => createBilling({
       db,
       now,
@@ -94,7 +99,7 @@ async function prepare(who, taxYear = year, { joint = false } = {}) {
   const taxpayer = { firstName: 'Riley', lastName: 'Park', ssn: SSNS.primary, dateOfBirth: '1987-03-14', occupation: 'Engineer' };
   const spouse = joint ? { firstName: 'Casey', lastName: 'Park', ssn: SSNS.spouse, dateOfBirth: '1988-07-01', occupation: 'Teacher' } : undefined;
   await write(who, 'set_us_taxpayer', { taxYear: String(taxYear), filingStatus: joint ? 'mfj' : 'single', taxpayer, ...(spouse ? { spouse } : {}), address: { line1: '5 Pine St', city: 'Portland', state: 'OR', zip: '97201' } });
-  await write(who, 'add_us_tax_form', { taxYear: String(taxYear), kind: 'W-2', payer: 'Harbor Labs', payerTin: '12-3456782', fields: { wages: 81000, federalWithheld: 9000, socialSecurityWages: 81000, socialSecurityTax: 5022, medicareWages: 81000, medicareTax: 1174.5 } });
+  await write(who, 'add_us_tax_form', { taxYear: String(taxYear), kind: 'W-2', payer: 'Harbor Labs', payerTin: '12-3456782', fields: { wages: 81000, federalWithheld: 14000, socialSecurityWages: 81000, socialSecurityTax: 5022, medicareWages: 81000, medicareTax: 1174.5 } });
   if (joint) await write(who, 'add_us_tax_form', { taxYear: String(taxYear), kind: 'W-2', owner: 'spouse', payer: 'Lincoln School', payerTin: '12-3456783', fields: { wages: 52000, federalWithheld: 4000, socialSecurityWages: 52000, socialSecurityTax: 3224, medicareWages: 52000, medicareTax: 754 } });
 }
 
@@ -481,4 +486,94 @@ test('two tax years are paid, filed and tracked separately', async () => {
   assert.equal((await status(who, year + 1)).status, 'accepted');
   assert.equal((await status(who, year)).status, 'in_progress', 'one year\'s acceptance does not touch the other');
   assert.deepEqual((await purchases(who.businessId)).map((row) => row.taxYear), [year, year + 1]);
+});
+
+async function withoutPartner(run) {
+  const saved = Object.fromEntries(Object.keys(PARTNER_ENV).filter((key) => key.startsWith('MYCA_US_FILER')).map((key) => [key, process.env[key]]));
+  for (const key of Object.keys(saved)) delete process.env[key];
+  try {
+    return await run();
+  } finally {
+    Object.assign(process.env, saved);
+  }
+}
+
+const SIGN = { taxpayerPin: '24680', priorYear: { taxpayer: { agi: 0 } }, consent8879: true, refund: { method: 'direct_deposit', routing: '021000021', account: '000123456789', accountType: 'checking' } };
+
+test('MyCA\'s own MeF route in simulator mode: sign, file, accept; a sandbox trigger rejects, and a fixed return is accepted', async () => {
+  await withoutPartner(async () => {
+    const who = await household('+919400000321');
+    await prepare(who);
+    await payFor(who);
+    const calls = partnerCalls.length;
+    const unsigned = await fileWithPartner(who);
+    assert.equal(unsigned.ok, false, 'the own route needs Form 8879 signed first');
+    const signed = await write(who, 'sign_us_return', { taxYear: year, ...SIGN, priorYear: { taxpayer: { agi: 99999 } } });
+    assert.equal(signed.body.tools?.[0]?.result?.ok ?? signed.body.ok, true, signed.text);
+    const filed = await fileWithPartner(who);
+    assert.equal(filed.ok, true, JSON.stringify(filed));
+    let now = await status(who);
+    assert.equal(now.route, 'mef');
+    assert.equal(now.mode, 'sandbox');
+    assert.equal(now.status, 'rejected', JSON.stringify(now));
+    assert.equal(now.rejections[0].code, 'IND-031-04', 'the simulator rejects a prior-year AGI of 99999');
+    await write(who, 'sign_us_return', { taxYear: year, ...SIGN });
+    const again = await fileWithPartner(who);
+    assert.equal(again.ok, true, JSON.stringify(again));
+    now = await status(who);
+    assert.deepEqual({ status: now.status, attempts: now.attempts }, { status: 'accepted', attempts: 2 });
+    const third = await fileWithPartner(who);
+    assert.equal(third.ok, false, 'an accepted return is not sent again');
+    assert.equal(partnerCalls.length, calls, 'the own route never calls the partner');
+    const log = JSON.stringify(api.logs);
+    assert.ok(!holdsSsn(log, SSNS.primary));
+  });
+});
+
+test('the India deployment refuses to hold US data: no US household and no US backup restored into an Indian business', async () => {
+  const us = await household('+919400000322');
+  await prepare(us);
+  const usBooks = await api.books(us.businessId);
+  const india = await api.ownerWithBusiness('+919400000323', { name: 'Kiran Stores', state: '29' });
+  process.env.MYCA_COUNTRIES = 'IN';
+  try {
+    const session = await api.signIn('+919400000324');
+    const refused = await api.call('POST', '/v1/businesses', { token: session.accessToken, body: { name: 'Avery Stone', country: 'US', kind: 'household' } });
+    assert.equal(refused.body.error, 'COUNTRY_HOSTED_ELSEWHERE', refused.text);
+    const restored = await post(india, 'replace', { state: usBooks });
+    assert.equal(restored.body.error, 'COUNTRY_HOSTED_ELSEWHERE', restored.text);
+    const books = await api.books(india.businessId);
+    assert.notEqual(String(books.company?.country || 'IN').toUpperCase(), 'US', 'the Indian books are untouched');
+    assert.deepEqual(Object.keys(books.usReturns || {}), [], 'no US return was copied in');
+  } finally {
+    delete process.env.MYCA_COUNTRIES;
+  }
+});
+
+test('deleting the account removes the household\'s US data: purchases, Plus, waitlist and books; a late Stripe event for it is acknowledged and dropped', async () => {
+  const who = await household('+919400000325');
+  await prepare(who, year, { joint: true });
+  const session = await payFor(who);
+  await post(who, 'us-waitlist', { product: 'done_for_you' });
+  await fileWithPartner(who);
+  const externalId = partnerCalls.at(-1).body.external_id;
+  const late = paid(await startCheckout(who, year + 1));
+  assert.equal((await api.call('DELETE', '/v1/me', { token: who.token })).status, 200);
+  api.clock.advance(31 * DAY);
+  const due = await api.call('POST', '/v1/jobs/daily', { headers: { [JOB_HEADER]: JOB_TOKEN } });
+  assert.equal(due.status, 200, due.text);
+  for (const table of ['us_return_purchases', 'us_plus_subscriptions', 'us_waitlist', 'books', 'businesses']) {
+    const left = await api.db.query(`select count(*)::int as n from ${table} where ${table === 'businesses' ? 'id' : 'business_id'} = $1`, [who.businessId]);
+    assert.equal(left.rows[0].n, 0, `${table} holds nothing for the deleted household`);
+  }
+  const hook = await stripeHook({ type: 'checkout.session.completed', data: { object: late } });
+  assert.equal(hook.status, 200, hook.text);
+  assert.equal(hook.body.recorded, false, 'a payment for a household that no longer exists records nothing and is not retried');
+  const replay = await stripeHook({ type: 'checkout.session.completed', data: { object: session } });
+  assert.equal(replay.status, 200, replay.text);
+  const partner = await partnerHook({ type: 'return.accepted', data: { external_id: externalId } });
+  assert.equal(partner.status, 200, partner.text);
+  assert.equal(partner.body.ignored, 'FILER_EVENT_UNKNOWN_RETURN');
+  const rows = await api.db.query('select count(*)::int as n from us_return_purchases where business_id = $1', [who.businessId]);
+  assert.equal(rows.rows[0].n, 0);
 });
