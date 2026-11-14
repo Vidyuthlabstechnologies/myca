@@ -61,8 +61,9 @@ What must be true by about 20 January 2027:
 - [ ] The US Play app created and the US listing done (owner, see below).
 - [ ] A US CPA or EA attests the tax year 2026 rule records (owner signs the partner; Column Tax's own
       return engine is the one the IRS receives, so this mainly protects MyCA's estimate).
-- [ ] Privacy notice names the US company as controller, with a real contact (owner gives the
-      names; code change is small).
+- [ ] Privacy notice names the US company as controller, with a real contact. The US notice
+      (`us-draft-2026-11-14`) already describes the partner route and US hosting; three bracketed
+      blanks remain: the US company, the partner's name, and the privacy contact.
 
 ## Owner actions before a US launch
 
@@ -93,7 +94,7 @@ has no switch to India. CI builds both; it uploads the US bundle when `PLAY_US_T
 - [ ] *Data safety*: add Government ID (SSN/ITIN), financial info (bank account), and say it is
       encrypted in transit and at rest and can be deleted on request.
 - [ ] *Financial features* declaration: the app prepares and files tax returns.
-- [ ] Store listing in US English with US screenshots (the 1040 hub, forms, review, sign).
+- [ ] Store listing in US English with US screenshots (the 1040 hub, forms, review, sign). Text drafted in [`docs/release/PLAY-LISTING-US.md`](../../release/PLAY-LISTING-US.md), with the Data safety table.
 - [ ] The US price (see below) as a one-time in-app product, priced in USD for the US.
 
 ### App Store

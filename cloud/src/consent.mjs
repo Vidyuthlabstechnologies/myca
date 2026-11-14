@@ -38,19 +38,19 @@ export const PRIVACY_NOTICE = {
 
 export const PRIVACY_NOTICE_US = {
   document: 'privacy',
-  version: 'us-draft-2026-11-11',
+  version: 'us-draft-2026-11-14',
   region: 'US',
   title: 'How MyCA uses your information (United States)',
   status: 'Draft for legal review. Not yet approved for release.',
-  controller: 'ML Dynamic Solutions Private Limited, 606, 6th Floor, Gowra Fountainhead, Patrika Nagar, Madhapur, HITEC City, Hyderabad, Telangana 500081, India',
+  controller: '[The US company: legal name and US address, to be confirmed before release.]',
   sections: [
     {
       heading: 'Who we are',
-      body: 'MyCA is provided by ML Dynamic Solutions Private Limited. When you prepare a US tax return in MyCA we act as your tax return preparer and, when you sign, as the company that sends your return to the IRS.',
+      body: 'MyCA US is provided by [the US company, to be confirmed before release]. When you prepare a US tax return in MyCA we act as your tax return preparer. When you file, our IRS-authorized e-file partner, [Column Tax or April, to be confirmed], signs Form 8879 with you and sends your return to the IRS.',
     },
     {
       heading: 'What we collect',
-      body: 'To sign you in: your Google account name and email, or your phone number. To prepare your return: names, dates of birth and Social Security numbers or ITINs for you, your spouse and your dependents; your address and filing status; the W-2, 1099 and 1098 forms and other documents you add; your answers to the interview; and the bank routing and account number you give for a refund or a payment. To sign and file: your signature PIN, last year\'s AGI or PIN, any Identity Protection PIN, and the device identifier, IP address and time of signing, which the IRS asks every online provider to send. We also keep a record of every change and who made it.',
+      body: 'To sign you in: your Google account name and email, or your phone number. To prepare your return: names, dates of birth and Social Security numbers or ITINs for you, your spouse and your dependents; your address and filing status; the W-2, 1099 and 1098 forms and other documents you add; your answers to the interview; and the bank routing and account number you give for a refund or a payment. To sign and file: what the IRS asks every online filer for, which is your signature PIN, last year\'s AGI or PIN, any Identity Protection PIN, and the device identifier, IP address and time of signing. Our e-file partner collects these on its own filing screen. We also keep a record of every change and who made it.',
     },
     {
       heading: 'How we use it',
@@ -58,7 +58,7 @@ export const PRIVACY_NOTICE_US = {
     },
     {
       heading: 'Who it is shared with',
-      body: 'The IRS, when you file. Google Cloud, which hosts MyCA. Anthropic, whose AI model reads the forms you photograph and answers your questions; Social Security numbers and ITINs are removed before anything is sent to it, and it may not keep or train on what it receives. People you invite to your return, such as your spouse or your tax professional, who see Social Security numbers only as the last four digits. Nobody else, unless the law requires it.',
+      body: 'Our IRS-authorized e-file partner, when you choose to file: we pass on your names, dates of birth, address, dependents, tax forms and our estimate so you do not type them again, and your Social Security number only if you agree; the partner may use them only to file your return. The IRS, through that partner. Google Cloud, which hosts MyCA. Anthropic, whose AI model reads the forms you photograph and answers your questions; Social Security numbers and ITINs are removed before anything is sent to it, and it may not keep or train on what it receives. People you invite to your return, such as your spouse or your tax professional, who see Social Security numbers only as the last four digits. Nobody else, unless the law requires it.',
     },
     {
       heading: 'How it is protected',
@@ -66,7 +66,7 @@ export const PRIVACY_NOTICE_US = {
     },
     {
       heading: 'Where it is kept',
-      body: '[To be confirmed before release: on Google Cloud servers in the United States.]',
+      body: 'On Google Cloud servers in the United States. MyCA US keeps US returns in a US region only, and staff outside the United States cannot reach them.',
     },
     {
       heading: 'How long we keep it',
