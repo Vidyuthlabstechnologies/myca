@@ -95,6 +95,7 @@ export function createIdTokenVerifier({ issuers, clientIds = [], keys, now = () 
         sub: claims.sub,
         email: verifiedEmail && typeof claims.email === 'string' ? claims.email.slice(0, 254) : '',
         name: typeof claims.name === 'string' ? claims.name.trim().slice(0, 80) : typeof claims.preferred_username === 'string' ? claims.preferred_username.trim().slice(0, 80) : '',
+        nonce: typeof claims.nonce === 'string' ? claims.nonce : '',
       };
     },
   };

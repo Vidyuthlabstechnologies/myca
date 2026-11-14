@@ -84,6 +84,7 @@ export function usFilingOpen(env = process.env, efileMode = 'sandbox') {
 export function enabledServices(env = process.env) {
   const on = [];
   if (present(env, 'MYCA_GOOGLE_CLIENT_IDS')) on.push('google-sign-in');
+  if (present(env, 'MYCA_APPLE_CLIENT_IDS')) on.push('apple-sign-in');
   if (present(env, 'MYCA_OIDC_ISSUER')) on.push('oidc-sign-in');
   if (present(env, 'MYCA_SMS_PROVIDER')) on.push(`sms:${lower(env.MYCA_SMS_PROVIDER)}`);
   if (present(env, 'MYCA_TEST_PHONES')) on.push('test-phones');

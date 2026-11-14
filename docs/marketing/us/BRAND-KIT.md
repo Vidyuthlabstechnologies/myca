@@ -56,6 +56,9 @@ preparation advertising, which it enforced against a large tax software maker in
 > and you file the correction at no extra charge. This promise does not cover IRS penalties or
 > interest.
 
+The full terms, including what happens when an accepted return needs a Form 1040-X, are on
+`/us/refunds` (`deploy/public/us/refunds.html`). Link to that page wherever the promise appears.
+
 ## 2. Name
 
 - The product is **MyCA US**. Use it in full the first time on any page, in store titles, in press

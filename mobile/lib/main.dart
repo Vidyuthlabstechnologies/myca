@@ -14,6 +14,7 @@ import 'app_config.dart';
 import 'app_services.dart';
 import 'app_state.dart';
 import 'brand.dart';
+import 'cloud/apple_auth.dart';
 import 'cloud/cloud_session.dart';
 import 'cloud/google_auth.dart';
 import 'cloud/keystore_token_store.dart';
@@ -87,6 +88,9 @@ void main() {
         funnel: config.hosted ? FunnelTracker(store: DeviceFunnelStore(), edition: editionFor(appFlavor)) : null,
         google: config.hosted && config.googleServerClientId.isNotEmpty && defaultTargetPlatform != TargetPlatform.windows
             ? DeviceGoogleAuth(config.googleServerClientId)
+            : null,
+        apple: config.hosted && appleSignInOffered(platform: defaultTargetPlatform, edition: editionFor(appFlavor))
+            ? DeviceAppleAuth()
             : null,
         oidc: config.hosted && config.oidcClientId.isNotEmpty
             ? OidcAuth(
