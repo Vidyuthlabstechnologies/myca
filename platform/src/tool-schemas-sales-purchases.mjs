@@ -270,6 +270,7 @@ export const SALES_PURCHASE_TOOL_SCHEMAS = {
       transporterId: { type: 'string', maxLength: 15 },
       mode: { type: 'string', enum: ['road', 'rail', 'air', 'ship'] },
       docNo: { type: 'string', maxLength: 15 },
+      docDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
     },
   },
   record_share: {
