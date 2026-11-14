@@ -45,8 +45,14 @@ Every line of your Form 1040 shows where it came from: which form, which answer,
 E-file with confidence
 When your return is ready, MyCA hands it to our IRS-authorized e-file partner with your details already filled in. You review it, sign, and file there, and MyCA shows you when the IRS accepts it. If the IRS sends it back, MyCA says what went wrong and how to fix it.
 
+Our accuracy promise
+If a mistake in MyCA's calculations means your federal return needs to be corrected, we fix it and you file the correction at no extra charge. This promise does not cover IRS penalties or interest.
+
 Covers the common situations
 Wages (W-2), interest and dividends, investment sales (1099-B), freelance and gig income with Schedule C and self-employment tax, retirement distributions, unemployment, Social Security, student loan interest, tuition credits, the Child Tax Credit and the Earned Income Tax Credit, the standard or itemized deduction. If your return needs something MyCA cannot handle yet, it tells you before you pay.
+
+Year-round help with MyCA Plus
+An optional yearly plan that works out quarterly estimated payments, checks your withholding, and helps you read and answer IRS letters.
 
 Ask questions any time
 A built-in assistant answers tax questions in plain English. It never sees your Social Security number.
@@ -58,9 +64,9 @@ Share with the people who help you
 Invite your spouse or your tax professional to see the return.
 
 State returns
-MyCA files your federal return. For your state, it gives you the numbers your state's own filing site asks for.
+MyCA files your federal return. State returns are not offered yet; MyCA gives you the federal numbers your state's own filing site asks for.
 
-MyCA US is made by ML Dynamic Solutions. It is not affiliated with the IRS or any government agency.
+MyCA US is not affiliated with the IRS or any government agency.
 ```
 
 ## Data safety and privacy labels
