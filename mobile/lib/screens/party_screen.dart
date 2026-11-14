@@ -232,6 +232,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
 
   List<Widget> _purchaseNoteFields(Party party) => [
     DropdownButtonFormField<String>(
+      isExpanded: true,
       initialValue: _invoiceId,
       decoration: const InputDecoration(labelText: 'Against bill'),
       items: [

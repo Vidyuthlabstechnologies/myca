@@ -311,6 +311,7 @@ class _ConnectorCardState extends State<ConnectorCard> {
     final choices = field == 'environment' ? connectorEnvironments[view.channel] : null;
     if (choices != null) {
       return DropdownButtonFormField<String>(
+        isExpanded: true,
         key: ValueKey('${view.channel}.environment'),
         initialValue: _environment,
         decoration: InputDecoration(labelText: label),

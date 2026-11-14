@@ -9,7 +9,7 @@ import 'package:myca/screens/ims_screen.dart';
 import 'package:myca/theme.dart';
 import 'package:myca/widgets.dart' show RowCard, StatusTag;
 
-import 'accessibility_test.dart' show phone;
+import 'screen_walks.dart' show phone;
 import 'audit_trail_test.dart' show openTrail;
 import 'batch4_fix_app_test.dart' show Answer, over, refused, says, scriptedSession, typeSecondStep, usedAlready, wrong;
 import 'fake_api.dart';

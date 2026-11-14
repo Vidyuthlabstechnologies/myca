@@ -264,6 +264,7 @@ class _ReportFormState extends State<_ReportForm> {
   }
 
   Widget _choice(String label, List<String> options, String value, void Function(String) onChanged) => DropdownButtonFormField<String>(
+    isExpanded: true,
     initialValue: value,
     decoration: InputDecoration(labelText: label),
     items: [for (final option in options) DropdownMenuItem(value: option, child: Text(option.replaceAll('-', ' ')))],

@@ -128,6 +128,7 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
         return UsStateField(key: Key('usForm.${f.key}'), value: _choices[f.key], label: label, errorText: _errors[f.key], onChanged: (v) => setState(() => _choices[f.key] = v));
       case 'term':
         return DropdownButtonFormField<String>(
+          isExpanded: true,
           key: Key('usForm.${f.key}'),
           initialValue: _choices[f.key],
           decoration: InputDecoration(labelText: label, errorText: _errors[f.key]),

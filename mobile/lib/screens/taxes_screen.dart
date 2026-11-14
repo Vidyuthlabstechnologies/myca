@@ -959,14 +959,10 @@ class _HeadsRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(child: Text(label, style: text.titleMedium)),
-            Text(
-              rupees(heads.total),
-              style: text.titleMedium?.copyWith(fontFeatures: moneyFigures),
-            ),
-          ],
+        AmountRow(
+          start: Text(label, style: text.titleMedium),
+          amount: rupees(heads.total),
+          style: text.titleMedium?.copyWith(fontFeatures: moneyFigures),
         ),
         const SizedBox(height: 2),
         Text(

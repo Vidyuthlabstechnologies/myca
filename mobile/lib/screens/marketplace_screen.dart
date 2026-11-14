@@ -562,6 +562,7 @@ class _StockSheetState extends State<_StockSheet> {
             if (!_transfer) TextField(controller: _location, decoration: const InputDecoration(labelText: 'Location', hintText: 'own, amazon, flipkart, a warehouse name')),
             if (_transfer) ...[
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _from.isEmpty ? null : _from,
                 decoration: const InputDecoration(labelText: 'From'),
                 items: [for (final reg in active) DropdownMenuItem(value: '${reg['gstin']}', child: Text('${reg['label']} ${reg['gstin']}'))],
@@ -569,6 +570,7 @@ class _StockSheetState extends State<_StockSheet> {
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _to.isEmpty ? null : _to,
                 decoration: const InputDecoration(labelText: 'To'),
                 items: [for (final reg in active) DropdownMenuItem(value: '${reg['gstin']}', child: Text('${reg['label']} ${reg['gstin']}'))],

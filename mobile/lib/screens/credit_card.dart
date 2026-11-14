@@ -230,42 +230,24 @@ class _CreditCardState extends State<CreditCard> {
                   style: text.bodyLarge,
                 )
               else ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text('Matched in 2B', style: text.bodyMedium),
-                    ),
-                    Text(
-                      rupees(check.creditMatched),
-                      style: text.bodyMedium?.copyWith(
-                        fontFeatures: moneyFigures,
-                      ),
-                    ),
-                  ],
+                AmountRow(
+                  start: Text('Matched in 2B', style: text.bodyMedium),
+                  amount: rupees(check.creditMatched),
+                  style: text.bodyMedium?.copyWith(fontFeatures: moneyFigures),
                 ),
                 const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'At risk',
-                        style: text.titleMedium?.copyWith(
-                          color: check.creditAtRisk > 0
-                              ? Palette.warn
-                              : Palette.ink,
-                        ),
-                      ),
+                AmountRow(
+                  start: Text(
+                    'At risk',
+                    style: text.titleMedium?.copyWith(
+                      color: check.creditAtRisk > 0 ? Palette.warn : Palette.ink,
                     ),
-                    Text(
-                      rupees(check.creditAtRisk),
-                      style: text.titleMedium?.copyWith(
-                        fontFeatures: moneyFigures,
-                        color: check.creditAtRisk > 0
-                            ? Palette.warn
-                            : Palette.ink,
-                      ),
-                    ),
-                  ],
+                  ),
+                  amount: rupees(check.creditAtRisk),
+                  style: text.titleMedium?.copyWith(
+                    fontFeatures: moneyFigures,
+                    color: check.creditAtRisk > 0 ? Palette.warn : Palette.ink,
+                  ),
                 ),
                 if (!check.hasStatement) ...[
                   const SizedBox(height: 8),

@@ -15,7 +15,7 @@ import 'package:myca/screens/ims_screen.dart';
 import 'package:myca/screens/tds_credit_screen.dart';
 import 'package:myca/widgets.dart' show StatusTag;
 
-import 'accessibility_test.dart' show phone;
+import 'screen_walks.dart' show phone;
 import 'batch4_fix2_app_test.dart' show narrowPhone, signedInScripted, used;
 import 'batch4_fix_app_test.dart' show Answer, imsRow, over, refused, says, scriptedSession, typeSecondStep, usedAlready, waitingForSecondStep, withManyRows;
 import 'fake_api.dart';

@@ -13,7 +13,7 @@ import 'package:myca/cloud/token_store.dart';
 import 'package:myca/main.dart';
 import 'package:myca/widgets.dart' show Bubble, RowCard;
 
-import 'accessibility_test.dart' show phone;
+import 'screen_walks.dart' show phone;
 import 'cloud_test.dart' show sessionOn, signedIn;
 import 'fake_api.dart';
 import 'fake_cloud.dart';

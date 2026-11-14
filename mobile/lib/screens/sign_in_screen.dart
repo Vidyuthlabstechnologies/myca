@@ -100,6 +100,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   else ...[
                     if (users.length > 1)
                       DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: _userId,
                         decoration: const InputDecoration(labelText: 'User'),
                         items: [

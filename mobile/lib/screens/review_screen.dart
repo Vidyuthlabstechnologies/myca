@@ -5,6 +5,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
 import '../theme.dart';
+import '../widgets.dart';
 import 'ca_screen.dart';
 
 class ReviewScreen extends StatefulWidget {
@@ -292,24 +293,18 @@ class _StepCard extends StatelessWidget {
             for (final line in step.lines)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        line.label,
-                        style: line.strong ? text.titleMedium : text.bodyMedium,
+                child: line.amount == null
+                    ? Text(line.label, style: line.strong ? text.titleMedium : text.bodyMedium)
+                    : AmountRow(
+                        align: CrossAxisAlignment.start,
+                        start: Text(
+                          line.label,
+                          style: line.strong ? text.titleMedium : text.bodyMedium,
+                        ),
+                        amount: rupees(line.amount!),
+                        style: (line.strong ? text.titleMedium : text.bodyMedium)
+                            ?.copyWith(fontFeatures: moneyFigures),
                       ),
-                    ),
-                    if (line.amount != null)
-                      Text(
-                        rupees(line.amount!),
-                        style:
-                            (line.strong ? text.titleMedium : text.bodyMedium)
-                                ?.copyWith(fontFeatures: moneyFigures),
-                      ),
-                  ],
-                ),
               ),
           ],
           if (open) ...[
