@@ -332,8 +332,16 @@ export const BOOKS_TOOL_SCHEMAS = {
       name: { type: 'string', maxLength: 120 },
       hsn: { type: 'string', maxLength: 8 },
       gstRate: { type: 'number', minimum: 0, maximum: 28 },
+      barcode: { type: 'string', maxLength: 32 },
+      price: { type: 'number', minimum: 0 },
       on: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
     },
+  },
+  find_item: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['code'],
+    properties: { code: { type: 'string', minLength: 1, maxLength: 64 } },
   },
   import_sku_costs: {
     type: 'object',
