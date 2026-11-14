@@ -1,4 +1,4 @@
-import { ruleSet, gbRule, toPence, toPounds, share, monthEndPlus, isIsoDate } from './rules.mjs';
+import { ruleSet, gbRule, toPence, toPounds, share, monthEndPlus, isIsoDate, amountProblems } from './rules.mjs';
 
 export const VAT_SCHEMES = Object.freeze(['standard', 'flat-rate']);
 export const VAT_RATE_NAMES = Object.freeze(['standard', 'reduced', 'zero', 'exempt', 'outside-scope']);
@@ -49,6 +49,9 @@ export function vatReturnProblems(body) {
 }
 
 export function buildVatReturn(args = {}) {
+  if (args.to !== undefined && args.to !== null && args.to !== '' && !isIsoDate(args.to)) return fail('BAD_PERIOD_END', { hint: 'Give the last day of the VAT period as a real date, like 2026-06-30.' });
+  const bad = [...amountProblems((Array.isArray(args.sales) ? args.sales : []).map((line) => ({ net: line?.net, vat: line?.vat })), 'sales', { allowNegative: true }), ...amountProblems((Array.isArray(args.purchases) ? args.purchases : []).map((line) => ({ net: line?.net, vat: line?.vat })), 'purchases', { allowNegative: true })];
+  if (bad.length) return fail('BAD_AMOUNT', { problems: bad, hint: bad.map((problem) => `${problem.field}: ${problem.why}`).join(' ') });
   const date = isIsoDate(args.to) ? args.to : new Date().toISOString().slice(0, 10);
   const { values, used, missing } = ruleSet({ rates: 'gb.vat.rates', schemes: 'gb.vat.schemes', due: 'gb.vat.return' }, date);
   if (missing.length) return fail('RULES_MISSING', { missing });

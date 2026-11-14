@@ -171,3 +171,47 @@ test('the sandbox calculation is shown in full like an SA302, and HMRC errors st
     setChannelClient(realClient);
   }
 });
+
+test('the history lists everything sent to HMRC, newest first, for access requests and record keeping', async () => {
+  await withEnv({ MYCA_MOCK_MODE: '1', MYCA_PROVIDER_ENV: 'test' }, async () => {
+    const state = await connected();
+    assert.deepEqual(runEngineTool('gb_hmrc_history', state, {}).data, { count: 0, submissions: [] });
+    assert.equal(runEngineTool('gb_hmrc_history', state, { kind: 'payroll' }).error, 'BAD_KIND');
+    const final = await runEngineTool('trigger_gb_itsa_calculation', state, { taxYear: '2025-26', calculationType: 'intent-to-finalise' });
+    await runEngineTool('submit_gb_final_declaration', state, { taxYear: '2025-26', calculationId: final.data.calculationId, declaration: true });
+    const history = runEngineTool('gb_hmrc_history', state, {}).data;
+    assert.equal(history.count, 1);
+    assert.equal(history.submissions[0].kind, 'final-declaration');
+    assert.equal(history.submissions[0].declarationText, FINAL_DECLARATION.taxpayer);
+    assert.equal(runEngineTool('gb_hmrc_history', state, { kind: 'vat' }).data.count, 0);
+  });
+});
+
+test('typos never turn into a zero: bad amounts and impossible dates are refused with the field named', () => {
+  const state = gbState();
+  const vat = runEngineTool('gb_vat_return_check', state, { periodKey: '18A1', to: '2026-06-30', sales: [{ net: 'twelve' }] });
+  assert.equal(vat.error, 'BAD_AMOUNT');
+  assert.equal(vat.problems[0].field, 'sales[0].net');
+  assert.equal(runEngineTool('gb_vat_return_check', state, { periodKey: '18A1', to: '2026-02-30', sales: [{ net: 10 }] }).error, 'BAD_PERIOD_END');
+  const credit = runEngineTool('gb_vat_return_check', state, { periodKey: '18A1', to: '2026-06-30', sales: [{ net: 1000 }, { net: -200 }] });
+  assert.equal(credit.ok, true, 'a credit note is a negative sale');
+  assert.equal(credit.data.body.totalValueSalesExVAT, 800);
+  assert.equal(runEngineTool('gb_tax_estimate', state, { taxYear: '2025-26', income: { property: { income: -10 } } }).error, 'BAD_AMOUNT');
+});
+
+test('a landlord quarter is sorted into HMRC property boxes, and unknown or bad lines hold it back', () => {
+  const state = gbState();
+  const base = { kind: 'uk-property', taxYear: '2026-27', periodStartDate: '2026-04-06', periodEndDate: '2026-07-05' };
+  const good = runEngineTool('gb_itsa_quarter_check', state, { ...base, transactions: [{ category: 'rent', amount: 3000 }, { category: 'rent', amount: '1500.50' }, { category: 'letting-agent', amount: 450 }, { category: 'mortgage-interest', amount: 900 }, { category: 'repairs', amount: -50 }] });
+  assert.equal(good.data.ready, true, JSON.stringify(good));
+  assert.deepEqual(good.data.body.ukProperty, { income: { periodAmount: 4500.5 }, expenses: { professionalFees: 450, residentialFinancialCost: 900, repairsAndMaintenance: -50 } });
+  assert.deepEqual(good.data.totals, { income: 4500.5, expenses: 400, financeCosts: 900, profit: 4100.5 });
+  const held = runEngineTool('gb_itsa_quarter_check', state, { ...base, transactions: [{ category: 'rent', amount: -10 }, { category: 'yacht', amount: 5 }, { category: 'rent' }] });
+  assert.equal(held.data.ready, false);
+  assert.deepEqual(held.data.problems.map((problem) => problem.field), ['transactions', 'transactions[0].amount', 'transactions[2].amount']);
+  assert.equal(runEngineTool('gb_itsa_quarter_check', state, { ...base, periodEndDate: '2027-05-01', transactions: [] }).error, 'PERIOD_OUTSIDE_TAX_YEAR');
+  assert.equal(runEngineTool('gb_itsa_quarter_check', state, { ...base, income: { periodAmount: 'lots' } }).error, 'BAD_AMOUNT');
+  const trade = runEngineTool('gb_itsa_quarter_check', state, { kind: 'self-employment', taxYear: '2026-27', periodStartDate: '2026-04-06', periodEndDate: '2026-07-05', transactions: [{ category: 'sales', amount: 'abc' }] });
+  assert.equal(trade.data.ready, false);
+  assert.equal(trade.data.problems[0].field, 'transactions[0].amount');
+});

@@ -56,6 +56,12 @@ export const MANIFEST = Object.freeze({
       schema: schema({ code: { type: 'string' }, state: { type: 'string' } }, ['code', 'state']),
     }),
     Object.freeze({
+      name: 'gb_hmrc_history', title: 'Everything sent to HMRC',
+      description: 'Every VAT return, Income Tax quarterly update and final declaration or amendment MyCA has sent to HMRC for this business, newest first, with HMRC receipt references, the environment and the declaration agreed. Read-only.',
+      access: 'read',
+      schema: schema({ kind: { type: 'string', enum: ['all', 'vat', 'itsa-update', 'final-declaration'] } }),
+    }),
+    Object.freeze({
       name: 'gb_hmrc_status', title: 'HMRC connection and obligations',
       description: 'Whether MyCA is connected to HMRC, in which environment, when it last synced, the VAT and Income Tax obligations and calculations it pulled, and the fraud prevention header check. Read-only; sync to refresh.',
       access: 'read',

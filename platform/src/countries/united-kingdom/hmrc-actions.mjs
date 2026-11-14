@@ -103,6 +103,18 @@ function missingSettings(settings) {
   return [['MYCA_HMRC_CLIENT_ID', settings.clientId], ['MYCA_HMRC_CLIENT_SECRET', settings.clientSecret], ['MYCA_HMRC_REDIRECT_URI', settings.redirectUri]].filter(([, value]) => !value).map(([name]) => name);
 }
 
+export function hmrcHistory(state, args = {}) {
+  const kind = String(args.kind || 'all');
+  if (!['all', 'vat', 'itsa-update', 'final-declaration'].includes(kind)) return { ok: false, error: 'BAD_KIND' };
+  const synced = countrySlice(state, 'gbHmrcData');
+  const rows = [
+    ...Object.values(synced.vatReturns || {}).map((entry) => ({ kind: 'vat', at: entry.at, environment: entry.environment, reference: entry.formBundleNumber || '', period: entry.periodKey, amount: entry.netVatDue ?? null, chargeRefNumber: entry.chargeRefNumber || '', paymentIndicator: entry.paymentIndicator || '' })),
+    ...Object.values(synced.itsaUpdates || {}).map((entry) => ({ kind: 'itsa-update', at: entry.at, environment: entry.environment, reference: entry.correlationId || '', period: `${entry.taxYear} to ${entry.periodEnd}`, business: entry.businessId, businessKind: entry.kind })),
+    ...Object.values(synced.declarations || {}).map((entry) => ({ kind: 'final-declaration', at: entry.at, environment: entry.environment, reference: entry.calculationId, period: entry.taxYear, amount: entry.totalDue ?? null, type: entry.type, declaredBy: entry.declaredBy || 'taxpayer', declarationText: entry.declarationText || '' })),
+  ].filter((row) => kind === 'all' || row.kind === kind).sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
+  return { ok: true, data: { count: rows.length, submissions: rows } };
+}
+
 export function hmrcStatus(state) {
   const saved = countrySlice(state, 'gbHmrc');
   const synced = countrySlice(state, 'gbHmrcData');

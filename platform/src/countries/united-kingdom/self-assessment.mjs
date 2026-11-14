@@ -1,4 +1,4 @@
-import { parseTaxYear, ruleSet, positivePence, wholePoundsPence, toPounds, share, poundsFloor, PENCE } from './rules.mjs';
+import { parseTaxYear, ruleSet, amountProblems, positivePence, wholePoundsPence, toPounds, share, poundsFloor, PENCE } from './rules.mjs';
 
 const RULE_IDS = Object.freeze({
   allowances: 'gb.income-tax.allowances',
@@ -159,6 +159,14 @@ export function gbSelfAssessment(args = {}) {
   if (missing.length) return fail('RULES_MISSING_FOR_YEAR', { taxYear: year.label, missing, hint: 'MyCA has no dated rule for this tax year yet.' });
   const income = obj(args.income);
   const paid = obj(args.taxPaid);
+  const bad = [
+    ...amountProblems({ ...income, selfEmployment: { ...obj(income.selfEmployment), adjustments: undefined } }, 'income'),
+    ...amountProblems(obj(income.selfEmployment).adjustments, 'income.selfEmployment.adjustments', { allowNegative: true }),
+    ...amountProblems(paid, 'taxPaid'),
+    ...['pensionContributionsNet', 'giftAidNet', 'childBenefit', 'studentLoanDeducted', 'paymentsOnAccountMade'].flatMap((key) => amountProblems(args[key], key)),
+    ...amountProblems(args.gains, 'gains'),
+  ];
+  if (bad.length) return fail('BAD_AMOUNT', { problems: bad, hint: bad.map((problem) => `${problem.field}: ${problem.why}`).join(' ') });
   const notes = [];
 
   const trade = tradingProfit({ ...obj(income.selfEmployment), allowancePence: rule.allowances.tradingAllowancePence });

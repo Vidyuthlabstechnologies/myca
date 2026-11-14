@@ -7,7 +7,7 @@ import { checkGbIdentifier, utrValid, ninoValid, vrnValid, normaliseUtr, normali
 import { parseTaxYear, gbMoney, monthEndPlus } from './rules.mjs';
 import { amendmentWindowCloses, declarationFor } from './declarations.mjs';
 import {
-  hmrcStatus, startHmrcConnection, finishHmrcConnection, disconnectHmrc, syncHmrc, submitGbVatReturn, submitGbItsaUpdate,
+  hmrcStatus, hmrcHistory, startHmrcConnection, finishHmrcConnection, disconnectHmrc, syncHmrc, submitGbVatReturn, submitGbItsaUpdate,
   triggerGbCalculation, submitGbFinalDeclaration, calculationBlockers,
 } from './hmrc-actions.mjs';
 
@@ -79,7 +79,7 @@ export function gbTaxCalendar(state, args = {}) {
 }
 
 function quarterCheck(args) {
-  if (args.kind === 'uk-property') return ukPropertyCumulative({ taxYear: args.taxYear, fromDate: args.periodStartDate, toDate: args.periodEndDate, income: args.income, expenses: args.expenses });
+  if (args.kind === 'uk-property') return ukPropertyCumulative({ taxYear: args.taxYear, fromDate: args.periodStartDate, toDate: args.periodEndDate, income: args.income, expenses: args.expenses, transactions: args.transactions });
   return selfEmploymentCumulative(args);
 }
 
@@ -93,6 +93,7 @@ export const ENGINE = Object.freeze({
     connect_gb_hmrc: (state, args = {}) => startHmrcConnection(state, args),
     disconnect_gb_hmrc: (state, args = {}) => disconnectHmrc(state, args),
     finish_gb_hmrc_connection: (state, args = {}) => finishHmrcConnection(state, args),
+    gb_hmrc_history: (state, args = {}) => hmrcHistory(state, args),
     gb_hmrc_status: (state) => hmrcStatus(state),
     gb_itsa_quarter_check: (state, args = {}) => quarterCheck(args),
     gb_late_payment: (state, args = {}) => latePayment(args),
