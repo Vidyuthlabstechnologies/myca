@@ -215,6 +215,10 @@ and [`README.md`](README.md) for what is left and how it is being done.
   Michigan and North Carolina get a 2025 estimate (federal AGI, state exemptions or standard deduction, flat
   rate, W-2 state withholding) from dated rules in `sprints/statutory-rules/src/rules/us-states.mjs`. It is an
   estimate: no state subtractions or credits, no state form, no e-file, no 2026 figures yet
+- US state income tax, four more states (2026-11-15): Colorado (4.4% of federal taxable income), Georgia (5.19%,
+  $12,000 or $24,000 standard deduction, $4,000 a dependent), Kentucky (4%, $3,270 standard deduction) and
+  Louisiana (flat 3%, $12,500 or $25,000 standard deduction) join the 2025 estimate, each from the state's own
+  published figures. Same limits as the first slice
 - India in Hindi, shared screens (2026-11-15): the wording class the shared screens use now reads the same
   Hindi table, so cash, bank, reports, statements, repeating entries, reminders, expenses, parties and the
   entry forms show their fixed wording in Hindi on a Hindi phone (about 340 more lines). Lines built with a

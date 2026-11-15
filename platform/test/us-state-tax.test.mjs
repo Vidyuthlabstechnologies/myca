@@ -8,6 +8,8 @@ import { isRemoteQuery } from '../src/remote-contract.mjs';
 
 const w2 = (wages, withheld, state, stateWithheld) => ({ wages, federalWithheld: withheld, socialSecurityWages: wages, socialSecurityTax: Math.round(wages * 6.2) / 100, medicareWages: wages, medicareTax: Math.round(wages * 1.45) / 100, state, stateWages: wages, stateWithheld });
 
+const DEPENDENT = { firstName: 'Leo', lastName: 'Diaz', ssn: '400-12-9876', relationship: 'son', dateOfBirth: '2016-02-02', months: 12 };
+
 async function household(code, { filingStatus = 'single', dateOfBirth = '1988-04-02', stateWithheld = 0, wages = 60000, dependents, spouse } = {}) {
   const state = createState();
   state.company = { name: 'Diaz household', country: 'US', entityType: 'household' };
@@ -67,6 +69,50 @@ test('North Carolina: the state standard deduction at 4.25%', async () => {
   assert.equal(result.data.taxableIncome, 47250);
   assert.equal(result.data.tax, 2008);
   assert.match(usStateTaxWords(result.data), /less the \$12,750 standard deduction, at 4.25%/);
+});
+
+test('Colorado: 4.4% of federal taxable income', async () => {
+  const result = usStateTax(await household('CO', { stateWithheld: 2000 }), { taxYear: '2025' });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.data.start, 'federal taxable income');
+  assert.equal(result.data.startAmount, 44250);
+  assert.equal(result.data.exemption, 0);
+  assert.equal(result.data.standardDeduction, 0);
+  assert.equal(result.data.tax, 1947);
+  assert.equal(result.data.refund, 53);
+  const words = usStateTaxWords(result.data);
+  assert.match(words, /Colorado income tax for 2025 is about \$1,947: \$44,250 of federal taxable income, at 4.4%/);
+  assert.match(words, /does not file Form DR 0104 yet/);
+});
+
+test('Georgia: the $12,000 standard deduction and $4,000 a dependent at 5.19%', async () => {
+  const alone = usStateTax(await household('GA'), { taxYear: '2025' });
+  assert.equal(alone.data.standardDeduction, 12000);
+  assert.equal(alone.data.exemption, 0);
+  assert.equal(alone.data.taxableIncome, 48000);
+  assert.equal(alone.data.tax, 2491);
+  const parent = usStateTax(await household('GA', { filingStatus: 'hoh', dependents: [DEPENDENT] }), { taxYear: '2025' });
+  assert.equal(parent.ok, true, JSON.stringify(parent));
+  assert.equal(parent.data.standardDeduction, 12000);
+  assert.equal(parent.data.exemption, 4000);
+  assert.equal(parent.data.taxableIncome, 44000);
+  assert.equal(parent.data.tax, 2284);
+});
+
+test('Kentucky: one $3,270 standard deduction at 4%', async () => {
+  const result = usStateTax(await household('KY'), { taxYear: '2025' });
+  assert.equal(result.data.standardDeduction, 3270);
+  assert.equal(result.data.taxableIncome, 56730);
+  assert.equal(result.data.tax, 2269);
+});
+
+test('Louisiana: the $12,500 standard deduction at a flat 3%', async () => {
+  const result = usStateTax(await household('LA'), { taxYear: '2025' });
+  assert.equal(result.data.standardDeduction, 12500);
+  assert.equal(result.data.exemption, 0);
+  assert.equal(result.data.taxableIncome, 47500);
+  assert.equal(result.data.tax, 1425);
+  assert.match(usStateTaxWords(result.data), /\$60,000 of federal AGI less the \$12,500 standard deduction, at 3%/);
 });
 
 test('other states and years are refused plainly, and the tool is read-only', async () => {
