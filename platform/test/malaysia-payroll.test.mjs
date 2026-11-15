@@ -122,6 +122,10 @@ test('from June 2026 the payroll says LINDUNG 24 Jam is still to be deducted for
   assert.doesNotMatch(one({ wages: 3000, citizen: false }, '2026-05').notes.join(' '), /LINDUNG/);
   assert.doesNotMatch(one({ wages: 3000 }, '2026-06').notes.join(' '), /LINDUNG/);
   assert.match(one({ wages: 3000, lindung24Jam: true }, '2026-11').notes.join(' '), /employee who opted in also pays 0\.75%/);
+  assert.match(foreign.notes.join(' '), /the rate in force since June 2026/);
+  const later = one({ wages: 3000, citizen: false }, '2028-07').notes.join(' ');
+  assert.match(later, /also pays 1% of wages up to RM6000 to PERKESO \(the rate in force since June 2028\)/);
+  assert.doesNotMatch(later, /June 2026/);
   const run = malaysiaPayroll({ month: '2026-06', employees: [{ name: 'A', wages: 3000, citizen: false }] });
   assert.ok(run.data.rulesUsed.some((rule) => rule.id === 'my.payroll.lindung-24-jam'));
   assert.ok(!malaysiaPayroll({ month: '2026-05', employees: [{ name: 'A', wages: 3000 }] }).data.rulesUsed.some((rule) => rule.id === 'my.payroll.lindung-24-jam'));

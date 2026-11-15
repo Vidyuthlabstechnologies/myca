@@ -112,7 +112,7 @@ export const MANIFEST = Object.freeze({
     }),
     Object.freeze({
       name: 'my_tax_estimate', title: 'Estimate Malaysian income tax',
-      description: 'Income tax for a resident or non-resident individual for one year of assessment: reliefs capped by the dated rules, the RM400 rebate, zakat and PCB already deducted, ending in tax to pay or a refund. The taxpayer files in MyTax. Read-only.',
+      description: 'Income tax for a resident or non-resident individual for one year of assessment: reliefs capped by the dated rules, the rebate for low chargeable income, zakat and PCB already deducted, ending in tax to pay or a refund. The taxpayer files in MyTax. Read-only.',
       access: 'read',
       schema: schema({ yearOfAssessment: { type: 'string' }, resident: { type: 'boolean' }, income: { type: 'object' }, reliefs: { type: 'object' }, spouseHasIncome: { type: 'boolean' }, zakat: { type: 'number', minimum: 0 }, monthlyTaxDeductionsPaid: { type: 'number', minimum: 0 } }, ['yearOfAssessment', 'income']),
     }),

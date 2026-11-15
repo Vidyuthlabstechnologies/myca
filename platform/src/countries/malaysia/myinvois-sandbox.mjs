@@ -583,10 +583,6 @@ export function myInvoisSandbox(state) {
   };
 }
 
-export function sandboxShareLink(uuid, longId) {
-  return `${MYINVOIS_SANDBOX_PORTAL}/${uuid}/share/${longId}`;
-}
-
 export function receiveSandboxDocument(state, { buyerTin, buyerName, supplier = {}, number, issueDate, total, tax = 0, currency = 'MYR' }) {
   const now = clock();
   const problems = [];

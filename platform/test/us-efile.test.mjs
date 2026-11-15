@@ -288,3 +288,15 @@ test('an EIC worksheet with no credit or no qualifying child attaches nothing; a
   assert.equal(needed.ok, false);
   assert.deepEqual(needed.problems.map((p) => p.code), ['UNSUPPORTED_SCHEDULE']);
 });
+
+test('signing uses last year\'s AGI brought in by the prior-year import when none is typed', async () => {
+  const computedReturn = async () => ({ ok: true, data: computed1040() });
+  const args = signArgs({ priorYear: { spouse: { agi: 80000 } } });
+  const bare = await signUsReturn(usState(), args, null, { computedReturn });
+  assert.equal(bare.error, 'SIGNATURE_INVALID');
+  assert.deepEqual(bare.problems.map((problem) => problem.code), ['PRIOR_YEAR_VERIFICATION_MISSING']);
+  const state = usState();
+  state.usReturns = { ...(state.usReturns || {}), 2025: { ...(state.usReturns?.['2025'] || {}), answers: { priorYearAgi: 80000.4 } } };
+  const signed = await signUsReturn(state, args, null, { computedReturn });
+  assert.equal(signed.ok, true, JSON.stringify(signed));
+});

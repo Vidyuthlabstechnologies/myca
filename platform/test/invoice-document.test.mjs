@@ -83,3 +83,27 @@ test('it is read-only, reachable remotely, strict about its argument, and never 
   assert.equal(validateAssistantToolCall('invoice_document', { id: 'BILL-0001' }).ok, false);
   assert.equal(validateAssistantToolCall('invoice_document', { id: 'INV-0001', extra: 1 }).ok, false);
 });
+
+test('rule 46(e): an unregistered buyer at ₹50,000 of taxable value needs a name and address, wherever the invoice is made', async () => {
+  const state = createState();
+  state.company = { ...state.company, name: 'Asha Traders', gstin: '27AAACH7409R1Z1', state: '27', address: '12 Market Road', city: 'Pune', pin: '411001' };
+  const line = (rate) => [{ description: 'Fridge', hsn: '8418', qty: 1, rate, gstRate: 18 }];
+  const under = createInvoice(state, { date: '2026-10-03', partyName: 'Walk-in', lines: line(49999) });
+  assert.equal(under.ok, true, JSON.stringify(under));
+  assert.equal(under.buyerDetails, undefined);
+  assert.equal(under.invoice.total > 50000, true);
+  const walkIn = createInvoice(state, { date: '2026-10-03', lines: line(50000) });
+  assert.equal(walkIn.ok, true);
+  assert.deepEqual(walkIn.buyerDetails.missing, ['partyName', 'partyAddress']);
+  assert.equal(walkIn.buyerDetails.rule, 'gst.invoice.unregistered-buyer-details');
+  assert.match(walkIn.buyerDetails.hint, /₹50,000 or more must carry the buyer's name and address with the state \(rule 46\(e\)\)/);
+  assert.deepEqual((await runTool(state, 'invoice_document', { id: walkIn.invoice.id })).data.missing, ['BUYER_ADDRESS']);
+  assert.deepEqual((await runTool(state, 'invoice_document', { id: under.invoice.id })).data.missing, []);
+  const named = createInvoice(state, { date: '2026-10-03', partyName: 'Meera Rao', lines: line(50000) });
+  assert.deepEqual(named.buyerDetails.missing, ['partyAddress']);
+  const full = createInvoice(state, { date: '2026-10-03', partyName: 'Kiran Joshi', partyAddress: '4 Lake Road, Pune, Maharashtra 411004', lines: line(80000) });
+  assert.equal(full.buyerDetails, undefined);
+  assert.equal(createInvoice(state, { date: '2026-10-04', partyName: 'Kiran Joshi', lines: line(80000) }).buyerDetails, undefined);
+  const registered = createInvoice(state, { date: '2026-10-03', partyName: 'Rajesh Stores', partyGstin: '27AABCT1332L1ZE', lines: line(90000) });
+  assert.equal(registered.buyerDetails, undefined);
+});

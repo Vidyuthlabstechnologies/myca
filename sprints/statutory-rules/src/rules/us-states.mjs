@@ -43,4 +43,44 @@ export const RULES = [
     source: `North Carolina Department of Revenue, Tax Rate Schedules (ncdor.gov/taxes-forms/individual-income-tax/tax-rate-schedules): "For Taxable Years beginning in 2025, the North Carolina individual income tax rate is 4.25%"; North Carolina Standard Deduction or North Carolina Itemized Deductions page: $12,750 single, $25,500 married filing jointly or surviving spouse, $19,125 head of household for tax year 2025 (${READ})`,
     attestations: []
   },
+  {
+    id: 'us.state.individual.CO',
+    value: { form: 'DR 0104', start: 'federal_taxable_income', rateBasisPoints: 440, exemptionCents: 0, seniorOrBlindExtraCents: 0, exemptionAgiLimitCents: null, standardDeductionCents: null },
+    basis: 'flat_rate_on_federal_taxable_income_before_colorado_additions_and_subtractions',
+    ...year(2025),
+    act: 'Colo. Rev. Stat.',
+    section: '39-22-104',
+    source: `Colorado Department of Revenue, 2025 Colorado Individual Income Tax Filing Guide, Book 104 (tax.colorado.gov/sites/default/files/documents/Book104_2025.pdf): line 1 "Enter your federal taxable income from your federal income tax form 1040 ... line 15"; line 13 "The income tax rate is currently 4.4%" (${READ}; the statute section is cited from memory of the statute layout)`,
+    attestations: []
+  },
+  {
+    id: 'us.state.individual.GA',
+    value: { form: '500', start: 'federal_agi', rateBasisPoints: 519, exemptionCents: 0, dependentExemptionCents: 4000 * D, seniorOrBlindExtraCents: 0, exemptionAgiLimitCents: null, standardDeductionCents: { single: 12000 * D, mfj: 24000 * D, mfs: 12000 * D, hoh: 12000 * D, qss: 12000 * D } },
+    basis: 'flat_rate_on_federal_agi_less_the_georgia_standard_deduction_by_filing_status_and_an_exemption_for_each_dependent',
+    ...year(2025),
+    act: 'O.C.G.A.',
+    section: '48-7-20; 48-7-26; 48-7-27',
+    source: `Georgia Department of Revenue, 2025 IT-511 Individual Income Tax Booklet (dor.georgia.gov/document/document/2025-it-511-individual-income-tax-booklet/download): "Effective January 1, 2025, the income tax rate is 5.19%"; standard deduction $24,000 married filing jointly and $12,000 for every other status; line 14 "Multiply the number of dependents on Line 7c by $4,000"; line 8 starts from federal adjusted gross income (${READ}; the code sections are cited from memory of the statute layout)`,
+    attestations: []
+  },
+  {
+    id: 'us.state.individual.KY',
+    value: { form: '740', start: 'federal_agi', rateBasisPoints: 400, exemptionCents: 0, seniorOrBlindExtraCents: 0, exemptionAgiLimitCents: null, standardDeductionCents: { single: 3270 * D, mfj: 3270 * D, mfs: 3270 * D, hoh: 3270 * D, qss: 3270 * D } },
+    basis: 'flat_rate_on_federal_agi_less_one_kentucky_standard_deduction_per_return',
+    ...year(2025),
+    act: 'Ky. Rev. Stat.',
+    section: '141.020; 141.081',
+    source: `Kentucky Department of Revenue, 2025 Form 740 packet instructions (revenue.ky.gov/Forms/740%20Packet%20Instructions.pdf): "For 2025, the tax rate for individual income tax is 4%"; "For 2025, the standard deduction is $3,270"; "If filing a joint return, only one $3,270 standard deduction is allowed"; the return begins with federal adjusted gross income (${READ})`,
+    attestations: []
+  },
+  {
+    id: 'us.state.individual.LA',
+    value: { form: 'IT-540', start: 'federal_agi', rateBasisPoints: 300, exemptionCents: 0, seniorOrBlindExtraCents: 0, exemptionAgiLimitCents: null, standardDeductionCents: { single: 12500 * D, mfj: 25000 * D, mfs: 12500 * D, hoh: 25000 * D, qss: 25000 * D } },
+    basis: 'flat_rate_on_federal_agi_less_the_louisiana_standard_deduction_by_filing_status',
+    ...year(2025),
+    act: 'La. Rev. Stat.',
+    section: '47:32; 47:294',
+    source: `Louisiana Department of Revenue, income tax reform questions (revenue.louisiana.gov/tax-education-and-faqs/faqs/income-tax-reform): "For taxable periods beginning on or after January 1, 2025, the individual income tax rate is a flat 3%"; standard deduction $12,500 for single and married filing separately and 200% of that for married filing jointly, qualifying surviving spouse and head of household (${READ}; that the return starts from federal adjusted gross income is from the IT-540 layout and was not re-read; the statute sections are cited from memory of the statute layout)`,
+    attestations: []
+  },
 ];
