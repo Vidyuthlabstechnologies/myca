@@ -67,7 +67,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | Prior-year return import | `import_us_prior_year`: from last year's MyCA return, or typed figures from a return filed elsewhere | **Built now**; reading a rival's PDF is still open |
 | Amended return 1040-X | no | Gap |
 | Form 2441 child care credit, 8962 premium tax credit, Schedule E rentals | coming | Gap |
-| State returns | `us_state_tax`: no return in the eight states with no income tax; a 2025 or 2026 estimate for Colorado, Georgia, Illinois, Kentucky, Louisiana, Michigan and North Carolina from the federal return (Colorado from federal taxable income, the rest from federal AGI), set against W-2 state withholding | **Started**: an estimate only, seven flat-rate states, no state subtractions or credits, no state form or e-file; the 2026 figures are the ones each state announced before its 2026 return and are marked provisional; the other states are open |
+| State returns | `us_state_tax`: no return in the eight states with no income tax; a 2025 or 2026 estimate for Colorado, Georgia, Illinois, Kentucky, Louisiana, Michigan and North Carolina and a 2025 estimate for Arizona and Iowa from the federal return (Colorado and Iowa from federal taxable income, the rest from federal AGI), set against W-2 state withholding | **Started**: an estimate only, nine flat-rate states (Arizona and Iowa for 2025 only), no state subtractions or credits, no state form or e-file; the 2026 figures are the ones each state announced before its 2026 return and are marked provisional; the other states are open |
 | Audit defense / letter help | IRS letter reader in Plus | Partial |
 
 ## United Kingdom (rivals: FreeAgent, Xero, QuickBooks, GoSimpleTax, Sage)
