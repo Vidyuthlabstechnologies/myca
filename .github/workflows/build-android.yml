@@ -10,6 +10,10 @@ on:
         type: choice
         options: [live, test]
         default: live
+      sandbox_url:
+        description: "Test builds only: the sandbox server's public https address (scripts/sandbox-server.mjs). The India app gets <url>/in and the US app <url>/us. Empty uses MYCA_CLOUD_URL_STAGING."
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -24,6 +28,7 @@ jobs:
     env:
       BACKEND: ${{ inputs.backend || 'live' }}
       CLOUD_URL: ${{ inputs.backend == 'test' && vars.MYCA_CLOUD_URL_STAGING || vars.MYCA_CLOUD_URL }}
+      SANDBOX_URL: ${{ inputs.backend == 'test' && inputs.sandbox_url || '' }}
       GOOGLE_SERVER_CLIENT_ID: ${{ vars.MYCA_GOOGLE_SERVER_CLIENT_ID }}
       OIDC_CLIENT_ID: ${{ vars.MYCA_OIDC_CLIENT_ID }}
       WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
@@ -133,18 +138,29 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then name="${GITHUB_REF_NAME#v}"; define+=(--build-name="$name"); fi
           define+=(--dart-define="MYCA_APP_VERSION=$name+$GITHUB_RUN_NUMBER")
           if [ "$BACKEND" = "test" ]; then
-            if [ -z "$CLOUD_URL" ]; then echo "::error::A test build needs the MYCA_CLOUD_URL_STAGING repository variable (the staging API address)."; exit 1; fi
+            case "$SANDBOX_URL" in
+              "") ;;
+              https://*) ;;
+              *) echo "::error::sandbox_url must start with https://"; exit 1 ;;
+            esac
+            if [ -z "$CLOUD_URL" ] && [ -z "$SANDBOX_URL" ]; then echo "::error::A test build needs the MYCA_CLOUD_URL_STAGING repository variable (the staging API address)."; exit 1; fi
             define+=(-P mycaTest=true)
           fi
-          if [ -n "$CLOUD_URL" ]; then define+=(--dart-define="MYCA_CLOUD_URL=$CLOUD_URL"); fi
+          url_for() {
+            if [ -n "$SANDBOX_URL" ]; then echo "${SANDBOX_URL%/}/$1"; else echo "$CLOUD_URL"; fi
+          }
           if [ -n "$GOOGLE_SERVER_CLIENT_ID" ]; then define+=(--dart-define="MYCA_GOOGLE_SERVER_CLIENT_ID=$GOOGLE_SERVER_CLIENT_ID"); fi
           if [ -n "$OIDC_CLIENT_ID" ]; then define+=(--dart-define="MYCA_OIDC_CLIENT_ID=$OIDC_CLIENT_ID"); fi
-          flutter build apk --release --flavor india "${define[@]}"
-          flutter build appbundle --release --flavor india "${define[@]}"
-          flutter build apk --release --flavor us "${define[@]}"
-          flutter build appbundle --release --flavor us "${define[@]}"
-          flutter build apk --release --flavor my "${define[@]}"
-          flutter build appbundle --release --flavor my "${define[@]}"
+          build() {
+            local flavor="$1" url="$2"
+            local extra=()
+            if [ -n "$url" ]; then extra+=(--dart-define="MYCA_CLOUD_URL=$url"); fi
+            flutter build apk --release --flavor "$flavor" "${define[@]}" "${extra[@]}"
+            flutter build appbundle --release --flavor "$flavor" "${define[@]}" "${extra[@]}"
+          }
+          build india "$(url_for in)"
+          build us "$(url_for us)"
+          build my "$CLOUD_URL"
           mkdir -p ../dist
           cp build/app/outputs/flutter-apk/app-india-release.apk ../dist/myca-android.apk
           cp build/app/outputs/bundle/indiaRelease/app-india-release.aab ../dist/myca-android.aab
@@ -173,7 +189,7 @@ jobs:
           {
             echo "### Android build"
             if [ "${HAS_KEYSTORE:-}" = "true" ]; then echo "- Signed with the upload key: ready for Play."; else echo "- Signed with the debug key: installable for testing, not uploadable to Play. Add the four myca-android-* secret versions in Secret Manager to sign."; fi
-            if [ -n "$CLOUD_URL" ]; then echo "- Hosted mode: \`$CLOUD_URL\`"; else echo "- Local mode: no MYCA_CLOUD_URL variable set."; fi
+            if [ -n "$SANDBOX_URL" ]; then echo "- Sandbox server: \`$SANDBOX_URL\` (India /in, US /us)"; elif [ -n "$CLOUD_URL" ]; then echo "- Hosted mode: \`$CLOUD_URL\`"; else echo "- Local mode: no MYCA_CLOUD_URL variable set."; fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

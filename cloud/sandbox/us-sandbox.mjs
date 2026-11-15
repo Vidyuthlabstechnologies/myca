@@ -48,7 +48,7 @@ async function readBody(req) {
   return Buffer.concat(chunks).toString('utf8');
 }
 
-export async function startUsSandbox({ databaseUrl, port = 8080, consolePort = 8090, host = '127.0.0.1', route = 'partner', plus = 'card', log = (entry) => console.log(JSON.stringify(entry)), env = process.env } = {}) {
+export async function startUsSandbox({ databaseUrl, port = 8080, consolePort = 8090, host = '127.0.0.1', route = 'partner', plus = 'card', log = (entry) => console.log(JSON.stringify(entry)), env = process.env, publicUrl = '', secret = '', booksKey = '', connectorKey = '', testSignIn = null, allowOutside = false, environment = 'local' } = {}) {
   const refused = sandboxRefusal(env);
   if (refused) throw new Error(refused);
   if (!ROUTES.has(route)) throw new Error(`route must be one of ${[...ROUTES].join(', ')}`);
@@ -80,6 +80,10 @@ export async function startUsSandbox({ databaseUrl, port = 8080, consolePort = 8
     const target = new URL(String(url));
     if (String(url).startsWith(`${SANDBOX_PARTNER_URL}/`)) return fakePartner(init);
     if (LOOPBACK.has(target.hostname)) return realFetch(url, init);
+    if (allowOutside) {
+      note({ outside: target.hostname });
+      return realFetch(url, init);
+    }
     note({ refused: target.hostname });
     throw new Error(`sandbox: outside call to ${target.hostname} refused`);
   };
@@ -235,7 +239,7 @@ export async function startUsSandbox({ databaseUrl, port = 8080, consolePort = 8
   });
 
   await new Promise((resolve) => consoleServer.listen(consolePort, host, resolve));
-  consoleUrl = `http://${host}:${consoleServer.address().port}`;
+  consoleUrl = publicUrl ? String(publicUrl).replace(/\/+$/, '') : `http://${host}:${consoleServer.address().port}`;
   const db = createDb(databaseUrl);
   await migrate(db);
   const billingConfig = {
@@ -246,19 +250,22 @@ export async function startUsSandbox({ databaseUrl, port = 8080, consolePort = 8
   const handler = createApi({
     db,
     billing: createBilling({ db, config: billingConfig, fetchImpl: fakeProviders, log, usFilingOpen: () => true }),
-    secret: randomBytes(32).toString('hex'),
+    secret: secret || randomBytes(32).toString('hex'),
     otpSender,
-    booksKey: randomBytes(32).toString('hex'),
+    booksKey: booksKey || randomBytes(32).toString('hex'),
     log,
-    environment: 'local',
+    environment,
+    ...(testSignIn ? { testSignIn } : {}),
+    ...(connectorKey ? { connectorKey } : {}),
   });
   const api = createServer(handler);
 
   await new Promise((resolve) => api.listen(port, host, resolve));
-  apiUrl = `http://${host}:${api.address().port}`;
+  apiUrl = `http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${api.address().port}`;
   return {
     apiUrl,
     consoleUrl,
+    consolePort: consoleServer.address().port,
     route,
     plus,
     state: () => ({ codes, checkouts: [...checkouts.values()], partnerSessions, events }),
