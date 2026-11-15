@@ -240,6 +240,12 @@ and [`README.md`](README.md) for what is left and how it is being done.
   text passed to `inText` has no Hindi line. Other screens and server replies stay in English for now
 - India counter sale buyer details (2026-11-15): a counter bill of ₹50,000 or more is held until the
   customer's name and address are entered, and the address goes on the invoice (`partyAddress`)
+- Malaysia CP39 file (2026-11-15): `my_cp39_file` builds the monthly PCB remittance text file for e-PCB Plus or
+  a bank from LHDN's 2026 specification (Exhibit 4 and 5): a 57-character header with the employer numbers and
+  totals, a 136-character line per employee, amounts in sen with no decimal point, file name
+  `<employer no><mm>_<yyyy>.txt`. The layout is the dated rule `my.payroll.cp39-text-file`. Employees with no
+  deduction are left out. Not yet done: a download button in the app, and an upload to e-PCB Plus to prove the
+  file is accepted (the specification does not say how lines end; the file uses CR LF)
 - Malaysia LINDUNG 24 Jam (2026-11-15): `my.payroll.lindung-24-jam` records the employee-paid Non-Employment
   Injury Scheme from June 2026 (0.75%, then 1% and 1.25%; mandatory for foreign workers, voluntary for
   locals); `my_payroll` says it is due and not in net pay, because the ringgit schedule is not encoded yet

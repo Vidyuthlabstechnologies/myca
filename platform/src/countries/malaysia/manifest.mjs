@@ -45,6 +45,12 @@ export const MANIFEST = Object.freeze({
       schema: schema({ type: { type: 'string', enum: ['self-billed-invoice', 'self-billed-credit-note', 'self-billed-debit-note', 'self-billed-refund-note'] }, number: { type: 'string' }, issueDate: { type: 'string' }, issueTime: { type: 'string' }, supplier: party, lines, currency: { type: 'string' }, exchangeRate: { type: 'number', exclusiveMinimum: 0 }, original: party, paymentMethod: { type: 'string' }, approvalId: { type: 'string' } }, ['number', 'supplier', 'lines']),
     }),
     Object.freeze({
+      name: 'my_cp39_file', title: 'CP39 file for e-PCB Plus',
+      description: 'Builds the monthly PCB remittance text file (CP39) in LHDN\'s fixed-width layout for upload to e-PCB Plus or a bank: one header with the employer number and totals, one line per employee with the tax number, name, IC or passport, PCB and any CP38 deduction. Give the PCB amounts from my_payroll. Employees with no deduction are left out. Read-only; nothing is sent to LHDN.',
+      access: 'read',
+      schema: schema({ month: { type: 'string' }, employerNo: { type: 'string' }, hqEmployerNo: { type: 'string' }, employees: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string' }, taxNumber: { type: 'string' }, newIc: { type: 'string' }, oldIc: { type: 'string' }, passport: { type: 'string' }, countryCode: { type: 'string' }, pcb: { type: 'number', minimum: 0 }, cp38: { type: 'number', minimum: 0 }, employeeNo: { type: 'string' } } } } }, ['month', 'employerNo', 'employees']),
+    }),
+    Object.freeze({
       name: 'my_einvoice_check', title: 'Check a Malaysian e-invoice',
       description: 'Build the MyInvois UBL 2.1 document for an invoice without sending it, and list every missing or wrong field against the LHDN code tables, with the totals. Read-only.',
       access: 'read',
