@@ -132,7 +132,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | SST-02 return, SST registration test | yes | Ahead of Xero |
 | Income tax estimate | yes | Ahead |
 | Bilingual (English, Malay) | yes (launch branch) | Parity |
-| Payroll statutory (EPF, SOCSO, EIS, PCB) | `my_payroll` from the Third Schedule, the PERKESO RM100-band tables and LHDN's computerised PCB method (categories, children, bonus, year to date, zakat); `my_cp39_file` writes the CP39 text file for e-PCB Plus in LHDN's 2026 layout; PCB now checked against LHDN's 2026 specification and its worked example | **Built now**; wages of RM300 or less, SOCSO second category and the LINDUNG 24 Jam amount (from June 2026 the run only says it is due and at what rate) still open; the CP39 file is not yet offered as a download in the app and has not been uploaded to e-PCB Plus |
+| Payroll statutory (EPF, SOCSO, EIS, PCB) | `my_payroll` from the Third Schedule, the PERKESO RM100-band tables and LHDN's computerised PCB method (categories, children, bonus, year to date, zakat); `my_cp39_file` writes the CP39 text file for e-PCB Plus in LHDN's 2026 layout; PCB now checked against LHDN's 2026 specification and its worked example | **Built now**; wages of RM300 or less, SOCSO second category and the LINDUNG 24 Jam amount (from June 2026 the run only says it is due and at what rate) still open; the Malaysia app now has a payroll screen (employees, net pay, the month's totals) that saves the CP39 file; the file has not been uploaded to e-PCB Plus, employees are not yet remembered between months and the sandbox does not run payroll |
 | Bank feeds and receipt extraction | no | Gap (Bukku) |
 | Inventory with batches/serials | basic | Gap (AutoCount) |
 
@@ -141,7 +141,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | # | Country | Gap | Why it matters | Suggested owner |
 |---|---|---|---|---|
 | 1 | US | Sign the e-file partner (1099-B/crypto CSV import is built) | No filing, no revenue; investors are the users TurboTax upsells hardest | US launch thread + owner |
-| 2 | Malaysia | PCB (monthly tax deduction) on top of the EPF/SOCSO/EIS payroll (BUILT, with the CP39 file for e-PCB Plus; next: a download button in the app and a real upload test) | SQL Account's payroll add-on is the main reason SMEs stay on desktop | Malaysia thread, from the official KWSP/PERKESO/LHDN tables |
+| 2 | Malaysia | PCB (monthly tax deduction) on top of the EPF/SOCSO/EIS payroll (BUILT, with the CP39 file for e-PCB Plus; and a payroll screen in the app that saves it; next: a real upload test and remembering employees between months) | SQL Account's payroll add-on is the main reason SMEs stay on desktop | Malaysia thread, from the official KWSP/PERKESO/LHDN tables |
 | 3 | India | Barcode counter billing and thermal printing on Android (BUILT) | Retail shops pick Vyapar/myBillBook for this alone | India mobile thread |
 | 4 | UK | Receipt OCR on UK screens (Open Banking bank feeds are BUILT through Plaid, waiting on the owner's Plaid UK access) | Every rival has them; quarterly MTD updates need categorised bank lines | UK thread (TrueLayer or Yapily via a cloud port) |
 | 5 | India | Hindi on every India screen and in MyCA's replies, then regional languages (home, new entry, counter sale and the fixed wording of the shared screens are BUILT) | Vyapar's growth came from it | Design system thread |

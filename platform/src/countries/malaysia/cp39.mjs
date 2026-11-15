@@ -45,6 +45,7 @@ function readEmployee(employee, index, layout, problems) {
   }
   const pcbSen = amountOk(employee.pcb) ? toSen(employee.pcb) : 0;
   const cp38Sen = amountOk(employee.cp38) ? toSen(employee.cp38) : 0;
+  if (amountOk(employee.pcb) && amountOk(employee.cp38) && pcbSen === 0 && cp38Sen === 0) return { name: name || `Employee ${index + 1}`, pcbSen, cp38Sen };
   if (!name) problems.push({ field: `${at}.name`, why: 'the full name as on the identity card or passport' });
   if (name.length > width.name) problems.push({ field: `${at}.name`, why: `at most ${width.name} characters` });
   if (!tin) problems.push({ field: `${at}.taxNumber`, why: 'the tax identification number is mandatory in the CP39 file' });

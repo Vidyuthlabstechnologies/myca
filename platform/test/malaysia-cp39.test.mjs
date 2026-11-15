@@ -62,6 +62,9 @@ test('a missing tax number, identity or employer number is refused, and so is a 
   assert.equal(bad.error, 'BAD_INPUT');
   assert.deepEqual(bad.problems.map((problem) => problem.field), ['employees[0].taxNumber', 'employees[0].newIc', 'employees[1].pcb', 'employees[1]', 'employees[2].countryCode']);
   assert.equal(malaysiaCp39({ month: '2026-10', employerNo: '1', employees: [staff[2]] }).error, 'NOTHING_TO_REMIT');
+  const mixed = malaysiaCp39({ month: '2026-10', employerNo: '1', employees: [staff[0], { name: 'No Tax Yet', pcb: 0 }, { pcb: 0 }] });
+  assert.equal(mixed.ok, true, JSON.stringify(mixed));
+  assert.deepEqual(mixed.data.leftOut, ['No Tax Yet', 'Employee 3']);
 });
 
 test('the tool is on the Malaysia engine, read-only, and answers in words', () => {

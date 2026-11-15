@@ -256,6 +256,11 @@ and [`README.md`](README.md) for what is left and how it is being done.
   `<employer no><mm>_<yyyy>.txt`. The layout is the dated rule `my.payroll.cp39-text-file`. Employees with no
   deduction are left out. Not yet done: a download button in the app, and an upload to e-PCB Plus to prove the
   file is accepted (the specification does not say how lines end; the file uses CR LF)
+- Malaysia payroll screen (2026-11-15): the Malaysia app has a Payroll screen on the home page. It takes the month
+  and each employee's wages, bonus, PCB category and children, shows EPF, SOCSO, EIS, PCB and net pay per employee
+  with the month's totals and due date from `my_payroll`, and saves the CP39 file from `my_cp39_file`. Employees
+  with nothing to remit no longer need a tax number for the CP39 file. Open: employees are typed in each month,
+  the sandbox does not run payroll, and the file has not been uploaded to e-PCB Plus.
 - Malaysia LINDUNG 24 Jam (2026-11-15): `my.payroll.lindung-24-jam` records the employee-paid Non-Employment
   Injury Scheme from June 2026 (0.75%, then 1% and 1.25%; mandatory for foreign workers, voluntary for
   locals); `my_payroll` says it is due and not in net pay, because the ringgit schedule is not encoded yet
