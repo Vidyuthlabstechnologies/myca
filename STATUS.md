@@ -261,6 +261,9 @@ and [`README.md`](README.md) for what is left and how it is being done.
   with the month's totals and due date from `my_payroll`, and saves the CP39 file from `my_cp39_file`. Employees
   with nothing to remit no longer need a tax number for the CP39 file. Open: employees are typed in each month,
   the sandbox does not run payroll, and the file has not been uploaded to e-PCB Plus.
+- Malaysia income tax sources (2026-11-15): the resident bands and the RM400 rebate were checked against LHDN's own
+  tax rate and rebate pages and match; the records now cite LHDN first. The 30% non-resident rate, the SST records
+  and the UAE labour records still rest on secondary summaries; UAE VAT and corporate tax already cite the FTA.
 - Malaysia LINDUNG 24 Jam (2026-11-15): `my.payroll.lindung-24-jam` records the employee-paid Non-Employment
   Injury Scheme from June 2026 (0.75%, then 1% and 1.25%; mandatory for foreign workers, voluntary for
   locals); `my_payroll` says it is due and not in net pay, because the ringgit schedule is not encoded yet
