@@ -242,7 +242,7 @@ export function uaePayrollRun(args = {}) {
     const net = gross - deductions;
     let gratuityAccrual = null;
     if (!national && employee.joinDate && employee.joinDate <= monthEnd) {
-      const now = gratuityEstimate({ joinDate: employee.joinDate, lastDay: monthEnd, basicMonthly: toDirhams(amounts.basic) });
+      const now = gratuityEstimate({ joinDate: employee.joinDate, lastDay: monthEnd, basicMonthly: toDirhams(amounts.basic), unpaidAbsenceDays: unpaid });
       const before = previousMonthEnd(year, monthNumber);
       const earlier = before >= employee.joinDate ? gratuityEstimate({ joinDate: employee.joinDate, lastDay: before, basicMonthly: toDirhams(amounts.basic) }) : null;
       if (now.ok) gratuityAccrual = toFils(now.data.accruedLiability) - (earlier && earlier.ok ? toFils(earlier.data.accruedLiability) : 0);
