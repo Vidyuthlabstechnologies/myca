@@ -1,5 +1,6 @@
 import { usBrokerageCsv } from './us-brokerage-import.mjs';
 import { usRefundBoost } from './us-refund-boost.mjs';
+import { usStateTax } from './us-state-tax.mjs';
 import { importUsPriorYear } from './us-prior-year.mjs';
 import { tally, bank, gstin, filing, audit } from './sprint-load.mjs';
 import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
@@ -855,6 +856,13 @@ export const TOOLS = [
     description: 'Checks the started return for common deductions, credits and filing-status choices it does not use yet (IRA, HSA, student loan interest, educator expenses, self-employed health and retirement, tips, overtime, car loan interest, charity, medical, itemizing, head of household) and works out what each is worth by running the return again. US only. Read-only.',
     args: ['taxYear'],
     run: (state, args = {}) => usRefundBoost(state, args),
+  },
+  {
+    name: 'us_state_tax',
+    title: 'Estimate US state income tax',
+    description: 'Says what the started federal return means for state income tax in the state lived in: no return in the eight states with no individual income tax, and for Illinois, Michigan and North Carolina (tax year 2025) an estimate from federal AGI, the state exemptions or standard deduction and the flat rate, set against state tax withheld on the W-2s. Lists what the estimate leaves out. It does not prepare or file a state return. US only. Read-only.',
+    args: ['taxYear', 'state'],
+    run: (state, args = {}) => usStateTax(state, args),
   },
   {
     name: 'us_estimated_payments',
