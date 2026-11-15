@@ -78,6 +78,18 @@ void main() {
     expect(appleSignInOffered(platform: TargetPlatform.windows, edition: 'US'), isFalse);
   });
 
+  testWidgets('on a test server the US app keeps the test-number sign-in beside Apple and Google', (tester) async {
+    final cloud = FakeCloud()
+      ..appleOn = true
+      ..serverEnvironment = 'staging';
+    await tester.pumpWidget(MycaApp(state: _us(cloud, apple: FakeApple(), google: FakeGoogle())));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('signIn.apple')), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Continue with Google'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Mobile number'), findsOneWidget);
+  });
+
   testWidgets('the Apple button comes first, black, at least as large as Google, and signs a new user in with the name Apple gave', (tester) async {
     final cloud = FakeCloud()..appleOn = true;
     final apple = FakeApple();

@@ -170,7 +170,8 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> with SecureWindow
     final firmOn = state.oidc != null && (_methods?.oidc ?? false);
     final firmHost = _methods?.oidcIssuerHost ?? '';
     final accountOn = googleOn || appleOn || firmOn;
-    final phoneOn = (_methods?.phone ?? true) && !((state.edition == 'US' || state.edition == 'MY') && accountOn);
+    final testServer = state.server?.isTestServer ?? false;
+    final phoneOn = (_methods?.phone ?? true) && (testServer || !((state.edition == 'US' || state.edition == 'MY') && accountOn));
     final phoneOnly = phoneOn && !accountOn;
     final s = UaeStrings.of(context);
     final ae = uaeEdition(context);

@@ -1,0 +1,90 @@
+name: Deploy the sandbox (develop)
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - "cloud/**"
+      - "platform/src/**"
+      - "sprints/**"
+      - "scripts/sandbox-server.mjs"
+      - "deploy/sandbox/**"
+      - ".github/workflows/deploy-sandbox.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-sandbox
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and roll out myca-sandbox
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PROJECT: ${{ vars.GCP_SANDBOX_PROJECT_ID || 'myca-prod-in' }}
+      REGION: ${{ vars.GCP_SANDBOX_REGION || 'asia-south1' }}
+      SERVICE: myca-sandbox
+      SANDBOX_URL: ${{ vars.MYCA_SANDBOX_URL || 'https://myca-sandbox-tvfsqs2oha-el.a.run.app' }}
+      WIF_PROVIDER: ${{ vars.GCP_SANDBOX_WIF_PROVIDER || 'projects/541813254937/locations/global/workloadIdentityPools/myca-github-sandbox/providers/develop' }}
+      DEPLOY_SA: ${{ vars.GCP_SANDBOX_DEPLOY_SA || 'myca-sandbox-deployer@myca-prod-in.iam.gserviceaccount.com' }}
+    steps:
+      - name: Skip until the sandbox is set up (scripts/sandbox-cloud-setup.sh in Cloud Shell)
+        id: ready
+        shell: bash
+        run: |
+          if curl -fsS --max-time 20 "$SANDBOX_URL/in/v1/health" >/dev/null; then
+            echo "up=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$SANDBOX_URL is not answering yet. Run scripts/sandbox-cloud-setup.sh once in Cloud Shell (docs/release/SANDBOX-APKS.md)."
+            echo "up=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.ready.outputs.up == 'true'
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.ready.outputs.up == 'true'
+        with:
+          node-version: "22"
+
+      - name: Authenticate to Google Cloud (sandbox pool, develop only)
+        if: steps.ready.outputs.up == 'true'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        if: steps.ready.outputs.up == 'true'
+
+      - name: Build, push and roll out
+        if: steps.ready.outputs.up == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="${REGION}-docker.pkg.dev/${PROJECT}/${SERVICE}/myca-sandbox:${GITHUB_SHA}"
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          docker build -f deploy/sandbox/Dockerfile -t "$image" .
+          docker push "$image"
+          gcloud run deploy "$SERVICE" --project "$PROJECT" --region "$REGION" --image "$image" --quiet
+
+      - name: Walk every app through the sandbox
+        if: steps.ready.outputs.up == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            curl -fsS "$SANDBOX_URL/in/v1/health/live" >/dev/null && curl -fsS "$SANDBOX_URL/us/v1/health/live" >/dev/null && break
+            sleep 6
+          done
+          curl -fsS "$SANDBOX_URL/in/v1/health/live" | tee -a "$GITHUB_STEP_SUMMARY"
+          node scripts/sandbox-server-check.mjs "$SANDBOX_URL" --no-console | tee -a "$GITHUB_STEP_SUMMARY"

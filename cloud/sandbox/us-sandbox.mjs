@@ -26,7 +26,8 @@ function isSandboxPartner(value) {
 export function sandboxRefusal(env = process.env) {
   const on = (name) => String(env[name] || '').trim() && String(env[name]).trim() !== 'unset';
   if (on('MYCA_ENABLE_LIVE_CALLS')) return 'MYCA_ENABLE_LIVE_CALLS is set. The US sandbox never makes live calls; unset it.';
-  if (on('K_SERVICE') || on('MYCA_PRODUCTION') || String(env.MYCA_ENVIRONMENT || '').trim() === 'production') return 'This looks like a production host. Run the US sandbox on a developer machine or in CI only.';
+  const hostedSandbox = String(env.MYCA_SANDBOX_HOSTED || '').trim() === '1' && /^myca-sandbox(-|$)/.test(String(env.K_SERVICE || '').trim());
+  if ((on('K_SERVICE') && !hostedSandbox) || on('MYCA_PRODUCTION') || String(env.MYCA_ENVIRONMENT || '').trim() === 'production') return 'This looks like a production host. Run the US sandbox on a developer machine or in CI only.';
   if (/^(sk|rk)_live_/.test(String(env.MYCA_STRIPE_SECRET_KEY || ''))) return 'MYCA_STRIPE_SECRET_KEY is a live Stripe key. The sandbox fakes Stripe and needs no key; unset it.';
   if (on('MYCA_US_FILER_API_KEY') && !isSandboxPartner(env.MYCA_US_FILER_BASE_URL)) return 'A real e-file partner key is set. The sandbox fakes the partner; unset MYCA_US_FILER_API_KEY.';
   return '';
@@ -48,7 +49,7 @@ async function readBody(req) {
   return Buffer.concat(chunks).toString('utf8');
 }
 
-export async function startUsSandbox({ databaseUrl, port = 8080, consolePort = 8090, host = '127.0.0.1', route = 'partner', plus = 'card', log = (entry) => console.log(JSON.stringify(entry)), env = process.env } = {}) {
+export async function startUsSandbox({ databaseUrl, port = 8080, consolePort = 8090, host = '127.0.0.1', route = 'partner', plus = 'card', log = (entry) => console.log(JSON.stringify(entry)), env = process.env, publicUrl = '', secret = '', booksKey = '', connectorKey = '', testSignIn = null, allowOutside = false, allowHosts = [], googleClientIds = [], environment = 'local' } = {}) {
   const refused = sandboxRefusal(env);
   if (refused) throw new Error(refused);
   if (!ROUTES.has(route)) throw new Error(`route must be one of ${[...ROUTES].join(', ')}`);
@@ -80,6 +81,10 @@ export async function startUsSandbox({ databaseUrl, port = 8080, consolePort = 8
     const target = new URL(String(url));
     if (String(url).startsWith(`${SANDBOX_PARTNER_URL}/`)) return fakePartner(init);
     if (LOOPBACK.has(target.hostname)) return realFetch(url, init);
+    if (allowOutside || allowHosts.includes(target.hostname)) {
+      note({ outside: target.hostname });
+      return realFetch(url, init);
+    }
     note({ refused: target.hostname });
     throw new Error(`sandbox: outside call to ${target.hostname} refused`);
   };
@@ -235,7 +240,7 @@ export async function startUsSandbox({ databaseUrl, port = 8080, consolePort = 8
   });
 
   await new Promise((resolve) => consoleServer.listen(consolePort, host, resolve));
-  consoleUrl = `http://${host}:${consoleServer.address().port}`;
+  consoleUrl = publicUrl ? String(publicUrl).replace(/\/+$/, '') : `http://${host}:${consoleServer.address().port}`;
   const db = createDb(databaseUrl);
   await migrate(db);
   const billingConfig = {
@@ -246,19 +251,23 @@ export async function startUsSandbox({ databaseUrl, port = 8080, consolePort = 8
   const handler = createApi({
     db,
     billing: createBilling({ db, config: billingConfig, fetchImpl: fakeProviders, log, usFilingOpen: () => true }),
-    secret: randomBytes(32).toString('hex'),
+    secret: secret || randomBytes(32).toString('hex'),
     otpSender,
-    booksKey: randomBytes(32).toString('hex'),
+    booksKey: booksKey || randomBytes(32).toString('hex'),
     log,
-    environment: 'local',
+    environment,
+    ...(testSignIn ? { testSignIn } : {}),
+    ...(connectorKey ? { connectorKey } : {}),
+    ...(googleClientIds.length ? { googleClientIds } : {}),
   });
   const api = createServer(handler);
 
   await new Promise((resolve) => api.listen(port, host, resolve));
-  apiUrl = `http://${host}:${api.address().port}`;
+  apiUrl = `http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${api.address().port}`;
   return {
     apiUrl,
     consoleUrl,
+    consolePort: consoleServer.address().port,
     route,
     plus,
     state: () => ({ codes, checkouts: [...checkouts.values()], partnerSessions, events }),
