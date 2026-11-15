@@ -846,7 +846,7 @@ export const TOOLS = [
   {
     name: 'import_us_prior_year',
     title: 'Bring last year into this US return',
-    description: 'Starts a personal Form 1040 from last year: from the MyCA return of the year before it copies the filing status, people, sealed SSNs, dependents and address, and fills last year\'s AGI, total tax and capital loss carryovers; or takes those figures as typed from a return prepared elsewhere (agi, totalTax, overpaymentApplied, shortTermLossCarryover, longTermLossCarryover). Lists the forms to expect again from last year\'s payers. Answers already given are kept unless overwrite is true. US only.',
+    description: 'Starts a personal Form 1040 from last year: from the MyCA return of the year before it copies the filing status, people, sealed SSNs, dependents and address, and fills last year\'s AGI, total tax, the refund applied to this year and capital loss carryovers; or takes those figures as typed from a return prepared elsewhere (agi, totalTax, overpaymentApplied, shortTermLossCarryover, longTermLossCarryover). Lists the forms to expect again from last year\'s payers. Answers already given are kept unless overwrite is true. US only.',
     args: ['taxYear', 'figures', 'copyProfile', 'overwrite'],
     run: (state, args = {}) => importUsPriorYear(state, args),
   },
