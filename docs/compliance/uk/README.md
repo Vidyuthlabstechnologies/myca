@@ -127,3 +127,13 @@ These cannot be done from the repository. Tick each one with the date and who di
 - [ ] Two-step sign-in available, and required before any HMRC submission (feeds
       `Gov-Client-Multi-Factor`).
 - [ ] A dry run of BREACH-RESPONSE.md with the named leads.
+
+### 8. Bank feeds (only if the UK app offers them)
+
+- [ ] Ask Plaid for UK production access for the Transactions product, and sign its agreement.
+- [ ] Register the Android package `com.mldynamic.myca.uk` in the Plaid dashboard; UK banks approve
+      access in their own app and return to MyCA by that package name.
+- [ ] Save the Plaid client id and secret for the UK service. Until then the Connections screen shows
+      the bank feed as not set up and nothing is sent to Plaid.
+- [ ] Replace the Plaid placeholders in PRIVACY-NOTICE.md section 7 (entity, FCA reference, region) and
+      add Plaid to ROPA.md and DPIA.md. **Check before publishing** with a UK solicitor.

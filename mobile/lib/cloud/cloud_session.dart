@@ -180,6 +180,7 @@ class ConnectorView {
     required this.channel,
     required this.title,
     required this.country,
+    this.countries = const [],
     required this.configured,
     required this.enabled,
     required this.lastFetchedTo,
@@ -196,6 +197,7 @@ class ConnectorView {
       channel: '${map['channel'] ?? ''}',
       title: '${map['title'] ?? ''}',
       country: '${map['country'] ?? 'IN'}'.toUpperCase(),
+      countries: _strings(map['countries']).map((code) => code.toUpperCase()).toList(),
       configured: map['configured'] == true,
       enabled: map['enabled'] != false,
       lastFetchedTo: '${map['lastFetchedTo'] ?? ''}',
@@ -210,6 +212,7 @@ class ConnectorView {
   final String channel;
   final String title;
   final String country;
+  final List<String> countries;
   final bool configured;
   final bool enabled;
   final String lastFetchedTo;
@@ -230,7 +233,7 @@ class ConnectorList {
   final List<ConnectorView> connectors;
 
   List<ConnectorView> forCountry(String country) {
-    final mine = connectors.where((c) => c.country == country).toList()
+    final mine = connectors.where((c) => c.country == country || c.countries.contains(country)).toList()
       ..sort((a, b) => connectorOrder.indexOf(a.channel).compareTo(connectorOrder.indexOf(b.channel)));
     return mine;
   }

@@ -15,7 +15,7 @@ export const CONNECTOR_CHANNELS = {
   shopify: { title: 'Shopify Admin API', fields: ['shopDomain', 'accessToken'], secrets: ['accessToken'], kinds: ['settlement', 'orders'] },
   razorpay: { title: 'Razorpay', fields: ['keyId', 'keySecret'], secrets: ['keySecret'], kinds: ['settlement'] },
   zoho: { title: 'Zoho Books', fields: ['orgId', 'dc', 'clientId', 'clientSecret', 'refreshToken'], secrets: ['clientSecret', 'refreshToken'], kinds: [], pushes: ['invoices'] },
-  plaid: { title: 'Plaid (US bank feeds)', fields: ['clientId', 'secret', 'environment', 'accessToken', 'itemId', 'cursor'], secrets: ['secret', 'accessToken'], optional: ['itemId', 'cursor'], kinds: ['bank'], country: 'US' },
+  plaid: { title: 'Plaid (US and UK bank feeds)', fields: ['clientId', 'secret', 'environment', 'accessToken', 'itemId', 'cursor'], secrets: ['secret', 'accessToken'], optional: ['itemId', 'cursor'], kinds: ['bank'], country: 'US', countries: ['US', 'GB'] },
   taxjar: { title: 'TaxJar (US sales tax rates)', fields: ['apiToken', 'environment'], secrets: ['apiToken'], optional: ['environment'], kinds: [], country: 'US' },
   gusto: { title: 'Gusto (US payroll)', fields: ['clientId', 'clientSecret', 'environment', 'redirectUri', 'accessToken', 'refreshToken', 'companyUuid', 'oauthState'], secrets: ['clientSecret', 'accessToken', 'refreshToken'], optional: ['environment', 'redirectUri', 'companyUuid', 'oauthState'], kinds: ['payroll'], country: 'US' },
   pinwheel: { title: 'Pinwheel (US W-2s from payroll)', fields: ['apiSecret', 'environment', 'accountId'], secrets: ['apiSecret'], optional: ['environment', 'accountId'], kinds: [], country: 'US' },
@@ -82,11 +82,11 @@ export function publicChannelConfig(channel) {
   const spec = CONNECTOR_CHANNELS[channel];
   const cfg = loadChannelConfig(channel);
   if (!spec) return null;
-  if (!cfg) return { channel, title: spec.title, country: spec.country || 'IN', configured: false, kinds: spec.kinds, pushes: spec.pushes || [], fields: spec.fields, secrets: spec.secrets, optional: (spec.optional || []).filter((f) => spec.fields.includes(f)) };
+  if (!cfg) return { channel, title: spec.title, country: spec.country || 'IN', countries: spec.countries || [spec.country || 'IN'], configured: false, kinds: spec.kinds, pushes: spec.pushes || [], fields: spec.fields, secrets: spec.secrets, optional: (spec.optional || []).filter((f) => spec.fields.includes(f)) };
   const shown = {};
   for (const field of spec.fields) shown[field] = spec.secrets.includes(field) ? (cfg[field] ? 'set' : '') : cfg[field];
   const optional = new Set([...(spec.optional || []), 'region', 'dc']);
-  return { channel, title: spec.title, country: spec.country || 'IN', configured: spec.fields.every((field) => Boolean(cfg[field]) || optional.has(field)), enabled: cfg.enabled, lastFetchedTo: cfg.lastFetchedTo, kinds: spec.kinds, pushes: spec.pushes || [], fields: spec.fields, secrets: spec.secrets, optional: [...optional].filter((f) => spec.fields.includes(f)), ...shown };
+  return { channel, title: spec.title, country: spec.country || 'IN', countries: spec.countries || [spec.country || 'IN'], configured: spec.fields.every((field) => Boolean(cfg[field]) || optional.has(field)), enabled: cfg.enabled, lastFetchedTo: cfg.lastFetchedTo, kinds: spec.kinds, pushes: spec.pushes || [], fields: spec.fields, secrets: spec.secrets, optional: [...optional].filter((f) => spec.fields.includes(f)), ...shown };
 }
 
 export function saveChannelConfig(channel, patch = {}) {
@@ -229,7 +229,7 @@ export async function fetchChannelReport(state, args = {}, { actor, config: give
     actor: actor || { userId: 'owner' },
     metadata: { channel, kind, from, to },
     payload: { channel, kind, from, to },
-    fixture: () => ({ ok: true, mock: true, simulated: true, data: { text: spec.country === 'US' ? mockUsReport(channel, kind, from, to) : mockReport(channel, kind, from, to), source: `${channel}:${kind}:mock` } }),
+    fixture: () => ({ ok: true, mock: true, simulated: true, data: { text: spec.country === 'US' ? mockUsReport(channel, kind, from, to, state.company?.country) : mockReport(channel, kind, from, to), source: `${channel}:${kind}:mock` } }),
     preflight: () => {
       const optional = new Set([...(spec.optional || []), 'region']);
       if (!config || !spec.fields.every((field) => Boolean(config[field]) || optional.has(field))) return fail('CONNECTOR_NOT_CONFIGURED', { channel, fields: spec.fields, hint: channel === 'plaid' ? 'Save the Plaid client id and secret, then link a bank (plaid_link_sandbox in the sandbox).' : channel === 'gusto' ? 'Save the Gusto client id and secret, then connect through gusto_connect_url.' : `Save the ${spec.title} credentials first (set_channel_connector).` });

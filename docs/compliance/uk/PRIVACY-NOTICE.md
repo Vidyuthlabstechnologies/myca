@@ -124,7 +124,7 @@ We share personal data only as needed to run MyCA:
 | Google Cloud (Google Cloud EMEA Limited) | Hosting, database, storage, backups, as our processor | London, United Kingdom (`europe-west2`) |
 | AI model provider [provider to confirm] | Processes assistant messages to choose a tool; no training on your data | [region to confirm]; see section 8 |
 | Email delivery provider [provider to confirm] | Sends service emails | [region to confirm] |
-| Bank feed provider [provider to confirm, only if you connect a bank] | Reads your bank transactions with your permission; it is authorised by the Financial Conduct Authority | [region to confirm] |
+| Plaid [UK entity to confirm], only if you connect a bank | Reads your bank transactions with your permission through Open Banking; read-only, it cannot move money [FCA authorisation and firm reference to confirm] | [region to confirm] |
 | Google Play | Takes payment for subscriptions bought in the app | Google's global systems |
 | Stripe | Takes card payment for the Self Assessment return fee | [Stripe entity and region to confirm] |
 | People you invite | Your accountant or staff see the books you share, by the role you give them | Wherever they are |

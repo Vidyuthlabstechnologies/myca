@@ -44,7 +44,7 @@ function publicView(channel, row) {
   for (const field of spec.fields) shown[field] = spec.secrets.includes(field) ? (row?.secretsSet?.includes(field) ? 'set' : '') : String(row?.fields?.[field] || '');
   const optional = new Set([...(spec.optional || []), 'region', 'dc']);
   const configured = Boolean(row) && spec.fields.every((field) => optional.has(field) || (spec.secrets.includes(field) ? row.secretsSet.includes(field) : Boolean(row.fields[field])));
-  return { channel, title: spec.title, country: spec.country || 'IN', ...(spec.govt ? { govt: true, mode: row?.fields?.environment === 'production' ? 'live' : 'test' } : {}), configured, enabled: row ? row.enabled : true, lastFetchedTo: row?.lastFetchedTo || '', kinds: spec.kinds, pushes: spec.pushes || [], fields: spec.fields, secrets: spec.secrets, optional: [...optional].filter((f) => spec.fields.includes(f)), ...shown };
+  return { channel, title: spec.title, country: spec.country || 'IN', countries: spec.countries || [spec.country || 'IN'], ...(spec.govt ? { govt: true, mode: row?.fields?.environment === 'production' ? 'live' : 'test' } : {}), configured, enabled: row ? row.enabled : true, lastFetchedTo: row?.lastFetchedTo || '', kinds: spec.kinds, pushes: spec.pushes || [], fields: spec.fields, secrets: spec.secrets, optional: [...optional].filter((f) => spec.fields.includes(f)), ...shown };
 }
 
 export function createConnectorStore({ db, key = '' }) {

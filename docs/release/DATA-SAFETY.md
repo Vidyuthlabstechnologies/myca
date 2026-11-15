@@ -32,7 +32,7 @@ them; they are still listed so the answers can be checked.
 | Personal info: Address | Only the business address the owner types for invoices | No | Optional | App functionality | No | `businesses` company profile |
 | Personal info: Other info (GSTIN, PAN of the business) | Yes | With the GSP when filing, with NIC for e-invoices and e-way bills | Optional | App functionality | No | `platform/src/portal-filing.mjs`, `platform/src/nic-actions.mjs` |
 | Financial info: Purchase history (subscriptions) | Yes: the Play purchase token and plan | No | Optional | App functionality (entitlement) | No | `cloud/src/billing.mjs` |
-| Financial info: Other financial info (the books: invoices, bills, payroll, bank lines, tax figures) | Yes | With the GSP for filings, NIC for IRN, Plaid for US bank linking, and the connectors the owner switches on | Required (it is the product) | App functionality | No | `cloud/src/books-runner.mjs`; connectors in `cloud/src/govt-connectors.mjs`, `platform/src/channel-connectors.mjs` |
+| Financial info: Other financial info (the books: invoices, bills, payroll, bank lines, tax figures) | Yes | With the GSP for filings, NIC for IRN, Plaid for US and UK bank linking, and the connectors the owner switches on | Required (it is the product) | App functionality | No | `cloud/src/books-runner.mjs`; connectors in `cloud/src/govt-connectors.mjs`, `platform/src/channel-connectors.mjs` |
 | Photos and videos: Photos | Only a bill photo the owner picks or shares into the app | With the model provider, if the hosted service has a model switched on, to read the bill | Optional | App functionality | No (kept as the uploaded document) | `mobile/lib/screens/bill_capture_screen.dart`, `platform/src/document-reader.mjs` |
 | Files and docs | Bills, bank statements and backups the owner chooses | Bill text with the model provider, as above | Optional | App functionality | No | `platform/src/document-store.mjs` |
 | Messages: Other in-app messages (chat with the assistant) | Yes | Text that matches no built-in action goes to the model provider | Optional | App functionality | Partly: a chat that matches no tool is not stored as books; recent turns are kept for context (`platform/src/chat-memory.mjs`) | `cloud/src/api.mjs` ask route |
@@ -55,7 +55,7 @@ Every recipient is reached only when the feature is used and configured on the s
 | Model provider | Unmatched chat text; bill text or image | Only when the hosted service has a model key |
 | WhatsApp gateway (WAHA) | Message text and the recipient's number | Only when the owner sends a reminder or links WhatsApp |
 | Email relay (Cloudflare) | Message text and addresses | Sending an email from the app |
-| Plaid | Bank link | US edition, bank linking |
+| Plaid | Bank link | US and UK editions, bank linking |
 | Marketplace and payroll connectors (Amazon, Shopify, Razorpay, Zoho, Gusto) | What the connector syncs | Only after the owner connects one |
 
 ## Cross-check, 2026-11-10

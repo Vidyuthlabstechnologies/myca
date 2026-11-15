@@ -5,6 +5,7 @@ import { loadChannelConfig, saveChannelConfig, publicChannelConfig, CONNECTOR_CH
 import { csvRows } from './text-safe.mjs';
 import { localToday } from './dates.mjs';
 import { setSalesTaxRate } from './us-sales.mjs';
+import { countryPack } from './country.mjs';
 
 export const PLAID_HOSTS = { sandbox: 'https://sandbox.plaid.com', production: 'https://production.plaid.com' };
 export const TAXJAR_HOSTS = { sandbox: 'https://api.sandbox.taxjar.com', production: 'https://api.taxjar.com' };
@@ -41,7 +42,8 @@ export function gustoPayrollsToCsv(payrolls) {
   return csvRows(rows);
 }
 
-export function mockUsReport(channel, kind, from, to) {
+export function mockUsReport(channel, kind, from, to, country = 'US') {
+  if (channel === 'plaid' && country === 'GB') return plaidTransactionsToCsv([{ date: from, name: 'FASTER PAYMENT HARBOUR CAFE LTD', amount: -540, transaction_id: `mock-plaid-gb-${from}-1` }, { date: to, name: 'CARD PAYMENT TO BOOKER WHOLESALE', amount: 86.4, transaction_id: `mock-plaid-gb-${to}-2` }]);
   if (channel === 'plaid') return plaidTransactionsToCsv([{ date: from, name: 'ACH DEPOSIT CAFE LUNA', amount: -540, transaction_id: `mock-plaid-${from}-1` }, { date: to, name: 'HEB GROCERY', amount: 86.4, transaction_id: `mock-plaid-${to}-2` }]);
   if (channel === 'gusto') return gustoPayrollsToCsv([{ payroll_uuid: `mock-gusto-${to}`, check_date: to, pay_period: { start_date: from, end_date: to }, totals: { gross_pay: 8200, net_pay: 6410.5, employee_taxes: 1789.5, employer_taxes: 627.3, reimbursements: 0 } }]);
   return '';
@@ -54,16 +56,18 @@ function store(channel, options = {}) {
 export async function plaidLinkToken(state, args = {}, actor, options = {}) {
   const { config } = store('plaid', options);
   if (!config || !config.clientId || !config.secret) return fail('CONNECTOR_NOT_CONFIGURED', { channel: 'plaid', hint: 'Save the Plaid client id and secret first.' });
+  const countryCode = state.company?.country === 'GB' ? 'GB' : 'US';
+  const androidPackageName = countryCode === 'GB' && args.platform !== 'web' ? String(countryPack('GB')?.app?.androidId || '') : '';
   const out = await performExternalAction(state, {
     actionId: 'plaid_link',
     clientId: String(state.activeClientId || 'SELF'),
-    params: { op: 'link_token', environment: config.environment || 'sandbox', userId: String(args.userId || 'owner') },
+    params: { op: 'link_token', environment: config.environment || 'sandbox', userId: String(args.userId || 'owner'), countryCode },
     actor: actor || { userId: 'owner' },
-    metadata: { op: 'link_token' },
+    metadata: { op: 'link_token', countryCode },
     fixture: () => ({ ok: true, mock: true, data: { link_token: 'link-sandbox-mock-token', expiration: '' } }),
-  }, async (transports) => transports.channel.plaid({ config, op: 'link_token', params: { userId: String(args.userId || 'owner') } }));
+  }, async (transports) => transports.channel.plaid({ config, op: 'link_token', params: { userId: String(args.userId || 'owner'), countryCode, androidPackageName } }));
   if (!out.ok) return out;
-  return { ok: true, data: { linkToken: out.data.link_token, expiration: out.data.expiration || '', environment: config.environment || 'sandbox', mock: Boolean(out.mock) } };
+  return { ok: true, data: { linkToken: out.data.link_token, expiration: out.data.expiration || '', environment: config.environment || 'sandbox', countryCode, mock: Boolean(out.mock) } };
 }
 
 export async function plaidExchange(state, args = {}, actor, options = {}) {
