@@ -221,6 +221,12 @@ and [`README.md`](README.md) for what is left and how it is being done.
   API get it as well as the counter sale; the invoice is still posted, not refused. `us_state_tax` with no year
   uses the started return's year. Signing a US return uses the prior-year AGI brought in by the import for the
   taxpayer (a spouse's is still typed). The LINDUNG 24 Jam note names the month its current rate began
+- US state income tax, 2026 figures (2026-11-15): the seven states now answer for tax year 2026 from announced
+  figures (Illinois $2,925 exemption; Michigan $5,900; North Carolina 3.99%; Georgia 4.99%, $15,000 or $30,000
+  and $5,000 a dependent under HB 463; Kentucky 3.5% and $3,360; Louisiana $12,875 or $25,750; Colorado 4.4%).
+  Each is marked provisional and the reply says to check again at filing, since no state has published its 2026
+  return. Colorado's 2026 rate is from a secondary source and ignores any TABOR rate cut; Louisiana's amounts
+  are the ones its withholding tables used
 - US state income tax, four more states (2026-11-15): Colorado (4.4% of federal taxable income), Georgia (5.19%,
   $12,000 or $24,000 standard deduction, $4,000 a dependent), Kentucky (4%, $3,270 standard deduction) and
   Louisiana (flat 3%, $12,500 or $25,000 standard deduction) join the 2025 estimate, each from the state's own
