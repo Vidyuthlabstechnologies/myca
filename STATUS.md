@@ -205,6 +205,8 @@ and [`README.md`](README.md) for what is left and how it is being done.
   HMRC computerised PAYE method (cumulative, week 1/month 1, K, BR, D and NT codes, Scottish and Welsh
   prefixes, the 50% limit), Class 1 National Insurance by category letter, student and postgraduate loans
   and pensions, from `gb.paye.calculation` and `gb.ni.class-1`; it does not send RTI to HMRC
+- UK flat-rate mileage (2026-11-15): `gb.income-tax.simplified-expenses` is 55p a mile for the first 10,000
+  business miles from 6 April 2026 and stays 45p for 2025-26
 
 
 ### Data import

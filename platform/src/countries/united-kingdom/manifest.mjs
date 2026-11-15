@@ -113,7 +113,7 @@ export const MANIFEST = Object.freeze({
     }),
     Object.freeze({
       name: 'gb_simplified_expenses', title: 'Simplified expenses and the trading allowance',
-      description: 'Work out the HMRC flat rates for a tax year: business mileage (45p then 25p after 10,000 miles, 24p on a motorcycle) against actual vehicle costs, working from home by hours each month, and the private use of business premises you live in; then compare the total expenses with the £1,000 trading allowance. Read-only.',
+      description: 'Work out the HMRC flat rates for a tax year: business mileage (55p a mile from 6 April 2026, 45p before, then 25p after 10,000 miles; 24p on a motorcycle) against actual vehicle costs, working from home by hours each month, and the private use of business premises you live in; then compare the total expenses with the £1,000 trading allowance. Read-only.',
       access: 'read',
       schema: schema({ taxYear, vehicles: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string' }, kind: { type: 'string', enum: ['car', 'van', 'motorcycle'] }, businessMiles: money, actualCosts: money } } }, homeHours: { type: 'array', items: money }, homeHoursPerMonth: money, homeMonths: money, livingAtPremises: { type: 'object', additionalProperties: false, properties: { people: money, months: money } }, otherExpenses: money, turnover: money }, ['taxYear']),
     }),
