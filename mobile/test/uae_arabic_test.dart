@@ -5,6 +5,7 @@ import 'package:myca/registers.dart';
 import 'package:myca/uae/uae_emirates.dart';
 import 'package:myca/uae/uae_strings.dart';
 
+import 'uae_cloud_walks.dart';
 import 'uae_fake_api.dart';
 import 'uae_walks.dart';
 
@@ -38,10 +39,12 @@ final _serverText = RegExp(
   r'VAT for \d{4}-\d{2}|Gujarat Weaves|Fabric Co|Rajesh|Pay rent|Airtel|Ganga Mills|bill-78\.jpg|NEFT CR|IPP FABRIC|SMS CHARGES|INT PD|Sales by customer|Firm Admin|Tax of AED|Invoice to Gulf Star|From 1 April 2026|usually pays|average of|before head-by-head|Every entry has a matching|Your books tie|This is only what has been recorded|Supplier payments are not recorded|thing needs you now|cannot go in the VAT return|Bill from Ganga|On 1 invoice|Customers owe you|Same amount on the same day|Locked the books|\d UTC|As at \d|^Posted ',
 );
 
+final _email = RegExp(r'[\w.+-]+@[\w-]+\.[\w.-]+');
+
 List<String> _english(Iterable<String> shown) => [
   for (final text in shown)
     if (!_arabic.hasMatch(text) && !_serverText.hasMatch(text))
-      if (RegExp('[A-Za-z]').hasMatch(_bookData.fold(text, (left, data) => left.replaceAll(data, '')).replaceAll(_allowed, ''))) text,
+      if (RegExp('[A-Za-z]').hasMatch([..._bookData, ...uaeCloudData].fold(text, (left, data) => left.replaceAll(data, '')).replaceAll(_email, '').replaceAll(_allowed, ''))) text,
 ];
 
 void main() {
@@ -58,6 +61,16 @@ void main() {
       expect(tester.takeException(), isNull);
       final english = _english(await uaeEveryText(tester));
       expect(english, isEmpty, reason: '${screen.key} shows: ${english.join(' | ')}');
+    });
+  }
+
+  for (final walk in uaeCloudWalks.entries) {
+    testWidgets('ar: ${walk.key} in the UAE edition shows no English', (tester) async {
+      await uaeView(tester, language: 'ar');
+      await walk.value(tester);
+      expect(tester.takeException(), isNull);
+      final english = _english(await uaeEveryText(tester));
+      expect(english, isEmpty, reason: '${walk.key} shows: ${english.join(' | ')}');
     });
   }
 

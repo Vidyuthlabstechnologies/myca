@@ -208,8 +208,7 @@ class RowCard extends StatelessWidget {
   }
 
   static Widget _capped(BuildContext context, double width, Widget child) {
-    final big = MediaQuery.textScalerOf(context).scale(14) / 14 > 1.3;
-    if (!big || !width.isFinite) return child;
+    if (!width.isFinite) return child;
     return ConstrainedBox(constraints: BoxConstraints(maxWidth: width * 0.45), child: child);
   }
 }

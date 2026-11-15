@@ -5,6 +5,7 @@ import '../cloud/cloud_session.dart';
 import '../app_state.dart';
 import '../marks.dart';
 import '../theme.dart';
+import '../uae/uae_cloud_strings.dart';
 import '../uae/uae_edition.dart';
 import '../uae/uae_emirates.dart';
 import '../uae/uae_strings.dart';
@@ -186,7 +187,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                                   style: text.titleMedium,
                                 ),
                                 Text(
-                                  s.bringInMoreSubtitle,
+                                  ae == null ? s.bringInMoreSubtitle : ae.bringInMoreAe,
                                   style: text.bodyMedium,
                                 ),
                               ],

@@ -26,7 +26,9 @@ test('phone numbers are normalised to +91, a +1 number is kept for MyCA US, and 
   assert.equal(normalizePhone('+1 415 555 0100'), '+14155550100');
   assert.equal(normalizePhone('+60 12-345 6789'), '+60123456789');
   assert.equal(normalizePhone('+60 11-2345 6789'), '+601123456789');
-  for (const bad of ['', '12345', '+60 3-2345 6789', '+60 12-345 67', '0123456789', '5876543210', '98765432101', '+1 015 555 0100', '+44 20 7946 0958', 'abcdefghij', null]) {
+  assert.equal(normalizePhone('+971 50 123 4567'), '+971501234567');
+  assert.equal(normalizePhone('+971-58-765-4321'), '+971587654321');
+  for (const bad of ['+971 4 123 4567', '+971 51 123 4567', '+971 50 123 456', '0501234567', '', '12345', '+60 3-2345 6789', '+60 12-345 67', '0123456789', '5876543210', '98765432101', '+1 015 555 0100', '+44 20 7946 0958', 'abcdefghij', null]) {
     assert.equal(normalizePhone(bad), '', String(bad));
   }
 });

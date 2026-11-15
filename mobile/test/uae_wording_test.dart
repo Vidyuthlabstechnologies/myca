@@ -6,6 +6,7 @@ import 'package:myca/uae/uae_emirates.dart';
 import 'package:myca/uae/uae_strings.dart';
 
 import 'fake_api.dart';
+import 'uae_cloud_walks.dart';
 import 'uae_fake_api.dart';
 import 'uae_walks.dart';
 
@@ -27,6 +28,20 @@ void main() {
         final shown = await uaeEveryText(tester);
         final india = shown.where(_india.hasMatch).toList();
         expect(india, isEmpty, reason: '${screen.key} shows: ${india.join(' | ')}');
+      });
+    }
+  }
+
+  final cloudIndia = RegExp(r'\bPAN\b|\bCA\b|chartered|Grievance|Data Protection Board|Digital Personal Data|\+91|محاسب قانوني');
+  for (final language in ['en', 'ar']) {
+    for (final walk in uaeCloudWalks.entries) {
+      testWidgets('$language: ${walk.key} in the UAE edition shows no India wording', (tester) async {
+        await uaeView(tester, language: language);
+        await walk.value(tester);
+        expect(tester.takeException(), isNull);
+        final shown = await uaeEveryText(tester);
+        final india = shown.where((text) => _india.hasMatch(text) || cloudIndia.hasMatch(text)).toList();
+        expect(india, isEmpty, reason: '${walk.key} shows: ${india.join(' | ')}');
       });
     }
   }

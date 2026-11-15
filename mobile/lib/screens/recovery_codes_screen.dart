@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../secure_window.dart';
 import '../theme.dart';
+import '../uae/uae_cloud_strings.dart';
+import '../uae/uae_strings.dart';
 
 class RecoveryCodesScreen extends StatefulWidget {
   const RecoveryCodesScreen(this.codes, {super.key});
@@ -24,15 +26,16 @@ class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> with SecureWi
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Recovery codes')),
+      appBar: AppBar(title: Text(s.recoveryCodes)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          Text('Save these recovery codes', style: text.headlineSmall),
+          Text(s.saveRecoveryCodes, style: text.headlineSmall),
           const SizedBox(height: 8),
           Text(
-            'Each one signs you in once if you lose your authenticator. Keep them somewhere safe; MyCA cannot show them again.',
+            s.recoveryCodesNote,
             style: text.bodyMedium,
           ),
           const SizedBox(height: 16),
@@ -49,9 +52,9 @@ class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> with SecureWi
             ),
           ),
           const SizedBox(height: 16),
-          OutlinedButton(onPressed: _copyAll, child: Text(_copied ? 'Copied' : 'Copy all')),
+          OutlinedButton(onPressed: _copyAll, child: Text(_copied ? s.copied : s.copyAll)),
           const SizedBox(height: 8),
-          FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Done')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(), child: Text(s.done)),
         ],
       ),
     );
