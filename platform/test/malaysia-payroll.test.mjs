@@ -105,11 +105,11 @@ test('the payroll totals PCB and lists the PCB rules it used', () => {
   assert.match(ENGINE.words.my_payroll(run), /PCB RM ?180/);
 });
 
-test('foreign workers have no SOCSO taken from the wage and no mandatory EPF before October 2025', () => {
+test('foreign workers pay first-category SOCSO (Invalidity Scheme from July 2024), no EIS, and no mandatory EPF before October 2025', () => {
   const foreign = one({ wages: 3000, citizen: false });
-  assert.deepEqual(foreign.socso, { employee: 0, employer: 0 });
-  assert.equal(foreign.netBeforePcb, 2940);
-  assert.match(foreign.notes.join(' '), /Employment Injury Scheme only/);
+  assert.deepEqual(foreign.socso, one({ wages: 3000 }).socso);
+  assert.ok(foreign.socso.employee > 0);
+  assert.equal(foreign.eis.employee, 0);
   const before = one({ wages: 3000, citizen: false }, '2025-09');
   assert.deepEqual(before.epf, { employee: 0, employer: 0, basis: 'non-citizen-elective' });
   assert.match(before.notes.join(' '), /mandatory only from October 2025/);

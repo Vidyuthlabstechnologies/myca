@@ -79,15 +79,13 @@ export function malaysiaPayroll(args = {}) {
       notes.push('Wages of RM300 or less are below the encoded SOCSO and EIS rows; read them from the PERKESO table.');
     } else if (wageSen > 0) {
       if (age >= 60) notes.push('At 60 and over only the employer pays SOCSO, under the second category; read it from the PERKESO table. No EIS is due.');
-      else if (employee.citizen === false) {
-        notes.push('Foreign workers are covered by the SOCSO Employment Injury Scheme only: the employer pays and nothing is taken from the wage; read the employer amount from the PERKESO table. No EIS is due unless PERKESO says otherwise.');
-        if (employee.eisCovered === true) eisEach = tableRow(eis.value.rows, wageSen, eis.value.ceilingSen)[1];
-      } else {
+      else {
         const row = tableRow(socso.value.rows, wageSen, socso.value.ceilingSen);
         socsoEmployer = row[1];
         socsoEmployee = row[2];
         const eisRow = tableRow(eis.value.rows, wageSen, eis.value.ceilingSen);
-        eisEach = eisRow[1];
+        eisEach = employee.citizen === false && employee.eisCovered !== true ? 0 : eisRow[1];
+        if (employee.citizen === false && employee.eisCovered !== true) notes.push('Foreign workers are not covered by EIS unless PERKESO says otherwise.');
       }
     }
     const employeeTotal = epfPart.employee + socsoEmployee + eisEach;
