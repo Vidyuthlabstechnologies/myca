@@ -4,6 +4,9 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../cloud/cloud_session.dart';
 import '../theme.dart';
+import '../uae/uae_cloud_strings.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
 import 'privacy_notice_screen.dart';
 
 const privacyRequestKinds = <String, (String, String)>{
@@ -56,7 +59,9 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
     final message = TextEditingController();
     final nomineeName = TextEditingController();
     final nomineeContact = TextEditingController();
-    final (title, _) = privacyRequestKinds[kind]!;
+    final s = UaeStrings.of(context);
+    final ae = uaeEdition(context);
+    final title = ae ? s.privacyKind(kind) : privacyRequestKinds[kind]!.$1;
     final send = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -77,14 +82,14 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
                 minLines: 3,
                 maxLines: 6,
                 maxLength: 2000,
-                decoration: InputDecoration(labelText: kind == 'grievance' || kind == 'correction' ? 'What happened' : 'Anything we should know (optional)'),
+                decoration: InputDecoration(labelText: kind == 'grievance' || kind == 'correction' ? s.whatHappenedLabel : s.anythingToKnow),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(key: const ValueKey('rights.send'), onPressed: () => Navigator.pop(context, true), child: const Text('Send')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(s.cancel)),
+          FilledButton(key: const ValueKey('rights.send'), onPressed: () => Navigator.pop(context, true), child: Text(s.send)),
         ],
       ),
     );
@@ -92,10 +97,10 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final (request, selfService) = await AppScope.of(context).cloud!.sendPrivacyRequest(kind, message: message.text, nomineeName: nomineeName.text, nomineeContact: nomineeContact.text);
-      messenger.showSnackBar(SnackBar(content: Text('Sent. Your reference is ${request.reference}. We reply within 30 days.${selfService.isEmpty ? '' : ' $selfService'}')));
+      messenger.showSnackBar(SnackBar(content: Text('${s.requestSent(request.reference)}${selfService.isEmpty || s.ar ? '' : ' $selfService'}')));
       _reload();
     } on MycaApiException catch (err) {
-      messenger.showSnackBar(SnackBar(content: Text(err.message)));
+      messenger.showSnackBar(SnackBar(content: Text(s.cloudSaid(err.message))));
     }
   }
 
@@ -103,12 +108,15 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final state = AppScope.of(context);
+    final s = UaeStrings.of(context);
+    final ae = uaeEdition(context);
+    final kinds = ae ? UaeCloudStrings.privacyKinds : privacyRequestKinds.keys.toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('Your privacy rights')),
+      appBar: AppBar(title: Text(s.yourPrivacyRights)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
-          Text('Under the Digital Personal Data Protection Act, 2023. Every request gets a reference number and an answer within 30 days. If you are not satisfied, you can complain to the Data Protection Board of India.', style: text.bodyMedium),
+          Text(ae ? s.rightsIntro : 'Under the Digital Personal Data Protection Act, 2023. Every request gets a reference number and an answer within 30 days. If you are not satisfied, you can complain to the Data Protection Board of India.', style: text.bodyMedium),
           const SizedBox(height: 12),
           FutureBuilder<PrivacyNotice>(
             future: _notice,
@@ -117,7 +125,7 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (notice != null && notice.grievance.isNotEmpty)
+                  if (!ae && notice != null && notice.grievance.isNotEmpty)
                     ListTile(
                       key: const ValueKey('rights.grievance'),
                       contentPadding: EdgeInsets.zero,
@@ -128,17 +136,17 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
                   ListTile(
                     key: const ValueKey('rights.notice'),
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Read the privacy notice'),
-                    trailing: const Icon(Icons.chevron_right, semanticLabel: 'Open'),
+                    title: Text(s.readTheNotice),
+                    trailing: Icon(Icons.chevron_right, semanticLabel: s.open),
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyNoticeScreen(readOnly: true))),
                   ),
                   for (final (key, label) in const [('terms', 'Terms of service'), ('refunds', 'Refunds and cancellation'), ('grievance', 'Grievance redressal')])
-                    if (notice != null && (notice.links[key] ?? '').isNotEmpty)
+                    if (notice != null && (notice.links[key] ?? '').isNotEmpty && !(ae && key == 'grievance'))
                       ListTile(
                         key: ValueKey('rights.link.$key'),
                         contentPadding: EdgeInsets.zero,
-                        title: Text(label),
-                        trailing: const Icon(Icons.open_in_new, semanticLabel: 'Opens in the browser'),
+                        title: Text(ae ? s.legalLink(key) : label),
+                        trailing: Icon(Icons.open_in_new, semanticLabel: s.opensInBrowser),
                         onTap: () => state.openLink(Uri.parse(notice.links[key]!)),
                       ),
                 ],
@@ -146,39 +154,39 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
             },
           ),
           const SizedBox(height: 16),
-          Semantics(header: true, child: Text('Ask us', style: text.titleMedium)),
-          for (final entry in privacyRequestKinds.entries)
+          Semantics(header: true, child: Text(s.askUs, style: text.titleMedium)),
+          for (final kind in kinds)
             ListTile(
-              key: ValueKey('rights.ask.${entry.key}'),
+              key: ValueKey('rights.ask.$kind'),
               contentPadding: EdgeInsets.zero,
-              title: Text(entry.value.$1),
-              subtitle: Text(entry.value.$2),
-              onTap: () => _ask(entry.key),
+              title: Text(ae ? s.privacyKind(kind) : privacyRequestKinds[kind]!.$1),
+              subtitle: Text(ae ? s.privacyKindHelp(kind) : privacyRequestKinds[kind]!.$2),
+              onTap: () => _ask(kind),
             ),
           const SizedBox(height: 16),
-          Semantics(header: true, child: Text('Your requests', style: text.titleMedium)),
+          Semantics(header: true, child: Text(s.yourRequests, style: text.titleMedium)),
           FutureBuilder<List<PrivacyRequest>>(
             future: _requests,
             builder: (context, snap) {
-              if (snap.hasError) return Text('Your requests could not be loaded.', style: text.bodyMedium?.copyWith(color: paletteOf(context).danger));
+              if (snap.hasError) return Text(s.requestsNotLoaded, style: text.bodyMedium?.copyWith(color: paletteOf(context).danger));
               final rows = snap.data;
               if (rows == null) return const Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator()));
-              if (rows.isEmpty) return Text('None yet.', style: text.bodyMedium);
+              if (rows.isEmpty) return Text(s.noneYet, style: text.bodyMedium);
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   for (final r in rows)
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text('${privacyRequestKinds[r.kind]?.$1 ?? r.kind} · ${r.reference}'),
-                      subtitle: Text([requestStatusWords(r), if (r.reply.isNotEmpty) r.reply].join('\n')),
+                      title: Text('${ae ? s.privacyKind(r.kind) : privacyRequestKinds[r.kind]?.$1 ?? r.kind} · ${r.reference}'),
+                      subtitle: Text([ae ? s.requestStatus(r.status, r.dueAt.length >= 10 ? r.dueAt.substring(0, 10) : '') : requestStatusWords(r), if (r.reply.isNotEmpty) r.reply].join('\n')),
                     ),
                 ],
               );
             },
           ),
           const SizedBox(height: 16),
-          Text(notTaxAdvice, style: text.bodySmall?.copyWith(color: paletteOf(context).muted)),
+          Text(ae ? s.notTaxAdvice : notTaxAdvice, style: text.bodySmall?.copyWith(color: paletteOf(context).muted)),
         ],
       ),
     );

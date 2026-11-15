@@ -5,6 +5,10 @@ import '../app_state.dart';
 import '../cloud/cloud_session.dart';
 import '../my/my_strings.dart';
 import '../theme.dart';
+import '../uae/uae_cloud_strings.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_privacy_notice.dart';
+import '../uae/uae_strings.dart';
 
 class PrivacyNoticeScreen extends StatefulWidget {
   const PrivacyNoticeScreen({super.key, this.readOnly = false});
@@ -62,8 +66,10 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
     final state = AppScope.of(context);
     final malaysia = state.edition == 'MY';
     String w(String english, String malay) => myMalayOr(context, english, malay);
+    final s = UaeStrings.of(context);
+    final ae = uaeEdition(context);
     return Scaffold(
-      appBar: widget.readOnly ? AppBar(title: Text(w('Privacy notice', 'Notis privasi'))) : null,
+      appBar: widget.readOnly ? AppBar(title: Text(w(s.privacyNotice, 'Notis privasi'))) : null,
       body: SafeArea(
         child: FutureBuilder<PrivacyNotice>(
           future: _notice,
@@ -77,14 +83,14 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                     children: [
                       Text(
                         snap.error is MycaApiException
-                            ? (snap.error! as MycaApiException).message
-                            : w('The privacy notice could not be loaded.', 'Notis privasi tidak dapat dimuatkan.'),
+                            ? s.cloudSaid((snap.error! as MycaApiException).message)
+                            : w(s.noticeNotLoaded, 'Notis privasi tidak dapat dimuatkan.'),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
                       FilledButton(
                         onPressed: _retry,
-                        child: Text(w('Try again', 'Cuba lagi')),
+                        child: Text(w(s.tryAgain, 'Cuba lagi')),
                       ),
                     ],
                   ),
@@ -96,26 +102,27 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
               return const Center(child: CircularProgressIndicator());
             }
             final us = state.edition == 'US';
+            final sections = ae ? [for (final section in uaeNoticeSections(s.ar)) (section.heading, section.body)] : [for (final section in notice.sections) (section.heading, section.body)];
             final body = [
-              Text(notice.title, style: text.headlineMedium),
+              Text(ae ? uaeNoticeTitle(s.ar) : notice.title, style: text.headlineMedium),
               if (notice.status.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
-                  notice.status,
+                  ae ? s.noticeDraft : notice.status,
                   style: text.bodyMedium?.copyWith(color: paletteOf(context).warn),
                 ),
               ],
-              for (final section in notice.sections) ...[
+              for (final (heading, words) in sections) ...[
                 const SizedBox(height: 20),
-                Semantics(header: true, child: Text(section.heading, style: text.titleMedium)),
+                Semantics(header: true, child: Text(heading, style: text.titleMedium)),
                 const SizedBox(height: 6),
-                Text(section.body, style: text.bodyLarge),
+                Text(words, style: text.bodyLarge),
               ],
             ];
             final consent = [
               if (_error.isNotEmpty) ...[
                 Text(
-                  _error,
+                  s.cloudSaid(_error),
                   style: TextStyle(color: paletteOf(context).danger),
                 ),
                 const SizedBox(height: 8),
@@ -132,13 +139,15 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                       : (value) => setState(
                           () => _crashReports = value ?? false,
                         ),
-                  title: Text(w('Also send crash reports', 'Hantar juga laporan ranap')),
+                  title: Text(w(s.alsoCrashReports, 'Hantar juga laporan ranap')),
                   subtitle: Text(
                     malaysia
                         ? w(
                             'Off unless you tick it. Only what went wrong in the app, with names, amounts, TINs, MyKad numbers and phone numbers removed.',
                             'Dimatikan melainkan anda menandakannya. Hanya perkara yang tidak kena dalam aplikasi, dengan nama, amaun, TIN, nombor MyKad dan nombor telefon dibuang.',
                           )
+                        : ae
+                        ? s.alsoCrashReportsNote
                         : us
                         ? 'Off unless you check it. Only what went wrong in the app, with names, amounts, Social Security numbers and phone numbers removed. You can change this later under Your account.'
                         : state.edition == 'GB'
@@ -156,19 +165,19 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                     controlAffinity: ListTileControlAffinity.leading,
                     value: _adult,
                     onChanged: _busy ? null : (value) => setState(() => _adult = value ?? false),
-                    title: Text(w('I am 18 or over', 'Saya berumur 18 tahun atau lebih')),
+                    title: Text(w(s.eighteenOrOver, 'Saya berumur 18 tahun atau lebih')),
                   ),
                 ),
               const SizedBox(height: 4),
               FilledButton(
                 key: const ValueKey('consent.agree'),
                 onPressed: _busy || (notice.requiresAdult && !_adult) ? null : () => _agree(notice),
-                child: Text(_busy ? w('Saving…', 'Menyimpan…') : w('I agree', 'Saya bersetuju')),
+                child: Text(_busy ? w(s.saving, 'Menyimpan…') : w(s.iAgree, 'Saya bersetuju')),
               ),
               const SizedBox(height: 4),
               TextButton(
                 onPressed: _busy ? null : state.signOut,
-                child: Text(w('Not now, sign me out', 'Bukan sekarang, log keluar')),
+                child: Text(w(s.notNowSignOut, 'Bukan sekarang, log keluar')),
               ),
             ];
             return LayoutBuilder(

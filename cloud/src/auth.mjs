@@ -33,7 +33,9 @@ export function normalizePhone(input) {
   const northAmerica = /^\+1([2-9]\d{2}[2-9]\d{6})$/.exec(digits);
   if (northAmerica) return `+1${northAmerica[1]}`;
   const malaysia = /^\+60(1\d{8,9})$/.exec(digits);
-  return malaysia ? `+60${malaysia[1]}` : '';
+  if (malaysia) return `+60${malaysia[1]}`;
+  const uae = /^\+971(5[024568]\d{7})$/.exec(digits);
+  return uae ? `+971${uae[1]}` : '';
 }
 
 function codeHash(salt, code) {

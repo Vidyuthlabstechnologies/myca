@@ -7,8 +7,9 @@ import '../format.dart';
 import '../cloud/cloud_session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../uae/uae_cloud_strings.dart';
 import '../uae/uae_edition.dart';
-import 'invitation_cards.dart';
+import '../uae/uae_strings.dart';
 
 const _roleHelp = {
   'staff': 'Records sales, bills, payments and expenses.',
@@ -16,7 +17,7 @@ const _roleHelp = {
 };
 
 String _roleWords(BuildContext context, String role) =>
-    role == 'accountant' && uaeEdition(context) ? 'Works in the books like staff. For your accountant or registered tax agent.' : _roleHelp[role]!;
+    uaeEdition(context) ? UaeStrings.of(context).roleHelp(role) : (_roleHelp[role] ?? 'Can do everything, including deleting the business and inviting others.');
 
 const caSyncChoices = [
   ('live', 'As things happen', 'Your accountant sees every entry at once.'),
@@ -88,13 +89,15 @@ class _PeopleScreenState extends State<PeopleScreen> {
 
   Widget _syncPanel(CaSync sync) {
     final text = Theme.of(context).textTheme;
+    final ae = uaeEdition(context);
+    final s = UaeStrings.of(context);
     return Panel(
       children: [
         for (final (mode, title, help) in caSyncChoices)
           RowCard(
             leading: ChoiceDot(selected: sync.mode == mode),
-            title: title,
-            subtitle: help,
+            title: ae ? s.syncTitle(mode) : title,
+            subtitle: ae ? s.syncHelp(mode) : help,
             onTap: sync.mode == mode ? null : () => _setSync(mode),
           ),
         if (sync.mode != 'live')
@@ -105,12 +108,12 @@ class _PeopleScreenState extends State<PeopleScreen> {
                 Expanded(
                   child: Text(
                     sync.sharedAsOf.isEmpty
-                        ? 'Not shared yet.'
-                        : 'Your accountant sees the books as of ${sharedWhen(sync.sharedAsOf)}.',
+                        ? s.notSharedYet
+                        : s.accountantSeesAsOf(ae ? s.gulfTime(sync.sharedAsOf, withTime: true) : sharedWhen(sync.sharedAsOf)),
                     style: text.bodyMedium,
                   ),
                 ),
-                TextButton(onPressed: _shareNow, child: const Text('Share now')),
+                Flexible(child: TextButton(onPressed: _shareNow, child: Text(s.shareNow))),
               ],
             ),
           ),
@@ -136,13 +139,14 @@ class _PeopleScreenState extends State<PeopleScreen> {
   }
 
   Future<bool> _sure(String title, String body, String action) async {
+    final s = UaeStrings.of(context);
     final answer = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
         title: Text(title),
         content: Text(body),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: Text(s.cancel)),
           TextButton(onPressed: () => Navigator.of(dialog).pop(true), child: Text(action)),
         ],
       ),
@@ -162,31 +166,36 @@ class _PeopleScreenState extends State<PeopleScreen> {
 
   Future<void> _remove(MemberRef member) async {
     final cloud = AppScope.of(context).cloud!;
-    final name = member.name.isEmpty ? 'this person' : member.name;
-    if (!await _sure('Remove $name?', 'They lose access to these books at once. What they recorded stays.', 'Remove')) return;
+    final s = UaeStrings.of(context);
+    final name = member.name.isEmpty ? s.thisPerson : member.name;
+    if (!await _sure(s.removeWho(name), s.removeBody, s.removePerson)) return;
     await _do(() => cloud.removeMember(member.id));
   }
 
   Future<void> _changeRole(MemberRef member) async {
     final cloud = AppScope.of(context).cloud!;
+    final s = UaeStrings.of(context);
     final chosen = await showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
       builder: (sheet) => SafeArea(
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
-              child: Text('${member.name.isEmpty ? 'This person' : member.name} is ${roleLabel(member.role).toLowerCase()}', style: Theme.of(sheet).textTheme.titleMedium),
+              child: Text(s.isRole(member.name.isEmpty ? s.thisPersonTitle : member.name, member.role), style: Theme.of(sheet).textTheme.titleMedium),
             ),
             for (final role in const ['owner', 'staff', 'accountant'])
               ListTile(
-                title: Text(roleLabel(role)),
-                subtitle: Text(_roleHelp.containsKey(role) ? _roleWords(context, role) : 'Can do everything, including deleting the business and inviting others.'),
+                title: Text(s.role(role)),
+                subtitle: Text(_roleWords(context, role)),
                 trailing: role == member.role ? const Icon(Icons.check) : null,
                 onTap: () => Navigator.of(sheet).pop(role),
               ),
           ],
+          ),
         ),
       ),
     );
@@ -197,7 +206,8 @@ class _PeopleScreenState extends State<PeopleScreen> {
   Future<void> _leave(String myId) async {
     final state = AppScope.of(context);
     final navigator = Navigator.of(context);
-    if (!await _sure('Leave this business?', 'You lose access to these books at once.', 'Leave')) return;
+    final s = UaeStrings.of(context);
+    if (!await _sure(s.leaveBusiness, s.leaveBody, s.leave)) return;
     try {
       await state.cloud!.leaveBusiness(myId);
       await state.refresh();
@@ -212,13 +222,14 @@ class _PeopleScreenState extends State<PeopleScreen> {
     final state = AppScope.of(context);
     final me = state.snapshot?.activeUser;
     final owner = me?.role == 'owner';
+    final s = UaeStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('People')),
+      appBar: AppBar(title: Text(s.people)),
       floatingActionButton: owner
           ? FloatingActionButton.extended(
               onPressed: _invite,
               icon: const Icon(Icons.add, size: 20),
-              label: const Text('Invite someone'),
+              label: Text(s.inviteSomeone),
             )
           : null,
       body: FutureBuilder<People>(
@@ -227,7 +238,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
           final people = loaded.data;
           if (people == null) {
             return Center(
-              child: loaded.hasError ? Text('${loaded.error}', textAlign: TextAlign.center) : const CircularProgressIndicator(),
+              child: loaded.hasError ? Text(s.cloudSaid('${loaded.error}'), textAlign: TextAlign.center) : const CircularProgressIndicator(),
             );
           }
           return ListView(
@@ -236,28 +247,28 @@ class _PeopleScreenState extends State<PeopleScreen> {
               if (_error.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(_error, style: TextStyle(color: paletteOf(context).danger, fontWeight: FontWeight.w500)),
+                  child: Text(s.cloudSaid(_error), style: TextStyle(color: paletteOf(context).danger, fontWeight: FontWeight.w500)),
                 ),
-              const SectionLabel('In this business'),
+              SectionLabel(s.inThisBusiness),
               Panel(
                 children: [
                   for (final member in people.members)
                     RowCard(
                       leading: TintTile(tint: Tint.ask, letter: member.name.isEmpty ? '?' : member.name[0].toUpperCase()),
-                      title: member.id == me?.userId ? '${member.name.isEmpty ? 'You' : member.name} (you)' : (member.name.isEmpty ? 'No name yet' : member.name),
-                      subtitle: roleLabel(member.role),
+                      title: member.id == me?.userId ? s.you(member.name) : (member.name.isEmpty ? s.noNameYet : member.name),
+                      subtitle: s.role(member.role),
                       onTap: owner && member.id != me?.userId ? () => _changeRole(member) : null,
                       trailing: member.id == me?.userId
-                          ? (owner ? null : TextButton(onPressed: () => _leave(member.id), child: const Text('Leave')))
+                          ? (owner ? null : TextButton(onPressed: () => _leave(member.id), child: Text(s.leave)))
                           : (owner && member.role != 'owner'
-                              ? TextButton(onPressed: () => _remove(member), child: const Text('Remove'))
+                              ? TextButton(onPressed: () => _remove(member), child: Text(s.removePerson))
                               : null),
                     ),
                 ],
               ),
               if (owner) ...[
                 const SizedBox(height: 26),
-                const SectionLabel('What your accountant sees'),
+                SectionLabel(s.whatAccountantSees),
                 FutureBuilder<CaSync>(
                   future: _sync,
                   builder: (context, sync) => sync.data == null
@@ -267,17 +278,17 @@ class _PeopleScreenState extends State<PeopleScreen> {
               ],
               if (people.invites.isNotEmpty) ...[
                 const SizedBox(height: 26),
-                const SectionLabel('Invited, not joined yet'),
+                SectionLabel(s.invitedNotJoined),
                 Panel(
                   children: [
                     for (final invite in people.invites)
                       RowCard(
                         leading: const TintTile(tint: Tint.ask, letter: '…'),
-                        title: 'Number ending ${invite.phoneHint.replaceAll('x', '')}',
-                        subtitle: roleLabel(invite.role),
+                        title: s.numberEnding(invite.phoneHint.replaceAll('x', '')),
+                        subtitle: s.role(invite.role),
                         trailing: TextButton(
                           onPressed: () => _do(() => AppScope.of(context).cloud!.revokeInvitation(invite.id)),
-                          child: const Text('Cancel'),
+                          child: Text(s.cancel),
                         ),
                       ),
                   ],
@@ -314,12 +325,19 @@ class _InviteSheetState extends State<_InviteSheet> {
 
   Future<void> _send() async {
     final navigator = Navigator.of(context);
+    final s = UaeStrings.of(context);
+    var phone = _phone.text.trim();
+    if (uaeEdition(context)) {
+      final number = uaeMobileNumber(phone);
+      if (number == null) return setState(() => _error = s.enterUaeMobile);
+      phone = number;
+    }
     setState(() {
       _busy = true;
       _error = '';
     });
     try {
-      await widget.cloud.invite(_phone.text.trim(), _role);
+      await widget.cloud.invite(phone, _role);
       navigator.pop(true);
     } on MycaApiException catch (err) {
       if (mounted) setState(() => _error = err.message);
@@ -331,6 +349,8 @@ class _InviteSheetState extends State<_InviteSheet> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
+    final ae = uaeEdition(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
       child: SingleChildScrollView(
@@ -338,10 +358,10 @@ class _InviteSheetState extends State<_InviteSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Invite someone', style: text.headlineSmall),
+            Text(s.inviteSomeone, style: text.headlineSmall),
             const SizedBox(height: 4),
             Text(
-              'They sign in to MyCA with this number and choose to join. No message is sent yet, so tell them.',
+              s.inviteSheetNote,
               style: text.bodyMedium,
             ),
             const SizedBox(height: 16),
@@ -350,7 +370,7 @@ class _InviteSheetState extends State<_InviteSheet> {
               autofocus: true,
               keyboardType: TextInputType.phone,
               inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]'))],
-              decoration: const InputDecoration(labelText: 'Their mobile number', prefixText: '+91  '),
+              decoration: InputDecoration(labelText: s.theirMobile, prefixText: ae ? s.uaePrefix : '+91  '),
             ),
             const SizedBox(height: 14),
             Wrap(
@@ -358,7 +378,7 @@ class _InviteSheetState extends State<_InviteSheet> {
               children: [
                 for (final role in _roleHelp.keys)
                   ChoiceChip(
-                    label: Text(roleLabel(role)),
+                    label: Text(s.role(role)),
                     selected: _role == role,
                     selectedColor: paletteOf(context).sunken,
                     showCheckmark: false,
@@ -370,10 +390,10 @@ class _InviteSheetState extends State<_InviteSheet> {
             Text(_roleWords(context, _role), style: text.bodyMedium),
             if (_error.isNotEmpty) ...[
               const SizedBox(height: 10),
-              Text(_error, style: TextStyle(color: paletteOf(context).danger, fontWeight: FontWeight.w500)),
+              Text(s.cloudSaid(_error), style: TextStyle(color: paletteOf(context).danger, fontWeight: FontWeight.w500)),
             ],
             const SizedBox(height: 18),
-            FilledButton(onPressed: _busy ? null : _send, child: Text(_busy ? 'Inviting…' : 'Invite')),
+            FilledButton(onPressed: _busy ? null : _send, child: Text(_busy ? s.inviting : s.invite)),
           ],
         ),
       ),

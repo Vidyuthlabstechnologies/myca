@@ -8,7 +8,7 @@ import 'package:myca/uae/uae_emirates.dart';
 import 'fake_api.dart';
 
 class UaeFakeApi extends FakeMycaApi {
-  UaeFakeApi({bool emptyBooks = false}) : super(signedIn: true, emptyBooks: emptyBooks) {
+  UaeFakeApi({bool emptyBooks = false, super.signedIn = true, this.hostedUser}) : super(emptyBooks: emptyBooks) {
     country = 'AE';
     companyName = 'Al Noor Trading LLC';
     quotes.clear();
@@ -125,11 +125,12 @@ class UaeFakeApi extends FakeMycaApi {
       customerTerms: base.customerTerms,
       quotes: base.quotes,
       users: base.users,
-      activeUser: base.activeUser,
+      activeUser: hostedUser ?? base.activeUser,
       sharedAsOf: base.sharedAsOf,
     );
   }
 
+  final FirmUser? hostedUser;
   String? lockedThrough;
   String? confirmFails;
   Map<String, Object?>? forceError;

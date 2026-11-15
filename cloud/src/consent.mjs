@@ -221,7 +221,110 @@ export const PRIVACY_NOTICE_MY_MS = {
   ],
 };
 
-const NOTICES = [PRIVACY_NOTICE, PRIVACY_NOTICE_US, PRIVACY_NOTICE_MY];
+const AE_VERSION = 'ae-draft-2026-11-15';
+const AE_CONTROLLER = 'ML Dynamic Solutions Private Limited, a company registered in India, 606, 6th Floor, Gowra Fountainhead, Patrika Nagar, Madhapur, HITEC City, Hyderabad, Telangana 500081, India';
+const AE_PRIVACY_EMAIL = '[privacy email, to be confirmed before release]';
+
+export const PRIVACY_NOTICE_AE = {
+  document: 'privacy',
+  version: AE_VERSION,
+  region: 'AE',
+  language: 'en',
+  requiresAdult: true,
+  title: 'How MyCA uses your personal data (UAE)',
+  status: 'Draft for legal review under Federal Decree-Law No. 45 of 2021. Not yet approved for release.',
+  law: 'Federal Decree-Law No. 45 of 2021 on the Protection of Personal Data',
+  controller: AE_CONTROLLER,
+  dataProtectionOfficer: { email: AE_PRIVACY_EMAIL, confirmed: false },
+  storage: { provider: 'Google Cloud', region: 'me-central1', place: 'Doha, Qatar', transferBasis: 'Federal Decree-Law No. 45 of 2021, Article 23' },
+  retention: { years: 5, corporateTaxYears: 7, backupsDays: 14, crashReportsDays: 90, erasureAfterDeletionDays: 30 },
+  sections: [
+    {
+      heading: 'Who we are',
+      body: `MyCA UAE is provided by ${AE_CONTROLLER}. For your account (your name, email, phone and plan) we are the controller. For the contents of your books (your customers', suppliers' and employees' names, Tax Registration Numbers, contact details and amounts) your business is the controller and we process that data on your business's instructions. Contact: ${AE_PRIVACY_EMAIL}.`,
+    },
+    {
+      heading: 'What MyCA is, and what it is not',
+      body: 'MyCA UAE is bookkeeping and tax preparation software. It keeps your books, prepares your VAT 201 and Corporate Tax figures and checks your invoices for e-invoicing readiness. MyCA is not a registered tax agent and does not file returns for you: you, or your registered tax agent, review and file on the Federal Tax Authority\'s EmaraTax portal. MyCA never asks for your EmaraTax or UAE Pass password and does not move or hold money. While MyCA runs in sandbox mode, invoices are checked on your device and are not sent to anyone.',
+    },
+    {
+      heading: 'What we collect and why',
+      body: 'Your Google account name and email, or your phone number, to sign you in and show who did what. A random device id, so you can see and sign out your devices. Your books (invoices, bills, expenses, payroll, bank lines, VAT and Corporate Tax figures, TRN and trade licence details), because that is the service you asked for and UAE tax law requires records. Documents you choose to upload, to import entries. Messages to the assistant, to do what you ask. Google Play subscription records, to know your plan. Crash reports and marketing messages only if you turn them on. We do not collect your location, contacts or advertising identifiers, we do not sell your data, and we do not use your books to train AI models.',
+    },
+    {
+      heading: 'Who else sees your data',
+      body: 'People you invite to your business see what their role allows. Google checks a Google sign-in and a Google Play subscription. Google Cloud hosts MyCA. The SMS provider receives your number and sign-in code when phone sign-in is on. The language model provider receives a chat message or bill image only when you use those features. An Accredited Service Provider for e-invoicing receives invoice data only after we connect one and you switch it on. Authorities receive data only when UAE law requires it.',
+    },
+    {
+      heading: 'Where it is kept',
+      body: 'On Google Cloud servers in Doha, Qatar (region me-central1), because Google Cloud has no region in the UAE today. This is a transfer outside the UAE; we rely on our contract with Google Cloud, which requires protection at least equal to UAE law (Federal Decree-Law No. 45 of 2021, Article 23), and on the transfer being needed to provide the service. We plan to move UAE data to a data centre in the UAE and will tell you in the app when we do. Businesses in the DIFC or ADGM can ask for our data processing addendum.',
+    },
+    {
+      heading: 'How long we keep it',
+      body: 'Your books are kept while your business is on MyCA. UAE law expects tax records to be kept for at least 5 years after the tax period ends, and 7 years for Corporate Tax and real estate records; before you delete a business MyCA reminds you and offers a full download. Backups are kept for 14 days and crash reports for 90 days. When you delete your account, your name, phone number, email and Google account link are erased 30 days later; signing in again within those 30 days cancels the deletion.',
+    },
+    {
+      heading: 'Your rights',
+      body: 'Under Federal Decree-Law No. 45 of 2021 you can ask to know what we hold about you, get a copy or have it sent to another provider, correct it, delete it, restrict or stop processing including marketing, and withdraw consent. We answer within 30 days. You can complain to the UAE Data Office or the authority that replaces it.',
+    },
+    {
+      heading: 'Security',
+      body: 'Data travels over HTTPS and is encrypted at rest. Access is limited by role and logged. Sign-in codes expire in five minutes. If a breach affects your data, we tell you and the authority what happened and what we are doing.',
+    },
+    {
+      heading: 'Children and changes',
+      body: 'MyCA UAE is for businesses and people aged 18 and over. When anything material changes, we show the new version in the app in English and Arabic and ask you to accept it before continuing.',
+    },
+  ],
+};
+
+export const PRIVACY_NOTICE_AE_AR = {
+  ...PRIVACY_NOTICE_AE,
+  language: 'ar',
+  title: 'كيف يستخدم MyCA بياناتك الشخصية (الإمارات)',
+  status: 'مسودة للمراجعة القانونية بموجب المرسوم بقانون اتحادي رقم 45 لسنة 2021. لم تُعتمد للنشر بعد.',
+  law: 'المرسوم بقانون اتحادي رقم 45 لسنة 2021 بشأن حماية البيانات الشخصية',
+  sections: [
+    {
+      heading: 'من نحن',
+      body: `يقدّم تطبيق MyCA الإمارات ${AE_CONTROLLER}. بالنسبة لحسابك (اسمك وبريدك الإلكتروني وهاتفك وباقتك) فإننا المتحكّم في البيانات. أمّا محتوى دفاترك (أسماء عملائك ومورّديك وموظفيك، وأرقام التسجيل الضريبي، وبيانات التواصل، والمبالغ) فإن منشأتك هي المتحكّم، ونعالج هذه البيانات وفق تعليمات منشأتك. للتواصل: ${AE_PRIVACY_EMAIL}.`,
+    },
+    {
+      heading: 'ما هو MyCA وما ليس هو',
+      body: 'MyCA الإمارات برنامج لمسك الدفاتر وإعداد الضرائب. يحفظ دفاترك، ويُعدّ أرقام إقرار ضريبة القيمة المضافة (VAT 201) وضريبة الشركات، ويتحقق من جاهزية فواتيرك للفوترة الإلكترونية. MyCA ليس وكيلًا ضريبيًا مسجّلًا ولا يقدّم الإقرارات نيابةً عنك: أنت، أو وكيلك الضريبي المسجّل، تراجع الإقرار وتقدّمه عبر بوابة "إمارات تاكس" التابعة للهيئة الاتحادية للضرائب. لا يطلب MyCA أبدًا كلمة مرور "إمارات تاكس" أو "الهوية الرقمية (UAE Pass)"، ولا ينقل الأموال ولا يحتفظ بها. ما دام MyCA يعمل في الوضع التجريبي، تُفحص الفواتير على جهازك ولا تُرسل إلى أي جهة.',
+    },
+    {
+      heading: 'ما نجمعه ولماذا',
+      body: 'اسم حساب Google وبريده، أو رقم هاتفك، لتسجيل دخولك وبيان من قام بأي إجراء. معرّف عشوائي للجهاز، لتتمكن من رؤية أجهزتك وتسجيل الخروج منها. دفاترك (الفواتير والمشتريات والمصروفات والرواتب والحركات البنكية وأرقام ضريبة القيمة المضافة وضريبة الشركات ورقم التسجيل الضريبي وبيانات الرخصة التجارية)، لأنها الخدمة التي طلبتها ولأن قانون الضرائب في الإمارات يوجب حفظ السجلات. المستندات التي تختار رفعها، لاستيراد القيود. رسائلك إلى المساعد، لتنفيذ ما تطلبه. سجلات اشتراك Google Play، لمعرفة باقتك. تقارير الأعطال والرسائل التسويقية فقط إذا فعّلتها. لا نجمع موقعك أو جهات اتصالك أو معرّفات الإعلانات، ولا نبيع بياناتك، ولا نستخدم دفاترك لتدريب نماذج الذكاء الاصطناعي.',
+    },
+    {
+      heading: 'من يطّلع أيضًا على بياناتك',
+      body: 'الأشخاص الذين تدعوهم إلى منشأتك يرون ما تسمح به صلاحياتهم. تتحقق Google من تسجيل الدخول عبر Google ومن اشتراك Google Play. تستضيف Google Cloud تطبيق MyCA. يتلقى مزوّد الرسائل النصية رقمك ورمز الدخول عند تفعيل الدخول بالهاتف. يتلقى مزوّد النموذج اللغوي رسالة المحادثة أو صورة الفاتورة فقط عند استخدامك لهاتين الميزتين. يتلقى مزوّد خدمة معتمد للفوترة الإلكترونية بيانات الفاتورة فقط بعد ربطه وتفعيلك له. وتتلقى الجهات الرسمية البيانات فقط عندما يوجب قانون الإمارات ذلك.',
+    },
+    {
+      heading: 'أين تُحفظ بياناتك',
+      body: 'على خوادم Google Cloud في الدوحة، قطر (المنطقة me-central1)، لأن Google Cloud لا تملك منطقة داخل الإمارات حاليًا. يُعدّ ذلك نقلًا للبيانات خارج الدولة، ونستند فيه إلى عقدنا مع Google Cloud الذي يُلزمها بحماية لا تقل عن قانون الإمارات (المرسوم بقانون اتحادي رقم 45 لسنة 2021، المادة 23)، وإلى أن النقل لازم لتقديم الخدمة. ونعتزم نقل بيانات الإمارات إلى مركز بيانات داخل الدولة وسنبلغك داخل التطبيق عند ذلك. يمكن للمنشآت في مركز دبي المالي العالمي (DIFC) أو سوق أبوظبي العالمي (ADGM) طلب ملحق معالجة البيانات الخاص بنا.',
+    },
+    {
+      heading: 'مدة الاحتفاظ',
+      body: 'تُحفظ دفاترك ما دامت منشأتك على MyCA. يُلزم قانون الإمارات بحفظ السجلات الضريبية خمس سنوات على الأقل بعد انتهاء الفترة الضريبية، وسبع سنوات لسجلات ضريبة الشركات والعقارات، ويذكّرك MyCA بذلك قبل حذف أي منشأة ويعرض عليك تنزيل كل البيانات. تُحفظ النسخ الاحتياطية 14 يومًا وتقارير الأعطال 90 يومًا. عند حذف حسابك يُمحى اسمك ورقم هاتفك وبريدك وربط حساب Google بعد 30 يومًا، ويلغي تسجيل دخولك خلال هذه المدة طلبَ الحذف.',
+    },
+    {
+      heading: 'حقوقك',
+      body: 'بموجب المرسوم بقانون اتحادي رقم 45 لسنة 2021 يحق لك أن تطلب معرفة ما نحتفظ به عنك، والحصول على نسخة منه أو نقله إلى مزوّد آخر، وتصحيحه، وحذفه، وتقييد المعالجة أو إيقافها بما في ذلك التسويق، وسحب موافقتك. نرد خلال 30 يومًا. ويمكنك تقديم شكوى إلى مكتب الإمارات للبيانات أو الجهة التي تحل محله.',
+    },
+    {
+      heading: 'الأمان',
+      body: 'تنتقل البيانات عبر HTTPS وتُحفظ مشفّرة. يُقيَّد الوصول حسب الصلاحيات ويُسجَّل. تنتهي صلاحية رموز الدخول خلال خمس دقائق. وإذا تعرّضت بياناتك لاختراق، نبلغك ونبلغ الجهة المختصة بما حدث وبما نتخذه من إجراءات.',
+    },
+    {
+      heading: 'الأطفال والتغييرات',
+      body: 'MyCA الإمارات مخصّص للمنشآت وللأشخاص بعمر 18 عامًا فأكثر. عند أي تغيير جوهري، نعرض الإصدار الجديد داخل التطبيق باللغتين العربية والإنجليزية ونطلب موافقتك عليه قبل المتابعة.',
+    },
+  ],
+};
+
+const NOTICES = [PRIVACY_NOTICE, PRIVACY_NOTICE_US, PRIVACY_NOTICE_MY, PRIVACY_NOTICE_AE];
 
 export function legalLinks(siteUrl) {
   const base = String(siteUrl || '').trim().replace(/\/+$/, '');
@@ -233,6 +336,7 @@ export function noticeFor(region, language) {
   const code = String(region || '').trim().toUpperCase();
   if (code === 'US') return PRIVACY_NOTICE_US;
   if (code === 'MY') return String(language || '').trim().toLowerCase().startsWith('ms') ? PRIVACY_NOTICE_MY_MS : PRIVACY_NOTICE_MY;
+  if (code === 'AE') return String(language || '').trim().toLowerCase().startsWith('ar') ? PRIVACY_NOTICE_AE_AR : PRIVACY_NOTICE_AE;
   return PRIVACY_NOTICE;
 }
 
@@ -244,7 +348,7 @@ export function consentExempt(method, parts) {
 
 export function noticesFor(countries = []) {
   const codes = (Array.isArray(countries) ? countries : []).map((code) => String(code).toUpperCase());
-  const own = new Set(['US', 'MY']);
+  const own = new Set(['US', 'MY', 'AE']);
   const list = NOTICES.filter((notice) => (own.has(notice.region) ? codes.includes(notice.region) : codes.some((code) => !own.has(code))));
   return list.length ? list : NOTICES;
 }

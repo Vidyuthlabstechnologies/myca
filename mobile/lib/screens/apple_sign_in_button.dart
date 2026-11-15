@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart' show AppleLogoPainter;
 
+import '../uae/uae_cloud_strings.dart';
+import '../uae/uae_strings.dart';
+
 const appleSignInLabel = 'Continue with Apple';
 
 class AppleSignInButton extends StatelessWidget {
@@ -15,9 +18,10 @@ class AppleSignInButton extends StatelessWidget {
     final background = dark ? Colors.white : Colors.black;
     final foreground = dark ? Colors.black : Colors.white;
     final logo = MediaQuery.textScalerOf(context).scale(18).clamp(18.0, 30.0);
+    final s = UaeStrings.of(context);
     return Semantics(
       button: true,
-      label: appleSignInLabel,
+      label: s.continueWithApple,
       excludeSemantics: true,
       child: FilledButton(
         key: const Key('signIn.apple'),
@@ -41,7 +45,7 @@ class AppleSignInButton extends StatelessWidget {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                busy ? 'Please wait…' : appleSignInLabel,
+                busy ? s.pleaseWait : s.continueWithApple,
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),

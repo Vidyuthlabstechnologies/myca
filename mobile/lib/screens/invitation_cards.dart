@@ -5,6 +5,8 @@ import '../app_state.dart';
 import '../cloud/cloud_session.dart';
 import '../my/my_strings.dart';
 import '../theme.dart';
+import '../uae/uae_cloud_strings.dart';
+import '../uae/uae_strings.dart';
 
 const roleLabels = {'owner': 'Owner', 'staff': 'Staff', 'accountant': 'Accountant'};
 
@@ -48,6 +50,7 @@ class _InvitationCardsState extends State<InvitationCards> {
     String w(String english, String malay) => myMalayOr(context, english, malay);
     String role(String key) => w(roleLabel(key), _roleLabelsMalay[key] ?? key).toLowerCase();
     final malaysia = AppScope.of(context).edition == 'MY';
+    final s = UaeStrings.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -66,8 +69,8 @@ class _InvitationCardsState extends State<InvitationCards> {
                 const SizedBox(height: 2),
                 Text(
                   invitation.invitedBy.isEmpty
-                      ? w('You are invited as ${role(invitation.role)}.', 'Anda dijemput sebagai ${role(invitation.role)}.')
-                      : w('${invitation.invitedBy} invited you as ${role(invitation.role)}.', '${invitation.invitedBy} menjemput anda sebagai ${role(invitation.role)}.'),
+                      ? w(s.invitedAs('', invitation.role), 'Anda dijemput sebagai ${role(invitation.role)}.')
+                      : w(s.invitedAs(invitation.invitedBy, invitation.role), '${invitation.invitedBy} menjemput anda sebagai ${role(invitation.role)}.'),
                   style: text.bodyMedium?.copyWith(color: malaysia ? Theme.of(context).colorScheme.onSecondaryContainer : Palette.ink),
                 ),
                 const SizedBox(height: 14),
@@ -76,7 +79,7 @@ class _InvitationCardsState extends State<InvitationCards> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: _busy ? null : () => _answer(invitation, false),
-                        child: Text(w('Decline', 'Tolak')),
+                        child: Text(w(s.decline, 'Tolak')),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -84,7 +87,7 @@ class _InvitationCardsState extends State<InvitationCards> {
                       flex: 2,
                       child: FilledButton(
                         onPressed: _busy ? null : () => _answer(invitation, true),
-                        child: Text(w('Join', 'Sertai')),
+                        child: Text(w(s.join, 'Sertai')),
                       ),
                     ),
                   ],
@@ -95,7 +98,7 @@ class _InvitationCardsState extends State<InvitationCards> {
         if (_error.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+            child: Text(s.cloudSaid(_error), style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
           ),
       ],
     );

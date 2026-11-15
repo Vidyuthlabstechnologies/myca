@@ -42,3 +42,15 @@ bool uaeIsoDate(String text) {
   final day = DateTime.tryParse(text);
   return day != null && uaeIsoDay(day) == text;
 }
+
+String? uaeMobileNumber(String typed) {
+  var digits = typed.replaceAll(RegExp(r'\D'), '');
+  if (digits.startsWith('00971')) {
+    digits = digits.substring(5);
+  } else if (digits.startsWith('971')) {
+    digits = digits.substring(3);
+  }
+  if (digits.startsWith('0')) digits = digits.substring(1);
+  if (!RegExp(r'^5\d{8}$').hasMatch(digits)) return null;
+  return '+971$digits';
+}

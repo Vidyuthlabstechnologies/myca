@@ -271,7 +271,7 @@ class FakeCloud {
     if (path == '/v1/auth/otp') {
       if (!phoneOn) return _json(503, {'ok': false, 'error': 'PHONE_SIGN_IN_UNAVAILABLE'});
       requestedPhones.add('${body['phone']}');
-      if (RegExp(r'^\+1[2-9]\d{2}[2-9]\d{6}$').hasMatch('${body['phone']}')) return _json(200, {'ok': true, 'challengeId': challengeId, 'expiresInSeconds': 300});
+      if (RegExp(r'^\+1[2-9]\d{2}[2-9]\d{6}$|^\+9715\d{8}$').hasMatch('${body['phone']}')) return _json(200, {'ok': true, 'challengeId': challengeId, 'expiresInSeconds': 300});
       final phone = '${body['phone']}'.replaceAll(' ', '');
       if (!RegExp(r'^(\+91)?[6-9]\d{9}$').hasMatch(phone)) return _json(400, {'ok': false, 'error': 'INVALID_PHONE'});
       return _json(200, {'ok': true, 'challengeId': challengeId, 'expiresInSeconds': 300});
@@ -458,9 +458,9 @@ class FakeCloud {
         return _json(200, {'ok': true, 'business': demo, 'seeded': 12});
       }
       final gstin = '${body['gstin'] ?? ''}';
-      if (body['country'] == 'GB') {
-        company = {'name': body['name'], 'gstin': '', 'state': '', 'country': 'GB'};
-        final made = {'id': businessId, 'name': body['name'], 'gstin': '', 'role': 'owner', 'country': 'GB', 'kind': 'business'};
+      if (body['country'] == 'GB' || body['country'] == 'AE') {
+        company = {'name': body['name'], 'gstin': '', 'state': '', 'country': body['country']};
+        final made = {'id': businessId, 'name': body['name'], 'gstin': '', 'role': 'owner', 'country': body['country'], 'kind': 'business'};
         businesses.add(made);
         createdBodies.add(Map<String, Object?>.from(body));
         return _json(200, {'ok': true, 'business': made});
@@ -523,7 +523,7 @@ class FakeCloud {
     }
     if (path == '$books/invitations' && request.method == 'POST') {
       final phone = '${body['phone']}'.replaceAll(' ', '');
-      if (!RegExp(r'^(\+91)?[6-9]\d{9}$').hasMatch(phone)) return _json(400, {'ok': false, 'error': 'INVALID_PHONE'});
+      if (!RegExp(r'^(\+91)?[6-9]\d{9}$|^\+9715\d{8}$').hasMatch(phone)) return _json(400, {'ok': false, 'error': 'INVALID_PHONE'});
       invited.add('$phone:${body['role']}');
       final open = {'id': 'inv-${invited.length}', 'phoneHint': 'xxxxxxx${phone.substring(phone.length - 3)}', 'role': body['role']};
       openInvites.add(open);

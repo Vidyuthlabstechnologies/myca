@@ -46,7 +46,9 @@ import 'theme.dart';
 import 'us/us_text_scaler.dart';
 import 'tour/tour.dart';
 import 'tour/tour_coach.dart';
+import 'uae/uae_cloud_strings.dart';
 import 'uae/uae_format.dart';
+import 'uae/uae_strings.dart';
 
 void main() {
   LicenseRegistry.addLicense(() async* {
@@ -342,8 +344,8 @@ class TestServerBanner extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Text(
             sandbox
-                ? myMalayOr(context, 'Sandbox mode: nothing is filed with the government yet', 'Mod kotak pasir: belum ada apa-apa difailkan kepada kerajaan')
-                : myMalayOr(context, 'Test environment: nothing is filed, paid or sent', 'Persekitaran ujian: tiada apa difailkan, dibayar atau dihantar'),
+                ? myMalayOr(context, UaeStrings.of(context).serverBanner(true), 'Mod kotak pasir: belum ada apa-apa difailkan kepada kerajaan')
+                : myMalayOr(context, UaeStrings.of(context).serverBanner(false), 'Persekitaran ujian: tiada apa difailkan, dibayar atau dihantar'),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Palette.onInk, fontWeight: FontWeight.w600),
           ),
@@ -381,16 +383,16 @@ class AppGate extends StatelessWidget {
                 const BrandMark(size: 56),
                 const SizedBox(height: 24),
                 Text(
-                  malaysia ? MyStrings.of(context).outOfReach : 'MyCA is out of reach',
+                  malaysia ? MyStrings.of(context).outOfReach : UaeStrings.of(context).outOfReach,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 8),
-                Text(state.error, textAlign: TextAlign.center),
+                Text(UaeStrings.of(context).cloudSaid(state.error), textAlign: TextAlign.center),
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: state.refresh,
-                  child: Text(malaysia ? MyStrings.of(context).tryAgain : 'Try again'),
+                  child: Text(malaysia ? MyStrings.of(context).tryAgain : UaeStrings.of(context).tryAgain),
                 ),
               ],
             ),
