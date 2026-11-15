@@ -1,0 +1,11 @@
+.git
+.github
+vendor/
+mobile/
+infra/
+docs/
+website/
+**/node_modules/
+/*.pdf
+/*.png
+/*.html

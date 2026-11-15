@@ -43,7 +43,7 @@ bash scripts/sandbox-cloud-setup.sh
 
 It asks once for the Anthropic API key (input hidden; Enter skips AI chat), then turns on the APIs
 and creates the registry, the two service accounts, the secrets, the service and the GitHub
-deploy pool. It builds the image in Cloud Shell, deploys, and prints the address and the console
+deploy pool. It builds the image with Cloud Build (falling back to Cloud Shell, or `BUILD=local`), deploys, and prints the address and the console
 link (`/?k=...`). Run it again any time; it only adds what is missing. To change the AI key, run it
 with `MYCA_MODEL_API_KEY=... bash scripts/sandbox-cloud-setup.sh`.
 

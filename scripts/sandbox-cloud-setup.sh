@@ -50,10 +50,27 @@ if [ -n "$MODEL_KEY" ] || exists gcloud secrets describe myca-sandbox-model-key;
   SECRETS="${SECRETS},MYCA_MODEL_API_KEY=myca-sandbox-model-key:latest"
 fi
 
-say "Building the image in Cloud Shell and pushing ${IMAGE}"
-gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet >/dev/null
-docker build -f deploy/sandbox/Dockerfile -t "$IMAGE" .
-docker push "$IMAGE"
+build_local() {
+  say "Building the image in Cloud Shell and pushing ${IMAGE}"
+  gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet >/dev/null
+  docker build -f deploy/sandbox/Dockerfile -t "$IMAGE" .
+  docker push "$IMAGE"
+}
+build_cloud() {
+  say "Building the image with Cloud Build (a few minutes, nothing is downloaded to Cloud Shell)"
+  gcloud services enable cloudbuild.googleapis.com --quiet
+  for builder in "${NUMBER}@cloudbuild.gserviceaccount.com" "${NUMBER}-compute@developer.gserviceaccount.com"; do
+    gcloud artifacts repositories add-iam-policy-binding "$SERVICE" --location "$REGION" --member "serviceAccount:${builder}" --role roles/artifactregistry.writer --quiet >/dev/null 2>&1 || true
+  done
+  gcloud builds submit . --region "$REGION" --config deploy/sandbox/cloudbuild.yaml --ignore-file deploy/sandbox/gcloudignore \
+    --substitutions "_IMAGE=${IMAGE}" --quiet
+}
+if [ "${BUILD:-cloud}" = local ]; then
+  build_local
+elif ! build_cloud; then
+  echo "Cloud Build did not finish; building in Cloud Shell instead."
+  build_local
+fi
 
 deploy() {
   gcloud run deploy "$SERVICE" --region "$REGION" --image "$IMAGE" --service-account "$RUN_SA" \
