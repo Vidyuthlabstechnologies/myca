@@ -161,8 +161,7 @@ export const RULES = [
     section: 'Rule 37A, CGST Rules 2017',
     source: 'Notification 26/2022-Central Tax dated 26.12.2022 inserting rule 37A: where the supplier has not furnished FORM GSTR-3B for the period by the 30th day of September following the end of the financial year in which the credit was availed, the recipient reverses it in FORM GSTR-3B on or before the 30th day of November following the end of that financial year',
     attestations: []
-  }
-,
+  },
   {
     id: 'gst.setoff.order',
     value: { ownHeadFirst: true, igstCreditExhaustedFirst: false, igstRemainder: 'any-order', crossHeads: { cgst: ['cgst', 'igst'], sgst: ['sgst', 'igst'] } },
