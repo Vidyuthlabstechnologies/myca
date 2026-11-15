@@ -32,6 +32,7 @@ class MyStrings {
   String get required => _t('Required', 'Wajib diisi');
   String get offline => _t('Cannot reach MyCA. Check your connection and try again. Nothing was sent.', 'Tidak dapat menghubungi MyCA. Semak sambungan anda dan cuba lagi. Tiada apa yang dihantar.');
   String get sandboxBanner => _t('Sandbox with sample books: nothing is sent to LHDN', 'Kotak pasir dengan buku contoh: tiada apa dihantar ke LHDN');
+  String get preprodBanner => _t('LHDN pre-production: this e-invoice went to LHDN\'s test system and has no legal effect', 'Pra-pengeluaran LHDN: e-Invois ini dihantar ke sistem ujian LHDN dan tiada kesan undang-undang');
   String get leaveSandbox => _t('Leave the sandbox', 'Keluar dari kotak pasir');
   String get unreviewed => _t('Not yet reviewed by a Malaysian tax agent.', 'Belum disemak oleh ejen cukai Malaysia.');
   String get loadFailed => _t('Could not load this. Try again.', 'Tidak dapat dimuatkan. Cuba lagi.');

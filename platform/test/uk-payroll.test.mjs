@@ -139,3 +139,14 @@ test('bad input and dates before the rules are refused', () => {
   const bad = ukPayrollRun({ payDate: '2026-04-30', employees: [{ pay: -1, taxCode: 'ZZ', niCategory: 'Q', studentLoan: 'plan9', pension: { employee: 5, basis: 'other' } }] });
   assert.deepEqual(bad.problems.map((problem) => problem.field), ['employees[0].pay', 'employees[0].taxCode', 'employees[0].niCategory', 'employees[0].studentLoan', 'employees[0].pension.basis']);
 });
+
+test('with no tax code the emergency code runs on a month 1 or week 1 basis, not cumulatively', () => {
+  const monthly = ukPayrollRun({ payDate: '2026-06-30', employees: [{ pay: 3000 }] }).data.employees[0];
+  assert.equal(monthly.taxCode.basis, 'month 1');
+  assert.equal(monthly.incomeTax, 390.2);
+  assert.match(monthly.notes.join(' '), /emergency code 1257L was used on a month 1 basis/);
+  assert.doesNotMatch(monthly.notes.join(' '), /assumed the same pay/);
+  const weekly = ukPayrollRun({ payDate: '2026-06-30', frequency: 'weekly', employees: [{ pay: 700 }] }).data.employees[0];
+  assert.equal(weekly.taxCode.basis, 'week 1');
+  assert.equal(ukPayrollRun({ payDate: '2026-06-30', employees: [{ pay: 3000, taxCode: '1257L' }] }).data.employees[0].taxCode.basis, 'cumulative');
+});

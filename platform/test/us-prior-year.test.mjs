@@ -97,3 +97,11 @@ test('the tool is registered as a confirmed write with a strict schema', async (
   const ran = await runTool(state, 'import_us_prior_year', { taxYear: '2026' });
   assert.equal(ran.ok, true, JSON.stringify(ran));
 });
+
+test('a refund applied to this year on last year\'s MyCA return comes in as the overpayment applied', async () => {
+  const state = await lastYear();
+  await runTool(state, 'answer_us_interview', { taxYear: '2025', id: 'applyToNextYear', answer: 400 });
+  const result = importUsPriorYear(state, { taxYear: '2026' });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.data.answers.priorYearOverpaymentApplied, 400);
+});

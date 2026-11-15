@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../app_state.dart';
@@ -23,14 +24,23 @@ String? uaeTrnProblem(String typed, {required String Function(int) length, requi
 
 String uaeCleanTrn(String typed) => typed.replaceAll(RegExp(r'[\s-]'), '');
 
+String uaeWesternDigits(String typed) => typed.split('').map((c) {
+      final code = c.codeUnitAt(0);
+      if (code >= 0x0660 && code <= 0x0669) return String.fromCharCode(code - 0x0660 + 48);
+      if (code >= 0x06F0 && code <= 0x06F9) return String.fromCharCode(code - 0x06F0 + 48);
+      return c;
+    }).join();
+
+class UaeWesternDigitsFormatter extends TextInputFormatter {
+  const UaeWesternDigitsFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) => newValue.copyWith(text: uaeWesternDigits(newValue.text));
+}
+
 num? parseUaeNumber(String typed) {
   final clean = typed.replaceAll(',', '').replaceAll('٬', '').replaceAll('٫', '.').trim();
-  final western = clean.split('').map((c) {
-    final code = c.codeUnitAt(0);
-    if (code >= 0x0660 && code <= 0x0669) return String.fromCharCode(code - 0x0660 + 48);
-    if (code >= 0x06F0 && code <= 0x06F9) return String.fromCharCode(code - 0x06F0 + 48);
-    return c;
-  }).join();
+  final western = uaeWesternDigits(clean);
   if (!RegExp(r'^\d+(\.\d+)?$').hasMatch(western)) return null;
   return num.parse(western);
 }
@@ -44,13 +54,13 @@ bool uaeIsoDate(String text) {
 }
 
 String? uaeMobileNumber(String typed) {
-  var digits = typed.replaceAll(RegExp(r'\D'), '');
+  var digits = uaeWesternDigits(typed).replaceAll(RegExp(r'\D'), '');
   if (digits.startsWith('00971')) {
     digits = digits.substring(5);
   } else if (digits.startsWith('971')) {
     digits = digits.substring(3);
   }
   if (digits.startsWith('0')) digits = digits.substring(1);
-  if (!RegExp(r'^5\d{8}$').hasMatch(digits)) return null;
+  if (!RegExp(r'^5[024568]\d{7}$').hasMatch(digits)) return null;
   return '+971$digits';
 }
