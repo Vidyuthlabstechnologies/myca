@@ -162,7 +162,7 @@ class _ConnectorsScreenState extends State<ConnectorsScreen> {
                 ],
                 if (_error.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                  Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
                 ],
                 for (final view in list.forCountry(country)) ...[
                   const SizedBox(height: 16),
@@ -311,6 +311,7 @@ class _ConnectorCardState extends State<ConnectorCard> {
     final choices = field == 'environment' ? connectorEnvironments[view.channel] : null;
     if (choices != null) {
       return DropdownButtonFormField<String>(
+        isExpanded: true,
         key: ValueKey('${view.channel}.environment'),
         initialValue: _environment,
         decoration: InputDecoration(labelText: label),

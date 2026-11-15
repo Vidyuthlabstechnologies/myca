@@ -17,7 +17,7 @@ class QrPainter extends CustomPainter {
     final left = (size.width - cell * count) / 2;
     final top = (size.height - cell * count) / 2;
     final ink = Paint()
-      ..color = Palette.ink
+      ..color = PaletteSet.light.ink
       ..isAntiAlias = false;
     for (var row = 0; row < count; row++) {
       for (var col = 0; col < count; col++) {

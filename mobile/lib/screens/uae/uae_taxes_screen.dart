@@ -234,7 +234,7 @@ class UaeTaxesPanel extends StatelessWidget {
     return Material(
       key: const ValueKey('home.uae'),
       color: Palette.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard), side: const BorderSide(color: Palette.line)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard), side: BorderSide(color: Palette.line)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,

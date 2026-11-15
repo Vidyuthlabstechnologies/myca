@@ -311,7 +311,11 @@ class _StatementsScreenState extends State<StatementsScreen> {
                           if (section.lines.isEmpty) const ListTile(title: Text('Nothing in this period')),
                           for (final line in section.lines)
                             ListTile(
-                              title: Text(line.label),
+                              title: AmountRow(
+                                start: Text(line.label),
+                                amount: rupees(line.amount),
+                                style: text.titleSmall?.copyWith(fontFeatures: moneyFigures),
+                              ),
                               subtitle: line.detail.isEmpty ? null : Text(line.detail),
                               trailing: _amount(context, rupees(line.amount), text.titleSmall),
                             ),

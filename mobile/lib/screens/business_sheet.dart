@@ -152,7 +152,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                   color: Palette.surface,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(radiusCard),
-                    side: const BorderSide(color: Palette.line),
+                    side: BorderSide(color: Palette.line),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
@@ -258,7 +258,7 @@ class _BriefSwitchState extends State<_BriefSwitch> {
       color: Palette.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radiusCard),
-        side: const BorderSide(color: Palette.line),
+        side: BorderSide(color: Palette.line),
       ),
       child: SwitchListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 14),

@@ -277,7 +277,7 @@ class _QuickoScreenState extends State<QuickoScreen> {
             ),
           ],
           if (_busy.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_busy, style: text.bodyMedium)),
-          if (_error.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))),
+          if (_error.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))),
           heading('Read Form 16 or Form 26AS', 'Choose the PDF from TRACES or your employer. Every figure is shown as printed; check it against the page before using it in a return.'),
           field('pdfPassword', _pdfPassword, 'PDF password, if it has one', secret: true),
           button('Read Form 16', () => _readForm('read_form16')),

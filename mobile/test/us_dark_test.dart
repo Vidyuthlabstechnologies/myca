@@ -75,15 +75,16 @@ void main() {
     expect(Theme.of(tester.element(find.text('Your 2025 federal return'))).brightness, Brightness.light);
   });
 
-  testWidgets('MyCA India stays light when the phone is in dark mode', (tester) async {
+  testWidgets('MyCA India follows the phone into dark mode with its own palette', (tester) async {
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
     addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     await tester.pumpWidget(MycaApp(state: AppState(api: FakeMycaApi(signedIn: true), store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true), pickTextFile: (_) async => null)));
     await tester.pumpAndSettle();
     final context = tester.element(find.byType(Scaffold).first);
-    expect(Theme.of(context).brightness, Brightness.light);
-    expect(Theme.of(context).scaffoldBackgroundColor, Palette.canvas);
-    expect(paletteOf(context), same(indiaPalette));
+    expect(Theme.of(context).brightness, Brightness.dark);
+    expect(Theme.of(context).scaffoldBackgroundColor, PaletteSet.dark.canvas);
+    expect(paletteOf(context).canvas, PaletteSet.dark.canvas);
+    expect(paletteOf(context).accent, PaletteSet.dark.accent);
     expect(MediaQuery.textScalerOf(context), isNot(isA<UsTextScaler>()));
   });
 
