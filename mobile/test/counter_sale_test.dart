@@ -171,16 +171,17 @@ void main() {
   });
 
   test('a bill of ₹50,000 or more needs the buyer, and the address goes on the invoice', () {
-    final small = [CartLine(sku: 'A', name: 'Fan', price: 42372, gstRate: 18)];
-    final large = [CartLine(sku: 'B', name: 'Fridge', price: 42373, gstRate: 18)];
-    expect(billTotal(small), 49998.96);
+    final small = [CartLine(sku: 'A', name: 'Fan', price: 49999, gstRate: 18)];
+    final large = [CartLine(sku: 'B', name: 'Fridge', price: 50000, gstRate: 18)];
+    expect(billTotal(small), 58998.82);
+    expect(billTaxable(small), 49999);
     expect(needsBuyerDetails(small), isFalse);
     expect(needsBuyerDetails(large), isTrue);
     expect(counterSaleArgs(large, customer: ' Meera Rao ', address: ' 12 MG Road, Pune, Maharashtra 411001 '), {
       'partyName': 'Meera Rao',
       'partyAddress': '12 MG Road, Pune, Maharashtra 411001',
       'lines': [
-        {'description': 'Fridge', 'qty': 1, 'rate': 42373, 'gstRate': 18},
+        {'description': 'Fridge', 'qty': 1, 'rate': 50000, 'gstRate': 18},
       ],
     });
     expect(counterSaleArgs(small).containsKey('partyAddress'), isFalse);
@@ -257,7 +258,7 @@ void main() {
 
   testWidgets('a large bill is held until the customer name and address are given', (tester) async {
     final api = CounterApi();
-    api.known['TV55'] = {'found': true, 'sku': 'TV55', 'name': 'LED TV 55', 'price': 45000, 'gstRate': 18, 'hsn': '8528'};
+    api.known['TV55'] = {'found': true, 'sku': 'TV55', 'name': 'LED TV 55', 'price': 50000, 'gstRate': 18, 'hsn': '8528'};
     await tester.pumpWidget(MaterialApp(
       home: AppScope(
         state: testState(api),

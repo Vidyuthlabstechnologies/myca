@@ -7,6 +7,7 @@ import { buildMefSubmission, makeSubmissionId, returnDigest, routingNumberValid 
 import { simulateAcknowledgement } from './us-mef-sim.mjs';
 import { irsMefSettings, irsMefMissing } from './us-mef-settings.mjs';
 import { transmissionZip } from './us-mef-zip.mjs';
+import { usReturnRecord } from './us-return.mjs';
 import { efileRoute, partnerMode, partnerSetup, startPartnerFiling } from './us-filing-partner.mjs';
 
 const PIN = /^\d{5}$/;
@@ -94,12 +95,18 @@ function ipPinOf(args, who) {
   return who === 'taxpayer' ? value : args.spouseIdentityProtectionPin;
 }
 
-function signer(args, who, problems) {
+function importedPriorYearAgi(state, taxYear) {
+  const value = usReturnRecord(state, String(taxYear))?.answers?.priorYearAgi;
+  return Number.isFinite(Number(value)) && value !== '' && value != null ? Math.round(Number(value)) : undefined;
+}
+
+function signer(args, who, problems, importedAgi) {
   const pin = String(args[`${who}Pin`] ?? '');
   if (!PIN.test(pin) || pin === '00000') problems.push({ code: 'SIGNATURE_PIN_INVALID', message: `The ${who} signature PIN must be five digits and not 00000.`, fix: 'Choose any five digits as your signature PIN.', step: 'sign' });
   const prior = priorYearOf(args, who);
   const priorPin = prior.pin == null || prior.pin === '' ? '' : String(prior.pin);
-  const priorAgi = prior.agi == null || prior.agi === '' ? null : Number(prior.agi);
+  const givenAgi = prior.agi == null || prior.agi === '' ? importedAgi : prior.agi;
+  const priorAgi = givenAgi == null || givenAgi === '' ? null : Number(givenAgi);
   if (priorPin && !PIN.test(priorPin)) problems.push({ code: 'PRIOR_YEAR_PIN_INVALID', message: `The ${who}'s prior-year PIN must be five digits.`, fix: "Enter last year's five-digit self-select PIN, or use last year's AGI instead.", step: 'sign' });
   if (!priorPin && !(Number.isInteger(priorAgi) && priorAgi >= 0)) problems.push({ code: 'PRIOR_YEAR_VERIFICATION_MISSING', message: `The ${who}'s prior-year AGI or prior-year PIN is needed.`, fix: "Enter last year's AGI in whole dollars (0 if you didn't file last year).", step: 'sign' });
   const ipPin = ipPinOf(args, who);
@@ -191,7 +198,7 @@ export async function signUsReturn(state, args = {}, actor, options = {}) {
   if (!loaded.ok) return loaded;
   const computed = loaded.data;
   const problems = [];
-  const signature = { taxpayer: signer(args, 'taxpayer', problems), date: options.today || new Date().toISOString().slice(0, 10) };
+  const signature = { taxpayer: signer(args, 'taxpayer', problems, importedPriorYearAgi(state, taxYear)), date: options.today || new Date().toISOString().slice(0, 10) };
   if (computed.filingStatus === 'mfj') signature.spouse = signer(args, 'spouse', problems);
   const { refund, payment } = moneyPlan(args, computed.lines, problems);
   if (problems.length) return fail('SIGNATURE_INVALID', { problems });

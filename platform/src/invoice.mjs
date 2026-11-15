@@ -8,7 +8,7 @@ import { billPayBy, completeMsmeReminders } from './supplier-dues.mjs';
 import { invoiceTemplateOf, bankWords } from './invoice-template.mjs';
 import { regArg, docFieldsFor } from './registrations.mjs';
 import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
-import { gstin as gstinRules } from './sprint-load.mjs';
+import { gstin as gstinRules, rules } from './sprint-load.mjs';
 import { needsSelfInvoice, reverseChargeOf } from './reverse-charge.mjs';
 import { cessLineNotInForce, chargesCess } from './compensation-cess.mjs';
 import { COMPOSITION_DECLARATION, documentTitleOf, exportEndorsementOf, hsnShownOn, reverseChargeLineOf } from './invoice-compliance.mjs';
@@ -178,6 +178,24 @@ export function lastGstRateFor(state, { name, gstin }, kind = 'sale') {
   return Number.isFinite(Number(rate)) ? { gstRate: Number(rate), from: latest.id, date: latest.date } : null;
 }
 
+const UNNAMED_BUYERS = ['', 'walk-in', 'walk-in customer', 'cash', 'cash sale', 'cash customer'];
+
+function buyerDetailsNeeded(state, input, { date, reg, exportSale, rawLines, specs }) {
+  if (exportSale || String(input.partyGstin || '').trim() || !String(reg?.gstin || '').trim() || state.company?.composition === true) return null;
+  const found = rules.rule('gst.invoice.unregistered-buyer-details', date);
+  if (!found.ok) return null;
+  const taxablePaise = specs.reduce((sum, s, i) => sum + (rawLines[i].supply ? 0 : Math.round(s.qty * s.rate * 100)), 0);
+  if (taxablePaise < found.value.taxableValuePaiseAtLeast) return null;
+  const name = String(input.partyName ?? '').trim();
+  const known = (state.parties || []).find((p) => p.name === name && !String(p.gstin || '').trim());
+  const missing = [];
+  if (UNNAMED_BUYERS.includes(name.toLowerCase())) missing.push('partyName');
+  if (!String(input.partyAddress || known?.address || '').trim()) missing.push('partyAddress');
+  if (!missing.length) return null;
+  const rupees = found.value.taxableValuePaiseAtLeast / 100;
+  return { missing, thresholdRupees: rupees, rule: found.record.id, hint: `A tax invoice to an unregistered buyer with a taxable value of ₹${rupees.toLocaleString('en-IN')} or more must carry the buyer's name and address with the state (rule 46(e)). Add the buyer's ${missing.map((field) => (field === 'partyName' ? 'name' : 'address with the state')).join(' and ')} before you give out this invoice.` };
+}
+
 export function createInvoice(state, input) {
   const company = state.company;
   if (company?.setupNeeded) return { ok: false, error: 'SETUP_REQUIRED' };
@@ -223,6 +241,7 @@ export function createInvoice(state, input) {
   if (grossTaxable <= 0) return { ok: false, error: 'ZERO_AMOUNT' };
 
   const partyName = String(input.partyName ?? '').trim() || 'Walk-in';
+  const buyerDetails = buyerDetailsNeeded(state, input, { date, reg, exportSale, rawLines, specs });
   const terms = invoiceTerms(state, { name: partyName, gstin: input.partyGstin, override: input.paymentTermsDays });
   if (terms.error) return { ok: false, error: terms.error };
   const party = ensureParty(state, { name: partyName, gstin: input.partyGstin, stateCode: exportSale ? FOREIGN_POS : input.partyState, address: input.partyAddress });
@@ -356,7 +375,7 @@ export function createInvoice(state, input) {
   };
   state.invoices = state.invoices || [];
   state.invoices.push(invoice);
-  return { ok: true, invoice, posted };
+  return { ok: true, invoice, posted, ...(buyerDetails ? { buyerDetails } : {}) };
 }
 
 export function planReceipt(state, { invoiceId, amount, date, mode, advance } = {}) {

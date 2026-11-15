@@ -1,6 +1,9 @@
 import { rules } from '../../sprint-load.mjs';
 import { monthlyPcb, pcbRules, readPcbProfile } from './pcb.mjs';
 
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const monthWords = (date) => `${MONTH_NAMES[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}`;
+
 const toSen = (ringgit) => Math.round(Number(ringgit) * 100);
 const toRinggit = (sen) => Math.round(sen) / 100;
 const MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
@@ -91,7 +94,7 @@ export function malaysiaPayroll(args = {}) {
       }
     }
     const inLindung = employee.citizen === false || employee.lindung24Jam === true;
-    if (lindungPhase && wageSen > 0 && inLindung) notes.push(`LINDUNG 24 Jam is not in this net pay: from the June 2026 contribution month the ${employee.citizen === false ? 'foreign worker' : 'employee who opted in'} also pays ${lindungPhase.employeeBasisPoints / 100}% of wages up to RM${lindung.value.ceilingSen / 100} to PERKESO. Take the amount from PERKESO's LINDUNG 24 Jam schedule and deduct it as well.`);
+    if (lindungPhase && wageSen > 0 && inLindung) notes.push(`LINDUNG 24 Jam is not in this net pay: the ${employee.citizen === false ? 'foreign worker' : 'employee who opted in'} also pays ${lindungPhase.employeeBasisPoints / 100}% of wages up to RM${lindung.value.ceilingSen / 100} to PERKESO (the rate in force since ${monthWords(lindungPhase.from)}). Take the amount from PERKESO's LINDUNG 24 Jam schedule and deduct it as well.`);
     const employeeTotal = epfPart.employee + socsoEmployee + eisEach;
     const employerTotal = epfPart.employer + socsoEmployer + eisEach;
     let pcb = null;

@@ -1,4 +1,4 @@
-import { gstin } from './sprint-load.mjs';
+import { gstin, rules } from './sprint-load.mjs';
 import { creditedAgainst, debitedAgainst } from './credit-notes.mjs';
 import { quoteState, kindOf, kindTitle } from './quotes.mjs';
 import { ewayBillStatus, transportWords } from './eway-bill.mjs';
@@ -19,6 +19,11 @@ function partyOf(state, doc) {
   return (state.parties || []).find((p) => (doc.partyAccountId ? p.accountId === doc.partyAccountId : p.name === doc.partyName && text(p.gstin) === text(doc.partyGstin))) || null;
 }
 
+function buyerDetailsDue(doc) {
+  const found = rules.rule('gst.invoice.unregistered-buyer-details', doc.date);
+  return found.ok && Math.round(Number(doc.taxable || 0) * 100) >= found.value.taxableValuePaiseAtLeast;
+}
+
 function common(state, doc) {
   const company = state.company || {};
   const party = partyOf(state, doc);
@@ -27,7 +32,7 @@ function common(state, doc) {
   const missing = [];
   if (!us && !text(company.gstin)) missing.push('SELLER_GSTIN');
   if (!text(company.address)) missing.push('SELLER_ADDRESS');
-  if (!us && !buyerAddress && (text(doc.partyGstin) || round2(doc.total) >= 50000)) missing.push('BUYER_ADDRESS');
+  if (!us && !buyerAddress && (text(doc.partyGstin) || buyerDetailsDue(doc))) missing.push('BUYER_ADDRESS');
   if (!us && doc.lines.some((line) => !text(line.hsn))) missing.push('HSN');
   return {
     id: doc.id,
