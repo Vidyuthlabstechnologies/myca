@@ -170,6 +170,22 @@ void main() {
     expect(_ascii(receiptBytes(invoice: _invoice, businessName: 'Shop')), isNot(contains('TAX INVOICE')));
   });
 
+  test('a bill of ₹50,000 or more needs the buyer, and the address goes on the invoice', () {
+    final small = [CartLine(sku: 'A', name: 'Fan', price: 42372, gstRate: 18)];
+    final large = [CartLine(sku: 'B', name: 'Fridge', price: 42373, gstRate: 18)];
+    expect(billTotal(small), 49998.96);
+    expect(needsBuyerDetails(small), isFalse);
+    expect(needsBuyerDetails(large), isTrue);
+    expect(counterSaleArgs(large, customer: ' Meera Rao ', address: ' 12 MG Road, Pune, Maharashtra 411001 '), {
+      'partyName': 'Meera Rao',
+      'partyAddress': '12 MG Road, Pune, Maharashtra 411001',
+      'lines': [
+        {'description': 'Fridge', 'qty': 1, 'rate': 42373, 'gstRate': 18},
+      ],
+    });
+    expect(counterSaleArgs(small).containsKey('partyAddress'), isFalse);
+  });
+
   test('80 mm paper widens the lines to 48 columns', () {
     final text = _ascii(receiptBytes(invoice: _invoice, businessName: 'Shop', paper: PaperWidth.mm80));
     expect(text.split('\n').any((line) => line.length > 32 && line.length <= 48), isTrue);
@@ -237,5 +253,36 @@ void main() {
     expect(_ascii(printer.sent.single), contains('4 Station Road'));
     expect(_ascii(printer.sent.single), contains('HSN 1905'));
     expect(find.text('Receipt sent to POS-58.'), findsOneWidget);
+  });
+
+  testWidgets('a large bill is held until the customer name and address are given', (tester) async {
+    final api = CounterApi();
+    api.known['TV55'] = {'found': true, 'sku': 'TV55', 'name': 'LED TV 55', 'price': 45000, 'gstRate': 18, 'hsn': '8528'};
+    await tester.pumpWidget(MaterialApp(
+      home: AppScope(
+        state: testState(api),
+        child: CounterSaleScreen(scan: (_) async => 'TV55', printer: FakePrinter()),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('counter-scan')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('counter-address')), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('counter-make')));
+    await tester.tap(find.byKey(const Key('counter-make')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('must carry the customer\'s name and address'), findsOneWidget);
+    expect(api.proposals.where((proposal) => proposal.tool == 'create_invoice'), isEmpty);
+
+    await tester.enterText(find.byKey(const Key('counter-customer')), 'Meera Rao');
+    await tester.enterText(find.byKey(const Key('counter-address')), '12 MG Road, Pune, Maharashtra 411001');
+    await tester.ensureVisible(find.byKey(const Key('counter-make')));
+    await tester.tap(find.byKey(const Key('counter-make')));
+    await tester.pumpAndSettle();
+    final bill = api.proposals.last;
+    expect(bill.tool, 'create_invoice');
+    expect(bill.args['partyName'], 'Meera Rao');
+    expect(bill.args['partyAddress'], '12 MG Road, Pune, Maharashtra 411001');
   });
 }

@@ -6,6 +6,7 @@ import '../api/models.dart';
 import '../notifications.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import '../india/india_strings.dart';
 import '../attention.dart';
 import '../brand.dart';
 import '../format.dart';
@@ -370,8 +371,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (!uk)
                   RowCard(
                     leading: const TintTile(tint: Tint.ask, mark: Mark.employee),
-                    title: 'Employees',
-                    subtitle: 'Who works for you and what they are paid',
+                    title: inText(context, 'Employees'),
+                    subtitle: inText(context, 'Who works for you and what they are paid'),
                     trailing: const Chevron(),
                     onTap: () => _open(const EmployeesScreen()),
                   ),
@@ -392,8 +393,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (!uk)
                 RowCard(
                   leading: const TintTile(tint: Tint.sales, mark: Mark.otherApp),
-                  title: 'Marketplace',
-                  subtitle: 'Payouts, TCS and TDS, margins by SKU, stock, GST registrations',
+                  title: inText(context, 'Marketplace'),
+                  subtitle: inText(context, 'Payouts, TCS and TDS, margins by SKU, stock, GST registrations'),
                   trailing: const Chevron(),
                   onTap: () => _open(const MarketplaceScreen()),
                 ),
@@ -427,7 +428,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.people),
-                  title: company.country == 'AE' ? s.yourAccountant : uk ? 'Your accountant' : 'Your CA',
+                  title: company.country == 'AE' ? s.yourAccountant : uk ? 'Your accountant' : inText(context, 'Your CA'),
                   subtitle: s.yourAccountantSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const CaScreen()),
@@ -607,21 +608,21 @@ class _TodayPanel extends StatelessWidget {
     final urgent = open.any(isUrgent);
     final gst = data?.gst;
     final headline = failed
-        ? 'Could not check your taxes'
+        ? inText(context, 'Could not check your taxes')
         : data == null
-        ? 'Checking your books…'
+        ? inText(context, 'Checking your books…')
         : open.isEmpty
-        ? 'You are all caught up'
+        ? inText(context, 'You are all caught up')
         : open.length == 1
-        ? '1 thing needs you'
-        : '${open.length} things need you';
+        ? inThingsNeedYou(context, 1)
+        : inThingsNeedYou(context, open.length);
     final detail = failed
-        ? 'Pull down to try again.'
+        ? inText(context, 'Pull down to try again.')
         : open.isNotEmpty
         ? open.first.title
         : data == null
         ? ''
-        : 'No returns overdue and nothing waiting on you.';
+        : inText(context, 'No returns overdue and nothing waiting on you.');
     return Material(
       color: Palette.surface,
       shape: RoundedRectangleBorder(
@@ -648,10 +649,10 @@ class _TodayPanel extends StatelessWidget {
                           runSpacing: 4,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            Text('TAXES AND FILINGS', style: text.labelSmall),
+                            Text(inText(context, 'TAXES AND FILINGS'), style: text.labelSmall),
                             if (open.isNotEmpty)
                               StatusTag(
-                                text: urgent ? 'Overdue' : 'Due soon',
+                                text: urgent ? inText(context, 'Overdue') : inText(context, 'Due soon'),
                                 color: urgent ? Palette.danger : Palette.warn,
                               ),
                           ],

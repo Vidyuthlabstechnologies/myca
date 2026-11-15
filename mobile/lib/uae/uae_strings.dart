@@ -3,18 +3,20 @@ import 'package:flutter/widgets.dart';
 import '../api/models.dart';
 import '../brand.dart' show greetingFor;
 import '../format.dart' as format;
+import '../india/india_strings.dart';
 import '../registers.dart' as registers;
 import '../registers.dart' show RegisterKind;
 
 class UaeStrings {
-  const UaeStrings(this.ar);
+  const UaeStrings(this.ar, {this.hi = false});
 
   factory UaeStrings.of(BuildContext context) =>
-      UaeStrings(Localizations.maybeLocaleOf(context)?.languageCode == 'ar');
+      UaeStrings(Localizations.maybeLocaleOf(context)?.languageCode == 'ar', hi: indiaHindi(context));
 
   final bool ar;
+  final bool hi;
 
-  String _(String en, String arabic) => ar ? arabic : en;
+  String _(String en, String arabic) => ar ? arabic : hi ? (indiaHindiText[en] ?? en) : en;
 
   String get taxesTitle => _('UAE taxes', 'الضرائب في الإمارات');
   String get taxesKicker => _('UAE TAXES', 'الضرائب في الإمارات');

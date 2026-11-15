@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_state.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../registers.dart';
 import '../theme.dart';
@@ -57,8 +58,8 @@ Future<void> showNewEntrySheet(BuildContext context) {
             _SheetRow(
               tint: Tint.sales,
               mark: Mark.sales,
-              title: 'Counter sale',
-              subtitle: 'Scan barcodes, bill at the counter and print a receipt',
+              title: inText(context, 'Counter sale'),
+              subtitle: inText(context, 'Scan barcodes, bill at the counter and print a receipt'),
               onTap: () => go(const CounterSaleScreen()),
             ),
             _SheetRow(
@@ -72,8 +73,8 @@ Future<void> showNewEntrySheet(BuildContext context) {
             _SheetRow(
               tint: Tint.purchases,
               mark: Mark.comingUp,
-              title: 'Read a bill from a photo',
-              subtitle: 'A photo, PDF or text of a supplier bill, previewed before it posts',
+              title: inText(context, 'Read a bill from a photo'),
+              subtitle: inText(context, 'A photo, PDF or text of a supplier bill, previewed before it posts'),
               onTap: () => go(const BillCaptureScreen()),
             ),
             _SheetRow(

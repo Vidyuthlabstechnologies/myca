@@ -205,6 +205,11 @@ and [`README.md`](README.md) for what is left and how it is being done.
   HMRC computerised PAYE method (cumulative, week 1/month 1, K, BR, D and NT codes, Scottish and Welsh
   prefixes, the 50% limit), Class 1 National Insurance by category letter, student and postgraduate loans
   and pensions, from `gb.paye.calculation` and `gb.ni.class-1`; it does not send RTI to HMRC
+- India in Hindi, first screens (2026-11-15): on a phone set to Hindi the India app shows the home screen, the
+  new entry sheet and the counter sale in Hindi from `mobile/lib/india/india_strings.dart`; a test fails if a
+  text passed to `inText` has no Hindi line. Other screens and server replies stay in English for now
+- India counter sale buyer details (2026-11-15): a counter bill of ₹50,000 or more is held until the
+  customer's name and address are entered, and the address goes on the invoice (`partyAddress`)
 - UK flat-rate mileage (2026-11-15): `gb.income-tax.simplified-expenses` is 55p a mile for the first 10,000
   business miles from 6 April 2026 and stays 45p for 2025-26
 
