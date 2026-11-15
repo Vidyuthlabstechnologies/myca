@@ -334,3 +334,17 @@ test('a UAE invoice document is a bilingual tax invoice with TRNs, VAT by line a
   assert.equal((await runTool(state, 'invoice_document', { id: small.id })).data.documentTitle.en, 'Simplified Tax Invoice');
   assert.equal((await runTool(state, 'invoice_document', { id: 'NOPE' })).error, 'INVOICE_NOT_FOUND');
 });
+
+test('a UAE full tax invoice to a registered buyer asks for the buyer address at any value, and a seller without a TRN issues a plain invoice', async () => {
+  const state = aeState();
+  ENGINE.run.set_ae_business_profile(state, { name: 'Falcon Trading LLC', emirate: 'DXB', trn: '100123456700003', addressLine: 'Bay Square', city: 'Dubai' });
+  const small = run.create_ae_invoice(state, { partyName: 'Oasis', buyerTrn: '100987654300003', date: '2027-02-10', lines: [{ rate: 500 }] }).invoice;
+  const doc = (await runTool(state, 'invoice_document', { id: small.id })).data;
+  assert.equal(doc.documentTitle.en, 'Tax Invoice');
+  assert.deepEqual(doc.missing, ['BUYER_ADDRESS']);
+  const unregistered = aeState({ trn: '' });
+  const plain = run.create_ae_invoice(unregistered, { partyName: 'Walk-in', date: '2027-02-10', lines: [{ rate: 100 }] }).invoice;
+  const plainDoc = (await runTool(unregistered, 'invoice_document', { id: plain.id })).data;
+  assert.equal(plainDoc.documentTitle.en, 'Invoice');
+  assert.ok(plainDoc.missing.includes('SELLER_TRN'));
+});

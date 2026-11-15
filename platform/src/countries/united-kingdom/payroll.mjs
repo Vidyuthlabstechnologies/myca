@@ -143,7 +143,9 @@ export function ukPayrollRun(args = {}) {
     const fail = (field, why) => problems.push({ field: `${at}.${field}`, why });
     const pay = amount(employee.pay);
     if (pay === null || !(pay > 0)) fail('pay', 'Pay for the period is an amount in pounds, more than zero.');
-    const code = parseTaxCode(employee.taxCode === undefined ? p.emergencyCode : employee.taxCode);
+    const emergency = employee.taxCode === undefined;
+    const parsed = parseTaxCode(emergency ? p.emergencyCode : employee.taxCode);
+    const code = parsed && emergency ? { ...parsed, cumulative: false } : parsed;
     if (!code) fail('taxCode', 'Give the tax code as on the P45 or the HMRC notice, for example 1257L, S1257L, K100, BR, D0 or NT; add W1 or M1 if it is not cumulative.');
     const letter = String(employee.niCategory || 'A').toUpperCase();
     if (!Object.hasOwn(ni.value.employer.nothingUpTo, letter)) fail('niCategory', 'The National Insurance category is a letter such as A, B, C, H, J, M, V or Z.');
@@ -189,7 +191,7 @@ export function ukPayrollRun(args = {}) {
       rowNotes.push('Tax is held at 50% of the pay, the most that can be taken in one period; the rest is collected in later periods.');
     }
     if (period.extra) rowNotes.push('This is week 53: the code is used on a week 1 basis for this payment.');
-    if (employee.taxCode === undefined) rowNotes.push(`No tax code was given, so the emergency code ${p.emergencyCode} was used.`);
+    if (emergency) rowNotes.push(`No tax code was given, so the emergency code ${p.emergencyCode} was used on a ${frequency === 'weekly' ? 'week 1' : 'month 1'} basis.`);
     const nic = class1Pence(payPence, letter, thresholds, ni.value);
     const studentLoan = loanPence(payPence, plan ? loans.value.plans[plan] : null, periods);
     const postgraduateLoan = loanPence(payPence, employee.postgraduateLoan === true ? loans.value.plans.postgraduate : null, periods);

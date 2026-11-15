@@ -225,6 +225,8 @@ void main() {
     await settle(tester);
     expect(find.byKey(const Key('myDetail.qr')), findsOneWidget);
     expect(find.textContaining('LHDN has validated this e-invoice'), findsOneWidget);
+    expect(find.textContaining('nothing is sent to LHDN'), findsNothing);
+    expect(find.byKey(const Key('myDetail.preprod')), findsOneWidget);
     await tapKey(tester, 'myDetail.share');
     expect(shared.single, startsWith('https://preprod.myinvois.hasil.gov.my/'));
   });
