@@ -481,7 +481,7 @@ function fmtToolResultCore(name, result, args) {
     const n = result.purchaseNote;
     return `Debit note ${n.id} to ${n.partyName} for ${money(n.total)} against ${n.billId} (${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already paid and is now due back to you.` : ` You owe ${money(result.outstanding)} on it now.`}${n.tdsReversed > 0 ? ` TDS of ${money(n.tdsReversed)} is reversed.` : ''}${result.hint ? ` ${result.hint}` : ''}`;
   }
-  if (name === 'create_credit_note' && result.creditNote?.country === 'AE') return engineWords('create_ae_credit_note')(result, money, args);
+  if ((name === 'create_credit_note' || name === 'cancel_invoice') && result.creditNote?.country === 'AE') return engineWords('create_ae_credit_note')(result, money, args);
   if ((name === 'create_credit_note' || name === 'cancel_invoice') && result.creditNote) {
     const n = result.creditNote;
     const head = n.cancels ? `Cancelled ${n.invoiceId} with credit note ${n.id}` : `Credit note ${n.id} for ${money(n.total)} against ${n.invoiceId}`;

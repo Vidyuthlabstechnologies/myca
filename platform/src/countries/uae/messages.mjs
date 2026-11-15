@@ -40,6 +40,8 @@ export const ERROR_HINTS = Object.freeze({
   INVALID_DATE: { en: 'Write the date as YYYY-MM-DD.', ar: 'اكتب التاريخ بالصيغة YYYY-MM-DD.' },
   INVOICE_CANCELLED: { en: 'This invoice is cancelled.', ar: 'هذه الفاتورة ملغاة.' },
   INVOICE_NOT_FOUND: { en: 'There is no invoice with that number.', ar: 'لا توجد فاتورة بهذا الرقم.' },
+  CREDIT_NOTE_NOT_FOUND: { en: 'There is no credit note with that number.', ar: 'لا يوجد إشعار دائن بهذا الرقم.' },
+  PARTLY_CREDITED: { en: 'This invoice already has a credit note. Issue a credit note for the rest instead of cancelling it.', ar: 'صدر إشعار دائن على هذه الفاتورة من قبل. أصدر إشعارًا دائنًا بالباقي بدلًا من إلغائها.' },
   LEDGER_REJECT: { en: 'The books did not accept the entry, so nothing was changed.', ar: 'لم تقبل الدفاتر القيد، فلم يتغير شيء.' },
   MORE_THAN_INVOICE: { en: 'The credit note is larger than what is left on the invoice.', ar: 'الإشعار الدائن أكبر من المتبقي في الفاتورة.' },
   NOT_A_UAE_INVOICE: { en: 'That invoice was not made as a UAE invoice.', ar: 'هذه الفاتورة لم تُنشأ كفاتورة إماراتية.' },

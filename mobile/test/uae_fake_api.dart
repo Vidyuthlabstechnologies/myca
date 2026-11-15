@@ -263,8 +263,15 @@ class UaeFakeApi extends FakeMycaApi {
       'id': 'CN-${(creditNotes.length + 1).toString().padLeft(4, '0')}',
       'date': date,
       'invoiceId': id,
+      'invoiceDate': invoice['date'],
       'partyName': invoice['partyName'],
+      'country': 'AE',
+      'emirate': invoice['emirate'],
       'reason': reason,
+      'cancels': wanted == total,
+      'lines': [
+        {'treatment': 'standard', 'taxable': _aed(wanted - vat), 'vat': _aed(vat)},
+      ],
       'taxable': _aed(wanted - vat),
       'vat': _aed(vat),
       'total': _aed(wanted),
@@ -529,6 +536,155 @@ class UaeFakeApi extends FakeMycaApi {
     };
   }
 
+  /// The next `invoice_document` call fails with this code, once.
+  String? documentFails;
+
+  static const _treatmentNote = {
+    'zero-rated': {'en': 'Zero-rated', 'ar': 'خاضع للنسبة الصفرية'},
+    'exempt': {'en': 'Exempt', 'ar': 'معفى'},
+    'out-of-scope': {'en': 'Out of scope', 'ar': 'خارج النطاق'},
+  };
+
+  static const _fullInvoiceAboveFils = 1000000;
+
+  Map<String, Object?> _seller() {
+    final profile = savedProfile ?? const <String, Object?>{};
+    return {
+      'name': '${profile['name'] ?? companyName}',
+      'nameAr': '${profile['nameAr'] ?? ''}',
+      'trn': '${profile['trn'] ?? ''}',
+      'address': [profile['addressLine'], profile['city']].where((part) => part != null && '$part'.isNotEmpty).join(', '),
+      'emirate': '${profile['emirate'] ?? ''}',
+    };
+  }
+
+  static Map<String, Object?>? _emirateRow(Object? code) {
+    final row = _emirates.where((e) => e[1] == code).firstOrNull;
+    if (row == null) return null;
+    final emirate = emirateByCode('$code');
+    return {'code': code, 'en': emirate?.name(false) ?? '$code', 'ar': emirate?.name(true) ?? '$code'};
+  }
+
+  /// The engine's `aeInvoiceDocument` / `aeCreditNoteDocument` (platform/src/countries/uae/books.mjs),
+  /// worked out from the fake books.
+  Map<String, Object?> invoiceDocument(String raw) {
+    final id = raw.trim().toUpperCase();
+    final invoice = invoices.where((doc) => doc['id'] == id).firstOrNull;
+    if (invoice == null) {
+      final note = creditNotes.where((doc) => doc['id'] == id).firstOrNull;
+      if (note != null) return _creditNoteDocument(note);
+      return {'ok': false, 'error': 'INVOICE_NOT_FOUND', 'invoiceId': id};
+    }
+    if (invoice['country'] != 'AE') return {'ok': false, 'error': 'NOT_A_UAE_INVOICE', 'invoiceId': id};
+    final seller = _seller();
+    final buyerTrn = '${invoice['partyTrn'] ?? ''}';
+    final simplified = buyerTrn.isEmpty && _fils(invoice['total']) <= _fullInvoiceAboveFils;
+    final buyerAddress = '${invoice['partyAddress'] ?? ''}';
+    final missing = [
+      if (seller['trn'] == '') 'SELLER_TRN',
+      if (seller['address'] == '') 'SELLER_ADDRESS',
+      if (!simplified && buyerAddress.isEmpty) 'BUYER_ADDRESS',
+    ];
+    final currency = '${invoice['currency'] ?? 'AED'}';
+    final fx = invoice['exchangeRate'] is num ? invoice['exchangeRate'] as num : 1;
+    final receipts = (invoice['receipts'] as List? ?? const []).cast<Map>();
+    final received = receipts.fold<int>(0, (sum, r) => sum + _fils(r['amount']));
+    final notes = creditNotes.where((note) => note['invoiceId'] == id).toList();
+    final credited = notes.fold<int>(0, (sum, note) => sum + _fils(note['total']));
+    final title = seller['trn'] == ''
+        ? {'en': 'Invoice', 'ar': 'فاتورة'}
+        : simplified
+        ? {'en': 'Simplified Tax Invoice', 'ar': 'فاتورة ضريبية مبسطة'}
+        : {'en': 'Tax Invoice', 'ar': 'فاتورة ضريبية'};
+    return {
+      'ok': true,
+      'data': {
+        'kind': 'invoice',
+        'country': 'AE',
+        'id': id,
+        'date': invoice['date'],
+        'dateOfSupply': invoice['date'],
+        'documentTitle': title,
+        'seller': seller,
+        'buyer': {'name': invoice['partyName'], 'trn': buyerTrn, 'address': buyerAddress},
+        'emirate': _emirateRow(invoice['emirate']),
+        'currency': currency,
+        'exchangeRate': fx,
+        'lines': [
+          for (final line in (invoice['lines'] as List).cast<Map>())
+            {
+              'description': line['description'],
+              'qty': line['qty'],
+              'rate': line['rate'],
+              'rateCurrency': currency,
+              'unitPriceAed': _aed(((line['rate'] as num) * 100 * fx).round()),
+              'treatment': line['treatment'] ?? 'standard',
+              'vatRate': (line['treatment'] ?? 'standard') == 'standard' ? 5 : 0,
+              'net': line['subtotal'],
+              'vat': line['vat'] ?? 0,
+              'amount': line['amount'],
+              'note': _treatmentNote[line['treatment']],
+            },
+        ],
+        'net': invoice['subtotal'],
+        'vat': invoice['vat'],
+        'total': invoice['total'],
+        'totalsInAed': true,
+        'receipts': [
+          for (final r in receipts) {'date': r['date'], 'mode': r['mode'], 'amount': r['amount']},
+        ],
+        'creditNotes': [
+          for (final note in notes) {'id': note['id'], 'date': note['date'], 'reason': note['reason'], 'total': note['total'], 'vat': note['vat'], 'cancels': note['cancels'] == true},
+        ],
+        'received': _aed(received),
+        'credited': _aed(credited),
+        'balance': _aed(_fils(invoice['total']) - received - credited),
+        'status': invoice['status'],
+        'dueDate': '${invoice['dueDate'] ?? ''}',
+        'missing': missing,
+      },
+    };
+  }
+
+  Map<String, Object?> _creditNoteDocument(Map<String, Object?> note) {
+    final invoice = invoices.where((doc) => doc['id'] == note['invoiceId']).firstOrNull ?? const <String, Object?>{};
+    final seller = _seller();
+    final buyerAddress = '${invoice['partyAddress'] ?? ''}';
+    final missing = [
+      if (seller['trn'] == '') 'SELLER_TRN',
+      if (seller['address'] == '') 'SELLER_ADDRESS',
+      if (buyerAddress.isEmpty) 'BUYER_ADDRESS',
+    ];
+    final lines = (note['lines'] as List? ?? [
+      {'treatment': 'standard', 'taxable': note['taxable'], 'vat': note['vat']},
+    ]).cast<Map>();
+    return {
+      'ok': true,
+      'data': {
+        'kind': 'credit_note',
+        'country': 'AE',
+        'id': note['id'],
+        'date': note['date'],
+        'documentTitle': seller['trn'] == '' ? {'en': 'Credit Note', 'ar': 'إشعار دائن'} : {'en': 'Tax Credit Note', 'ar': 'إشعار دائن ضريبي'},
+        'seller': seller,
+        'buyer': {'name': note['partyName'] ?? invoice['partyName'] ?? '', 'trn': '${invoice['partyTrn'] ?? ''}', 'address': buyerAddress},
+        'emirate': _emirateRow(note['emirate'] ?? invoice['emirate']),
+        'originalInvoice': {'id': note['invoiceId'], 'date': note['invoiceDate'] ?? invoice['date'] ?? '', 'total': invoice['total'], 'vat': invoice['vat']},
+        'reason': note['reason'],
+        'cancels': note['cancels'] == true,
+        'currency': 'AED',
+        'lines': [
+          for (final line in lines) {'treatment': line['treatment'] ?? 'standard', 'net': line['taxable'], 'vat': line['vat'] ?? 0, 'note': _treatmentNote[line['treatment']]},
+        ],
+        'net': note['taxable'],
+        'vat': note['vat'],
+        'total': note['total'],
+        'totalsInAed': true,
+        'missing': missing,
+      },
+    };
+  }
+
   @override
   Future<Object?> query(String name, [Map<String, Object?> args = const {}]) async {
     switch (name) {
@@ -558,6 +714,16 @@ class UaeFakeApi extends FakeMycaApi {
         return _deadlines(args);
       case 'ae_business_profile':
         return {'ok': true, 'data': {'saved': savedProfile != null, 'business': savedProfile}};
+      case 'invoice_document':
+        queries.add(name);
+        queryArgs.add(QueryCall(name, args));
+        final failing = documentFails;
+        if (failing != null) {
+          documentFails = null;
+          return {'ok': false, 'error': failing};
+        }
+        final document = invoiceDocument('${args['id'] ?? ''}');
+        return args['lang'] == 'ar' && document['ok'] == true ? {...document, 'lang': 'ar'} : document;
       case 'validate_ae_trn':
         queries.add(name);
         queryArgs.add(QueryCall(name, args));

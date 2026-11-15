@@ -268,6 +268,7 @@ class UaeStrings {
     'paid' => _('Paid', 'مدفوعة'),
     'partial' => _('Part paid', 'مدفوعة جزئيًا'),
     'cancelled' => _('Cancelled', 'ملغاة'),
+    'settled' => _('Settled', 'مسوّاة'),
     _ => _('Unpaid', 'غير مدفوعة'),
   };
   String trnOf(String trn) => _('TRN $trn', 'الرقم الضريبي $trn');
@@ -284,6 +285,38 @@ class UaeStrings {
   String get notInBooks => _('This invoice is not in your books yet.', 'هذه الفاتورة ليست في دفاترك بعد.');
   String get lines => _('Lines', 'الأسطر');
   String inCurrency(String currency, String rate) => _('$currency at $rate AED', '$currency بسعر $rate درهم');
+  String creditNoteTitle(String id) => _('Credit note $id', 'الإشعار الدائن $id');
+  String get creditNoteNotInBooks => _('This credit note is not in your books.', 'هذا الإشعار الدائن ليس في دفاترك.');
+  String get documentNumber => _('Number', 'الرقم');
+  String get dateOfSupply => _('Date of supply', 'تاريخ التوريد');
+  String get seller => _('Seller', 'البائع');
+  String get buyer => _('Buyer', 'المشتري');
+  String get noAddress => _('No address', 'بدون عنوان');
+  String get originalInvoice => _('Original invoice', 'الفاتورة الأصلية');
+  String get originalInvoiceDate => _('Date of the original invoice', 'تاريخ الفاتورة الأصلية');
+  String get originalTotal => _('Original invoice total in AED', 'إجمالي الفاتورة الأصلية بالدرهم');
+  String get originalVat => _('VAT on the original invoice in AED', 'ضريبة الفاتورة الأصلية بالدرهم');
+  String get creditReasonLabel => _('Reason', 'السبب');
+  String get cancelsInFull => _('Cancels the original invoice in full', 'يلغي الفاتورة الأصلية بالكامل');
+  String get netAed => _('Net before VAT in AED', 'الصافي قبل الضريبة بالدرهم');
+  String get vatAed => _('VAT in AED', 'الضريبة بالدرهم');
+  String get creditedLabel => _('Credited', 'المخفَّض بإشعارات دائنة');
+  String get balanceDue => _('Balance due in AED', 'الرصيد المستحق بالدرهم');
+  String quantityTimes(String qty, String price) => _('Qty $qty × $price', 'الكمية $qty × $price');
+  String unitPriceAed(String price) => _('$price a unit', '$price للوحدة');
+  String vatRateOf(String rate) => _('VAT $rate%', 'الضريبة $rate%');
+  String get openCreditNote => _('Open the credit note', 'افتح الإشعار الدائن');
+  String get missingTitle => _('Missing from this document', 'بيانات ناقصة في هذا المستند');
+  String missingItem(String code, {bool creditNote = false}) => switch (code) {
+    'SELLER_TRN' => creditNote
+        ? _('Your TRN is missing, so this is not a tax credit note. Add the TRN in the business profile.', 'رقمك الضريبي غير موجود، لذا لا يُعدّ هذا إشعارًا دائنًا ضريبيًا. أضف الرقم في ملف المنشأة.')
+        : _('Your TRN is missing, so this is not a tax invoice. Add the TRN in the business profile.', 'رقمك الضريبي غير موجود، لذا لا تُعدّ هذه فاتورة ضريبية. أضف الرقم في ملف المنشأة.'),
+    'SELLER_ADDRESS' => _('Your address is missing. Add it in the business profile.', 'عنوانك غير موجود. أضفه في ملف المنشأة.'),
+    'BUYER_ADDRESS' => creditNote
+        ? _('The buyer\'s address is missing. A tax credit note must show it; add it to the customer.', 'عنوان المشتري غير موجود. يجب أن يتضمنه الإشعار الدائن الضريبي؛ أضفه إلى بيانات العميل.')
+        : _('The buyer\'s address is missing. A full tax invoice must show it; add it to the customer.', 'عنوان المشتري غير موجود. يجب أن تتضمنه الفاتورة الضريبية الكاملة؛ أضفه إلى بيانات العميل.'),
+    _ => _('Something the document needs is missing.', 'بعض البيانات المطلوبة في المستند غير موجودة.'),
+  };
 
   String get whoSoldTo => _('Who did you sell to?', 'لمن بعت؟');
   String get whoBoughtFrom => _('Who did you buy from?', 'ممّن اشتريت؟');
@@ -517,6 +550,7 @@ class UaeStrings {
   String get statementOfAccount => _('Statement of account', 'كشف الحساب');
   String billTitle(String id) => _('Bill $id', 'فاتورة المشتريات $id');
   String get tapToView => _('Tap to view or send', 'اضغط للعرض أو الإرسال');
+  String get tapToOpen => _('Tap to open', 'اضغط للفتح');
   String stillOwed(String amount) => _('$amount still owed', 'المتبقي $amount');
   String creditNoteAgainst(String id, String doc, String reason) => _('Credit note $id against $doc: $reason', 'إشعار دائن $id على $doc: $reason');
   String cancelledDoc(String doc, String reason) => _('Cancelled $doc: $reason', 'أُلغيت $doc: $reason');

@@ -11,7 +11,7 @@ Every recipient below must also appear in the Data safety answers in `COMPLIANCE
 
 **MyCA UAE privacy notice**
 
-Effective date: [date of publication]. Version 1.
+Effective date: [date of publication]. Version 1.1.
 
 ### Who we are
 
@@ -31,8 +31,8 @@ MyCA is not a registered tax agent and does not file returns for you. You, or yo
 agent, review and file on the Federal Tax Authority's EmaraTax portal. MyCA never asks for your
 EmaraTax or UAE Pass password. MyCA does not move or hold money.
 
-E-invoicing: while MyCA runs in sandbox mode, invoices are checked and shown on your device and
-are not sent to anyone. When we connect to an Accredited Service Provider, we will update this
+E-invoicing: while MyCA runs in sandbox mode, invoices are checked by the MyCA server and shown to
+you, and are not sent to anyone else. When we connect to an Accredited Service Provider, we will update this
 notice and ask you before any invoice is sent.
 
 ### Two roles
@@ -145,7 +145,7 @@ and ask you to accept it before continuing.
 
 **إشعار الخصوصية لتطبيق MyCA الإمارات**
 
-تاريخ السريان: [تاريخ النشر]. الإصدار 1.
+تاريخ السريان: [تاريخ النشر]. الإصدار 1.1.
 
 ### من نحن
 
@@ -165,8 +165,8 @@ MyCA ليس وكيلًا ضريبيًا مسجّلًا ولا يقدّم الإ�
 الإقرار وتقدّمه عبر بوابة "إمارات تاكس" التابعة للهيئة الاتحادية للضرائب. لا يطلب MyCA أبدًا كلمة مرور
 "إمارات تاكس" أو "الهوية الرقمية (UAE Pass)". ولا ينقل MyCA الأموال ولا يحتفظ بها.
 
-الفوترة الإلكترونية: ما دام MyCA يعمل في الوضع التجريبي، تُفحص الفواتير وتُعرض على جهازك ولا تُرسل إلى
-أي جهة. وعندما نرتبط بمزوّد خدمة معتمد، سنحدّث هذا الإشعار ونستأذنك قبل إرسال أي فاتورة.
+الفوترة الإلكترونية: ما دام MyCA يعمل في الوضع التجريبي، تُفحص الفواتير على خادم MyCA وتُعرض عليك ولا تُرسل
+إلى أي جهة أخرى. وعندما نرتبط بمزوّد خدمة معتمد، سنحدّث هذا الإشعار ونستأذنك قبل إرسال أي فاتورة.
 
 ### دوران مختلفان
 

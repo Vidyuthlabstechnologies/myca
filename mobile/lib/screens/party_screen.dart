@@ -703,6 +703,14 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
             amount: '−${rupees(note.total)}',
             tone: BubbleTone.plain,
             label: note.date,
+            footnotes: [if (_ae) s.tapToOpen],
+            onTap: _ae
+                ? () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => UaeInvoiceScreen(invoiceId: note.id),
+                    ),
+                  )
+                : null,
           ),
         for (final receipt in doc.receipts)
           Bubble(

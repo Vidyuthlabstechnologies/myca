@@ -348,3 +348,56 @@ test('a UAE full tax invoice to a registered buyer asks for the buyer address at
   assert.equal(plainDoc.documentTitle.en, 'Invoice');
   assert.ok(plainDoc.missing.includes('SELLER_TRN'));
 });
+
+test('a foreign-currency invoice document labels the unit price currency and gives it in AED too', async () => {
+  const state = aeState();
+  const { invoice } = run.create_ae_invoice(state, { partyName: 'Gulf Buyer', currency: 'usd', exchangeRate: 3.6725, date: '2027-03-01', lines: [{ description: 'Design', qty: 3, rate: 333.33 }] });
+  const line = (await runTool(state, 'invoice_document', { id: invoice.id })).data.lines[0];
+  assert.equal(line.rate, 333.33);
+  assert.equal(line.rateCurrency, 'USD');
+  assert.equal(line.unitPriceAed, 1224.15);
+});
+
+test('a UAE tax credit note document names the original invoice, both TRNs and the reason (Article 60)', async () => {
+  const state = aeState();
+  ENGINE.run.set_ae_business_profile(state, { name: 'Falcon Trading LLC', emirate: 'DXB', trn: '100123456700003', addressLine: 'Bay Square', city: 'Dubai' });
+  const { invoice } = run.create_ae_invoice(state, { partyName: 'Oasis', buyerTrn: '100987654300003', date: '2027-02-10', lines: [{ description: 'Work', rate: 20000 }] });
+  const { creditNote } = run.create_ae_credit_note(state, { invoiceId: invoice.id, amount: 2100, date: '2027-02-20', reason: 'Price agreed lower' });
+  const doc = await runTool(state, 'invoice_document', { id: creditNote.id });
+  assert.equal(doc.ok, true);
+  assert.equal(doc.data.kind, 'credit_note');
+  assert.deepEqual(doc.data.documentTitle, { en: 'Tax Credit Note', ar: 'إشعار دائن ضريبي' });
+  assert.equal(doc.data.seller.trn, '100123456700003');
+  assert.equal(doc.data.buyer.trn, '100987654300003');
+  assert.deepEqual(doc.data.originalInvoice, { id: invoice.id, date: '2027-02-10', total: 21000, vat: 1000 });
+  assert.equal(doc.data.reason, 'Price agreed lower');
+  assert.equal(doc.data.total, 2100);
+  assert.equal(doc.data.vat, 100);
+  assert.ok(doc.data.missing.includes('BUYER_ADDRESS'));
+  const plain = aeState({ trn: '' });
+  const sale = run.create_ae_invoice(plain, { partyName: 'Walk-in', date: '2027-02-10', lines: [{ rate: 100 }] }).invoice;
+  const note = run.create_ae_credit_note(plain, { invoiceId: sale.id, date: '2027-02-11', reason: 'Returned' }).creditNote;
+  assert.equal((await runTool(plain, 'invoice_document', { id: note.id })).data.documentTitle.en, 'Credit Note');
+});
+
+test('in the UAE cancel_invoice posts a VAT credit note for the whole invoice and its preview speaks VAT, in English and Arabic', async () => {
+  const state = aeState();
+  const { invoice } = run.create_ae_invoice(state, { partyName: 'Oasis', date: '2027-02-10', lines: [{ rate: 1000 }] });
+  const preview = previewOf(state, 'cancel_invoice', { invoiceId: invoice.id, date: '2027-02-12' });
+  assert.match(preview.summary, /^Cancel .* with a credit note for its full AED 1,050\.00, of which AED 50\.00 VAT\./);
+  assert.doesNotMatch(JSON.stringify(preview), /GST|CGST|GSTR/);
+  const arabic = previewOf(state, 'cancel_invoice', { invoiceId: invoice.id, date: '2027-02-12', lang: 'ar' });
+  assert.match(arabic.summary, ARABIC);
+  const done = await runTool(state, 'cancel_invoice', { invoiceId: invoice.id, date: '2027-02-12' });
+  assert.equal(done.ok, true);
+  assert.equal(done.creditNote.country, 'AE');
+  assert.equal(done.creditNote.vat, 50);
+  assert.equal(done.creditNote.cancels, true);
+  assert.equal(done.creditNote.reason, 'Invoice cancelled');
+  assert.equal(state.invoices.find((item) => item.id === invoice.id).status, 'cancelled');
+  assert.equal(balance(state, VAT_OUTPUT), 0);
+  const again = await runTool(state, 'cancel_invoice', { invoiceId: invoice.id, date: '2027-02-12', lang: 'ar' });
+  assert.equal(again.ok, false);
+  assert.match(again.hint, ARABIC);
+  assert.match(previewOf(state, 'cancel_invoice', { invoiceId: invoice.id }).blockers[0], /already has a credit note/);
+});

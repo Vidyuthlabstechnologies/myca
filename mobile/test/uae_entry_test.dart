@@ -221,6 +221,7 @@ void main() {
       final api = await openUaeApp(tester);
       await openUaeInvoice(tester);
       expect(find.text(s.invoiceTitle('INV-0002')), findsOneWidget);
+      await uaeScrollTo(tester, 'uae.invoice.line.0');
       expect(find.text('Fit-out design'), findsOneWidget);
       await uaeScrollTo(tester, 'uae.invoice.total');
       expect(_shown(tester, 'uae.invoice.vat'), contains('500.00'));

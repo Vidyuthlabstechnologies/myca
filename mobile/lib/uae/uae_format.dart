@@ -17,6 +17,8 @@ class UaeFormat {
 
   String money(num amount) => _format.money(amount);
 
+  String moneyIn(String currency, num amount) => currency.isEmpty || currency == 'AED' ? money(amount) : money(amount).replaceFirst('AED', currency);
+
   static const _monthsEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   static const _monthsAr = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 

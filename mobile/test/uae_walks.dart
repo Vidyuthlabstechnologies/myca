@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:myca/app_state.dart';
 import 'package:myca/registers.dart';
+import 'package:myca/screens/uae/uae_invoice_screen.dart';
 import 'package:myca/uae/uae_strings.dart';
 
 import 'uae_fake_api.dart';
@@ -175,6 +177,10 @@ final Map<String, UaeWalk> uaeScreenWalks = {
     await t.pumpAndSettle();
   },
   'invoice': (t, api) async => openUaeInvoice(t),
+  'credit note': (t, api) async {
+    seedUaeCreditNote(api, reason: uaeWords(t).ar ? 'لم تتم زيارتان للموقع' : 'Two site visits not made');
+    await openUaeCreditNote(t);
+  },
   'credit note sheet': (t, api) async {
     await openUaeInvoice(t);
     await uaeTap(t, 'uae.invoice.credit');
@@ -391,6 +397,92 @@ Future<void> openUaeInvoice(WidgetTester tester, {String party = 'Desert Rose In
 
 const uaeSavedProfile = <String, Object?>{'name': 'Al Noor Trading LLC', 'emirate': 'DXB', 'trn': '100123456700003'};
 
+/// A profile with everything a full tax invoice needs from the seller.
+const uaeFullProfile = <String, Object?>{
+  'name': 'Al Noor Trading LLC',
+  'nameAr': 'النور للتجارة ذ.م.م',
+  'emirate': 'DXB',
+  'trn': '100123456700003',
+  'addressLine': 'Office 1204, Bay Square, Business Bay',
+  'city': 'Dubai',
+};
+
+const uaeBuyerAddress = 'Gulf Star Tower, Floor 9, Port Saeed, Deira';
+
+/// Adds a credit note of AED 2,100 against INV-0002, as create_ae_credit_note would.
+void seedUaeCreditNote(UaeFakeApi api, {String reason = 'Two site visits not made', bool cancels = false}) {
+  api.creditNotes.add({
+    'id': 'CN-${(api.creditNotes.length + 1).toString().padLeft(4, '0')}',
+    'date': '2026-11-02',
+    'invoiceId': 'INV-0002',
+    'invoiceDate': '2026-10-12',
+    'partyName': 'Desert Rose Interiors',
+    'country': 'AE',
+    'emirate': 'DXB',
+    'reason': reason,
+    'cancels': cancels,
+    'lines': [
+      {'treatment': 'standard', 'taxable': 2000, 'vat': 100},
+    ],
+    'taxable': 2000,
+    'vat': 100,
+    'total': 2100,
+  });
+}
+
+/// Adds INV-0003, a USD sale to Gulf Star at 3.6725 AED, as create_ae_invoice would.
+void seedUaeForeignInvoice(UaeFakeApi api) {
+  api.invoices.add({
+    'id': 'INV-0003',
+    'date': '2026-11-10',
+    'country': 'AE',
+    'partyName': 'Gulf Star General Trading LLC',
+    'partyGstin': '',
+    'partyTrn': '100987654300003',
+    'partyAddress': uaeBuyerAddress,
+    'emirate': 'DXB',
+    'currency': 'USD',
+    'exchangeRate': 3.6725,
+    'lines': [
+      {'description': 'Consulting, November', 'qty': 2, 'rate': 5000, 'treatment': 'standard', 'subtotal': 36725, 'vat': 1836.25, 'amount': 38561.25},
+      {'description': 'Export freight', 'qty': 1, 'rate': 1000, 'treatment': 'zero-rated', 'subtotal': 3672.5, 'vat': 0, 'amount': 3672.5},
+    ],
+    'subtotal': 40397.5,
+    'vat': 1836.25,
+    'total': 42233.75,
+    'status': 'posted',
+    'receipts': <Object?>[],
+  });
+}
+
+/// Makes the app read the fake books again, after a test changed them.
+Future<void> uaeRefreshBooks(WidgetTester tester) async {
+  await AppScope.of(tester.element(find.byType(Scaffold).first)).refresh();
+  await tester.pumpAndSettle();
+}
+
+/// Opens UaeInvoiceScreen for [id] straight from wherever the app is.
+Future<void> pushUaeDocument(WidgetTester tester, String id) async {
+  Navigator.of(tester.element(find.byType(Scaffold).last)).push(MaterialPageRoute<void>(builder: (_) => UaeInvoiceScreen(invoiceId: id)));
+  await tester.pumpAndSettle();
+}
+
+/// Opens a credit note the way a person does: sales, the customer, then the credit note in the thread.
+Future<void> openUaeCreditNote(WidgetTester tester, {String party = 'Desert Rose Interiors', String id = 'CN-0001'}) async {
+  await uaeRefreshBooks(tester);
+  await uaeHomeRow(tester, uaeWords(tester).sales);
+  await tester.ensureVisible(find.text(party).last);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(party).last);
+  await tester.pumpAndSettle();
+  final bubble = find.textContaining(id);
+  if (bubble.evaluate().isEmpty) await tester.scrollUntilVisible(bubble, 200, scrollable: uaeList, maxScrolls: 100);
+  await Scrollable.ensureVisible(tester.element(bubble.last), alignment: 0.3);
+  await tester.pumpAndSettle();
+  await tester.tap(bubble.last);
+  await tester.pumpAndSettle();
+}
+
 final Map<String, UaeWalk> uaeEntryWalks = {
   'new_sale': (t, api) async {
     api.savedProfile = uaeSavedProfile;
@@ -428,6 +520,33 @@ final Map<String, UaeWalk> uaeEntryWalks = {
   'invoice': (t, api) async {
     await openUaeInvoice(t);
     await uaeScrollTo(t, 'uae.invoice.credit');
+  },
+  'invoice_missing_details': (t, api) async {
+    await openUaeInvoice(t);
+    await uaeScrollTo(t, 'uae.invoice.missingNotes');
+  },
+  'tax_invoice_full': (t, api) async {
+    api.savedProfile = uaeFullProfile;
+    api.invoices.first['partyAddress'] = uaeBuyerAddress;
+    await pushUaeDocument(t, 'INV-0001');
+    await uaeScrollTo(t, 'uae.invoice.buyer');
+  },
+  'invoice_foreign_currency': (t, api) async {
+    api.savedProfile = uaeFullProfile;
+    seedUaeForeignInvoice(api);
+    await pushUaeDocument(t, 'INV-0003');
+    await uaeScrollTo(t, 'uae.invoice.line.1');
+  },
+  'credit_note': (t, api) async {
+    api.savedProfile = uaeFullProfile;
+    seedUaeCreditNote(api, reason: 'Two site visits were not made, so they are taken off the invoice');
+    await openUaeCreditNote(t);
+    await uaeScrollTo(t, 'uae.credit.original');
+  },
+  'credit_note_totals': (t, api) async {
+    seedUaeCreditNote(api);
+    await openUaeCreditNote(t);
+    await uaeScrollTo(t, 'uae.invoice.totals');
   },
   'credit_note_sheet': (t, api) async {
     await openUaeInvoice(t);

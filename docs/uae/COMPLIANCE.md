@@ -218,6 +218,14 @@ How the VAT 201 comes from the books (2026-11-14):
   manual lines (for example tourist refunds or a customs figure). Entries made outside the UAE
   tools are listed as left out, never counted silently.
 - Every UAE tool takes `lang: "ar"` and then answers, warns and explains in Arabic.
+- Cancelling an invoice (`cancel_invoice` in the UAE edition) issues a VAT credit note for the
+  whole invoice, refused when part of it is already credited.
+- `invoice_document` gives the printable document: a Tax Invoice (Article 59(1)), a Simplified
+  Tax Invoice (Article 59(2), no buyer TRN and AED 10,000 or less), or a plain Invoice when the
+  seller has no TRN. Given a credit note number it gives a Tax Credit Note (Article 60): its
+  number and date, both TRNs and addresses, the original invoice number and date, the reason,
+  and the reduction with its VAT. Totals are in AED; each unit price is shown in the invoice
+  currency and in AED. Missing seller TRN, seller address or buyer address is listed.
 
 ## 4. E-invoicing
 

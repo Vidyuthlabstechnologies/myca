@@ -10,14 +10,14 @@ String uaeNoticeTitle(bool ar) => ar ? 'إشعار الخصوصية لتطبيق
 List<UaeNoticeSection> uaeNoticeSections(bool ar) => ar ? _arabic : _english;
 
 const _english = [
-  UaeNoticeSection('Version', 'Effective date: [date of publication]. Version 1.'),
+  UaeNoticeSection('Version', 'Effective date: [date of publication]. Version 1.1.'),
   UaeNoticeSection(
     'Who we are',
     'MyCA UAE is provided by ML Dynamic Solutions Private Limited, a company registered in India, [registered address] ("MyCA", "we"). [When a UAE entity exists: and by [UAE entity name, licence number, free zone], which contracts with UAE customers.]\n\nContact: [privacy email]. Data Protection Officer: [name or service], [email].',
   ),
   UaeNoticeSection(
     'What MyCA is, and what it is not',
-    'MyCA UAE is bookkeeping and tax preparation software for businesses in the UAE. You enter or import your sales, purchases, expenses and bank lines; MyCA keeps your books, prepares your VAT 201 and Corporate Tax figures and checks your invoices for e-invoicing readiness.\n\nMyCA is not a registered tax agent and does not file returns for you. You, or your registered tax agent, review and file on the Federal Tax Authority\'s EmaraTax portal. MyCA never asks for your EmaraTax or UAE Pass password. MyCA does not move or hold money.\n\nE-invoicing: while MyCA runs in sandbox mode, invoices are checked and shown on your device and are not sent to anyone. When we connect to an Accredited Service Provider, we will update this notice and ask you before any invoice is sent.',
+    'MyCA UAE is bookkeeping and tax preparation software for businesses in the UAE. You enter or import your sales, purchases, expenses and bank lines; MyCA keeps your books, prepares your VAT 201 and Corporate Tax figures and checks your invoices for e-invoicing readiness.\n\nMyCA is not a registered tax agent and does not file returns for you. You, or your registered tax agent, review and file on the Federal Tax Authority\'s EmaraTax portal. MyCA never asks for your EmaraTax or UAE Pass password. MyCA does not move or hold money.\n\nE-invoicing: while MyCA runs in sandbox mode, invoices are checked by the MyCA server and shown to you, and are not sent to anyone else. When we connect to an Accredited Service Provider, we will update this notice and ask you before any invoice is sent.',
   ),
   UaeNoticeSection(
     'Two roles',
@@ -87,7 +87,7 @@ const _english = [
 ];
 
 const _arabic = [
-  UaeNoticeSection('الإصدار', 'تاريخ السريان: [تاريخ النشر]. الإصدار 1.'),
+  UaeNoticeSection('الإصدار', 'تاريخ السريان: [تاريخ النشر]. الإصدار 1.1.'),
   UaeNoticeSection(
     'من نحن',
     'يقدّم تطبيق MyCA الإمارات شركة ML Dynamic Solutions Private Limited، وهي شركة مسجّلة في الهند، وعنوانها [العنوان المسجّل] ("MyCA" أو "نحن"). [عند تأسيس كيان في الإمارات: وكذلك [اسم الكيان، رقم الرخصة، المنطقة الحرة]، الذي يتعاقد مع العملاء في الإمارات.]\n\nللتواصل: [بريد الخصوصية]. مسؤول حماية البيانات: [الاسم أو الجهة]، [البريد الإلكتروني].',
@@ -96,7 +96,7 @@ const _arabic = [
     'ما هو MyCA وما ليس هو',
     'MyCA الإمارات برنامج لمسك الدفاتر وإعداد الضرائب للشركات في دولة الإمارات. تُدخل مبيعاتك ومشترياتك ومصروفاتك وحركات حسابك البنكي أو تستوردها، فيحفظ MyCA دفاترك، ويُعدّ أرقام إقرار ضريبة القيمة المضافة (VAT 201) وضريبة الشركات، ويتحقق من جاهزية فواتيرك للفوترة الإلكترونية.\n\n'
         'MyCA ليس وكيلًا ضريبيًا مسجّلًا ولا يقدّم الإقرارات نيابةً عنك. أنت، أو وكيلك الضريبي المسجّل، تراجع الإقرار وتقدّمه عبر بوابة "إمارات تاكس" التابعة للهيئة الاتحادية للضرائب. لا يطلب MyCA أبدًا كلمة مرور "إمارات تاكس" أو "الهوية الرقمية (UAE Pass)". ولا ينقل MyCA الأموال ولا يحتفظ بها.\n\n'
-        'الفوترة الإلكترونية: ما دام MyCA يعمل في الوضع التجريبي، تُفحص الفواتير وتُعرض على جهازك ولا تُرسل إلى أي جهة. وعندما نرتبط بمزوّد خدمة معتمد، سنحدّث هذا الإشعار ونستأذنك قبل إرسال أي فاتورة.',
+        'الفوترة الإلكترونية: ما دام MyCA يعمل في الوضع التجريبي، تُفحص الفواتير على خادم MyCA وتُعرض عليك ولا تُرسل إلى أي جهة أخرى. وعندما نرتبط بمزوّد خدمة معتمد، سنحدّث هذا الإشعار ونستأذنك قبل إرسال أي فاتورة.',
   ),
   UaeNoticeSection(
     'دوران مختلفان',
