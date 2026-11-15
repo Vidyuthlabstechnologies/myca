@@ -56,7 +56,7 @@ test('totals, due date and refusals', () => {
 
 test('PCB by the computerised method: RM5,000 single is RM110 in January and every month after', () => {
   const january = one({ wages: 5000 }, '2026-01');
-  assert.deepEqual(january.pcb, { amount: 110, normal: 110, onBonus: 0, zakatOffset: 0, category: 1, children: 0, method: 'computerised', yearlyChargeableIncome: 47000, yearlyTax: 1320 });
+  assert.deepEqual(january.pcb, { amount: 110, normal: 110, onBonus: 0, zakatOffset: 0, category: 1, children: 0, method: 'computerised', yearlyChargeableIncome: 47000.07, yearlyTax: 1320 });
   assert.equal(january.netPay, 4305.35);
   const june = one({ wages: 5000 }, '2026-06');
   assert.equal(june.pcb.amount, 110);
@@ -80,11 +80,32 @@ test('PCB on a bonus is the extra yearly tax it causes, and EPF on the bonus cou
   assert.equal(row.netPay, 12255.35);
 });
 
-test('zakat this month reduces PCB, and anything under RM10 is not deducted', () => {
+test('zakat this month reduces PCB; under RM10 before zakat is not deducted, but under RM10 after zakat still is', () => {
   assert.equal(one({ wages: 5000, zakat: 50 }, '2026-01').pcb.amount, 60);
   const small = one({ wages: 5000, zakat: 105 }, '2026-01');
-  assert.equal(small.pcb.amount, 0);
+  assert.equal(small.pcb.amount, 5);
   assert.equal(small.pcb.zakatOffset, 105);
+  assert.equal(one({ wages: 5000, zakat: 500 }, '2026-01').pcb.amount, 0);
+  const low = one({ wages: 3400 }, '2026-01');
+  assert.equal(low.pcb.amount, 0);
+  assert.equal(low.pcb.normal, 0);
+});
+
+test('LHDN\'s own worked example: category 3, three children, RM5,500 pay, RM605 EPF, January is RM110.00', () => {
+  const row = one({ wages: 5500, pcbCategory: 3, children: 3 }, '2026-01');
+  assert.equal(row.epf.employee, 605);
+  assert.equal(row.pcb.yearlyChargeableIncome, 47000.07);
+  assert.equal(row.pcb.amount, 110);
+});
+
+test('a disabled employee takes RM7,000 more relief and a disabled spouse RM6,000 more', () => {
+  const plain = one({ wages: 6000 }, '2026-01');
+  const disabled = one({ wages: 6000, disabled: true }, '2026-01');
+  const spouse = one({ wages: 6000, disabledSpouse: true }, '2026-01');
+  assert.equal(plain.pcb.yearlyChargeableIncome - disabled.pcb.yearlyChargeableIncome, 7000);
+  assert.equal(plain.pcb.yearlyChargeableIncome - spouse.pcb.yearlyChargeableIncome, 6000);
+  assert.ok(disabled.pcb.amount < spouse.pcb.amount && spouse.pcb.amount < plain.pcb.amount);
+  assert.match(one({ wages: 6000, disabled: true }, '2025-11').notes.join(' '), /disabled person reliefs are not in MyCA's PCB rules for this month/);
 });
 
 test('non-residents pay PCB at the flat non-resident rate; PCB inputs are checked', () => {

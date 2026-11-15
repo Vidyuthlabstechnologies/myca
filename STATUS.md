@@ -240,6 +240,11 @@ and [`README.md`](README.md) for what is left and how it is being done.
   text passed to `inText` has no Hindi line. Other screens and server replies stay in English for now
 - India counter sale buyer details (2026-11-15): a counter bill of ₹50,000 or more is held until the
   customer's name and address are entered, and the address goes on the invoice (`partyAddress`)
+- Malaysia PCB checked against LHDN (2026-11-15): the 2026 PCB rule now cites LHDN's own specification, and three
+  differences from it are fixed: a PCB that falls under RM10 only after zakat is still deducted (it was dropped),
+  the RM10 floor is tested on normal pay and on a bonus separately, and the spread EPF figure is cut to the sen
+  as LHDN does. Disabled employee (RM7,000) and disabled spouse (RM6,000) reliefs are added for 2026. LHDN's
+  worked example (category 3, three children, RM5,500) gives RM110.00 here too
 - Malaysia CP39 file (2026-11-15): `my_cp39_file` builds the monthly PCB remittance text file for e-PCB Plus or
   a bank from LHDN's 2026 specification (Exhibit 4 and 5): a 57-character header with the employer numbers and
   totals, a 136-character line per employee, amounts in sen with no decimal point, file name
