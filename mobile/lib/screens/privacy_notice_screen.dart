@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../cloud/cloud_session.dart';
+import '../my/my_strings.dart';
 import '../theme.dart';
 
 class PrivacyNoticeScreen extends StatefulWidget {
@@ -59,8 +60,10 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final state = AppScope.of(context);
+    final malaysia = state.edition == 'MY';
+    String w(String english, String malay) => myMalayOr(context, english, malay);
     return Scaffold(
-      appBar: widget.readOnly ? AppBar(title: const Text('Privacy notice')) : null,
+      appBar: widget.readOnly ? AppBar(title: Text(w('Privacy notice', 'Notis privasi'))) : null,
       body: SafeArea(
         child: FutureBuilder<PrivacyNotice>(
           future: _notice,
@@ -75,13 +78,13 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                       Text(
                         snap.error is MycaApiException
                             ? (snap.error! as MycaApiException).message
-                            : 'The privacy notice could not be loaded.',
+                            : w('The privacy notice could not be loaded.', 'Notis privasi tidak dapat dimuatkan.'),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
                       FilledButton(
                         onPressed: _retry,
-                        child: const Text('Try again'),
+                        child: Text(w('Try again', 'Cuba lagi')),
                       ),
                     ],
                   ),
@@ -129,9 +132,14 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                       : (value) => setState(
                           () => _crashReports = value ?? false,
                         ),
-                  title: const Text('Also send crash reports'),
+                  title: Text(w('Also send crash reports', 'Hantar juga laporan ranap')),
                   subtitle: Text(
-                    us
+                    malaysia
+                        ? w(
+                            'Off unless you tick it. Only what went wrong in the app, with names, amounts, TINs, MyKad numbers and phone numbers removed.',
+                            'Dimatikan melainkan anda menandakannya. Hanya perkara yang tidak kena dalam aplikasi, dengan nama, amaun, TIN, nombor MyKad dan nombor telefon dibuang.',
+                          )
+                        : us
                         ? 'Off unless you check it. Only what went wrong in the app, with names, amounts, Social Security numbers and phone numbers removed. You can change this later under Your account.'
                         : state.edition == 'GB'
                         ? 'Off unless you tick it. Only what went wrong in the app, with names, amounts, tax references and phone numbers removed. You can change this later under Your business.'
@@ -148,19 +156,19 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                     controlAffinity: ListTileControlAffinity.leading,
                     value: _adult,
                     onChanged: _busy ? null : (value) => setState(() => _adult = value ?? false),
-                    title: const Text('I am 18 or over'),
+                    title: Text(w('I am 18 or over', 'Saya berumur 18 tahun atau lebih')),
                   ),
                 ),
               const SizedBox(height: 4),
               FilledButton(
                 key: const ValueKey('consent.agree'),
                 onPressed: _busy || (notice.requiresAdult && !_adult) ? null : () => _agree(notice),
-                child: Text(_busy ? 'Saving…' : 'I agree'),
+                child: Text(_busy ? w('Saving…', 'Menyimpan…') : w('I agree', 'Saya bersetuju')),
               ),
               const SizedBox(height: 4),
               TextButton(
                 onPressed: _busy ? null : state.signOut,
-                child: const Text('Not now, sign me out'),
+                child: Text(w('Not now, sign me out', 'Bukan sekarang, log keluar')),
               ),
             ];
             return LayoutBuilder(
@@ -190,10 +198,15 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                     ),
                     Container(
                       constraints: BoxConstraints(maxHeight: box.maxHeight * 0.6),
-                      decoration: BoxDecoration(
-                        color: paletteOf(context).surface,
-                        border: Border(top: BorderSide(color: paletteOf(context).line)),
-                      ),
+                      decoration: malaysia
+                          ? BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface,
+                              border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
+                            )
+                          : BoxDecoration(
+                              color: paletteOf(context).surface,
+                              border: Border(top: BorderSide(color: paletteOf(context).line)),
+                            ),
                       padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
                       child: SingleChildScrollView(
                         child: Column(

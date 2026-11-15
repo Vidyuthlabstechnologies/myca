@@ -285,7 +285,7 @@ test('India is not served from Singapore, and every pack names its languages and
     assert.ok(pack.taxName, pack.code);
   }
   assert.deepEqual(countryPack('MY').languages, ['en', 'ms']);
-  assert.equal(countryPack('MY').status, 'planned');
+  assert.equal(countryPack('MY').status, 'beta');
   assert.match(packProblems([{ ...countryPack('MY'), languages: [] }]).join('\n'), /languages must list at least one/);
   assert.match(packProblems([{ ...countryPack('MY'), taxName: '' }]).join('\n'), /taxName must name/);
 });

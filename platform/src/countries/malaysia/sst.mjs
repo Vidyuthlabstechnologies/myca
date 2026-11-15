@@ -2,6 +2,8 @@ import { rules } from '../../sprint-load.mjs';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const PERIOD = /^(\d{4})-(0[1-9]|1[0-2])\/(\d{4})-(0[1-9]|1[0-2])$/;
+const MAX_SEN = 1e15;
+const MAX_CARDS = 1e6;
 const toSen = (ringgit) => Math.round(Number(ringgit || 0) * 100);
 const toRinggit = (sen) => Math.round(sen) / 100;
 
@@ -27,15 +29,32 @@ function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
 }
 
+export function isRealDate(value) {
+  const text = String(value || '');
+  if (!ISO_DATE.test(text)) return false;
+  const parsed = new Date(`${text}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === text;
+}
+
+function amountOk(value) {
+  if (value === undefined || value === null || value === '' || typeof value === 'boolean') return false;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 && number * 100 <= MAX_SEN;
+}
+
 function ruleOn(id, date) {
   const found = rules.rule(id, date);
   return found.ok ? found.record : null;
 }
 
+function reviewed(record) {
+  return (record.attestations || []).length > 0;
+}
+
 export function serviceTaxRate(category, date) {
   const name = String(category || 'general');
   if (!SERVICE_CATEGORIES.includes(name)) return fail('UNKNOWN_SERVICE_CATEGORY', { category: name, known: SERVICE_CATEGORIES });
-  if (!ISO_DATE.test(String(date || ''))) return fail('BAD_DATE', { date });
+  if (!isRealDate(date)) return fail('BAD_DATE', { date });
   const record = ruleOn('my.sst.service-tax', date);
   if (!record) return fail('RULE_NOT_IN_FORCE', { ruleId: 'my.sst.service-tax', date });
   const value = record.value;
@@ -46,11 +65,11 @@ export function serviceTaxRate(category, date) {
 }
 
 export function salesTaxRate(basisPoints, date) {
-  if (!ISO_DATE.test(String(date || ''))) return fail('BAD_DATE', { date });
+  if (!isRealDate(date)) return fail('BAD_DATE', { date });
   const record = ruleOn('my.sst.sales-tax', date);
   if (!record) return fail('RULE_NOT_IN_FORCE', { ruleId: 'my.sst.sales-tax', date });
   const wanted = basisPoints === undefined || basisPoints === null ? record.value.defaultBasisPoints : Number(basisPoints);
-  if (wanted === 0) return { ok: true, kind: 'exempt', basisPoints: 0, record };
+  if (wanted === 0) return { ok: true, kind: 'exempt', basisPoints: 0, why: 'Goods in the exemption schedule carry no sales tax.', record };
   if (!record.value.rateBasisPoints.includes(wanted)) return fail('SALES_TAX_RATE_NOT_IN_FORCE', { basisPoints: wanted, allowed: record.value.rateBasisPoints, date });
   return { ok: true, kind: 'rate', basisPoints: wanted, record };
 }
@@ -64,7 +83,7 @@ function iso(year, month, day) {
 }
 
 export function taxablePeriodOf(date, { firstMonthOdd = true } = {}) {
-  if (!ISO_DATE.test(String(date || ''))) return null;
+  if (!isRealDate(date)) return null;
   const year = Number(date.slice(0, 4));
   const month = Number(date.slice(5, 7));
   const odd = month % 2 === 1;
@@ -78,8 +97,8 @@ export function taxablePeriodOf(date, { firstMonthOdd = true } = {}) {
 
 function describePeriod(startYear, startMonth, endYear, endMonth) {
   const record = ruleOn('my.sst.taxable-period', iso(startYear, startMonth, 1));
-  const dueMonthsAfter = record ? record.value.dueMonthsAfterPeriodEnd : 1;
-  const dueMonthRaw = endMonth + dueMonthsAfter;
+  if (!record) return null;
+  const dueMonthRaw = endMonth + record.value.dueMonthsAfterPeriodEnd;
   const dueYear = endYear + Math.floor((dueMonthRaw - 1) / 12);
   const dueMonth = ((dueMonthRaw - 1) % 12) + 1;
   return {
@@ -87,7 +106,7 @@ function describePeriod(startYear, startMonth, endYear, endMonth) {
     from: iso(startYear, startMonth, 1),
     to: iso(endYear, endMonth, lastDayOf(endYear, endMonth)),
     due: iso(dueYear, dueMonth, lastDayOf(dueYear, dueMonth)),
-    form: record ? record.value.form : 'SST-02',
+    form: record.value.form,
   };
 }
 
@@ -102,12 +121,25 @@ export function parsePeriod(text) {
 
 export function sstReturn(lines = [], periodText) {
   const period = parsePeriod(periodText);
-  if (!period) return fail('BAD_PERIOD', { period: periodText, hint: 'A taxable period is two months written as 2026-01/2026-02.' });
+  if (!period) return fail('BAD_PERIOD', { period: periodText, hint: 'A taxable period is two consecutive months from September 2018 on, written as 2026-01/2026-02.' });
+  if (!Array.isArray(lines)) return fail('LINES_REQUIRED', { hint: 'Give the period\'s sales and services as a list of lines.' });
   const groups = new Map();
   const problems = [];
+  const outside = [];
   for (const [index, line] of lines.entries()) {
+    if (!line || typeof line !== 'object' || Array.isArray(line)) { problems.push({ index, ok: false, error: 'LINE_NOT_OBJECT' }); continue; }
     const date = String(line.date || '');
-    if (!ISO_DATE.test(date) || date < period.from || date > period.to) continue;
+    if (!isRealDate(date)) { problems.push({ index, ok: false, error: 'BAD_DATE', date }); continue; }
+    if (date < period.from || date > period.to) { outside.push(index); continue; }
+    if (line.kind === 'service' && line.category === 'credit-card') {
+      const count = Number(line.cards ?? 1);
+      if (!Number.isInteger(count) || count < 0 || count > MAX_CARDS) { problems.push({ index, ok: false, error: 'BAD_CARD_COUNT', hint: 'cards is a whole number of principal and supplementary cards.' }); continue; }
+      const rate = serviceTaxRate('credit-card', date);
+      if (!rate.ok) { problems.push({ index, ...rate, record: undefined }); continue; }
+      add(groups, 'service:credit-card', { part: 'service tax', category: 'credit-card', flatSen: rate.amountSen }, 0, count * rate.amountSen);
+      continue;
+    }
+    if (!amountOk(line.value)) { problems.push({ index, ok: false, error: 'BAD_VALUE', hint: 'value is the taxable amount in ringgit, zero or more; record a credit note as its own adjustment.' }); continue; }
     const valueSen = toSen(line.value);
     if (line.kind === 'sales') {
       const rate = salesTaxRate(line.rateBasisPoints, date);
@@ -115,13 +147,8 @@ export function sstReturn(lines = [], periodText) {
       add(groups, `sales:${rate.basisPoints}`, { part: 'sales tax', basisPoints: rate.basisPoints }, valueSen, Math.round(valueSen * rate.basisPoints / 10000));
     } else if (line.kind === 'service') {
       const rate = serviceTaxRate(line.category, date);
-      if (!rate.ok) { problems.push({ index, ...rate }); continue; }
-      if (rate.kind === 'flat') {
-        const count = Math.max(0, Math.floor(Number(line.cards || 1)));
-        add(groups, 'service:credit-card', { part: 'service tax', category: 'credit-card', flatSen: rate.amountSen }, 0, count * rate.amountSen);
-      } else {
-        add(groups, `service:${line.category || 'general'}:${rate.basisPoints}`, { part: 'service tax', category: line.category || 'general', basisPoints: rate.basisPoints }, valueSen, Math.round(valueSen * rate.basisPoints / 10000));
-      }
+      if (!rate.ok) { problems.push({ index, ...rate, record: undefined }); continue; }
+      add(groups, `service:${line.category || 'general'}:${rate.basisPoints}`, { part: 'service tax', category: line.category || 'general', basisPoints: rate.basisPoints }, valueSen, Math.round(valueSen * rate.basisPoints / 10000));
     } else {
       problems.push({ index, ok: false, error: 'LINE_KIND_UNKNOWN', hint: 'Each line is kind "sales" or "service".' });
     }
@@ -138,6 +165,7 @@ export function sstReturn(lines = [], periodText) {
       salesTax: toRinggit(salesTaxSen),
       serviceTax: toRinggit(serviceTaxSen),
       totalTax: toRinggit(salesTaxSen + serviceTaxSen),
+      outsidePeriod: outside,
       filing: 'File SST-02 in MySST (mysst.customs.gov.my) and pay by the due date. Royal Malaysian Customs has no public filing API, so MyCA prepares the return and the business submits it.',
       unreviewed: true,
     },
@@ -151,43 +179,63 @@ function add(groups, key, base, valueSen, taxSen) {
   groups.set(key, row);
 }
 
-export function sstRegistrationCheck({ kind = 'service', category = 'general', last12Months, date }) {
-  if (!ISO_DATE.test(String(date || ''))) return fail('BAD_DATE', { date });
-  const valueSen = toSen(last12Months);
+export function sstRegistrationCheck({ kind = 'service', category = 'general', last12Months, next12Months, date } = {}) {
+  if (!isRealDate(date)) return fail('BAD_DATE', { date });
+  if (!['service', 'sales'].includes(kind)) return fail('BAD_KIND', { kind, hint: 'kind is "service" or "sales".' });
+  if (!amountOk(last12Months)) return fail('BAD_AMOUNT', { field: 'last12Months', hint: 'The value of the last twelve months, in ringgit, zero or more.' });
+  if (next12Months !== undefined && next12Months !== null && !amountOk(next12Months)) return fail('BAD_AMOUNT', { field: 'next12Months', hint: 'The value expected in the next twelve months, in ringgit, zero or more.' });
+  const pastSen = toSen(last12Months);
+  const aheadSen = next12Months === undefined || next12Months === null ? null : toSen(next12Months);
   if (kind === 'sales') {
     const record = ruleOn('my.sst.sales-tax.registration', date);
     if (!record) return fail('RULE_NOT_IN_FORCE', { ruleId: 'my.sst.sales-tax.registration', date });
-    return registration(valueSen, record.value.thresholdSen, record);
+    return registration(pastSen, aheadSen, record.value.thresholdSen, record);
   }
+  const name = String(category || 'general');
+  if (!SERVICE_CATEGORIES.includes(name)) return fail('UNKNOWN_SERVICE_CATEGORY', { category: name, known: SERVICE_CATEGORIES });
   const record = ruleOn('my.sst.service-tax.registration', date);
   if (!record) return fail('RULE_NOT_IN_FORCE', { ruleId: 'my.sst.service-tax.registration', date });
-  const base = String(category).replace(/-non-citizen$/, '');
-  const thresholdSen = record.value.byCategory[base] ?? record.value.defaultThresholdSen;
-  return registration(valueSen, thresholdSen, record);
+  const base = name.replace(/-non-citizen$/, '');
+  const thresholdSen = Object.hasOwn(record.value.byCategory, base) ? record.value.byCategory[base] : record.value.defaultThresholdSen;
+  return registration(pastSen, aheadSen, thresholdSen, record);
 }
 
-function registration(valueSen, thresholdSen, record) {
-  const mustRegister = valueSen >= thresholdSen;
+function registration(pastSen, aheadSen, thresholdSen, record) {
+  const pastOver = thresholdSen === 0 || pastSen > thresholdSen;
+  const aheadOver = aheadSen !== null && aheadSen > thresholdSen;
+  const mustRegister = pastOver || aheadOver;
+  const why = thresholdSen === 0
+    ? 'This service has no threshold: anyone providing it registers.'
+    : pastOver
+      ? 'Taxable value in the last twelve months exceeds the registration threshold; register with Royal Malaysian Customs in MySST by the end of the following month.'
+      : aheadOver
+        ? 'Taxable value expected in the next twelve months exceeds the registration threshold; register with Royal Malaysian Customs in MySST.'
+        : 'Not above the registration threshold (registration is due only once the value exceeds it); keep watching the twelve-month total.';
   return {
     ok: true,
     data: {
       mustRegister,
       threshold: toRinggit(thresholdSen),
-      last12Months: toRinggit(valueSen),
-      why: mustRegister ? 'Taxable value in the last twelve months has reached the registration threshold; register with Royal Malaysian Customs in MySST.' : 'Below the registration threshold; keep watching the twelve-month total.',
+      last12Months: toRinggit(pastSen),
+      ...(aheadSen === null ? {} : { next12Months: toRinggit(aheadSen) }),
+      test: 'exceeds',
+      why,
+      ruleId: record.id,
+      effectiveFrom: record.effectiveFrom,
       source: record.source,
-      unreviewed: !(record.attestations || []).length,
+      unreviewed: !reviewed(record),
     },
   };
 }
 
-export function sstLatePenalty({ unpaidTax, dueDate, paidOn }) {
-  if (!ISO_DATE.test(String(dueDate || '')) || !ISO_DATE.test(String(paidOn || ''))) return fail('BAD_DATE');
+export function sstLatePenalty({ unpaidTax, dueDate, paidOn } = {}) {
+  if (!isRealDate(dueDate) || !isRealDate(paidOn)) return fail('BAD_DATE');
+  if (!amountOk(unpaidTax)) return fail('BAD_AMOUNT', { field: 'unpaidTax' });
   const record = ruleOn('my.sst.late-payment', dueDate);
   if (!record) return fail('RULE_NOT_IN_FORCE', { ruleId: 'my.sst.late-payment', date: dueDate });
   const daysLate = Math.max(0, Math.round((Date.parse(paidOn) - Date.parse(dueDate)) / 86400000));
   const steps = Math.min(record.value.stepsBasisPoints.length, Math.ceil(daysLate / record.value.stepDays));
   const basisPoints = record.value.stepsBasisPoints.slice(0, steps).reduce((sum, value) => sum + value, 0);
   const taxSen = toSen(unpaidTax);
-  return { ok: true, data: { daysLate, penaltyPercent: basisPoints / 100, penalty: toRinggit(Math.round(taxSen * basisPoints / 10000)), unreviewed: true } };
+  return { ok: true, data: { daysLate, penaltyPercent: basisPoints / 100, penalty: toRinggit(Math.round(taxSen * basisPoints / 10000)), ruleId: record.id, beyondLastStep: daysLate > record.value.stepDays * record.value.stepsBasisPoints.length, unreviewed: !reviewed(record) } };
 }

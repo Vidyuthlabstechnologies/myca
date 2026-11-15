@@ -6,6 +6,7 @@ const ukFunnelAllowed = bool.fromEnvironment('MYCA_UK_FUNNEL');
 String funnelEdition(String edition) => switch (edition.toUpperCase()) {
   'US' => 'us',
   'GB' || 'UK' => 'uk',
+  'MY' => 'my',
   _ => 'india',
 };
 

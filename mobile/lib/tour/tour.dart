@@ -166,27 +166,57 @@ class TourApi implements MycaApi {
 }
 
 class TourController extends ChangeNotifier {
-  TourController({required this.navigator, this.onFinished, DateTime Function()? now})
-    : _now = now ?? (() => DateTime(2026, 10, 5, 10, 30));
+  TourController({required this.navigator, this.onFinished, DateTime Function()? now, Future<bool> Function(String text)? shareText})
+    : _now = now ?? (() => DateTime(2026, 10, 5, 10, 30)),
+      _shareText = shareText ?? _noShare;
+
+  static Future<bool> _noShare(String text) async => false;
 
   final GlobalKey<NavigatorState> navigator;
   final Future<void> Function(bool startBooks)? onFinished;
   final DateTime Function() _now;
+  final Future<bool> Function(String text) _shareText;
   late final observer = _TourObserver(this);
 
   AppState? sample;
   int index = 0;
   int _routes = 0;
+  List<TourStep> _steps = tourSteps;
 
   bool get active => sample != null;
-  TourStep get step => tourSteps[index];
-  int get count => tourSteps.length;
+  bool get coaching => active && _steps.isNotEmpty;
+  TourStep get step => _steps[index];
+  int get count => _steps.length;
+
+  Future<void> startSandbox({required String country, ValueNotifier<String>? languageChoice}) async {
+    if (active) return;
+    navigator.currentState?.popUntil((route) => route.isFirst);
+    index = 0;
+    _routes = 0;
+    _steps = const [];
+    final books = SampleBooksApi(signedIn: true)
+      ..country = country.toUpperCase()
+      ..clock = _now;
+    final state = AppState(
+      api: TourApi(books, (_, _) {}),
+      store: _TourStore(),
+      pickTextFile: (_) async => null,
+      now: _now,
+      edition: country,
+      shareText: _shareText,
+      languageChoice: languageChoice,
+    );
+    sample = state;
+    notifyListeners();
+    await state.start();
+  }
 
   Future<void> start() async {
     if (active) return;
     navigator.currentState?.popUntil((route) => route.isFirst);
     index = 0;
     _routes = 0;
+    _steps = tourSteps;
     final books = SampleBooksApi(signedIn: true);
     final state = AppState(
       api: TourApi(books, _onApi),
@@ -200,6 +230,7 @@ class TourController extends ChangeNotifier {
   }
 
   void _onApi(String event, String name) {
+    if (!coaching) return;
     if (event == 'propose' && name == 'create_invoice' && step.wait == TourWait.sale) {
       _go(tourSteps.indexWhere((s) => s.wait == TourWait.posted));
     } else if (event == 'confirm' && name == 'create_invoice' && step.wait == TourWait.posted) {
@@ -209,7 +240,7 @@ class TourController extends ChangeNotifier {
 
   void _routeChanged(int depth) {
     _routes = depth;
-    if (!active) return;
+    if (!coaching) return;
     if (index == 2 && depth > 0) _go(3);
   }
 
