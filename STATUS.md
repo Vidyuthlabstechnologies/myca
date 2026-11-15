@@ -205,6 +205,11 @@ and [`README.md`](README.md) for what is left and how it is being done.
   HMRC computerised PAYE method (cumulative, week 1/month 1, K, BR, D and NT codes, Scottish and Welsh
   prefixes, the 50% limit), Class 1 National Insurance by category letter, student and postgraduate loans
   and pensions, from `gb.paye.calculation` and `gb.ni.class-1`; it does not send RTI to HMRC
+- UK bank feed (2026-11-15): the Plaid connector now serves UK businesses too. The link token asks for GB
+  banks and carries the UK app's Android package, the Connections screen offers it in the UK edition, and the
+  pulled transactions import as a bank statement like the US ones. It stays off until the owner has Plaid UK
+  production access, registers `com.mldynamic.myca.uk` in the Plaid dashboard and saves the keys; the UK
+  privacy notice names Plaid with its entity and region left for the solicitor to confirm
 - US state income tax, first slice (2026-11-15): `us_state_tax` answers from the started federal return. Alaska,
   Florida, Nevada, New Hampshire, South Dakota, Tennessee, Texas and Wyoming need no state return; Illinois,
   Michigan and North Carolina get a 2025 estimate (federal AGI, state exemptions or standard deduction, flat

@@ -88,7 +88,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | VAT return from the books, credit notes | yes | Parity |
 | **Simplified expenses (mileage, working from home, living at premises) and trading allowance check** | `gb_simplified_expenses` | **Built now** |
 | **CIS deductions summary with wrong-rate check** | `gb_cis_deductions` | **Built now** (Xero has no CIS) |
-| Open Banking bank feeds | no | Gap (all rivals) |
+| Open Banking bank feeds | Built to the credential boundary: a UK business can link a bank through Plaid (country GB, read-only), and the transactions land as a bank statement to match against the books | **Built now**, off until the owner has Plaid UK access and saves the keys; receipt OCR on UK screens is still open |
 | Receipt photo OCR into expenses | India engine only | Gap for UK screens |
 | GPS mileage tracking | no | Gap (QuickBooks) |
 | UK property income (landlords) quarterly updates | engine accepts uk-property updates | Partial: no property ledger |
@@ -143,7 +143,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | 1 | US | Sign the e-file partner (1099-B/crypto CSV import is built) | No filing, no revenue; investors are the users TurboTax upsells hardest | US launch thread + owner |
 | 2 | Malaysia | PCB (monthly tax deduction) on top of the EPF/SOCSO/EIS payroll (BUILT; next: CP39 file for e-PCB Plus) | SQL Account's payroll add-on is the main reason SMEs stay on desktop | Malaysia thread, from the official KWSP/PERKESO/LHDN tables |
 | 3 | India | Barcode counter billing and thermal printing on Android (BUILT) | Retail shops pick Vyapar/myBillBook for this alone | India mobile thread |
-| 4 | UK | Open Banking bank feeds and receipt OCR on UK screens | Every rival has them; quarterly MTD updates need categorised bank lines | UK thread (TrueLayer or Yapily via a cloud port) |
+| 4 | UK | Receipt OCR on UK screens (Open Banking bank feeds are BUILT through Plaid, waiting on the owner's Plaid UK access) | Every rival has them; quarterly MTD updates need categorised bank lines | UK thread (TrueLayer or Yapily via a cloud port) |
 | 5 | India | Hindi on every India screen and in MyCA's replies, then regional languages (home, new entry, counter sale and the fixed wording of the shared screens are BUILT) | Vyapar's growth came from it | Design system thread |
 | 6 | US | 2441, 8962, Schedule E, 1040-X, states (prior-year import is BUILT) | Common returns that now bounce to a rival | US engine thread |
 | 7 | UAE | Bank feeds (Wio, Mashreq); the full payroll run on top of WPS/gratuity is BUILT | Zoho's bank links; Wafeq's payroll | UAE thread |
