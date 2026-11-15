@@ -261,6 +261,10 @@ and [`README.md`](README.md) for what is left and how it is being done.
   with the month's totals and due date from `my_payroll`, and saves the CP39 file from `my_cp39_file`. Employees
   with nothing to remit no longer need a tax number for the CP39 file. Open: employees are typed in each month,
   the sandbox does not run payroll, and the file has not been uploaded to e-PCB Plus.
+- Malaysia payroll remembers employees (2026-11-15): after a payroll run the Malaysia app keeps the employees (name,
+  wages, PCB category, children, tax number, MyKad or passport) and the employer's E number in the phone's secure
+  storage, per business, and fills them in next month. The bonus is not kept. Nothing is sent to the server, so
+  they do not follow the user to another phone.
 - Malaysia income tax sources (2026-11-15): the resident bands and the RM400 rebate were checked against LHDN's own
   tax rate and rebate pages and match; the records now cite LHDN first. The 30% non-resident rate, the SST records
   and the UAE labour records still rest on secondary summaries; UAE VAT and corporate tax already cite the FTA.

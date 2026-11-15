@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/format.dart';
+import 'package:myca/my/my_staff.dart';
 import 'package:myca/screens/my/my_home_screen.dart';
 import 'package:myca/screens/my/my_payroll_screen.dart';
 
@@ -195,6 +196,39 @@ void main() {
     await typeKey(tester, 'myPayroll.0.wages', '5600');
     await tapKey(tester, 'myPayroll.workOut');
     expect(find.textContaining('does not run in the sandbox'), findsOneWidget);
+  });
+
+  testWidgets('employees from the last payroll come back with their CP39 details, without the bonus', (tester) async {
+    final api = MyTestApi()..answer = _server;
+    final staff = MemoryMyStaffStore();
+    await tester.pumpWidget(myApp(myState(api, staff: staff), const MyPayrollScreen(business: 'Kedai Maju')));
+    await settle(tester);
+    expect(find.byKey(const Key('myPayroll.remembered')), findsNothing);
+    await _twoEmployees(tester);
+    await typeKey(tester, 'myPayroll.0.bonus', '1000');
+    await tapKey(tester, 'myPayroll.0.cp39');
+    await typeKey(tester, 'myPayroll.0.taxNumber', 'IG 531367080');
+    await tapKey(tester, 'myPayroll.workOut');
+    await typeKey(tester, 'myPayroll.employerNo', '9012345678');
+    await tapKey(tester, 'myPayroll.cp39');
+    expect(staff.saved['Kedai Maju']!.staff.length, 2);
+    expect(staff.saved['Kedai Maju']!.employerNo, '9012345678');
+    await tester.pumpWidget(myApp(myState(api, staff: staff), const MyPayrollScreen(key: Key('again'), business: 'Kedai Maju')));
+    await settle(tester);
+    expect(find.byKey(const Key('myPayroll.remembered')), findsOneWidget);
+    expect(find.text('Aminah binti Yusof'), findsOneWidget);
+    expect(find.text('Tan Mei Ling'), findsOneWidget);
+    await tapKey(tester, 'myPayroll.workOut');
+    expect(api.args['my_payroll']!['employees'], [
+      {'name': 'Aminah binti Yusof', 'wages': 5500, 'pcbCategory': 3, 'children': 3},
+      {'name': 'Tan Mei Ling', 'wages': 2000, 'pcbCategory': 1, 'children': 0},
+    ]);
+    await tapKey(tester, 'myPayroll.cp39');
+    expect((api.args['my_cp39_file']!['employees'] as List).first, {'name': 'Aminah binti Yusof', 'taxNumber': 'IG 531367080', 'pcb': 110});
+    expect(api.args['my_cp39_file']!['employerNo'], '9012345678');
+    await tester.pumpWidget(myApp(myState(api, staff: staff), const MyPayrollScreen(key: Key('other'), business: 'Another Sdn Bhd')));
+    await settle(tester);
+    expect(find.text('Aminah binti Yusof'), findsNothing);
   });
 
   testWidgets('the home screen opens payroll, and it reads in Malay', (tester) async {

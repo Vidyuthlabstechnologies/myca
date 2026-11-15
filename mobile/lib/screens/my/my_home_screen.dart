@@ -220,7 +220,7 @@ class _MyHomeScreenState extends State<MyHomeScreen> {
                       children: [
                         Text(t.homePayrollBody, style: text.bodyMedium),
                         const SizedBox(height: 8),
-                        OutlinedButton(key: const Key('myHome.payroll'), onPressed: () => _open(const MyPayrollScreen()), child: Text(t.runPayroll)),
+                        OutlinedButton(key: const Key('myHome.payroll'), onPressed: () => _open(MyPayrollScreen(business: widget.snapshot.company.name)), child: Text(t.runPayroll)),
                       ],
                     ),
                   ),

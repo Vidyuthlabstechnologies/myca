@@ -3,6 +3,7 @@ import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 
 import '../../app_state.dart';
 import '../../format.dart';
+import '../../my/my_staff.dart';
 import '../../my/my_strings.dart';
 import '../../my/my_tools.dart';
 import 'my_widgets.dart';
@@ -18,6 +19,21 @@ class _Staff {
   final country = TextEditingController();
   int category = 1;
 
+  _Staff();
+
+  _Staff.from(MyStaffMember member) {
+    name.text = member.name;
+    wages.text = member.wages;
+    children.text = member.children;
+    taxNumber.text = member.taxNumber;
+    ic.text = member.ic;
+    passport.text = member.passport;
+    country.text = member.country;
+    category = member.category;
+  }
+
+  MyStaffMember toMember() => MyStaffMember(name: name.text.trim(), wages: wages.text.trim(), category: category, children: children.text.trim(), taxNumber: taxNumber.text.trim(), ic: ic.text.trim(), passport: passport.text.trim(), country: country.text.trim());
+
   void dispose() {
     for (final controller in [name, wages, bonus, children, taxNumber, ic, passport, country]) {
       controller.dispose();
@@ -26,7 +42,9 @@ class _Staff {
 }
 
 class MyPayrollScreen extends StatefulWidget {
-  const MyPayrollScreen({super.key});
+  const MyPayrollScreen({super.key, this.business = ''});
+
+  final String business;
 
   @override
   State<MyPayrollScreen> createState() => _MyPayrollScreenState();
@@ -48,6 +66,33 @@ class _MyPayrollScreenState extends State<MyPayrollScreen> {
   MyCp39File? _file;
   bool _fileSaved = false;
   final _resultKey = GlobalKey();
+  bool _touched = false;
+  bool _remembered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _restore();
+  }
+
+  Future<void> _restore() async {
+    final saved = await myStaffStore.load(widget.business);
+    if (!mounted || saved == null || _touched) return;
+    setState(() {
+      if (saved.staff.isNotEmpty) {
+        for (final person in _staff) {
+          person.dispose();
+        }
+        _staff
+          ..clear()
+          ..addAll(saved.staff.map(_Staff.from));
+      }
+      _employerNo.text = saved.employerNo;
+      _remembered = saved.staff.isNotEmpty;
+    });
+  }
+
+  Future<void> _remember() => myStaffStore.save(widget.business, MyStaffList(employerNo: _employerNo.text.trim(), staff: [for (final person in _staff) person.toMember()]));
 
   @override
   void didChangeDependencies() {
@@ -67,6 +112,7 @@ class _MyPayrollScreenState extends State<MyPayrollScreen> {
   String _monthId(DateTime day) => '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}';
 
   void _changed() {
+    _touched = true;
     if (_result == null && _file == null) return;
     setState(_clearResult);
   }
@@ -120,6 +166,7 @@ class _MyPayrollScreenState extends State<MyPayrollScreen> {
     setState(() => _busy = true);
     try {
       final result = await MyTools(AppScope.of(context).api).payroll(month: _month!, employees: employees);
+      await _remember();
       if (mounted) {
         setState(() => _result = result);
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -168,6 +215,7 @@ class _MyPayrollScreenState extends State<MyPayrollScreen> {
         ],
       );
       final saved = await state.saveTextFile(file.fileName, file.content).catchError((Object _) => false);
+      await _remember();
       if (mounted) {
         setState(() {
           _file = file;
@@ -216,6 +264,7 @@ class _MyPayrollScreenState extends State<MyPayrollScreen> {
                   tooltip: t.removeEmployee,
                   icon: const Icon(Icons.delete_outline),
                   onPressed: () => setState(() {
+                    _touched = true;
                     _staff.removeAt(i).dispose();
                     _errors = const {};
                     _clearResult();
@@ -233,6 +282,7 @@ class _MyPayrollScreenState extends State<MyPayrollScreen> {
             value: person.category,
             items: [for (final category in const [1, 2, 3]) (category, t.staffCategoryName(category))],
             onChanged: (value) => setState(() {
+              _touched = true;
               person.category = value ?? 1;
               _clearResult();
             }),
@@ -298,6 +348,7 @@ class _MyPayrollScreenState extends State<MyPayrollScreen> {
           children: [
             MyNote(t.payrollNote),
             const SizedBox(height: 12),
+            if (_remembered) ...[Text(t.staffRemembered, key: const Key('myPayroll.remembered'), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: context.myca.muted)), const SizedBox(height: 12)],
             MyPicker<String>(
               key: const Key('myPayroll.month'),
               label: t.payrollMonth,
@@ -315,6 +366,7 @@ class _MyPayrollScreenState extends State<MyPayrollScreen> {
               icon: const Icon(Icons.add),
               label: Text(t.addEmployee),
               onPressed: () => setState(() {
+                _touched = true;
                 _staff.add(_Staff());
                 _clearResult();
               }),
