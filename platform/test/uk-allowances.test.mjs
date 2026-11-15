@@ -30,6 +30,8 @@ test('the trading allowance wins when expenses are small, and actual vehicle cos
   assert.equal(actual.data.mileage, 900);
   const low = simplifiedExpenses({ taxYear: '2025-26', homeHours: [10, 30, 120] });
   assert.equal(low.data.useOfHome.total, 36);
+  const between = simplifiedExpenses({ taxYear: '2025-26', homeHours: [50.5, 100.5] });
+  assert.deepEqual(between.data.useOfHome.months.map((month) => month.amount), [10, 18]);
 });
 
 test('simplified expenses refuses bad input', () => {
