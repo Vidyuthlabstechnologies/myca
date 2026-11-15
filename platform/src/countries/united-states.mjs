@@ -121,6 +121,7 @@ export const UNITED_STATES = Object.freeze({
     'us_return_pdf',
     'us_return_review',
     'us_return_status',
+    'us_state_tax',
     'us_supported_forms',
     'us_tax_estimate',
     'us_taxpayer',

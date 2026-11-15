@@ -205,6 +205,11 @@ and [`README.md`](README.md) for what is left and how it is being done.
   HMRC computerised PAYE method (cumulative, week 1/month 1, K, BR, D and NT codes, Scottish and Welsh
   prefixes, the 50% limit), Class 1 National Insurance by category letter, student and postgraduate loans
   and pensions, from `gb.paye.calculation` and `gb.ni.class-1`; it does not send RTI to HMRC
+- US state income tax, first slice (2026-11-15): `us_state_tax` answers from the started federal return. Alaska,
+  Florida, Nevada, New Hampshire, South Dakota, Tennessee, Texas and Wyoming need no state return; Illinois,
+  Michigan and North Carolina get a 2025 estimate (federal AGI, state exemptions or standard deduction, flat
+  rate, W-2 state withholding) from dated rules in `sprints/statutory-rules/src/rules/us-states.mjs`. It is an
+  estimate: no state subtractions or credits, no state form, no e-file, no 2026 figures yet
 - India in Hindi, shared screens (2026-11-15): the wording class the shared screens use now reads the same
   Hindi table, so cash, bank, reports, statements, repeating entries, reminders, expenses, parties and the
   entry forms show their fixed wording in Hindi on a Hindi phone (about 340 more lines). Lines built with a
