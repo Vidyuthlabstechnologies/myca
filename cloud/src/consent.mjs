@@ -221,7 +221,7 @@ export const PRIVACY_NOTICE_MY_MS = {
   ],
 };
 
-const AE_VERSION = 'ae-draft-2026-11-15';
+const AE_VERSION = 'ae-draft-2026-11-15.2';
 const AE_CONTROLLER = 'ML Dynamic Solutions Private Limited, a company registered in India, 606, 6th Floor, Gowra Fountainhead, Patrika Nagar, Madhapur, HITEC City, Hyderabad, Telangana 500081, India';
 const AE_PRIVACY_EMAIL = '[privacy email, to be confirmed before release]';
 
@@ -245,7 +245,7 @@ export const PRIVACY_NOTICE_AE = {
     },
     {
       heading: 'What MyCA is, and what it is not',
-      body: 'MyCA UAE is bookkeeping and tax preparation software. It keeps your books, prepares your VAT 201 and Corporate Tax figures and checks your invoices for e-invoicing readiness. MyCA is not a registered tax agent and does not file returns for you: you, or your registered tax agent, review and file on the Federal Tax Authority\'s EmaraTax portal. MyCA never asks for your EmaraTax or UAE Pass password and does not move or hold money. While MyCA runs in sandbox mode, invoices are checked on your device and are not sent to anyone.',
+      body: 'MyCA UAE is bookkeeping and tax preparation software. It keeps your books, prepares your VAT 201 and Corporate Tax figures and checks your invoices for e-invoicing readiness. MyCA is not a registered tax agent and does not file returns for you: you, or your registered tax agent, review and file on the Federal Tax Authority\'s EmaraTax portal. MyCA never asks for your EmaraTax or UAE Pass password and does not move or hold money. While MyCA runs in sandbox mode, invoices are checked by the MyCA server and shown to you, and are not sent to anyone else.',
     },
     {
       heading: 'What we collect and why',
@@ -291,7 +291,7 @@ export const PRIVACY_NOTICE_AE_AR = {
     },
     {
       heading: 'ما هو MyCA وما ليس هو',
-      body: 'MyCA الإمارات برنامج لمسك الدفاتر وإعداد الضرائب. يحفظ دفاترك، ويُعدّ أرقام إقرار ضريبة القيمة المضافة (VAT 201) وضريبة الشركات، ويتحقق من جاهزية فواتيرك للفوترة الإلكترونية. MyCA ليس وكيلًا ضريبيًا مسجّلًا ولا يقدّم الإقرارات نيابةً عنك: أنت، أو وكيلك الضريبي المسجّل، تراجع الإقرار وتقدّمه عبر بوابة "إمارات تاكس" التابعة للهيئة الاتحادية للضرائب. لا يطلب MyCA أبدًا كلمة مرور "إمارات تاكس" أو "الهوية الرقمية (UAE Pass)"، ولا ينقل الأموال ولا يحتفظ بها. ما دام MyCA يعمل في الوضع التجريبي، تُفحص الفواتير على جهازك ولا تُرسل إلى أي جهة.',
+      body: 'MyCA الإمارات برنامج لمسك الدفاتر وإعداد الضرائب. يحفظ دفاترك، ويُعدّ أرقام إقرار ضريبة القيمة المضافة (VAT 201) وضريبة الشركات، ويتحقق من جاهزية فواتيرك للفوترة الإلكترونية. MyCA ليس وكيلًا ضريبيًا مسجّلًا ولا يقدّم الإقرارات نيابةً عنك: أنت، أو وكيلك الضريبي المسجّل، تراجع الإقرار وتقدّمه عبر بوابة "إمارات تاكس" التابعة للهيئة الاتحادية للضرائب. لا يطلب MyCA أبدًا كلمة مرور "إمارات تاكس" أو "الهوية الرقمية (UAE Pass)"، ولا ينقل الأموال ولا يحتفظ بها. ما دام MyCA يعمل في الوضع التجريبي، تُفحص الفواتير على خادم MyCA وتُعرض عليك ولا تُرسل إلى أي جهة أخرى.',
     },
     {
       heading: 'ما نجمعه ولماذا',

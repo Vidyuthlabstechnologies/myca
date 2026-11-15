@@ -404,6 +404,7 @@ const TREATMENT_NOTE = Object.freeze({
 export function aeInvoiceDocument(state, args = {}) {
   const id = String(args.id || '').trim().toUpperCase();
   const invoice = (state.invoices || []).find((item) => item.id === id);
+  if (!invoice && (state.creditNotes || []).some((note) => note.id === id)) return aeCreditNoteDocument(state, { id });
   if (!invoice) return fail('INVOICE_NOT_FOUND', { invoiceId: id });
   if (invoice.country !== 'AE') return fail('NOT_A_UAE_INVOICE', { invoiceId: id });
   const seller = profileOf(state) || {};
@@ -437,7 +438,7 @@ export function aeInvoiceDocument(state, args = {}) {
       emirate: emirate ? { code: emirate.code, en: emirate.en, ar: emirate.ar } : null,
       currency: invoice.currency || 'AED',
       exchangeRate: invoice.exchangeRate || 1,
-      lines: invoice.lines.map((line) => ({ description: line.description, qty: line.qty, rate: line.rate, treatment: line.treatment || 'standard', vatRate: (line.treatment || 'standard') === 'standard' ? standardBasisPoints / 100 : 0, net: line.subtotal, vat: line.vat || 0, amount: line.amount, note: TREATMENT_NOTE[line.treatment] || null })),
+      lines: invoice.lines.map((line) => ({ description: line.description, qty: line.qty, rate: line.rate, rateCurrency: invoice.currency || 'AED', unitPriceAed: toDirhams(Math.round((toFils(line.rate) || 0) * (Number(invoice.exchangeRate) || 1))), treatment: line.treatment || 'standard', vatRate: (line.treatment || 'standard') === 'standard' ? standardBasisPoints / 100 : 0, net: line.subtotal, vat: line.vat || 0, amount: line.amount, note: TREATMENT_NOTE[line.treatment] || null })),
       net: invoice.subtotal,
       vat: invoice.vat,
       total: invoice.total,
@@ -452,4 +453,62 @@ export function aeInvoiceDocument(state, args = {}) {
       missing,
     },
   };
+}
+
+// Article 60 of the VAT Executive Regulation: a tax credit note names itself as one, carries the
+// supplier's and the recipient's details with their TRNs, its own number and date, the original
+// tax invoice's number and date, the value of the supply shown on that invoice, the reduction and
+// its VAT, and a brief reason.
+export function aeCreditNoteDocument(state, args = {}) {
+  const id = String(args.id || '').trim().toUpperCase();
+  const note = (state.creditNotes || []).find((item) => item.id === id);
+  if (!note) return fail('CREDIT_NOTE_NOT_FOUND', { creditNoteId: id });
+  if (note.country !== 'AE') return fail('NOT_A_UAE_INVOICE', { invoiceId: id });
+  const invoice = (state.invoices || []).find((item) => item.id === note.invoiceId) || {};
+  const seller = profileOf(state) || {};
+  const party = (state.parties || []).find((item) => item.accountId === (note.partyAccountId || invoice.partyAccountId)) || {};
+  const buyerAddress = invoice.partyAddress || party.address || '';
+  const missing = [];
+  if (!seller.trn) missing.push('SELLER_TRN');
+  if (!seller.addressLine) missing.push('SELLER_ADDRESS');
+  if (!buyerAddress) missing.push('BUYER_ADDRESS');
+  const title = seller.trn ? { en: 'Tax Credit Note', ar: 'إشعار دائن ضريبي' } : { en: 'Credit Note', ar: 'إشعار دائن' };
+  const emirate = emirateOf(note.emirate || invoice.emirate);
+  return {
+    ok: true,
+    data: {
+      kind: 'credit_note',
+      country: 'AE',
+      id: note.id,
+      date: note.date,
+      documentTitle: title,
+      seller: { name: seller.name || state.company?.name || '', nameAr: seller.nameAr || '', trn: seller.trn || '', address: [seller.addressLine, seller.city].filter(Boolean).join(', '), emirate: seller.emirate || '' },
+      buyer: { name: note.partyName || invoice.partyName || '', trn: invoice.partyTrn || '', address: buyerAddress },
+      emirate: emirate ? { code: emirate.code, en: emirate.en, ar: emirate.ar } : null,
+      originalInvoice: { id: note.invoiceId, date: note.invoiceDate || invoice.date || '', total: invoice.total ?? null, vat: invoice.vat ?? null },
+      reason: note.reason,
+      cancels: Boolean(note.cancels),
+      currency: 'AED',
+      lines: (note.lines || []).map((line) => ({ treatment: line.treatment || 'standard', net: line.taxable, vat: line.vat || 0, note: TREATMENT_NOTE[line.treatment] || null })),
+      net: note.taxable,
+      vat: note.vat,
+      total: note.total,
+      totalsInAed: true,
+      missing,
+    },
+  };
+}
+
+export function cancelAeInvoice(state, args = {}) {
+  const invoiceId = String(args.invoiceId || '').trim().toUpperCase();
+  const invoice = (state.invoices || []).find((item) => item.id === invoiceId);
+  if (!invoice) return fail('INVOICE_NOT_FOUND', { invoiceId });
+  if (creditedOn(state, invoiceId) > 0) return fail('PARTLY_CREDITED', { invoiceId });
+  return createAeCreditNote(state, { invoiceId, date: args.date, reason: args.reason || 'Invoice cancelled' });
+}
+
+export function planAeCancel(state, args = {}) {
+  const invoiceId = String(args.invoiceId || '').trim().toUpperCase();
+  if ((state.invoices || []).some((item) => item.id === invoiceId) && creditedOn(state, invoiceId) > 0) return fail('PARTLY_CREDITED', { invoiceId });
+  return planAeCreditNote(state, { invoiceId, date: args.date, reason: args.reason || 'Invoice cancelled' });
 }

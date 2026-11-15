@@ -8,7 +8,7 @@ import { uaeDeadlines } from './deadlines.mjs';
 import { penaltyEstimate } from './penalties.mjs';
 import { buildPintAe } from './einvoice.mjs';
 import { sendThroughAsp, issuedEinvoices, aspMode } from './asp.mjs';
-import { createAeInvoice, createAePurchase, createAeCreditNote, planAeInvoice, planAePurchase, planAeCreditNote, aeVatLines, aeInvoiceDocument } from './books.mjs';
+import { createAeInvoice, createAePurchase, createAeCreditNote, planAeInvoice, planAePurchase, planAeCreditNote, aeVatLines, aeInvoiceDocument, cancelAeInvoice, planAeCancel } from './books.mjs';
 import { langOf, localise, toArabic } from './messages.mjs';
 import { gratuityEstimate, uaePayrollRun, wpsSalaryFile } from './payroll.mjs';
 
@@ -142,18 +142,22 @@ const RUN = localiseRuns({
     validate_ae_trn: (state, args = {}) => ({ ok: true, data: checkTrn(args.trn) }),
 });
 
+function creditNotePreviewAe(planned, lang) {
+  if (!planned.ok) return { blockers: blockersOf(planned, lang), summary: lang === 'ar' ? 'الإشعار الدائن غير جاهز.' : 'The credit note is not ready.', effects: [], figures: {} };
+  const { plan } = planned;
+  const total = fils(plan.total / 100);
+  const vat = fils(plan.vat / 100);
+  const head = plan.full
+    ? (lang === 'ar' ? `إلغاء ${plan.invoice.id} لصالح ${plan.invoice.partyName} بإشعار دائن بكامل قيمتها ${aed(total, lang)}، منها ضريبة ${aed(vat, lang)}.` : `Cancel ${plan.invoice.id} to ${plan.invoice.partyName} with a credit note for its full ${aed(total)}, of which ${aed(vat)} VAT.`)
+    : (lang === 'ar' ? `إشعار دائن على ${plan.invoice.id} لصالح ${plan.invoice.partyName} بمبلغ ${aed(total, lang)}، منها ضريبة ${aed(vat, lang)}.` : `Credit note on ${plan.invoice.id} to ${plan.invoice.partyName} for ${aed(total)}, of which ${aed(vat)} VAT.`);
+  const effects = lang === 'ar'
+    ? ['تنخفض المبيعات وضريبة المخرجات في فترة الإشعار الدائن.', plan.full ? 'تُلغى الفاتورة بالكامل وتبقى في الدفاتر.' : 'تبقى الفاتورة كما هي ويقل المبلغ المستحق عليها.']
+    : ['Sales and output VAT go down in the period of the credit note.', plan.full ? 'The invoice is cancelled in full and stays in the books.' : 'The invoice stays as it is and its balance goes down.'];
+  return { blockers: [], summary: head, effects, figures: { net: fils(plan.net / 100), vat, total } };
+}
+
 const PREVIEW = Object.freeze({
-    create_ae_credit_note: (state, args = {}) => {
-      const lang = langOf(args);
-      const planned = planAeCreditNote(state, args);
-      if (!planned.ok) return { blockers: blockersOf(planned, lang), summary: lang === 'ar' ? 'الإشعار الدائن غير جاهز.' : 'The credit note is not ready.', effects: [], figures: {} };
-      const { plan } = planned;
-      const total = fils(plan.total / 100);
-      const vat = fils(plan.vat / 100);
-      return lang === 'ar'
-        ? { blockers: [], summary: `إشعار دائن على ${plan.invoice.id} لصالح ${plan.invoice.partyName} بمبلغ ${aed(total, lang)}، منها ضريبة ${aed(vat, lang)}.`, effects: ['تنخفض المبيعات وضريبة المخرجات في فترة الإشعار الدائن.', plan.full ? 'تُلغى الفاتورة بالكامل وتبقى في الدفاتر.' : 'تبقى الفاتورة كما هي ويقل المبلغ المستحق عليها.'], figures: { net: fils(plan.net / 100), vat, total } }
-        : { blockers: [], summary: `Credit note on ${plan.invoice.id} to ${plan.invoice.partyName} for ${aed(total)}, of which ${aed(vat)} VAT.`, effects: ['Sales and output VAT go down in the period of the credit note.', plan.full ? 'The invoice is cancelled in full and stays in the books.' : 'The invoice stays as it is and its balance goes down.'], figures: { net: fils(plan.net / 100), vat, total } };
-    },
+    create_ae_credit_note: (state, args = {}) => creditNotePreviewAe(planAeCreditNote(state, args), langOf(args)),
     create_ae_invoice: (state, args = {}) => {
       const lang = langOf(args);
       const planned = planAeInvoice(state, args);
@@ -304,6 +308,7 @@ const WORDS = Object.freeze({
     create_ae_credit_note: (result, money, args = {}) => {
       if (!result.ok) return '';
       const n = result.creditNote;
+      if (n.cancels) return langOf(args) === 'ar' ? `أُلغيت الفاتورة ${n.invoiceId} بالإشعار الدائن ${n.id} بمبلغ ${aed(n.total, 'ar')}، منها ضريبة ${aed(n.vat, 'ar')}.` : `Cancelled ${n.invoiceId} with credit note ${n.id} for ${aed(n.total)}, of which ${aed(n.vat)} VAT.`;
       return langOf(args) === 'ar' ? `صدر الإشعار الدائن ${n.id} على ${n.invoiceId} بمبلغ ${aed(n.total, 'ar')}، منها ضريبة ${aed(n.vat, 'ar')}.` : `Credit note ${n.id} on ${n.invoiceId} for ${aed(n.total)}, of which ${aed(n.vat)} VAT.`;
     },
     create_ae_invoice: (result, money, args = {}) => {
@@ -346,6 +351,7 @@ export const ENGINE = Object.freeze({
     create_invoice: Object.freeze({ run: RUN.create_ae_invoice, preview: PREVIEW.create_ae_invoice }),
     create_purchase: Object.freeze({ run: RUN.create_ae_purchase, preview: PREVIEW.create_ae_purchase }),
     create_credit_note: Object.freeze({ run: RUN.create_ae_credit_note, preview: PREVIEW.create_ae_credit_note }),
+    cancel_invoice: Object.freeze({ run: (state, args = {}) => localise(cancelAeInvoice(state, args), langOf(args)), preview: (state, args = {}) => creditNotePreviewAe(planAeCancel(state, args), langOf(args)) }),
     invoice_document: Object.freeze({ run: (state, args = {}) => localise(aeInvoiceDocument(state, args), langOf(args)) }),
   }),
 });

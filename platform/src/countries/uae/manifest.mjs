@@ -10,6 +10,7 @@ const einvoiceFields = { type: text, number: text, issueDate: text, dueDate: tex
 
 export const MANIFEST = Object.freeze({
   country: 'AE',
+  books: Object.freeze(['cancel_invoice', 'create_credit_note', 'create_invoice', 'create_purchase', 'invoice_document']),
   capabilities: Object.freeze({
     'income-tax': Object.freeze({ status: 'building', roles: Object.freeze({ estimate: 'ae_ct_estimate', profile: 'set_ae_business_profile' }) }),
     'indirect-tax': Object.freeze({ status: 'building', roles: Object.freeze({ summary: 'ae_vat_registration', return: 'ae_vat_return' }) }),

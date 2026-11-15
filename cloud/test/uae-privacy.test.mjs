@@ -19,6 +19,8 @@ test('the UAE notice states the PDPL basis, Doha storage under Article 23, the t
   assert.match(body, /Article 23/);
   assert.match(body, /not a registered tax agent/);
   assert.match(body, /EmaraTax/);
+  assert.match(body, /checked by the MyCA server/);
+  assert.doesNotMatch(body, /checked on your device/);
   assert.match(body, /at least 5 years/);
   assert.match(body, /7 years for Corporate Tax/);
   assert.match(body, /30 days/);
