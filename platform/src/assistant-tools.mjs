@@ -106,6 +106,7 @@ const TOOL_RISK = {
   add_us_tax_form: 'writes_books',
   remove_us_tax_form: 'writes_books',
   answer_us_interview: 'writes_books',
+  import_us_prior_year: 'writes_books',
   set_suta_rate: 'writes_books',
   import_us_invoices: 'writes_books',
   import_pos_sales: 'writes_books',

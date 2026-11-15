@@ -64,7 +64,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | **Refund booster: unused deductions and credits priced by re-running the return** | `us_refund_boost` | **Built now** (answers TurboTax's max-refund promise, with the dollar value shown) |
 | E-file through embedded partner (Column Tax / April) | built, partner unsigned | Gap until signed |
 | Brokerage / crypto CSV import (1099-B) | `us_brokerage_csv` (broker 1099-B/8949 exports, exchange trades matched first in, first out) | **Built now** |
-| Prior-year return import (PDF) | no | Gap (TurboTax, H&R Block) |
+| Prior-year return import | `import_us_prior_year`: from last year's MyCA return, or typed figures from a return filed elsewhere | **Built now**; reading a rival's PDF is still open |
 | Amended return 1040-X | no | Gap |
 | Form 2441 child care credit, 8962 premium tax credit, Schedule E rentals | coming | Gap |
 | State returns | state sheet only | Gap |
@@ -145,7 +145,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | 3 | India | Barcode counter billing and thermal printing on Android (BUILT) | Retail shops pick Vyapar/myBillBook for this alone | India mobile thread |
 | 4 | UK | Open Banking bank feeds and receipt OCR on UK screens | Every rival has them; quarterly MTD updates need categorised bank lines | UK thread (TrueLayer or Yapily via a cloud port) |
 | 5 | India | Hindi and regional-language app | Vyapar's growth came from it | Design system thread |
-| 6 | US | Prior-year import, 2441, 8962, Schedule E, 1040-X, states | Common returns that now bounce to a rival | US engine thread |
+| 6 | US | 2441, 8962, Schedule E, 1040-X, states (prior-year import is BUILT) | Common returns that now bounce to a rival | US engine thread |
 | 7 | UAE | Bank feeds (Wio, Mashreq); the full payroll run on top of WPS/gratuity is BUILT | Zoho's bank links; Wafeq's payroll | UAE thread |
 | 8 | UK | Payroll RTI, GPS mileage | QuickBooks and Sage keep sole traders who hire | UK thread |
 

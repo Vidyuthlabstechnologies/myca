@@ -571,6 +571,12 @@ export function usInterviewPreview(state, args) {
   return { blockers: [], summary: `${plan.question.text}: ${shown}.`, effects: [`Saved on the ${plan.taxYear} return.`], figures: { taxYear: plan.taxYear, id: plan.id } };
 }
 
+export function usReturnRecord(state, taxYear, { create = false, scopeId = '' } = {}) {
+  const all = store(state);
+  if (!all[taxYear] && create) all[taxYear] = { ...blankReturn(taxYear), ...(scopeId ? { scopeId } : {}) };
+  return all[taxYear] || null;
+}
+
 export function usReturnWords(name, data, money) {
   if (name === 'us_return_status') {
     if (!data.started) return `No ${data.taxYear} return started yet. Start with your filing status and details.`;
