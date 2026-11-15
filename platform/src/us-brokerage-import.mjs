@@ -60,8 +60,8 @@ function mapColumns(header, columns) {
   const keys = header.map(key);
   const out = {};
   for (const [field, names] of Object.entries(columns)) {
-    const at = keys.findIndex((name) => names.includes(name));
-    if (at >= 0) out[field] = at;
+    const at = names.map((name) => keys.indexOf(name)).find((index) => index >= 0);
+    if (at !== undefined) out[field] = at;
   }
   return out;
 }
@@ -161,6 +161,7 @@ function salesFromRows(rows, header, problems) {
     const sold = isoDate(cell('dateSold'));
     if (Number.isNaN(proceeds) || proceeds === null) { problems.push(`${label}: proceeds is not an amount.`); continue; }
     if (Number.isNaN(costBasis)) { problems.push(`${label}: cost basis is not an amount.`); continue; }
+    if (costBasis !== null && costBasis < 0) { problems.push(`${label}: cost basis cannot be negative.`); continue; }
     if (Number.isNaN(wash) || Number.isNaN(withheld)) { problems.push(`${label}: wash sale or withholding is not an amount.`); continue; }
     if (acquired === null || sold === null) { problems.push(`${label}: a date is not a date MyCA can read; use YYYY-MM-DD or MM/DD/YYYY.`); continue; }
     const term = termOf(cell('term'), cell('box'), acquired, sold);
@@ -200,12 +201,17 @@ function cryptoSales(rows, header, problems) {
   const sales = [];
   const income = [];
   const events = [];
+  const unread = new Map();
   for (let index = header.index + 1; index < rows.length; index += 1) {
     const row = rows[index];
     const cell = (field) => (map[field] === undefined ? '' : row[map[field]]);
     const label = `Row ${index + 1}`;
     const side = tradeSide(cell('type'));
-    if (!side) continue;
+    if (!side) {
+      const kind = String(cell('type') || '').trim().slice(0, 30);
+      if (kind) unread.set(kind, (unread.get(kind) || 0) + 1);
+      continue;
+    }
     const date = isoDate(cell('date'));
     const asset = String(cell('asset') || '').toUpperCase().split(/[-/]/)[0];
     const quantity = Math.abs(Number(String(cell('quantity')).replace(/,/g, '')));
@@ -249,7 +255,7 @@ function cryptoSales(rows, header, problems) {
       if (lot.quantity <= 1e-12) queue.shift();
     }
   }
-  return { sales, income };
+  return { sales, income, unread: [...unread].map(([type, rows]) => ({ type, rows })) };
 }
 
 export function usBrokerageCsv(state, args = {}) {
@@ -263,6 +269,7 @@ export function usBrokerageCsv(state, args = {}) {
   let found;
   let format;
   let income = [];
+  let unread = [];
   if (sales) {
     format = 'realized-sales';
     found = salesFromRows(rows, sales, problems);
@@ -273,6 +280,7 @@ export function usBrokerageCsv(state, args = {}) {
     const out = cryptoSales(rows, trades, problems);
     found = out.sales;
     income = out.income;
+    unread = out.unread;
   }
   const taxYear = String(args.taxYear || '').trim();
   const outside = taxYear ? found.filter((row) => row.dateSold && row.dateSold.slice(0, 4) !== taxYear) : [];
@@ -280,6 +288,7 @@ export function usBrokerageCsv(state, args = {}) {
   const notes = [];
   if (outside.length) notes.push(`${outside.length} sale${outside.length === 1 ? ' was' : 's were'} in another year and left out.`);
   if (format === 'crypto-trades') notes.push('Cost basis is matched first in, first out within this file only; buys made on other exchanges or before the file starts are missing and show as zero basis. Compare with the exchange\'s Form 1099-DA.');
+  if (unread.length) notes.push(`Rows of type ${unread.map((item) => `${item.type} (${item.rows})`).join(', ')} were not read. Sends and receives between your own wallets are not sales, but a convert or crypto-to-crypto trade is a sale of the asset given up: add it yourself.`);
   if (income.length) notes.push(`${income.length} reward or staking receipt${income.length === 1 ? ' is' : 's are'} ordinary income at their value when received; add them as other income.`);
   if (kept.some((row) => row.basisMissing)) notes.push('Some sales have no cost basis; enter it from your records or the gain is overstated.');
   const forms = chunk(kept.map(({ basisMissing, ...row }) => row)).map((transactions, index, list) => ({ kind: '1099-B', payer: payer || (format === 'crypto-trades' ? 'Digital asset exchange' : 'Broker'), ...(list.length > 1 ? { part: index + 1 } : {}), fields: { transactions } }));
