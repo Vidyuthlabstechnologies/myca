@@ -18,7 +18,8 @@ export const MANIFEST = Object.freeze({
   }),
   ruleFamilies: Object.freeze([
     Object.freeze({ key: 'gb-income-tax', title: 'UK income tax, National Insurance and student loans', prefix: 'gb.income-tax.', watch: Object.freeze(['The Budget each autumn', 'Scottish Budget each winter', 'HMRC rates and allowances pages each April']) }),
-    Object.freeze({ key: 'gb-ni', title: 'UK self-employed National Insurance', prefix: 'gb.ni.', watch: Object.freeze(['The Budget each autumn', 'HMRC rates and thresholds each April']) }),
+    Object.freeze({ key: 'gb-ni', title: 'UK National Insurance for employers and the self-employed', prefix: 'gb.ni.', watch: Object.freeze(['The Budget each autumn', 'HMRC rates and thresholds each April']) }),
+    Object.freeze({ key: 'gb-paye', title: 'UK PAYE calculation for employers', prefix: 'gb.paye.', watch: Object.freeze(['HMRC specification for PAYE tax table routines each February', 'HMRC rates and thresholds for employers each April']) }),
     Object.freeze({ key: 'gb-student-loan', title: 'UK student loan repayment', prefix: 'gb.student-loan.', watch: Object.freeze(['Department for Education threshold announcements each January to April']) }),
     Object.freeze({ key: 'gb-cgt', title: 'UK capital gains tax', prefix: 'gb.cgt.', watch: Object.freeze(['The Budget each autumn']) }),
     Object.freeze({ key: 'gb-self-assessment', title: 'UK Self Assessment deadlines, payments on account and penalties', prefix: 'gb.sa.', watch: Object.freeze(['HMRC Self Assessment manual updates']) }),
@@ -99,6 +100,12 @@ export const MANIFEST = Object.freeze({
       schema: schema({ taxYear, calendarQuarters: { type: 'boolean' } }, ['taxYear']),
     }),
     Object.freeze({
+      name: 'gb_payroll_run', title: 'UK payroll: PAYE, National Insurance and student loans',
+      description: 'Work out one weekly or monthly pay run for employees: income tax by the HMRC computerised PAYE method from each tax code (cumulative, week 1 or month 1, K, BR, D and NT codes, Scottish and Welsh prefixes), employee and employer Class 1 National Insurance by category letter, student and postgraduate loan deductions, pension contributions, net pay and the amount due to HMRC. Read-only; nothing is sent to HMRC.',
+      access: 'read',
+      schema: schema({ payDate: { type: 'string' }, frequency: { type: 'string', enum: ['weekly', 'monthly'] }, employees: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string' }, pay: money, taxCode: { type: 'string' }, niCategory: { type: 'string' }, studentLoan: { type: 'string', enum: ['plan1', 'plan2', 'plan4', 'plan5'] }, postgraduateLoan: { type: 'boolean' }, director: { type: 'boolean' }, pension: { type: 'object', additionalProperties: false, properties: { employee: money, employer: money, basis: { type: 'string', enum: ['net-pay', 'relief-at-source'] } } }, yearToDate: { type: 'object', additionalProperties: false, properties: { taxablePay: money, tax: money } } }, required: ['pay'] } } }, ['payDate', 'employees']),
+    }),
+    Object.freeze({
       name: 'gb_penalty_points', title: 'HMRC late submission penalty points',
       description: 'Count late submission penalty points from a list of due and sent dates for VAT or MTD Income Tax, and say when the £200 penalty starts. Read-only.',
       access: 'read',
@@ -106,7 +113,7 @@ export const MANIFEST = Object.freeze({
     }),
     Object.freeze({
       name: 'gb_simplified_expenses', title: 'Simplified expenses and the trading allowance',
-      description: 'Work out the HMRC flat rates for a tax year: business mileage (45p then 25p after 10,000 miles, 24p on a motorcycle) against actual vehicle costs, working from home by hours each month, and the private use of business premises you live in; then compare the total expenses with the £1,000 trading allowance. Read-only.',
+      description: 'Work out the HMRC flat rates for a tax year: business mileage (55p a mile from 6 April 2026, 45p before, then 25p after 10,000 miles; 24p on a motorcycle) against actual vehicle costs, working from home by hours each month, and the private use of business premises you live in; then compare the total expenses with the £1,000 trading allowance. Read-only.',
       access: 'read',
       schema: schema({ taxYear, vehicles: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string' }, kind: { type: 'string', enum: ['car', 'van', 'motorcycle'] }, businessMiles: money, actualCosts: money } } }, homeHours: { type: 'array', items: money }, homeHoursPerMonth: money, homeMonths: money, livingAtPremises: { type: 'object', additionalProperties: false, properties: { people: money, months: money } }, otherExpenses: money, turnover: money }, ['taxYear']),
     }),

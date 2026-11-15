@@ -92,7 +92,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | Receipt photo OCR into expenses | India engine only | Gap for UK screens |
 | GPS mileage tracking | no | Gap (QuickBooks) |
 | UK property income (landlords) quarterly updates | engine accepts uk-property updates | Partial: no property ledger |
-| Payroll / RTI | no | Gap (Sage, QuickBooks, FreeAgent) |
+| **Payroll calculation (PAYE by the HMRC computerised method, Class 1 NI by category letter, student loans, pensions, weekly or monthly)** | `gb_payroll_run` | **Built now** for 2026-27; RTI submission (FPS/EPS), payslip PDFs, directors' annual NI and statutory pay still open |
 
 ## United Arab Emirates (rivals: Zoho Books UAE, Wafeq, QuickBooks)
 
@@ -147,7 +147,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | 5 | India | Hindi and regional-language app | Vyapar's growth came from it | Design system thread |
 | 6 | US | 2441, 8962, Schedule E, 1040-X, states (prior-year import is BUILT) | Common returns that now bounce to a rival | US engine thread |
 | 7 | UAE | Bank feeds (Wio, Mashreq); the full payroll run on top of WPS/gratuity is BUILT | Zoho's bank links; Wafeq's payroll | UAE thread |
-| 8 | UK | Payroll RTI, GPS mileage | QuickBooks and Sage keep sole traders who hire | UK thread |
+| 8 | UK | RTI submission to HMRC on top of the payroll calculation (BUILT), GPS mileage | QuickBooks and Sage keep sole traders who hire | UK thread |
 
 ## Sources
 

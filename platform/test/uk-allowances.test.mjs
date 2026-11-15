@@ -13,12 +13,12 @@ test('flat-rate mileage, working from home and living at the premises add up fro
     turnover: 30000,
   });
   assert.equal(result.ok, true);
-  assert.equal(result.data.vehicles[0].flatRate, 5000);
+  assert.equal(result.data.vehicles[0].flatRate, 6000);
   assert.equal(result.data.vehicles[1].flatRate, 240);
   assert.equal(result.data.useOfHome.total, 216);
   assert.equal(result.data.privateUseOfPremises, 6000);
-  assert.equal(result.data.totalExpenses, 7456);
-  assert.deepEqual(result.data.comparison, { turnover: 30000, profitWithExpenses: 22544, profitWithTradingAllowance: 29000, better: 'expenses', saving: 6456 });
+  assert.equal(result.data.totalExpenses, 8456);
+  assert.deepEqual(result.data.comparison, { turnover: 30000, profitWithExpenses: 21544, profitWithTradingAllowance: 29000, better: 'expenses', saving: 7456 });
   assert.ok(result.data.rulesUsed.some((rule) => rule.id === 'gb.income-tax.simplified-expenses'));
 });
 
@@ -28,6 +28,8 @@ test('the trading allowance wins when expenses are small, and actual vehicle cos
   const actual = simplifiedExpenses({ taxYear: '2025-26', vehicles: [{ kind: 'car', businessMiles: 1000, actualCosts: 900 }] });
   assert.equal(actual.data.vehicles[0].better, 'actual-costs');
   assert.equal(actual.data.mileage, 900);
+  assert.equal(simplifiedExpenses({ taxYear: '2025-26', vehicles: [{ kind: 'car', businessMiles: 1000 }] }).data.mileage, 450);
+  assert.equal(simplifiedExpenses({ taxYear: '2026-27', vehicles: [{ kind: 'car', businessMiles: 1000 }] }).data.mileage, 550);
   const low = simplifiedExpenses({ taxYear: '2025-26', homeHours: [10, 30, 120] });
   assert.equal(low.data.useOfHome.total, 36);
   const between = simplifiedExpenses({ taxYear: '2025-26', homeHours: [50.5, 100.5] });

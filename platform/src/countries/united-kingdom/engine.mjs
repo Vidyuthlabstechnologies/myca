@@ -6,6 +6,7 @@ import { quarterlyPeriods, mtdItMandate, selfEmploymentCumulative, ukPropertyCum
 import { checkGbIdentifier, utrValid, ninoValid, vrnValid, normaliseUtr, normaliseNino, normaliseVrn } from './identifiers.mjs';
 import { parseTaxYear, gbMoney, monthEndPlus } from './rules.mjs';
 import { simplifiedExpenses, cisDeductions } from './allowances.mjs';
+import { ukPayrollRun } from './payroll.mjs';
 import { amendmentWindowCloses, declarationFor } from './declarations.mjs';
 import { createGbInvoice, createGbPurchase, gbDocumentPreview, vatLinesFromBooks, createGbCreditNote, cancelGbInvoice, gbCreditNotePreview } from './books.mjs';
 import {
@@ -108,6 +109,7 @@ export const ENGINE = Object.freeze({
     gb_late_payment: (state, args = {}) => latePayment(args),
     gb_mtd_mandate: (state, args = {}) => mtdItMandate(args),
     gb_mtd_periods: (state, args = {}) => quarterlyPeriods(args.taxYear, { calendar: args.calendarQuarters ?? taxpayer(state).calendarQuarters === true }),
+    gb_payroll_run: (state, args = {}) => ukPayrollRun(args),
     gb_penalty_points: (state, args = {}) => penaltyPoints(args),
     gb_simplified_expenses: (state, args = {}) => simplifiedExpenses(args),
     gb_tax_calendar: (state, args = {}) => gbTaxCalendar(state, args),
@@ -195,6 +197,13 @@ export const ENGINE = Object.freeze({
   }),
   words: Object.freeze({
     gb_cis_deductions: (result) => (result.ok ? `CIS deducted${result.data.taxYear ? ` in ${result.data.taxYear}` : ''}: ${gbMoney(result.data.totalDeducted)} from ${gbMoney(result.data.totalGross)} gross across ${result.data.contractors.length} contractor${result.data.contractors.length === 1 ? '' : 's'}.${result.data.mismatches ? ` ${result.data.mismatches} statement${result.data.mismatches === 1 ? ' needs' : 's need'} checking.` : ''}` : ''),
+    gb_payroll_run: (result) => {
+      if (!result.ok) return '';
+      const d = result.data;
+      const t = d.totals;
+      const who = d.employees.length === 1 ? `${d.employees[0].name}: gross ${gbMoney(t.grossPay)}, tax ${gbMoney(t.incomeTax)}, National Insurance ${gbMoney(t.employeeNationalInsurance)}, net pay ${gbMoney(t.netPay)}.` : `${d.employees.length} employees: gross ${gbMoney(t.grossPay)}, net pay ${gbMoney(t.netPay)}.`;
+      return `Pay run for ${d.payDate} (${d.frequency === 'weekly' ? 'week' : 'month'} ${d.period} of ${d.taxYear}). ${who} Employer National Insurance ${gbMoney(t.employerNationalInsurance)}; ${gbMoney(t.dueToHmrc)} is due to HMRC. Not yet sent to HMRC.`;
+    },
     gb_simplified_expenses: (result) => {
       if (!result.ok) return '';
       const d = result.data;
