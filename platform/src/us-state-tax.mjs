@@ -1,7 +1,6 @@
 import { rules } from './sprint-load.mjs';
 import { computeForm1040, ageAtYearEnd } from './us-1040.mjs';
 import { engineInput } from './us-return.mjs';
-import { localToday } from './dates.mjs';
 
 export const US_STATE_TAX_YEARS = Object.freeze(['2025']);
 export const US_STATE_TAX_STATES = Object.freeze(['CO', 'GA', 'IL', 'KY', 'LA', 'MI', 'NC']);
@@ -31,7 +30,7 @@ function withheldFor(input, code) {
 }
 
 export function usStateTax(state, args = {}) {
-  const taxYear = String(args.taxYear || '').trim() || localToday().slice(0, 4);
+  const taxYear = String(args.taxYear || '').trim() || [...US_STATE_TAX_YEARS].reverse().find((year) => state.usReturns?.[year]?.filingStatus) || US_STATE_TAX_YEARS.at(-1);
   if (!US_STATE_TAX_YEARS.includes(taxYear)) return { ok: false, error: 'TAX_YEAR_NOT_SUPPORTED', supported: US_STATE_TAX_YEARS };
   const ret = state.usReturns?.[taxYear];
   if (!ret || !ret.filingStatus) return { ok: false, error: 'US_RETURN_NOT_STARTED', taxYear, hint: `Start the ${taxYear} federal return first; the state figure starts from it.` };

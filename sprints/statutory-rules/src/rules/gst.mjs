@@ -161,7 +161,8 @@ export const RULES = [
     section: 'Rule 37A, CGST Rules 2017',
     source: 'Notification 26/2022-Central Tax dated 26.12.2022 inserting rule 37A: where the supplier has not furnished FORM GSTR-3B for the period by the 30th day of September following the end of the financial year in which the credit was availed, the recipient reverses it in FORM GSTR-3B on or before the 30th day of November following the end of that financial year',
     attestations: []
-  },
+  }
+,
   {
     id: 'gst.setoff.order',
     value: { ownHeadFirst: true, igstCreditExhaustedFirst: false, igstRemainder: 'any-order', crossHeads: { cgst: ['cgst', 'igst'], sgst: ['sgst', 'igst'] } },
@@ -340,6 +341,17 @@ export const RULES = [
     act: 'CGST',
     section: 'Rule 138(1), CGST Rules 2017',
     source: 'Notification 12/2018-Central Tax dated 07.03.2018 substituting rule 138, brought into force for inter-State movement from 01.04.2018 by Notification 15/2018-Central Tax: every registered person who causes movement of goods of consignment value exceeding fifty thousand rupees furnishes Part A of FORM GST EWB-01; intra-State movement followed from April to June 2018 by State notifications, several of which set a higher limit for movement within the State (not encoded; MyCA applies the central limit and says so)',
+    attestations: []
+  },
+  {
+    id: 'gst.invoice.unregistered-buyer-details',
+    value: { taxableValuePaiseAtLeast: 50000 * RUPEE, details: ['name', 'address', 'state-and-code'] },
+    basis: 'taxable_value_paise_at_or_above_for_unregistered_recipient',
+    effectiveFrom: '2017-07-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: 'Rule 46(e), CGST Rules 2017',
+    source: 'CBIC tax information portal, CGST Rules 2017, rule 46 clause (e): the tax invoice carries the name and address of the recipient and the address of delivery, along with the name of the State and its code, if such recipient is un-registered and where the value of the taxable supply is fifty thousand rupees or more; clause (f) makes the same details optional below that value when the recipient asks (https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter6/rule46_v1.00.html); read on 2026-11-15',
     attestations: []
   }
 ];

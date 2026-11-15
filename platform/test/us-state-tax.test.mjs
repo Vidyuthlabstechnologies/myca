@@ -124,6 +124,10 @@ test('other states and years are refused plainly, and the tool is read-only', as
   assert.equal(usStateTax(createState(), { taxYear: '2025' }).error, 'US_RETURN_NOT_STARTED');
   assert.equal(isRemoteQuery('us_state_tax'), true);
   assert.equal(validateAssistantToolCall('us_state_tax', { taxYear: '2025', state: 'IL' }).ok, true);
+  const noYear = usStateTax(await household('MI'), {});
+  assert.equal(noYear.ok, true, JSON.stringify(noYear));
+  assert.equal(noYear.data.taxYear, '2025');
+  assert.equal(usStateTax(createState(), {}).error, 'US_RETURN_NOT_STARTED');
   const viaTool = await runTool(await household('MI'), 'us_state_tax', { taxYear: '2025' });
   assert.equal(viaTool.ok, true, JSON.stringify(viaTool));
 });

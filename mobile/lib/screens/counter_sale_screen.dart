@@ -36,7 +36,9 @@ const buyerDetailsFromRupees = 50000;
 
 num billTotal(List<CartLine> cart) => cart.fold<num>(0, (sum, line) => sum + ((line.amount * (100 + line.gstRate)).round() / 100));
 
-bool needsBuyerDetails(List<CartLine> cart) => billTotal(cart) >= buyerDetailsFromRupees;
+num billTaxable(List<CartLine> cart) => cart.fold<num>(0, (sum, line) => sum + line.amount);
+
+bool needsBuyerDetails(List<CartLine> cart) => billTaxable(cart) >= buyerDetailsFromRupees;
 
 Map<String, Object?> counterSaleArgs(List<CartLine> cart, {String customer = '', String address = ''}) => {
   'partyName': customer.trim().isEmpty ? 'Walk-in customer' : customer.trim(),
@@ -155,7 +157,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
   Future<void> _makeBill() async {
     if (cart.isEmpty) return;
     if (needsBuyerDetails(cart) && (_customer.text.trim().isEmpty || _address.text.trim().isEmpty)) {
-      setState(() => _message = inText(context, 'A bill of ₹50,000 or more must carry the customer\'s name and address with the state. Add both, then make the bill.'));
+      setState(() => _message = inText(context, 'A bill of ₹50,000 or more before GST must carry the customer\'s name and address with the state. Add both, then make the bill.'));
       return;
     }
     setState(() {
@@ -308,7 +310,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
             TextField(key: const Key('counter-customer'), controller: _customer, decoration: InputDecoration(labelText: needsBuyerDetails(cart) ? inText(context, 'Customer name') : inText(context, 'Customer (optional)'), hintText: needsBuyerDetails(cart) ? null : inText(context, 'Walk-in customer'))),
             if (needsBuyerDetails(cart)) ...[
               const SizedBox(height: 8),
-              TextField(key: const Key('counter-address'), controller: _address, maxLength: 200, decoration: InputDecoration(labelText: inText(context, 'Customer address with state'), helperText: inText(context, 'Needed on bills of ₹50,000 or more'))),
+              TextField(key: const Key('counter-address'), controller: _address, maxLength: 200, decoration: InputDecoration(labelText: inText(context, 'Customer address with state'), helperText: inText(context, 'Needed on bills of ₹50,000 or more before GST'))),
             ],
             const SizedBox(height: 12),
             if (_preview == null) FilledButton(key: const Key('counter-make'), onPressed: _busy ? null : _makeBill, child: Text(inText(context, 'Make bill'))),
