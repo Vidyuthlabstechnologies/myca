@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { gratuityEstimate, wpsSalaryFile } from '../src/countries/uae/payroll.mjs';
+import { gratuityEstimate, uaePayrollRun, wpsSalaryFile } from '../src/countries/uae/payroll.mjs';
 import { ENGINE } from '../src/countries/uae/engine.mjs';
 
 const ARABIC = /[؀-ۿ]/;
@@ -64,4 +64,63 @@ test('gratuity and WPS answers come back in Arabic', () => {
   assert.ok(ARABIC.test(bad.hint));
   assert.ok(bad.problems.every((item) => ARABIC.test(item.why)));
   assert.ok(ARABIC.test(ENGINE.words.ae_gratuity(grat, null, { lang: 'ar' })));
+});
+
+const payrollOne = (employee, month = '2026-10') => uaePayrollRun({ month, employees: [employee] });
+
+test('a payroll run pays overtime on the basic hourly wage, rest days at 150% and takes unpaid leave off the fixed pay', () => {
+  const run = payrollOne({ name: 'Ravi', basic: 5000, housing: 2000, transport: 500, overtimeHours: 10, nightOvertimeHours: 2, restDaysWorked: 1, unpaidLeaveDays: 2, deductions: 300, joinDate: '2023-03-01' });
+  assert.equal(run.ok, true);
+  const row = run.data.employees[0];
+  assert.equal(row.fixedPay, 7500);
+  assert.equal(row.overtimePay, 322.92);
+  assert.equal(row.restDayPay, 250);
+  assert.equal(row.unpaidLeaveDeduction, 500);
+  assert.equal(row.grossPay, 7572.92);
+  assert.equal(row.netPay, 7272.92);
+  assert.equal(row.pension, null);
+  assert.equal(row.gratuityAccrual, 297.26);
+  assert.equal(row.wps.fixed + row.wps.variable, row.netPay);
+  assert.equal(row.wps.unpaidLeaveDays, 2);
+  assert.deepEqual(run.data.rulesUsed.map((rule) => rule.id), ['ae.labour.overtime', 'ae.labour.wage-deductions', 'ae.pension.gpssa']);
+  assert.equal(payrollOne({ basic: 5000, housing: 2000, unpaidLeaveDays: 3, unpaidLeaveBasis: 'basic' }).data.employees[0].unpaidLeaveDeduction, 500);
+});
+
+test('Emirati staff get GPSSA: 11% employee, 15% employer less the 2.5% government share below AED 20,000, capped at AED 70,000', () => {
+  const high = payrollOne({ nationality: 'AE', basic: 15000, housing: 5000, transport: 1000 }).data.employees[0];
+  assert.deepEqual(high.pension, { contributionSalary: 21000, employee: 2310, employer: 3150, government: 0 });
+  assert.equal(high.netPay, 18690);
+  assert.equal(high.employerCost, 24150);
+  assert.equal(high.gratuityAccrual, null);
+  const low = payrollOne({ nationality: 'ae', basic: 8000, housing: 2000 }).data.employees[0];
+  assert.deepEqual(low.pension, { contributionSalary: 10000, employee: 1100, employer: 1250, government: 250 });
+  const capped = payrollOne({ nationality: 'AE', basic: 90000 }).data.employees[0];
+  assert.equal(capped.pension.contributionSalary, 70000);
+  assert.equal(capped.pension.employee, 7700);
+  const old = payrollOne({ nationality: 'AE', basic: 10000, gpssaRegisteredBefore2023Nov: true }).data.employees[0];
+  assert.equal(old.pension, null);
+  assert.match(old.warnings.join(' '), /before 31 October 2023/);
+});
+
+test('deductions above half the wage, bad hours and bad months are refused; overtime limits are warned', () => {
+  const over = payrollOne({ basic: 4000, deductions: 2500 });
+  assert.equal(over.ok, false);
+  assert.equal(over.error, 'PAYROLL_INVALID');
+  assert.deepEqual(over.problems.map((problem) => problem.field), ['deductions']);
+  assert.equal(payrollOne({ basic: 4000, deductions: 2000 }).ok, true);
+  assert.deepEqual(payrollOne({ basic: 0, overtimeHours: -1, restDaysWorked: 40 }).problems.map((problem) => problem.field), ['basic', 'overtimeHours', 'restDaysWorked']);
+  assert.equal(uaePayrollRun({ month: '2026-13', employees: [{ basic: 1 }] }).error, 'BAD_MONTH');
+  assert.equal(uaePayrollRun({ month: '2021-12', employees: [{ basic: 1 }] }).error, 'RULE_NOT_IN_FORCE');
+  const heavy = payrollOne({ basic: 4000, overtimeHours: 70, shiftWorker: true }).data.employees[0];
+  assert.equal(heavy.warnings.length, 2);
+});
+
+test('the payroll lines feed the WPS file, and the engine says the totals in English and Arabic', () => {
+  const args = { month: '2026-10', employees: [{ name: 'Ravi', basic: 5000, housing: 2000, overtimeHours: 4, labourId: '12345678901234', routingCode: '123456789', account: 'AE070331234567890123456' }] };
+  const run = ENGINE.run.ae_payroll_run({}, args);
+  const file = wpsSalaryFile({ month: '2026-10', fileDate: '2026-10-28', fileTime: '0930', employerId: '1234567890123', employerBankRouting: '123456789', employees: run.data.wpsEmployees });
+  assert.equal(file.ok, true);
+  assert.equal(file.data.total, run.data.totals.netPay);
+  assert.match(ENGINE.words.ae_payroll_run(run, null, args), /gross AED/);
+  assert.match(ENGINE.words.ae_payroll_run(run, null, { ...args, lang: 'ar' }), ARABIC);
 });

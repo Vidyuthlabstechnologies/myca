@@ -195,6 +195,9 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - Malaysia PCB (2026-11-14): `my_payroll` works out the monthly tax deduction by LHDN's computerised
   method from `my.payroll.pcb` and the resident bands and rebate rules (categories 1 to 3, children,
   bonus, year to date, zakat, TP1 deductions; flat rate for non-residents)
+- UAE payroll run (2026-11-14): `ae_payroll_run` pays overtime on the basic hourly wage, rest days,
+  unpaid leave, GPSSA pension for Emiratis and the month's gratuity accrual from dated rules
+  (`ae.labour.overtime`, `ae.labour.wage-deductions`, `ae.pension.gpssa`) and hands WPS lines to `ae_wps_file`
 
 
 ### Data import

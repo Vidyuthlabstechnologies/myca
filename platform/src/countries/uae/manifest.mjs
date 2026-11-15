@@ -19,7 +19,8 @@ export const MANIFEST = Object.freeze({
   ruleFamilies: Object.freeze([
     Object.freeze({ key: 'ae-vat', title: 'UAE value added tax', prefix: 'ae.vat.', watch: Object.freeze(['FTA public clarifications and VAT guides', 'Cabinet Decisions amending the VAT Executive Regulation and the penalty schedule']) }),
     Object.freeze({ key: 'ae-corporate-tax', title: 'UAE corporate tax', prefix: 'ae.ct.', watch: Object.freeze(['Ministerial Decisions on Small Business Relief and Free Zone Persons', 'FTA Corporate Tax guides']) }),
-    Object.freeze({ key: 'ae-labour', title: 'UAE labour law: gratuity and the Wage Protection System', prefix: 'ae.labour.', watch: Object.freeze(['Amendments to Federal Decree-Law 33 of 2021 and Cabinet Resolution 1 of 2022', 'Central Bank WPS file format notices']) }),
+    Object.freeze({ key: 'ae-labour', title: 'UAE labour law: gratuity, overtime, wage deductions and the Wage Protection System', prefix: 'ae.labour.', watch: Object.freeze(['Amendments to Federal Decree-Law 33 of 2021 and Cabinet Resolution 1 of 2022', 'Central Bank WPS file format notices']) }),
+    Object.freeze({ key: 'ae-pension', title: 'UAE GPSSA pension contributions for Emiratis', prefix: 'ae.pension.', watch: Object.freeze(['GPSSA circulars on contribution rates and the contribution salary cap']) }),
     Object.freeze({ key: 'ae-einvoice', title: 'UAE electronic invoicing (PINT AE)', prefix: 'ae.einvoice.', watch: Object.freeze(['Ministry of Finance e-invoicing guidelines and PINT AE releases', 'Cabinet Decision 106 of 2025 amendments']) }),
   ]),
   tools: Object.freeze([
@@ -58,6 +59,12 @@ export const MANIFEST = Object.freeze({
       description: 'End-of-service gratuity under Article 51 of the 2021 Labour Law: 21 days of the last basic wage for each of the first five years and 30 days for each year after, pro rata, capped at two years of wage, nothing before one year of service, unpaid absence excluded. Also gives the liability to carry in the books today. Read-only.',
       access: 'read',
       schema: schema({ joinDate: text, lastDay: text, basicMonthly: number, unpaidAbsenceDays: number, dismissedForGrossMisconduct: flag }, ['joinDate', 'lastDay', 'basicMonthly']),
+    }),
+    Object.freeze({
+      name: 'ae_payroll_run', title: 'UAE monthly payroll',
+      description: 'Run one month of UAE payroll: fixed pay (basic and allowances), overtime on the basic hourly wage at 125% or 150% at night and rest days at 150% under Article 19, unpaid leave, other deductions held to half the wage, GPSSA pension for Emiratis (11% employee, 15% employer less the 2.5% government share below AED 20,000, capped at AED 70,000), the month\'s gratuity accrual for others, and WPS-ready lines for ae_wps_file. Read-only.',
+      access: 'read',
+      schema: schema({ month: text, employees: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { name: text, nationality: text, basic: number, housing: number, transport: number, otherAllowances: number, overtimeHours: number, nightOvertimeHours: number, restDaysWorked: number, unpaidLeaveDays: number, unpaidLeaveBasis: { type: 'string', enum: ['gross', 'basic'] }, deductions: number, joinDate: text, shiftWorker: flag, gpssaRegisteredBefore2023Nov: flag, labourId: text, routingCode: text, account: text } } } }, ['month', 'employees']),
     }),
     Object.freeze({
       name: 'ae_penalty_estimate', title: 'Estimate a UAE tax penalty',

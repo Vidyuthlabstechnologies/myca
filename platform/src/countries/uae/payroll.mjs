@@ -158,3 +158,127 @@ export function wpsSalaryFile(args = {}) {
     },
   };
 }
+
+function share(fils, basisPoints) {
+  return divideHalfUp(BigInt(fils) * BigInt(basisPoints), 10000n);
+}
+
+function per(fils, numerator, denominator) {
+  return divideHalfUp(BigInt(fils) * BigInt(numerator), BigInt(denominator));
+}
+
+function hoursOf(value) {
+  if (value === undefined || value === null || value === '') return 0;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? Math.round(number * 100) / 100 : null;
+}
+
+function previousMonthEnd(year, month) {
+  return month === 1 ? iso(year - 1, 12, 31) : iso(year, month - 1, lastDayOf(year, month - 1));
+}
+
+export function uaePayrollRun(args = {}) {
+  const month = MONTH.exec(String(args.month || ''));
+  if (!month) return fail('BAD_MONTH', { hint: 'Give the salary month as YYYY-MM.' });
+  const year = Number(month[1]);
+  const monthNumber = Number(month[2]);
+  const monthEnd = iso(year, monthNumber, lastDayOf(year, monthNumber));
+  const overtime = ruleOn('ae.labour.overtime', monthEnd);
+  const cap = ruleOn('ae.labour.wage-deductions', monthEnd);
+  const pension = ruleOn('ae.pension.gpssa', monthEnd);
+  if (!overtime || !cap) return fail('RULE_NOT_IN_FORCE', { ruleId: 'ae.labour.overtime', hint: 'This payroll follows the 2021 Labour Law, in force from 2 February 2022.' });
+  const employees = Array.isArray(args.employees) ? args.employees : [];
+  if (!employees.length) return fail('BAD_INPUT', { hint: 'Add at least one employee.' });
+  const o = overtime.value;
+  const days = lastDayOf(year, monthNumber);
+  const problems = [];
+  const add = (employee, field, why) => problems.push({ employee, field, why });
+  const rows = employees.map((employee, index) => {
+    const amounts = {};
+    for (const field of ['basic', 'housing', 'transport', 'otherAllowances', 'deductions']) {
+      amounts[field] = money(employee[field]);
+      if (amounts[field] === null) add(index, field, 'Pay is a number of AED, zero or more.');
+    }
+    if (amounts.basic !== null && amounts.basic <= 0) add(index, 'basic', 'Give the basic monthly wage in AED.');
+    const normalHours = hoursOf(employee.overtimeHours);
+    const nightHours = hoursOf(employee.nightOvertimeHours);
+    if (normalHours === null || nightHours === null) add(index, 'overtimeHours', 'Overtime is a number of hours, zero or more.');
+    const restDays = wholeNumber(employee.restDaysWorked);
+    if (restDays === null || restDays > days) add(index, 'restDaysWorked', 'Rest days worked are a whole number of days in the month.');
+    const unpaid = wholeNumber(employee.unpaidLeaveDays);
+    if (unpaid === null || unpaid > days) add(index, 'unpaidLeaveDays', 'Unpaid leave days are a whole number from 0 to the days in the period.');
+    const basis = employee.unpaidLeaveBasis === undefined ? 'gross' : employee.unpaidLeaveBasis;
+    if (basis !== 'gross' && basis !== 'basic') add(index, 'unpaidLeaveBasis', 'Unpaid leave is deducted from the gross fixed pay or the basic wage, as the contract says.');
+    if (employee.joinDate !== undefined && !isIsoDate(employee.joinDate)) add(index, 'joinDate', 'Give joinDate and lastDay as YYYY-MM-DD.');
+    if (problems.some((problem) => problem.employee === index)) return null;
+    const warnings = [];
+    const fixed = amounts.basic + amounts.housing + amounts.transport + amounts.otherAllowances;
+    const hourUnits = Math.round((normalHours * o.overtimeBasisPoints + nightHours * o.nightOvertimeBasisPoints) * 100);
+    const overtimePay = divideHalfUp(BigInt(amounts.basic) * BigInt(hourUnits), BigInt(o.dayRateDivisor * o.normalHoursPerDay * 10000 * 100));
+    const restDayPay = divideHalfUp(BigInt(amounts.basic) * BigInt(restDays * o.restDayBasisPoints), BigInt(o.dayRateDivisor * 10000));
+    if (normalHours + nightHours > o.maxOvertimeHoursPerDay * days) warnings.push('Overtime is more than two hours a day on average this month; the law caps overtime at two hours a day.');
+    if (employee.shiftWorker === true && normalHours + nightHours > 0) warnings.push('The overtime rule does not apply to shift workers; check the contract before paying this overtime.');
+    const unpaidDeduction = per(basis === 'basic' ? amounts.basic : fixed, unpaid, o.dayRateDivisor);
+    const variable = overtimePay + restDayPay;
+    const gross = fixed + variable - unpaidDeduction;
+    const national = String(employee.nationality || '').toUpperCase() === (pension ? pension.value.coveredNationality : 'AE');
+    let pensionPart = null;
+    if (national) {
+      if (!pension) warnings.push('GPSSA pension is due for this Emirati employee; MyCA has no GPSSA rate for this month.');
+      else if (employee.gpssaRegisteredBefore2023Nov === true) warnings.push('This employee was registered with GPSSA before 31 October 2023; read the contribution from GPSSA, MyCA covers the 2023 law only.');
+      else {
+        const p = pension.value;
+        const salary = Math.min(fixed, p.contributionSalaryCapFils);
+        const government = salary < p.governmentShareBelowFils ? share(salary, p.governmentShareBasisPoints) : 0;
+        pensionPart = { contributionSalary: salary, employee: share(salary, p.employeeBasisPoints), employer: share(salary, p.employerBasisPoints) - government, government };
+      }
+    }
+    const deductions = amounts.deductions + (pensionPart ? pensionPart.employee : 0);
+    const capFils = share(Math.max(0, gross), cap.value.maxShareOfWageBasisPoints);
+    if (deductions > capFils) {
+      add(index, 'deductions', 'Deductions from the wage cannot be more than half of this month\'s wage.');
+      return null;
+    }
+    const net = gross - deductions;
+    let gratuityAccrual = null;
+    if (!national && employee.joinDate && employee.joinDate <= monthEnd) {
+      const now = gratuityEstimate({ joinDate: employee.joinDate, lastDay: monthEnd, basicMonthly: toDirhams(amounts.basic) });
+      const before = previousMonthEnd(year, monthNumber);
+      const earlier = before >= employee.joinDate ? gratuityEstimate({ joinDate: employee.joinDate, lastDay: before, basicMonthly: toDirhams(amounts.basic) }) : null;
+      if (now.ok) gratuityAccrual = toFils(now.data.accruedLiability) - (earlier && earlier.ok ? toFils(earlier.data.accruedLiability) : 0);
+    }
+    const wpsFixed = Math.max(0, net - variable);
+    return {
+      name: String(employee.name || `Employee ${index + 1}`).slice(0, 60),
+      fixedPay: toDirhams(fixed),
+      overtimePay: toDirhams(overtimePay),
+      restDayPay: toDirhams(restDayPay),
+      unpaidLeaveDeduction: toDirhams(unpaidDeduction),
+      grossPay: toDirhams(gross),
+      pension: pensionPart ? { contributionSalary: toDirhams(pensionPart.contributionSalary), employee: toDirhams(pensionPart.employee), employer: toDirhams(pensionPart.employer), government: toDirhams(pensionPart.government) } : null,
+      otherDeductions: toDirhams(amounts.deductions),
+      netPay: toDirhams(net),
+      employerCost: toDirhams(gross + (pensionPart ? pensionPart.employer : 0) + (gratuityAccrual || 0)),
+      gratuityAccrual: gratuityAccrual === null ? null : toDirhams(gratuityAccrual),
+      wps: { name: String(employee.name || ''), labourId: employee.labourId, routingCode: employee.routingCode, account: employee.account, fixed: toDirhams(wpsFixed), variable: toDirhams(net - wpsFixed), unpaidLeaveDays: unpaid },
+      warnings,
+      _fils: { gross, net, employer: pensionPart ? pensionPart.employer : 0, pensionEmployee: pensionPart ? pensionPart.employee : 0, gratuity: gratuityAccrual || 0 },
+    };
+  });
+  if (problems.length) return fail('PAYROLL_INVALID', { problems, hint: 'Fix the employees listed and run the payroll again.' });
+  const total = (pick) => toDirhams(rows.reduce((sum, row) => sum + pick(row._fils), 0));
+  const totals = { grossPay: total((f) => f.gross), netPay: total((f) => f.net), pensionEmployee: total((f) => f.pensionEmployee), pensionEmployer: total((f) => f.employer), gratuityAccrual: total((f) => f.gratuity) };
+  for (const row of rows) delete row._fils;
+  return {
+    ok: true,
+    data: {
+      month: args.month,
+      employees: rows,
+      totals,
+      wpsEmployees: rows.map((row) => row.wps),
+      why: 'Pay salaries through WPS (ae_wps_file builds the file from wpsEmployees once each employee has a labour id, routing code and account), and pay GPSSA contributions for Emirati staff through the GPSSA portal.',
+      ...ruleNote(overtime),
+      rulesUsed: [overtime, cap, ...(pension ? [pension] : [])].map((rule) => ({ id: rule.id, effectiveFrom: rule.effectiveFrom, unreviewed: !(rule.attestations || []).length })),
+    },
+  };
+}
