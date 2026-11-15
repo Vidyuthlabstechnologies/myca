@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/api/models.dart';
 import 'package:myca/api/myca_api.dart';
 import 'package:myca/app_state.dart';
+import 'package:myca/my/my_staff.dart';
 import 'package:myca/my/my_strings.dart';
 import 'package:myca/my/my_turnover.dart';
 import 'package:myca/tour/sample_books_api.dart';
@@ -92,8 +93,9 @@ class MemoryLanguageStore implements LanguageStore {
   Future<void> save(String code) async => this.code = code;
 }
 
-AppState myState(MycaApi api, {bool welcomed = true, String language = '', DateTime? now, Future<bool> Function(String text)? share, MyTurnoverStore? turnover}) {
+AppState myState(MycaApi api, {bool welcomed = true, String language = '', DateTime? now, Future<bool> Function(String text)? share, Future<bool> Function(String name, String content)? save, MyTurnoverStore? turnover, MyStaffStore? staff}) {
   myTurnoverStore = turnover ?? MemoryMyTurnoverStore();
+  myStaffStore = staff ?? MemoryMyStaffStore();
   return AppState(
     api: api,
     store: MemoryOnboardingStore(isWelcomed: welcomed, isMigrated: welcomed),
@@ -102,6 +104,7 @@ AppState myState(MycaApi api, {bool welcomed = true, String language = '', DateT
     edition: 'MY',
     languages: MemoryLanguageStore(language),
     shareText: share ?? (_) async => true,
+    saveTextFile: save ?? (_, _) async => true,
   );
 }
 

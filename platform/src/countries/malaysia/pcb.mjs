@@ -40,7 +40,7 @@ function roundPcb(sen, step) {
 }
 
 function reliefsSen(input, value) {
-  return value.individualReliefSen + (input.category === 2 ? value.spouseReliefSen : 0) + value.childReliefSen * input.children + input.ytd.deductionsSen + input.deductionsSen;
+  return value.individualReliefSen + (input.category === 2 ? value.spouseReliefSen : 0) + value.childReliefSen * input.children + (input.disabled ? value.disabledReliefSen || 0 : 0) + (input.disabledSpouse ? value.disabledSpouseReliefSen || 0 : 0) + input.ytd.deductionsSen + input.deductionsSen;
 }
 
 function chargeable(input, value, withBonus) {
@@ -49,7 +49,7 @@ function chargeable(input, value, withBonus) {
   const K = Math.min(input.ytd.epfSen, cap);
   const K1 = Math.min(input.epfSen, Math.max(0, cap - K));
   const Kt = withBonus ? Math.min(input.bonusEpfSen, Math.max(0, cap - K - K1)) : 0;
-  const K2 = n > 0 ? Math.min(K1, Math.max(0, cap - (K + K1 + Kt)) / n) : 0;
+  const K2 = n > 0 ? Math.floor(Math.min(K1, Math.max(0, cap - (K + K1 + Kt)) / n) + 1e-9) : 0;
   const income = (input.ytd.incomeSen - K) + (input.wageSen - K1) + (input.wageSen - K2) * n + (withBonus ? input.bonusSen - Kt : 0);
   return income - reliefsSen(input, value);
 }
@@ -98,6 +98,8 @@ export function readPcbProfile(employee, toSen) {
       category,
       children,
       ytd,
+      disabled: employee.disabled === true,
+      disabledSpouse: employee.disabledSpouse === true,
       zakatSen: amount('zakat', employee.zakat),
       deductionsSen: amount('deductions', employee.deductions),
     },
@@ -106,7 +108,7 @@ export function readPcbProfile(employee, toSen) {
 
 export function monthlyPcb({ month, wageSen, epfSen, bonusSen = 0, bonusEpfSen = 0, profile }, used) {
   const value = used.pcb.value;
-  const base = { month, wageSen, epfSen, bonusSen, bonusEpfSen, resident: profile.resident, category: profile.category, children: profile.children, deductionsSen: profile.deductionsSen };
+  const base = { month, wageSen, epfSen, bonusSen, bonusEpfSen, resident: profile.resident, category: profile.category, children: profile.children, disabled: profile.disabled === true, disabledSpouse: profile.disabledSpouse === true, deductionsSen: profile.deductionsSen };
   let ytd = profile.ytd;
   let assumed = false;
   if (!ytd) {
@@ -118,14 +120,15 @@ export function monthlyPcb({ month, wageSen, epfSen, bonusSen = 0, bonusEpfSen =
     }
   }
   const out = oneMonth({ ...base, ytd }, used);
-  const grossSen = out.normalSen + out.bonusSen;
-  const beforeZakat = grossSen < value.minimumSen ? 0 : grossSen;
+  const normalSen = profile.resident && out.normalSen < value.minimumSen ? 0 : out.normalSen;
+  const bonusPcbSen = out.bonusSen < value.minimumSen ? 0 : out.bonusSen;
+  const beforeZakat = normalSen + bonusPcbSen < value.minimumSen ? 0 : normalSen + bonusPcbSen;
   const afterZakat = Math.max(0, beforeZakat - profile.zakatSen);
-  const pcbSen = afterZakat < value.minimumSen ? 0 : afterZakat;
+  const pcbSen = afterZakat;
   return {
     pcbSen,
-    normalSen: out.normalSen,
-    bonusPcbSen: out.bonusSen,
+    normalSen,
+    bonusPcbSen,
     zakatOffsetSen: beforeZakat - afterZakat,
     chargeableSen: out.chargeableSen,
     yearlyTaxSen: out.yearlyTaxSen,

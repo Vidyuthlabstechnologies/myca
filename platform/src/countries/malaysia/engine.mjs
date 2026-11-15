@@ -8,6 +8,7 @@ import { consolidatedInput, selfBilledInput, einvoiceRequired } from './myinvois
 import { lookupCodes } from './lhdn-codes.mjs';
 import { nricShapeError } from '../../my-identity.mjs';
 import { malaysiaPayroll } from './payroll.mjs';
+import { malaysiaCp39 } from './cp39.mjs';
 
 const PROFILE_FIELDS = ['name', 'tin', 'idType', 'idValue', 'sst', 'ttx', 'msic', 'phone', 'email', 'address'];
 const ID_SHAPES = Object.freeze({
@@ -103,6 +104,7 @@ export const ENGINE = Object.freeze({
   country: 'MY',
   run: Object.freeze({
     my_tax_estimate: (state, args = {}) => malaysiaIncomeTax(args),
+    my_cp39_file: (state, args = {}) => malaysiaCp39(args),
     my_payroll: (state, args = {}) => malaysiaPayroll(args),
     my_sst_rate: (state, args = {}) => {
       const out = args.kind === 'sales' ? salesTaxRate(args.rateBasisPoints, args.date) : serviceTaxRate(args.category, args.date);
@@ -192,6 +194,7 @@ export const ENGINE = Object.freeze({
     simulate_my_received_einvoice: (state, args = {}) => ({ blockers: myInvoisMode() === 'sandbox' ? [] : ['Only in the built-in MyInvois sandbox.'], summary: `Pretend supplier ${args.supplier?.name || ''} sent e-invoice ${args.number || ''} to the business.`, effects: ['Sandbox only: it shows up in my_received_einvoices so rejection can be tried.'], figures: {} }),
   }),
   words: Object.freeze({
+    my_cp39_file: (result) => (result.ok ? `CP39 file ${result.data.fileName} for ${result.data.month}: ${result.data.records} ${result.data.records === 1 ? 'employee' : 'employees'}, PCB ${money(result.data.totals.pcb)}${result.data.totals.cp38 ? `, CP38 ${money(result.data.totals.cp38)}` : ''}. Upload it in e-PCB Plus and pay by ${result.data.dueBy}.` : ''),
     my_payroll: (result) => (result.ok ? `Payroll for ${result.data.month}: wages ${money(result.data.totals.wages)}, EPF ${money(result.data.totals.epf)}, SOCSO ${money(result.data.totals.socso)}, EIS ${money(result.data.totals.eis)}, PCB ${money(result.data.totals.pcb)}, all due by ${result.data.dueBy}.` : ''),
     my_tax_estimate: (result) => {
       if (!result.ok) return '';

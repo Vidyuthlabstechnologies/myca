@@ -102,6 +102,7 @@ export function malaysiaPayroll(args = {}) {
     else {
       pcb = monthlyPcb({ month: Number(month[2]), wageSen, epfSen: epfOnWages.employee, bonusSen, bonusEpfSen: epfPart.employee - epfOnWages.employee, profile: read.profile }, pcbUsed);
       if (pcb.assumedSamePaySinceJanuary) notes.push('PCB assumes the same pay and PCB every month since January; give yearToDate for an exact figure.');
+      if ((read.profile.disabled || read.profile.disabledSpouse) && !pcbUsed.pcb.value.disabledReliefSen) notes.push('The disabled person reliefs are not in MyCA\'s PCB rules for this month, so PCB here does not count them.');
       if (!read.profile.resident) notes.push('Non-resident: PCB is the flat non-resident rate on this month\'s pay.');
     }
     const pcbSen = pcb ? pcb.pcbSen : 0;

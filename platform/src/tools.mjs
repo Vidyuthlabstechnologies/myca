@@ -860,7 +860,7 @@ export const TOOLS = [
   {
     name: 'us_state_tax',
     title: 'Estimate US state income tax',
-    description: 'Says what the started federal return means for state income tax in the state lived in: no return in the eight states with no individual income tax, and for Colorado, Georgia, Illinois, Kentucky, Louisiana, Michigan and North Carolina (tax year 2025) an estimate from the federal figures, the state exemptions or standard deduction and the flat rate, set against state tax withheld on the W-2s. Lists what the estimate leaves out. It does not prepare or file a state return. US only. Read-only.',
+    description: 'Says what the started federal return means for state income tax in the state lived in: no return in the eight states with no individual income tax, and for Colorado, Georgia, Illinois, Kentucky, Louisiana, Michigan and North Carolina (tax years 2025 and 2026) and Arizona and Iowa (tax year 2025) an estimate from the federal figures, the state exemptions or standard deduction and the flat rate, set against state tax withheld on the W-2s. Lists what the estimate leaves out. It does not prepare or file a state return. US only. Read-only.',
     args: ['taxYear', 'state'],
     run: (state, args = {}) => usStateTax(state, args),
   },

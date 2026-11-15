@@ -303,6 +303,10 @@ class MyStrings {
     'UNKNOWN_SERVICE_CATEGORY' => _t('Choose the kind of service again.', 'Pilih jenis perkhidmatan sekali lagi.'),
     'SALES_TAX_RATE_NOT_IN_FORCE' => _t('That sales tax rate is not in force on that date.', 'Kadar cukai jualan itu tidak berkuat kuasa pada tarikh itu.'),
     'NOT_QUERYABLE' || 'UNKNOWN_TOOL' || 'NOT_PROPOSABLE' => notAvailableYet,
+    'NOT_IN_SANDBOX' => _t('Payroll is worked out on MyCA\'s server from the official tables, so it does not run in the sandbox. Sign in to use it.', 'Gaji dikira di pelayan MyCA daripada jadual rasmi, jadi ia tidak berjalan dalam kotak pasir. Log masuk untuk menggunakannya.'),
+    'EMPLOYER_NUMBER_REQUIRED' => _t('Enter the employer\'s E number, up to 10 digits.', 'Masukkan nombor E majikan, sehingga 10 digit.'),
+    'NOTHING_TO_REMIT' => _t('No employee has PCB this month, so there is no CP39 file to send.', 'Tiada pekerja mempunyai PCB bulan ini, jadi tiada fail CP39 untuk dihantar.'),
+    'BAD_INPUT' => _t('Some employee details need fixing.', 'Beberapa butiran pekerja perlu dibetulkan.'),
     'SIGN_IN_REQUIRED' || 'SIGNED_OUT' => _t('Sign in again to continue.', 'Log masuk semula untuk meneruskan.'),
     'EXPIRED' || 'TOKEN_MISMATCH' => _t('That preview is more than ten minutes old. Check it again.', 'Pratonton itu lebih sepuluh minit. Semak sekali lagi.'),
     _ => _t('MyCA could not do that ($code). Nothing was sent.', 'MyCA tidak dapat melakukannya ($code). Tiada apa yang dihantar.'),
@@ -314,6 +318,12 @@ class MyStrings {
       final n = int.parse(line.group(1)!) + 1;
       final rest = line.group(2)!;
       return rest.isEmpty ? lineN(n) : '${lineN(n)}: ${fieldName(rest)}';
+    }
+    final staff = RegExp(r'^employees\[(\d+)\]\.?(.*)$').firstMatch(field);
+    if (staff != null) {
+      final n = int.parse(staff.group(1)!) + 1;
+      final rest = staff.group(2)!;
+      return rest.isEmpty ? employeeN(n) : '${employeeN(n)}: ${fieldName(rest)}';
     }
     final party = RegExp(r'^(supplier|buyer)\.(.+)$').firstMatch(field);
     if (party != null) {
@@ -347,6 +357,14 @@ class MyStrings {
       'paymentMethod' => paymentMethod,
       'lines' => lines,
       'type' => documentType,
+      'taxNumber' => staffTaxNumber,
+      'newIc' => staffIc,
+      'passport' => staffPassport,
+      'countryCode' => staffCountry,
+      'wages' => staffWages,
+      'bonus' => staffBonus,
+      'children' => staffChildren,
+      'pcb' => 'PCB',
       _ => field,
     };
   }
@@ -460,6 +478,58 @@ class MyStrings {
   String get registrationTab => _t('Registration', 'Pendaftaran');
   String get returnTab => _t('SST-02', 'SST-02');
 
+  String get homePayroll => _t('Payroll', 'Gaji');
+  String get homePayrollBody => _t('EPF, SOCSO, EIS and PCB for each employee, with the CP39 file for e-PCB Plus.', 'KWSP, PERKESO, SIP dan PCB bagi setiap pekerja, dengan fail CP39 untuk e-PCB Plus.');
+  String get runPayroll => _t('Work out this month\'s payroll', 'Kira gaji bulan ini');
+  String get payrollTitle => _t('Payroll', 'Gaji');
+  String get payrollNote => _t('MyCA works out the amounts. You pay EPF in i-Akaun (Employer), SOCSO and EIS in PERKESO ASSIST and PCB in e-PCB Plus.', 'MyCA mengira amaunnya. Anda membayar KWSP dalam i-Akaun (Majikan), PERKESO dan SIP dalam PERKESO ASSIST dan PCB dalam e-PCB Plus.');
+  String get payrollMonth => _t('Payroll month', 'Bulan gaji');
+  String employeeN(int n) => _t('Employee $n', 'Pekerja $n');
+  String get staffName => _t('Full name as on the MyKad or passport', 'Nama penuh seperti dalam MyKad atau pasport');
+  String get staffWages => _t('Monthly wages (MYR)', 'Gaji bulanan (MYR)');
+  String get staffBonus => _t('Bonus this month (MYR), if any', 'Bonus bulan ini (MYR), jika ada');
+  String get staffCategory => _t('PCB category', 'Kategori PCB');
+  String staffCategoryName(int category) => switch (category) {
+    2 => _t('2: married, spouse not working', '2: berkahwin, pasangan tidak bekerja'),
+    3 => _t('3: married and spouse working, or single parent', '3: berkahwin dan pasangan bekerja, atau ibu atau bapa tunggal'),
+    _ => _t('1: single', '1: bujang'),
+  };
+  String get staffChildren => _t('Qualifying children', 'Bilangan anak yang layak');
+  String get staffChildrenBad => _t('A whole number, zero or more.', 'Nombor bulat, sifar atau lebih.');
+  String get staffForCp39 => _t('Details for the CP39 file', 'Butiran untuk fail CP39');
+  String get staffTaxNumber => _t('Income tax number (TIN)', 'Nombor cukai pendapatan (TIN)');
+  String get staffIc => _t('MyKad number', 'Nombor MyKad');
+  String get staffPassport => _t('Passport number (foreign employee)', 'Nombor pasport (pekerja asing)');
+  String get staffCountry => _t('Country code, two letters (foreign employee)', 'Kod negara, dua huruf (pekerja asing)');
+  String get staffRemembered => _t('Employees from your last payroll, kept on this phone only. Check the wages before you work it out.', 'Pekerja daripada gaji terakhir anda, disimpan pada telefon ini sahaja. Semak gaji sebelum mengira.');
+  String get addEmployee => _t('Add an employee', 'Tambah pekerja');
+  String get removeEmployee => _t('Remove this employee', 'Buang pekerja ini');
+  String get workOutPayroll => _t('Work out payroll', 'Kira gaji');
+  String get workingOutPayroll => _t('Working it out', 'Sedang mengira');
+  String get netPay => _t('Net pay', 'Gaji bersih');
+  String get wagesLine => _t('Wages', 'Gaji');
+  String get bonusLine => _t('Bonus', 'Bonus');
+  String get epfEmployee => _t('EPF, employee', 'KWSP, pekerja');
+  String get socsoEmployee => _t('SOCSO, employee', 'PERKESO, pekerja');
+  String get eisEmployee => _t('EIS, employee', 'SIP, pekerja');
+  String get pcbLine => _t('PCB (monthly tax deduction)', 'PCB (potongan cukai bulanan)');
+  String get pcbNotWorkedOut => _t('Not worked out', 'Tidak dikira');
+  String get employerShare => _t('Employer pays on top', 'Majikan bayar tambahan');
+  String employerShareBody(String epf, String socso, String eis) => _t('EPF $epf, SOCSO $socso, EIS $eis', 'KWSP $epf, PERKESO $socso, SIP $eis');
+  String get payrollTotals => _t('To pay for the month', 'Perlu dibayar bagi bulan ini');
+  String get epfBoth => _t('EPF, both shares', 'KWSP, kedua-dua bahagian');
+  String get socsoBoth => _t('SOCSO, both shares', 'PERKESO, kedua-dua bahagian');
+  String get eisBoth => _t('EIS, both shares', 'SIP, kedua-dua bahagian');
+  String get employerCost => _t('Total cost to the employer', 'Jumlah kos kepada majikan');
+  String payrollDueBy(String date) => _t('Pay all four by $date.', 'Bayar keempat-empatnya sebelum atau pada $date.');
+  String get cp39Section => _t('CP39 file for e-PCB Plus', 'Fail CP39 untuk e-PCB Plus');
+  String get cp39Body => _t('The CP39 text file lists each employee\'s PCB for the month. Save it, then upload it in e-PCB Plus on MyTax or on your bank\'s PCB page. MyCA does not send it to LHDN.', 'Fail teks CP39 menyenaraikan PCB setiap pekerja bagi bulan itu. Simpan, kemudian muat naik dalam e-PCB Plus di MyTax atau di halaman PCB bank anda. MyCA tidak menghantarnya kepada LHDN.');
+  String get employerNo => _t('Employer\'s E number', 'Nombor E majikan');
+  String get makeCp39 => _t('Save the CP39 file', 'Simpan fail CP39');
+  String get makingCp39 => _t('Preparing the file', 'Menyediakan fail');
+  String cp39Saved(String name, int records, String pcb) => _t('Saved $name: $records ${records == 1 ? 'employee' : 'employees'}, PCB $pcb.', 'Disimpan $name: $records pekerja, PCB $pcb.');
+  String cp39NotSaved(String name) => _t('$name was not saved. Try again and choose where to keep it.', '$name tidak disimpan. Cuba lagi dan pilih tempat untuk menyimpannya.');
+  String cp39LeftOut(String names) => _t('Left out, with no PCB this month: $names.', 'Tidak dimasukkan, tiada PCB bulan ini: $names.');
   String get taxTitle => _t('Income tax estimate', 'Anggaran cukai pendapatan');
   String get yearOfAssessment => _t('Year of assessment', 'Tahun taksiran');
   String get residentLabel => _t('Resident in Malaysia for the year', 'Pemastautin di Malaysia bagi tahun ini');

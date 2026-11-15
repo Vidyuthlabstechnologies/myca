@@ -83,4 +83,104 @@ export const RULES = [
     source: `Louisiana Department of Revenue, income tax reform questions (revenue.louisiana.gov/tax-education-and-faqs/faqs/income-tax-reform): "For taxable periods beginning on or after January 1, 2025, the individual income tax rate is a flat 3%"; standard deduction $12,500 for single and married filing separately and 200% of that for married filing jointly, qualifying surviving spouse and head of household (${READ}; that the return starts from federal adjusted gross income is from the IT-540 layout and was not re-read; the statute sections are cited from memory of the statute layout)`,
     attestations: []
   },
+  {
+    id: 'us.state.individual.AZ',
+    value: { form: '140', start: 'federal_agi', rateBasisPoints: 250, exemptionCents: 0, seniorOrBlindExtraCents: 0, exemptionAgiLimitCents: null, standardDeductionCents: { single: 15750 * D, mfj: 31500 * D, mfs: 15750 * D, hoh: 23625 * D, qss: 23625 * D } },
+    basis: 'flat_rate_on_federal_agi_less_the_arizona_standard_deduction_by_filing_status_a_qualifying_surviving_spouse_files_as_head_of_household_the_age_65_blind_and_other_exemptions_are_not_counted',
+    ...year(2025),
+    act: 'Ariz. Rev. Stat.',
+    section: '43-1011; 43-1041',
+    source: `Arizona Department of Revenue, Individual Income Tax Highlights (azdor.gov/forms/individual-income-tax-highlights): for 2025 a tax rate of 2.5% for all income levels and filing statuses, standard deduction $15,750 single or married filing separately, $31,500 married filing jointly, $23,625 head of household; 2025 Form 140 instructions (azdor.gov/sites/default/files/document/FORMS_INDIVIDUAL_2025_140i.pdf): "Arizona uses federal adjusted gross income as a starting point to determine Arizona taxable income", and head of household applies when "You qualify to file as a qualifying widow or widower on your federal return" (${READ}; the statute sections are cited from memory of the statute layout)`,
+    attestations: []
+  },
+  {
+    id: 'us.state.individual.IA',
+    value: { form: 'IA 1040', start: 'federal_taxable_income', rateBasisPoints: 380, exemptionCents: 0, seniorOrBlindExtraCents: 0, exemptionAgiLimitCents: null, standardDeductionCents: null },
+    basis: 'flat_rate_on_federal_taxable_income_before_net_iowa_modifications_the_alternate_tax_calculation_and_the_exemption_credits_are_not_counted',
+    ...year(2025),
+    act: 'Iowa Code',
+    section: '422.5',
+    source: `Iowa Department of Revenue, 2025 IA 1040 (revenue.iowa.gov/media/4400/download): line 2 "Federal taxable income from federal 1040, line 15", line 4 "Iowa taxable income", line 5 "Iowa tax. Multiply line 4 by 3.8% or amount from alternate tax calculation"; expanded instructions, line 5 (revenue.iowa.gov/taxes/tax-guidance/individual-income-tax/1040-expanded-instructions/iowa-tax): "Iowa now has a flat tax rate of 3.8%" (${READ}; the code section is cited from memory of the statute layout)`,
+    attestations: []
+  },
+  {
+    id: 'us.state.individual.no-wage-income-tax',
+    value: { states: ['AK', 'FL', 'NV', 'NH', 'SD', 'TN', 'TX', 'WY'], capitalGainsOnly: ['WA'] },
+    basis: 'states_that_levy_no_individual_income_tax_and_states_that_tax_only_capital_gains_of_high_earners',
+    ...year(2026),
+    act: 'State revenue codes',
+    section: 'none levied',
+    source: 'Tax Foundation, State Individual Income Tax Rates and Brackets 2026 (taxfoundation.org/data/all/state/state-income-tax-rates-2026): eight states, including New Hampshire, levy no individual income tax (Alaska, Florida, Nevada, New Hampshire, South Dakota, Tennessee, Texas, Wyoming) and "Washington taxes capital gains income only" (a secondary summary, not each state code; read on 2026-11-15; the 2026 return and its instructions are not published yet, so the form lines are assumed unchanged from 2025)',
+    attestations: []
+  },
+  {
+    id: 'us.state.individual.IL',
+    value: { provisional: true, form: 'IL-1040', start: 'federal_agi', rateBasisPoints: 495, exemptionCents: 2925 * D, seniorOrBlindExtraCents: 1000 * D, exemptionAgiLimitCents: { joint: 500000 * D, other: 250000 * D }, standardDeductionCents: null },
+    basis: 'flat_rate_on_federal_agi_less_an_exemption_per_person_with_an_extra_amount_at_65_or_blind_and_no_exemption_above_the_federal_agi_limit',
+    ...year(2026),
+    act: 'Illinois Income Tax Act (35 ILCS 5)',
+    section: '201(b)(5.4); 204',
+    source: 'Illinois Department of Revenue, Informational Bulletin FY 2026-15, What\'s New for Illinois Income Taxes (tax.illinois.gov/research/publications/bulletins/fy-2026-15.html): "The personal exemption amount for tax year 2026 will increase to $2,925"; the 4.95% rate, the $1,000 at 65 or blind and the $250,000 and $500,000 federal AGI limits are carried from the 2025 record, no change announced (read on 2026-11-15; the 2026 return and its instructions are not published yet, so the form lines are assumed unchanged from 2025)',
+    attestations: []
+  },
+  {
+    id: 'us.state.individual.MI',
+    value: { provisional: true, form: 'MI-1040', start: 'federal_agi', rateBasisPoints: 425, exemptionCents: 5900 * D, seniorOrBlindExtraCents: 0, exemptionAgiLimitCents: null, standardDeductionCents: null },
+    basis: 'flat_rate_on_federal_agi_less_a_personal_exemption_for_each_person_on_the_return',
+    ...year(2026),
+    act: 'Michigan Income Tax Act (1967 PA 281)',
+    section: '30; 51',
+    source: 'Michigan Department of Treasury, Calendar Year Tax Information (michigan.gov/taxes/business-taxes/withholding/calendar-year-tax-information), 2026 row: "Withholding Rate: 4.25% Personal Exemption: $5,900" (a withholding page; the 2026 MI-1040 is not published; read on 2026-11-15; the 2026 return and its instructions are not published yet, so the form lines are assumed unchanged from 2025)',
+    attestations: []
+  },
+  {
+    id: 'us.state.individual.NC',
+    value: { provisional: true, form: 'D-400', start: 'federal_agi', rateBasisPoints: 399, exemptionCents: 0, seniorOrBlindExtraCents: 0, exemptionAgiLimitCents: null, standardDeductionCents: { single: 12750 * D, mfj: 25500 * D, mfs: 12750 * D, hoh: 19125 * D, qss: 25500 * D } },
+    basis: 'flat_rate_on_federal_agi_less_the_north_carolina_standard_deduction_by_filing_status_married_separate_amount_assumes_the_spouse_does_not_itemize',
+    ...year(2026),
+    act: 'N.C. Gen. Stat.',
+    section: '105-153.7; 105-153.5',
+    source: 'North Carolina Department of Revenue staff presentation, Individual Income and Pass-Through Entity Update, November 2025 (ncacpa.org/wp-content/uploads/2025/11/8D_Donna-Powell-William-Young_FINAL_-Individual-Income-and-PTE-Update-Session-Presentation-Final2.pdf): "For tax year 2026, the individual income tax rate is 3.99%"; standard deduction $25,500 married filing jointly or surviving spouse, $19,125 head of household, $12,750 single or married filing separately (the slide gives the amounts without a year; read on 2026-11-15; the 2026 return and its instructions are not published yet, so the form lines are assumed unchanged from 2025)',
+    attestations: []
+  },
+  {
+    id: 'us.state.individual.CO',
+    value: { provisional: true, form: 'DR 0104', start: 'federal_taxable_income', rateBasisPoints: 440, exemptionCents: 0, seniorOrBlindExtraCents: 0, exemptionAgiLimitCents: null, standardDeductionCents: null },
+    basis: 'flat_rate_on_federal_taxable_income_before_colorado_additions_and_subtractions',
+    ...year(2026),
+    act: 'Colo. Rev. Stat.',
+    section: '39-22-104',
+    source: 'Tax Foundation, State Individual Income Tax Rates and Brackets 2026 (taxfoundation.org/data/all/state/state-income-tax-rates-2026): Colorado flat 4.40% as of 1 January 2026, starting from federal taxable income; a temporary TABOR rate reduction for 2026, if the state declares one, is not reflected (a secondary summary; the Colorado Department of Revenue page for 2026 was not found; read on 2026-11-15; the 2026 return and its instructions are not published yet, so the form lines are assumed unchanged from 2025)',
+    attestations: []
+  },
+  {
+    id: 'us.state.individual.GA',
+    value: { provisional: true, form: '500', start: 'federal_agi', rateBasisPoints: 499, exemptionCents: 0, dependentExemptionCents: 5000 * D, seniorOrBlindExtraCents: 0, exemptionAgiLimitCents: null, standardDeductionCents: { single: 15000 * D, mfj: 30000 * D, mfs: 15000 * D, hoh: 15000 * D, qss: 15000 * D } },
+    basis: 'flat_rate_on_federal_agi_less_the_georgia_standard_deduction_by_filing_status_and_an_exemption_for_each_dependent',
+    ...year(2026),
+    act: 'O.C.G.A.',
+    section: '48-7-20; 48-7-26; 48-7-27',
+    source: 'Employees\' Retirement System of Georgia, Georgia Income Tax Rate Changes (ers.ga.gov/node/1589), on House Bill 463 of 2026: "The Georgia income tax rate has been reduced from 5.19% to 4.99%", standard deduction $30,000 married filing jointly and $15,000 for single, head of household and married filing separately, "The dependent deduction has raised from $4,000 to $5,000"; EY Tax News 2026-1294 on the Department of Revenue\'s revised Employer\'s Withholding Tax Guide (June 2026): effective retroactive to 1 January 2026 (the Department of Revenue guide itself was not read; a qualifying surviving spouse is given the $15,000 amount as in 2025; read on 2026-11-15; the 2026 return and its instructions are not published yet, so the form lines are assumed unchanged from 2025)',
+    attestations: []
+  },
+  {
+    id: 'us.state.individual.KY',
+    value: { provisional: true, form: '740', start: 'federal_agi', rateBasisPoints: 350, exemptionCents: 0, seniorOrBlindExtraCents: 0, exemptionAgiLimitCents: null, standardDeductionCents: { single: 3360 * D, mfj: 3360 * D, mfs: 3360 * D, hoh: 3360 * D, qss: 3360 * D } },
+    basis: 'flat_rate_on_federal_agi_less_one_kentucky_standard_deduction_per_return',
+    ...year(2026),
+    act: 'Ky. Rev. Stat.',
+    section: '141.020; 141.081',
+    source: 'Kentucky Department of Revenue, 2026 Withholding Tax Formula (revenue.ky.gov/Forms/2026%20Withholding%20Formula.pdf): "2026 Kentucky Tax Rate: 3.5% of taxable income" and "2026 Kentucky Standard Deduction: $3,360"; news release of 4 September 2025: "the standard deduction for 2026 is $3,360, an increase of $90" (revenue.ky.gov/News/Pages/Kentucky-DOR-Announces-2026-Standard-Deduction.aspx) (read on 2026-11-15; the 2026 return and its instructions are not published yet, so the form lines are assumed unchanged from 2025)',
+    attestations: []
+  },
+  {
+    id: 'us.state.individual.LA',
+    value: { provisional: true, form: 'IT-540', start: 'federal_agi', rateBasisPoints: 300, exemptionCents: 0, seniorOrBlindExtraCents: 0, exemptionAgiLimitCents: null, standardDeductionCents: { single: 12875 * D, mfj: 25750 * D, mfs: 12875 * D, hoh: 25750 * D, qss: 25750 * D } },
+    basis: 'flat_rate_on_federal_agi_less_the_louisiana_standard_deduction_by_filing_status',
+    ...year(2026),
+    act: 'La. Rev. Stat.',
+    section: '47:32; 47:294',
+    source: 'Louisiana Department of Revenue, Revenue Information Bulletin 26-005, Updated Withholding Tables (dam.ldr.la.gov/lawspolicies/RIB 26-005-Updated Withholding Tables.pdf): "a standard deduction of $12,875 was used for single and married-filing-separately taxpayers" and "$25,750 for married-filing-jointly, qualifying surviving spouse, and head-of-household taxpayers", with the warning that "The official 2026 standard deduction amounts may be slightly different"; Tax Foundation 2026 table shows the same amounts and the flat 3.00% rate (read on 2026-11-15; the 2026 return and its instructions are not published yet, so the form lines are assumed unchanged from 2025)',
+    attestations: []
+  },
 ];

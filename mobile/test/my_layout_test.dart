@@ -18,6 +18,7 @@ import 'package:myca/screens/my/my_einvoice_create_screen.dart';
 import 'package:myca/screens/my/my_einvoice_detail_screen.dart';
 import 'package:myca/screens/my/my_einvoice_list_screen.dart';
 import 'package:myca/screens/my/my_home_screen.dart';
+import 'package:myca/screens/my/my_payroll_screen.dart';
 import 'package:myca/screens/my/my_plan_screen.dart';
 import 'package:myca/screens/my/my_profile_screens.dart';
 import 'package:myca/screens/my/my_self_billed_screen.dart';
@@ -48,6 +49,7 @@ final Map<String, Screen> screens = {
   'sstReturn': (_, _) => const MySstScreen(),
   'sstRegistration': (_, _) => const MySstScreen(startOnRegistration: true),
   'tax': (_, _) => const MyTaxScreen(),
+  'payroll': (_, _) => const MyPayrollScreen(),
   'plan': (_, _) => const MyPlanScreen(),
   'selfBilled': (_, _) => const MySelfBilledScreen(),
   'selfBilledNote': (api, _) => MySelfBilledScreen(type: 'self-billed-credit-note', original: MyEinvoice.fromJson({...api.books.malaysia.einvoices.first, 'type': 'self-billed-invoice', 'kind': 'self-billed', 'supplierName': 'Shenzhen Brightway Electronics Co Ltd', 'totals': {'net': 1200, 'tax': 0, 'payable': 1200, 'currency': 'USD'}})),
@@ -56,7 +58,7 @@ final Map<String, Screen> screens = {
   'homeTurnoverRelated': (_, snapshot) => MyHomeScreen(snapshot: snapshot),
 };
 
-const malayToo = {'selfBilled', 'selfBilledNote', 'detailSelfBilled', 'homeTurnover', 'homeTurnoverRelated', 'home', 'signIn', 'signInPhone', 'privacy', 'name', 'invitations'};
+const malayToo = {'payroll', 'selfBilled', 'selfBilledNote', 'detailSelfBilled', 'homeTurnover', 'homeTurnoverRelated', 'home', 'signIn', 'signInPhone', 'privacy', 'name', 'invitations'};
 
 MyTurnoverStore? turnoverFor(String screen) => switch (screen) {
   'homeTurnover' => MemoryMyTurnoverStore()..saved['Teratai Digital Sdn Bhd'] = const MyTurnover(annual: 2400000),

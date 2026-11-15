@@ -67,7 +67,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | Prior-year return import | `import_us_prior_year`: from last year's MyCA return, or typed figures from a return filed elsewhere | **Built now**; reading a rival's PDF is still open |
 | Amended return 1040-X | no | Gap |
 | Form 2441 child care credit, 8962 premium tax credit, Schedule E rentals | coming | Gap |
-| State returns | `us_state_tax`: no return in the eight states with no income tax; a 2025 estimate for Colorado, Georgia, Illinois, Kentucky, Louisiana, Michigan and North Carolina from the federal return (Colorado from federal taxable income, the rest from federal AGI), set against W-2 state withholding | **Started**: an estimate only, seven flat-rate states, no state subtractions or credits, no state form or e-file; the other states and 2026 figures are open |
+| State returns | `us_state_tax`: no return in the eight states with no income tax; a 2025 or 2026 estimate for Colorado, Georgia, Illinois, Kentucky, Louisiana, Michigan and North Carolina and a 2025 estimate for Arizona and Iowa from the federal return (Colorado and Iowa from federal taxable income, the rest from federal AGI), set against W-2 state withholding | **Started**: an estimate only, nine flat-rate states (Arizona and Iowa for 2025 only), no state subtractions or credits, no state form or e-file; the 2026 figures are the ones each state announced before its 2026 return and are marked provisional; the other states are open |
 | Audit defense / letter help | IRS letter reader in Plus | Partial |
 
 ## United Kingdom (rivals: FreeAgent, Xero, QuickBooks, GoSimpleTax, Sage)
@@ -132,7 +132,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | SST-02 return, SST registration test | yes | Ahead of Xero |
 | Income tax estimate | yes | Ahead |
 | Bilingual (English, Malay) | yes (launch branch) | Parity |
-| Payroll statutory (EPF, SOCSO, EIS, PCB) | `my_payroll` from the Third Schedule, the PERKESO RM100-band tables and LHDN's computerised PCB method (categories, children, bonus, year to date, zakat) | **Built now**; wages of RM300 or less, SOCSO second category, the LINDUNG 24 Jam amount (from June 2026 the run only says it is due and at what rate) and CP39 file export still open |
+| Payroll statutory (EPF, SOCSO, EIS, PCB) | `my_payroll` from the Third Schedule, the PERKESO RM100-band tables and LHDN's computerised PCB method (categories, children, bonus, year to date, zakat); `my_cp39_file` writes the CP39 text file for e-PCB Plus in LHDN's 2026 layout; PCB now checked against LHDN's 2026 specification and its worked example | **Built now**; wages of RM300 or less, SOCSO second category and the LINDUNG 24 Jam amount (from June 2026 the run only says it is due and at what rate) still open; the Malaysia app now has a payroll screen (employees, net pay, the month's totals) that saves the CP39 file; employees and the employer number come back next month from the phone's secure storage; the file has not been uploaded to e-PCB Plus, employees do not follow the user to another phone and the sandbox does not run payroll |
 | Bank feeds and receipt extraction | no | Gap (Bukku) |
 | Inventory with batches/serials | basic | Gap (AutoCount) |
 
@@ -141,7 +141,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | # | Country | Gap | Why it matters | Suggested owner |
 |---|---|---|---|---|
 | 1 | US | Sign the e-file partner (1099-B/crypto CSV import is built) | No filing, no revenue; investors are the users TurboTax upsells hardest | US launch thread + owner |
-| 2 | Malaysia | PCB (monthly tax deduction) on top of the EPF/SOCSO/EIS payroll (BUILT; next: CP39 file for e-PCB Plus) | SQL Account's payroll add-on is the main reason SMEs stay on desktop | Malaysia thread, from the official KWSP/PERKESO/LHDN tables |
+| 2 | Malaysia | PCB (monthly tax deduction) on top of the EPF/SOCSO/EIS payroll (BUILT, with the CP39 file for e-PCB Plus; and a payroll screen in the app that saves it; next: a real upload test and keeping employees on the server so they follow the user) | SQL Account's payroll add-on is the main reason SMEs stay on desktop | Malaysia thread, from the official KWSP/PERKESO/LHDN tables |
 | 3 | India | Barcode counter billing and thermal printing on Android (BUILT) | Retail shops pick Vyapar/myBillBook for this alone | India mobile thread |
 | 4 | UK | Receipt OCR on UK screens (Open Banking bank feeds are BUILT through Plaid, waiting on the owner's Plaid UK access) | Every rival has them; quarterly MTD updates need categorised bank lines | UK thread (TrueLayer or Yapily via a cloud port) |
 | 5 | India | Hindi on every India screen and in MyCA's replies, then regional languages (home, new entry, counter sale and the fixed wording of the shared screens are BUILT) | Vyapar's growth came from it | Design system thread |

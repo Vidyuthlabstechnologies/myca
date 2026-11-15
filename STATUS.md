@@ -221,6 +221,12 @@ and [`README.md`](README.md) for what is left and how it is being done.
   API get it as well as the counter sale; the invoice is still posted, not refused. `us_state_tax` with no year
   uses the started return's year. Signing a US return uses the prior-year AGI brought in by the import for the
   taxpayer (a spouse's is still typed). The LINDUNG 24 Jam note names the month its current rate began
+- US state income tax, 2026 figures (2026-11-15): the seven states now answer for tax year 2026 from announced
+  figures (Illinois $2,925 exemption; Michigan $5,900; North Carolina 3.99%; Georgia 4.99%, $15,000 or $30,000
+  and $5,000 a dependent under HB 463; Kentucky 3.5% and $3,360; Louisiana $12,875 or $25,750; Colorado 4.4%).
+  Each is marked provisional and the reply says to check again at filing, since no state has published its 2026
+  return. Colorado's 2026 rate is from a secondary source and ignores any TABOR rate cut; Louisiana's amounts
+  are the ones its withholding tables used
 - US state income tax, four more states (2026-11-15): Colorado (4.4% of federal taxable income), Georgia (5.19%,
   $12,000 or $24,000 standard deduction, $4,000 a dependent), Kentucky (4%, $3,270 standard deduction) and
   Louisiana (flat 3%, $12,500 or $25,000 standard deduction) join the 2025 estimate, each from the state's own
@@ -234,6 +240,39 @@ and [`README.md`](README.md) for what is left and how it is being done.
   text passed to `inText` has no Hindi line. Other screens and server replies stay in English for now
 - India counter sale buyer details (2026-11-15): a counter bill of ₹50,000 or more is held until the
   customer's name and address are entered, and the address goes on the invoice (`partyAddress`)
+- US federal figures checked against the IRS text (2026-11-15): the 2025 and 2026 brackets, capital gains
+  thresholds, earned income credit table, student loan interest phase-out and QBI thresholds, and the 2026
+  standard deduction and child tax credit, were compared line by line with Rev. Proc. 2024-40 and 2025-32. All
+  match; those records now say so. Still resting on secondary summaries: the other US individual records and
+  the 2027 figures
+- Malaysia PCB checked against LHDN (2026-11-15): the 2026 PCB rule now cites LHDN's own specification, and three
+  differences from it are fixed: a PCB that falls under RM10 only after zakat is still deducted (it was dropped),
+  the RM10 floor is tested on normal pay and on a bonus separately, and the spread EPF figure is cut to the sen
+  as LHDN does. Disabled employee (RM7,000) and disabled spouse (RM6,000) reliefs are added for 2026. LHDN's
+  worked example (category 3, three children, RM5,500) gives RM110.00 here too
+- Malaysia CP39 file (2026-11-15): `my_cp39_file` builds the monthly PCB remittance text file for e-PCB Plus or
+  a bank from LHDN's 2026 specification (Exhibit 4 and 5): a 57-character header with the employer numbers and
+  totals, a 136-character line per employee, amounts in sen with no decimal point, file name
+  `<employer no><mm>_<yyyy>.txt`. The layout is the dated rule `my.payroll.cp39-text-file`. Employees with no
+  deduction are left out. Not yet done: a download button in the app, and an upload to e-PCB Plus to prove the
+  file is accepted (the specification does not say how lines end; the file uses CR LF)
+- Malaysia payroll screen (2026-11-15): the Malaysia app has a Payroll screen on the home page. It takes the month
+  and each employee's wages, bonus, PCB category and children, shows EPF, SOCSO, EIS, PCB and net pay per employee
+  with the month's totals and due date from `my_payroll`, and saves the CP39 file from `my_cp39_file`. Employees
+  with nothing to remit no longer need a tax number for the CP39 file. Open: employees are typed in each month,
+  the sandbox does not run payroll, and the file has not been uploaded to e-PCB Plus.
+- US state estimate adds Arizona and Iowa (2026-11-15): `us_state_tax` answers for tax year 2025 in Arizona (2.5% on
+  federal AGI less the Arizona standard deduction) and Iowa (3.8% on federal taxable income), from the Arizona
+  Department of Revenue highlights and Form 140 instructions and the 2025 IA 1040. No 2026 records yet, so 2026
+  answers `STATE_YEAR_NOT_SUPPORTED_YET` for these two. Arizona's age and blind exemptions and Iowa's alternate
+  tax calculation are listed as not counted.
+- Malaysia payroll remembers employees (2026-11-15): after a payroll run the Malaysia app keeps the employees (name,
+  wages, PCB category, children, tax number, MyKad or passport) and the employer's E number in the phone's secure
+  storage, per business, and fills them in next month. The bonus is not kept. Nothing is sent to the server, so
+  they do not follow the user to another phone.
+- Malaysia income tax sources (2026-11-15): the resident bands and the RM400 rebate were checked against LHDN's own
+  tax rate and rebate pages and match; the records now cite LHDN first. The 30% non-resident rate, the SST records
+  and the UAE labour records still rest on secondary summaries; UAE VAT and corporate tax already cite the FTA.
 - Malaysia LINDUNG 24 Jam (2026-11-15): `my.payroll.lindung-24-jam` records the employee-paid Non-Employment
   Injury Scheme from June 2026 (0.75%, then 1% and 1.25%; mandatory for foreign workers, voluntary for
   locals); `my_payroll` says it is due and not in net pay, because the ringgit schedule is not encoded yet
