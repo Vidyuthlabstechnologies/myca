@@ -54,7 +54,12 @@ build_local() {
   say "Building the image in Cloud Shell and pushing ${IMAGE}"
   gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet >/dev/null
   docker build -f deploy/sandbox/Dockerfile -t "$IMAGE" .
-  docker push "$IMAGE"
+  for attempt in 1 2 3 4 5; do
+    docker push "$IMAGE" && return 0
+    echo "Push failed (attempt ${attempt}); retrying in $((attempt * 10)) seconds."
+    sleep $((attempt * 10))
+  done
+  return 1
 }
 build_cloud() {
   say "Building the image with Cloud Build (a few minutes, nothing is downloaded to Cloud Shell)"
