@@ -142,7 +142,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
             ),
             if (_error.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+              Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
             ],
             const SizedBox(height: 24),
             FilledButton(
@@ -265,7 +265,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
               const SizedBox(height: 12),
               Text(
                 _error,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Palette.danger,
                   fontWeight: FontWeight.w500,
                 ),

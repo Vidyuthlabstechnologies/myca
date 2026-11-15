@@ -6,7 +6,7 @@ import 'package:myca/cloud/cloud_session.dart';
 import 'package:myca/cloud/token_store.dart';
 import 'package:myca/main.dart';
 
-import 'accessibility_test.dart' show phone;
+import 'screen_walks.dart' show phone;
 import 'batch4_fix2_app_test.dart' show signedInScripted;
 import 'batch4_fix_app_test.dart' show refused, says, scriptedSession, wrong;
 import 'cloud_test.dart' show signedIn;

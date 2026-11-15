@@ -86,6 +86,36 @@ class TintTile extends StatelessWidget {
   }
 }
 
+class ChoiceDot extends StatelessWidget {
+  const ChoiceDot({super.key, required this.selected, this.size = 40});
+
+  final bool selected;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      checked: selected,
+      inMutuallyExclusiveGroup: true,
+      child: SizedBox.square(
+        dimension: size,
+        child: Center(
+          child: Container(
+            width: size * 0.6,
+            height: size * 0.6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: selected ? Palette.ink : Colors.transparent,
+              border: Border.all(color: selected ? Palette.ink : Palette.muted, width: 1.6),
+            ),
+            child: selected ? Icon(Icons.check, size: size * 0.4, color: Palette.onInk) : null,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class Panel extends StatelessWidget {
   const Panel({super.key, required this.children});
 
@@ -181,6 +211,23 @@ class RowCard extends StatelessWidget {
     final big = MediaQuery.textScalerOf(context).scale(14) / 14 > 1.3;
     if (!big || !width.isFinite) return child;
     return ConstrainedBox(constraints: BoxConstraints(maxWidth: width * 0.45), child: child);
+  }
+}
+
+class Amount extends StatelessWidget {
+  const Amount(this.value, {super.key, this.style, this.alignment = Alignment.centerLeft});
+
+  final String value;
+  final TextStyle? style;
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: alignment,
+      child: Text(value, style: style, maxLines: 1, softWrap: false),
+    );
   }
 }
 
@@ -329,7 +376,7 @@ class Bubble extends StatelessWidget {
       BubbleTone.posted => Palette.accent,
       _ => Palette.muted,
     };
-    final foreground = mine ? Colors.white : Palette.ink;
+    final foreground = mine ? Palette.onInk : Palette.ink;
     final s = UaeStrings.of(context);
     final stampColor = switch (stamp) {
       'Unpaid' || 'Part paid' || 'Declined' || 'Expired' => Palette.warn,
@@ -396,8 +443,9 @@ class Bubble extends StatelessWidget {
               if (amount != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Text(
+                  child: Amount(
                     amount!,
+                    alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
                     style: TextStyle(
                       color: foreground,
                       fontSize: 20,
@@ -412,7 +460,7 @@ class Bubble extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     note,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Palette.muted,
                       fontSize: 13,
                       height: 1.35,

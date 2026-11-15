@@ -428,7 +428,7 @@ class _Figure extends StatelessWidget {
         children: [
           Text(label, style: text.bodySmall),
           const SizedBox(height: 2),
-          Text(value, style: text.titleMedium?.copyWith(fontFeatures: moneyFigures)),
+          Amount(value, style: text.titleMedium?.copyWith(fontFeatures: moneyFigures)),
         ],
       ),
     );

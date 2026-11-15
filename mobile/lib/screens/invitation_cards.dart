@@ -89,7 +89,7 @@ class _InvitationCardsState extends State<InvitationCards> {
         if (_error.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+            child: Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
           ),
       ],
     );

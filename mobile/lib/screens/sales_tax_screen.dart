@@ -334,7 +334,7 @@ class _SalesTaxScreenState extends State<SalesTaxScreen> with ProposalFlow {
                     if (_composer != _Composer.none && pending == null) ...[
                       if (_error.isNotEmpty) ...[
                         const SizedBox(height: 10),
-                        Text(_error, style: const TextStyle(color: Palette.danger)),
+                        Text(_error, style: TextStyle(color: Palette.danger)),
                       ],
                       const SizedBox(height: 14),
                       FilledButton(onPressed: busy ? null : () => _submit(selected), child: const Text('Preview')),

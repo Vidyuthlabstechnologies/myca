@@ -892,7 +892,7 @@ class _PeriodCard extends StatelessWidget {
           style: text.labelSmall,
         ),
         const SizedBox(height: 6),
-        Text(
+        Amount(
           rupees(gst.outputTax.total),
           style: text.displaySmall?.copyWith(
             fontWeight: FontWeight.w400,
@@ -959,14 +959,10 @@ class _HeadsRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(child: Text(label, style: text.titleMedium)),
-            Text(
-              rupees(heads.total),
-              style: text.titleMedium?.copyWith(fontFeatures: moneyFigures),
-            ),
-          ],
+        AmountRow(
+          start: Text(label, style: text.titleMedium),
+          amount: rupees(heads.total),
+          style: text.titleMedium?.copyWith(fontFeatures: moneyFigures),
         ),
         const SizedBox(height: 2),
         Text(
@@ -1016,7 +1012,7 @@ class _Gstr1Card extends StatelessWidget {
               padding: const EdgeInsets.only(top: 8),
               child: Text(
                 '${held.number} is left out: ${heldReason(held.code)}.',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Palette.danger,
                   fontWeight: FontWeight.w500,
                 ),

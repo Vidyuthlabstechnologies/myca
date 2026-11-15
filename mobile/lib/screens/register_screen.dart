@@ -52,6 +52,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bigText = MediaQuery.textScalerOf(context).scale(14) > 14 * 1.3;
     final state = AppScope.of(context);
     final snapshot = state.snapshot;
     final documents = snapshot == null ? const <Invoice>[] : (_sales ? snapshot.invoices : snapshot.purchases);
@@ -85,21 +86,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     RowCard(
                       leading: TintTile(tint: tint, letter: party.initial),
                       title: party.name,
-                      subtitle: s.lastEntryLine(party.latest!, widget.kind),
-                      trailing: ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: s.ar ? 80 : double.infinity),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              s.ar ? s.longDate(party.latest!.date) : party.latest!.date,
-                              textAlign: TextAlign.end,
-                              style: text.bodySmall?.copyWith(color: Palette.muted),
+                      subtitle: bigText
+                          ? '${s.lastEntryLine(party.latest!, widget.kind)} · ${s.ar ? s.longDate(party.latest!.date) : party.latest!.date}'
+                          : s.lastEntryLine(party.latest!, widget.kind),
+                      badge: bigText && _sales && party.unpaid.isNotEmpty
+                          ? StatusTag(text: s.unpaidCount(party.unpaid.length), color: Palette.warn)
+                          : null,
+                      trailing: bigText
+                          ? null
+                          : ConstrainedBox(
+                              constraints: BoxConstraints(maxWidth: s.ar ? 80 : double.infinity),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    s.ar ? s.longDate(party.latest!.date) : party.latest!.date,
+                                    textAlign: TextAlign.end,
+                                    style: text.bodySmall?.copyWith(color: Palette.muted),
+                                  ),
+                                  if (_sales && party.unpaid.isNotEmpty) ...[const SizedBox(height: 6), StatusTag(text: s.unpaidCount(party.unpaid.length), color: Palette.warn)],
+                                ],
+                              ),
                             ),
-                            if (_sales && party.unpaid.isNotEmpty) ...[const SizedBox(height: 6), StatusTag(text: s.unpaidCount(party.unpaid.length), color: Palette.warn)],
-                          ],
-                        ),
-                      ),
                       onTap: () => _openParty(party.name, party.gstin),
                     ),
                 ],

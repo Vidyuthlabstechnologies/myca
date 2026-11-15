@@ -234,7 +234,7 @@ class _Total extends StatelessWidget {
       children: [
         Text(label, style: text.bodySmall),
         const SizedBox(height: 2),
-        Text(rupees(amount), style: text.titleLarge?.copyWith(fontFeatures: moneyFigures, color: color)),
+        Amount(rupees(amount), style: text.titleLarge?.copyWith(fontFeatures: moneyFigures, color: color)),
       ],
     );
   }
