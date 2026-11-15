@@ -58,4 +58,20 @@ void main() {
     expect(find.text('YOUR BOOKS'), findsOneWidget);
     expect(find.text('आपके बही-खाते'), findsNothing);
   });
+
+  for (final row in const {'नकदी': 'अभी बैंक और नकदी', 'बैंक': 'स्टेटमेंट लाएँ', 'दोहराई जाने वाली एंट्री': 'दोहराने वाला खर्च जोड़ें', 'रिपोर्ट': 'ऑडिट ट्रेल', 'रिमाइंडर': 'रिमाइंडर'}.entries) {
+    testWidgets('on a Hindi phone ${row.key} opens in Hindi without overflowing', (tester) async {
+      tester.platformDispatcher.localesTestValue = const [Locale('hi', 'IN')];
+      addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+      await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true))));
+      await tester.pumpAndSettle();
+      await tester.dragUntilVisible(find.text(row.key), find.byType(Scrollable).first, const Offset(0, -200));
+      await tester.ensureVisible(find.text(row.key));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(row.key));
+      await tester.pumpAndSettle();
+      expect(find.textContaining(row.value), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

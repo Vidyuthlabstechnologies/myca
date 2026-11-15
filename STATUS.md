@@ -205,6 +205,10 @@ and [`README.md`](README.md) for what is left and how it is being done.
   HMRC computerised PAYE method (cumulative, week 1/month 1, K, BR, D and NT codes, Scottish and Welsh
   prefixes, the 50% limit), Class 1 National Insurance by category letter, student and postgraduate loans
   and pensions, from `gb.paye.calculation` and `gb.ni.class-1`; it does not send RTI to HMRC
+- India in Hindi, shared screens (2026-11-15): the wording class the shared screens use now reads the same
+  Hindi table, so cash, bank, reports, statements, repeating entries, reminders, expenses, parties and the
+  entry forms show their fixed wording in Hindi on a Hindi phone (about 340 more lines). Lines built with a
+  name or an amount inside them, taxes and payroll stay in English for now
 - India in Hindi, first screens (2026-11-15): on a phone set to Hindi the India app shows the home screen, the
   new entry sheet and the counter sale in Hindi from `mobile/lib/india/india_strings.dart`; a test fails if a
   text passed to `inText` has no Hindi line. Other screens and server replies stay in English for now
