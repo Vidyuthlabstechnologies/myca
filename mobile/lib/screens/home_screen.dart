@@ -140,6 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final company = snapshot.company;
     final empty = snapshot.invoices.isEmpty && snapshot.purchases.isEmpty;
     final uk = state.edition == 'GB';
+    final s = UaeStrings.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Wordmark(size: 18),
@@ -147,7 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 9),
             child: Tooltip(
-              message: inText(context, 'Your business'),
+              message: s.yourBusiness,
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: () => showBusinessSheet(context, snapshot),
@@ -170,10 +171,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        tooltip: inText(context, 'New entry'),
+        tooltip: s.newEntry,
         onPressed: () => showNewEntrySheet(context),
         icon: const Icon(Icons.add, size: 20),
-        label: Text(inText(context, 'New entry')),
+        label: Text(s.newEntry),
       ),
       body: RefreshIndicator(
         onRefresh: state.refresh,
@@ -185,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(greetingFor(state.now()), style: text.bodyMedium),
+                  Text(s.greeting(state.now()), style: text.bodyMedium),
                   const SizedBox(height: 2),
                   Text(
                     company.name,
@@ -196,7 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (widget.snapshot.sharedAsOf.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
-                      'Shared by the owner as of ${sharedOn(widget.snapshot.sharedAsOf)}. Entries after that are not shown, and changes are made by the owner.',
+                      s.sharedByOwner(sharedOn(widget.snapshot.sharedAsOf)),
                       style: text.bodyMedium?.copyWith(color: Palette.warn),
                     ),
                   ],
@@ -326,13 +327,13 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 26),
             ],
-            SectionLabel(inText(context, 'Your books')),
+            SectionLabel(s.yourBooks),
             Panel(
               children: [
                 RowCard(
                   leading: const TintTile(tint: Tint.sales, mark: Mark.sales),
-                  title: inText(context, 'Sales'),
-                  subtitle: registerSubtitle(
+                  title: s.sales,
+                  subtitle: s.registerSubtitle(
                     snapshot.invoices,
                     RegisterKind.sales,
                   ),
@@ -345,8 +346,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     tint: Tint.purchases,
                     mark: Mark.purchases,
                   ),
-                  title: inText(context, 'Purchases'),
-                  subtitle: registerSubtitle(
+                  title: s.purchases,
+                  subtitle: s.registerSubtitle(
                     snapshot.purchases,
                     RegisterKind.purchases,
                   ),
@@ -359,8 +360,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     tint: Tint.expense,
                     mark: Mark.expense,
                   ),
-                  title: inText(context, 'Expenses'),
-                  subtitle: expensesSubtitle(snapshot.expenses),
+                  title: s.expenses,
+                  subtitle: s.expensesSubtitle(snapshot.expenses),
                   trailing: const Chevron(),
                   onTap: () => _open(const ExpensesScreen()),
                 ),
@@ -378,14 +379,13 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const SizedBox(height: 26),
-            SectionLabel(inText(context, 'Money and follow-up')),
+            SectionLabel(s.moneyAndFollowUp),
             Panel(
               children: [
                 RowCard(
                   leading: const TintTile(tint: Tint.sales, mark: Mark.bringIn),
-                  title: inText(context, 'Cash'),
-                  subtitle:
-                      inText(context, 'Bank and cash, the next 30 days, and can I afford it'),
+                  title: s.cash,
+                  subtitle: s.cashSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const CashScreen()),
                 ),
@@ -400,50 +400,50 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.switchBooks),
-                  title: inText(context, 'Bank'),
-                  subtitle: inText(context, 'Your statement next to your books, matched and not matched'),
+                  title: s.bank,
+                  subtitle: s.bankSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const BankScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.comingUp),
-                  title: inText(context, 'Repeating entries'),
-                  subtitle: inText(context, 'Invoices, bills and expenses posted on their dates'),
+                  title: s.repeatingEntries,
+                  subtitle: s.repeatingSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const RecurringScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.taxes, mark: Mark.sales),
-                  title: inText(context, 'Reports'),
-                  subtitle: inText(context, 'Saved reports run by name, compared with the period before'),
+                  title: s.reports,
+                  subtitle: s.reportsSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const ReportsScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
-                  title: inText(context, 'Statements'),
-                  subtitle: inText(context, 'Profit and loss, balance sheet, cash flow, customer statements'),
+                  title: s.statements,
+                  subtitle: s.statementsSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const StatementsScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.people),
-                  title: company.country == 'AE' ? UaeStrings.of(context).yourAccountant : uk ? 'Your accountant' : inText(context, 'Your CA'),
-                  subtitle: company.country == 'AE' ? UaeStrings.of(context).yourAccountantSubtitle : inText(context, 'Questions you asked and their answers'),
+                  title: company.country == 'AE' ? s.yourAccountant : uk ? 'Your accountant' : inText(context, 'Your CA'),
+                  subtitle: s.yourAccountantSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const CaScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.comingUp),
-                  title: inText(context, 'Reminders'),
-                  subtitle: inText(context, 'Anything you asked to be reminded of'),
+                  title: s.reminders,
+                  subtitle: s.remindersSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const RemindersScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.taxes, mark: Mark.confirm),
-                  title: inText(context, 'Books check'),
-                  subtitle: inText(context, 'What needs you, worked out from your books'),
+                  title: s.booksCheck,
+                  subtitle: s.booksCheckSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const BooksCheckScreen()),
                 ),
@@ -480,7 +480,7 @@ class _RecoveryNote extends StatelessWidget {
           Text(words, style: text.bodyLarge),
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton(onPressed: onDismiss, child: Text(inText(context, 'Got it'))),
+            child: TextButton(onPressed: onDismiss, child: Text(UaeStrings.of(context).gotIt)),
           ),
         ],
       ),
@@ -743,6 +743,7 @@ class _FirstSaleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Material(
       color: Palette.accentSoft,
       borderRadius: BorderRadius.circular(radiusCard),
@@ -758,12 +759,12 @@ class _FirstSaleCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      inText(context, 'Log your first sale'),
+                      s.firstSale,
                       style: text.titleLarge?.copyWith(color: Palette.accent),
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      inText(context, 'Name the customer, enter the amount, confirm.'),
+                      s.firstSaleLine,
                       style: text.bodyMedium?.copyWith(color: Palette.accent),
                     ),
                   ],
@@ -796,6 +797,7 @@ class _SummaryPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     final owed = summary.customers;
     return Container(
       decoration: BoxDecoration(
@@ -808,26 +810,26 @@ class _SummaryPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            monthLabel(summary.period).toUpperCase(),
+            s.monthLabel(summary.period).toUpperCase(),
             style: text.labelSmall,
           ),
           const SizedBox(height: 10),
           Row(
             children: [
               _Figure(
-                label: inText(context, 'Sold'),
+                label: s.sold,
                 amount: summary.current.salesNet,
                 before: summary.previous.salesNet,
                 onTap: onSales,
               ),
               _Figure(
-                label: inText(context, 'Bought'),
+                label: s.bought,
                 amount: summary.current.purchases,
                 before: summary.previous.purchases,
                 onTap: onPurchases,
               ),
               _Figure(
-                label: inText(context, 'Spent'),
+                label: s.spent,
                 amount: summary.current.expenses,
                 before: summary.previous.expenses,
                 onTap: onExpenses,
@@ -835,7 +837,7 @@ class _SummaryPanel extends StatelessWidget {
               if (summary.current.payrollStatus == 'approved' ||
                   summary.previous.payrollStatus == 'approved')
                 _Figure(
-                  label: inText(context, 'Paid staff'),
+                  label: s.paidStaff,
                   amount: summary.current.payrollGross,
                   before: summary.previous.payrollGross,
                   onTap: onPayroll ?? () {},
@@ -847,7 +849,7 @@ class _SummaryPanel extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(flex: 3, child: Text(inText(context, 'Owed to you'), style: text.titleMedium)),
+              Expanded(flex: 3, child: Text(s.owedToYou, style: text.titleMedium)),
               const SizedBox(width: 12),
               Expanded(
                 flex: 2,
@@ -864,7 +866,7 @@ class _SummaryPanel extends StatelessWidget {
           ),
           Text(
             summary.openInvoices == 0
-                ? inText(context, 'No invoice is waiting for payment.')
+                ? s.noInvoiceWaiting
                 : owed.map((c) => '${c.name} ${rupees(c.due)}').join(' · '),
             style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
           ),
@@ -873,7 +875,7 @@ class _SummaryPanel extends StatelessWidget {
             children: [
               Expanded(
                 flex: 3,
-                child: Text(inText(context, 'You owe suppliers'), style: text.titleMedium),
+                child: Text(s.youOweSuppliers, style: text.titleMedium),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -891,9 +893,9 @@ class _SummaryPanel extends StatelessWidget {
           ),
           Text(
             summary.unpaidBills == 0
-                ? inText(context, 'No bill is waiting to be paid.')
+                ? s.noBillWaiting
                 : summary.suppliers
-                      .map((s) => '${s.name} ${rupees(s.due)}')
+                      .map((supplier) => '${supplier.name} ${rupees(supplier.due)}')
                       .join(' · '),
             style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
           ),
@@ -931,18 +933,19 @@ class _AskBarState extends State<_AskBar> {
 
   @override
   Widget build(BuildContext context) {
+    final s = UaeStrings.of(context);
     return TextField(
       controller: _text,
       textInputAction: TextInputAction.send,
       onSubmitted: (_) => _send(),
       decoration: InputDecoration(
-        hintText: inText(context, 'Tell or ask MyCA anything'),
+        hintText: s.askAnything,
         prefixIcon: Padding(
           padding: EdgeInsets.all(12),
           child: MarkIcon(mark: Mark.ask, size: 20, color: Palette.muted),
         ),
         suffixIcon: IconButton(
-          tooltip: inText(context, 'Send'),
+          tooltip: s.send,
           icon: const Icon(Icons.arrow_upward, size: 20),
           onPressed: _send,
         ),
@@ -985,7 +988,7 @@ class _Figure extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               Text(
-                'last ${compactRupees(before)}',
+                UaeStrings.of(context).lastFigure(compactRupees(before)),
                 style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
               ),
             ],
@@ -1008,10 +1011,11 @@ class _ClosePanel extends StatelessWidget {
     final needs = [for (final item in (data['needsYou'] as List? ?? const [])) '$item'];
     final cash = data['cash'] is Map ? Map<String, dynamic>.from(data['cash'] as Map) : const <String, dynamic>{};
     final rows = closed ? checklist.take(3).toList() : checklist.where((row) => row['ok'] != true).toList();
+    final s = UaeStrings.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionLabel(closed ? 'Books today · closed' : 'Books today · ${needs.length} ${needs.length == 1 ? 'needs' : 'need'} you'),
+        SectionLabel(s.booksToday(closed, needs.length)),
         Panel(
           children: [
             for (final row in rows)
@@ -1022,8 +1026,8 @@ class _ClosePanel extends StatelessWidget {
               ),
             RowCard(
               leading: const TintTile(tint: Tint.taxes, mark: Mark.sales),
-              title: 'Bank ${rupees(cash['bank'] as num? ?? 0)} · customers owe ${rupees(data['receivable'] as num? ?? 0)}',
-              subtitle: cash['source'] == 'recorded' ? 'As recorded; give today\'s bank balance for the real figure' : 'From the balance on ${cash['readingOn'] ?? ''} plus what was recorded since',
+              title: s.closeCash(rupees(cash['bank'] as num? ?? 0), rupees(data['receivable'] as num? ?? 0)),
+              subtitle: s.closeSource(cash['source'] == 'recorded', '${cash['readingOn'] ?? ''}'),
             ),
           ],
         ),
@@ -1079,11 +1083,11 @@ class _WeekPanel extends StatelessWidget {
 
   final List<Map<String, dynamic>> items;
 
-  static String _title(Map<String, dynamic> item) {
+  static String _title(Map<String, dynamic> item, UaeStrings s) {
     final title = '${item['title']}';
     final amount = item['amount'];
     if (item['kind'] == 'receivable') {
-      return '${title.split(' owes ').first} owes ${rupees(amount as num? ?? 0)} on ${item['invoiceId'] ?? ''}';
+      return s.owesOn(title.split(' owes ').first, rupees(amount as num? ?? 0), '${item['invoiceId'] ?? ''}');
     }
     if (item['kind'] != 'payable' || amount is! num) return title;
     final supplier = RegExp(r'^Pay (.+) \S+ on \S+?(?: \(MSME\))?$').firstMatch(title)?.group(1);
@@ -1094,16 +1098,17 @@ class _WeekPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final overdue = items.where((item) => item['overdue'] == true).length;
+    final s = UaeStrings.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionLabel(overdue > 0 ? 'This week · $overdue overdue' : inText(context, 'This week')),
+        SectionLabel(s.thisWeek(overdue)),
         Panel(
           children: [
             for (final item in items.take(6))
               RowCard(
                 leading: TintTile(tint: item['overdue'] == true ? Tint.urgent : Tint.taxes, mark: item['overdue'] == true ? Mark.urgent : Mark.comingUp),
-                title: _title(item),
+                title: _title(item, s),
                 subtitle: '${item['detail'] ?? ''}',
               ),
           ],
@@ -1124,7 +1129,7 @@ class _DuePanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionLabel(inText(context, 'Due today')),
+        SectionLabel(UaeStrings.of(context).dueTodayTitle),
         Panel(
           children: [
             for (final reminder in reminders)
@@ -1135,7 +1140,7 @@ class _DuePanel extends StatelessWidget {
                 ),
                 title: reminder.text,
                 subtitle: [
-                  reminderWhen(reminder),
+                  reminderWhen(reminder, UaeStrings.of(context)),
                   if (reminder.aboutLabel.isNotEmpty) reminder.aboutLabel,
                 ].join(' · '),
                 onTap: () => onTap(reminder),

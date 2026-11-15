@@ -8,7 +8,7 @@ import 'package:myca/main.dart';
 import 'fake_api.dart';
 
 void main() {
-  test('every India text shown through inText has a Hindi line, and no Hindi line is left unused', () {
+  test('every India text shown through inText has a Hindi line, and every Hindi line is used by inText or the shared screen wording', () {
     final used = <String>{};
     final call = RegExp(r"inText\(\s*\w+,\s*'((?:[^'\\]|\\.)*)'\s*\)");
     for (final entity in Directory('lib').listSync(recursive: true)) {
@@ -19,7 +19,9 @@ void main() {
     }
     expect(used, isNotEmpty);
     expect(used.difference(indiaHindiText.keys.toSet()), isEmpty);
-    expect(indiaHindiText.keys.toSet().difference(used), isEmpty);
+    final shared = RegExp(r"_\(\s*'((?:[^'\\]|\\.)*)'").allMatches(File('lib/uae/uae_strings.dart').readAsStringSync()).map((hit) => hit.group(1)!.replaceAll(r"\'", "'")).toSet();
+    expect(shared, isNotEmpty);
+    expect(indiaHindiText.keys.toSet().difference(used).difference(shared), isEmpty);
     for (final entry in indiaHindiText.entries) {
       expect(RegExp(r'[ऀ-ॿ]').hasMatch(entry.value), isTrue, reason: entry.key);
     }

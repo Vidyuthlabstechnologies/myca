@@ -98,7 +98,7 @@ mixin ProposalFlow<T extends StatefulWidget> on State<T> {
     }
   }
 
-  Future<void> say(String message) => _run(message, () => api.chat(message));
+  Future<void> say(String message, {String? shown}) => _run(shown ?? message, () => api.chat(message));
 
   Future<void> propose(String said, String tool, Map<String, Object?> args) =>
       _run(said, () => api.propose(tool, args));

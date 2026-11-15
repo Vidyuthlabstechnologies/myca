@@ -1,9 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:myca/registers.dart';
+import 'package:myca/uae/uae_strings.dart';
 
 import 'uae_fake_api.dart';
 
 typedef UaeWalk = Future<void> Function(WidgetTester tester, UaeFakeApi api);
+
+void uaeMockClipboard(WidgetTester tester) {
+  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async => null);
+  addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+}
+
+Future<void> uaeTapFound(WidgetTester tester, Finder target) async {
+  if (target.evaluate().isEmpty) await tester.scrollUntilVisible(target, 200, scrollable: uaeList, maxScrolls: 100);
+  await tester.ensureVisible(target.first);
+  await tester.pumpAndSettle();
+  await tester.tap(target.first);
+  await tester.pumpAndSettle();
+}
+
+UaeStrings uaeWords(WidgetTester tester) => UaeStrings(tester.platformDispatcher.locales.first.languageCode == 'ar');
 
 Future<void> uaeReveal(WidgetTester tester, Finder target) async {
   if (target.evaluate().isEmpty) {
@@ -73,6 +91,180 @@ Future<void> fillEinvoice(WidgetTester tester) async {
   await uaeType(tester, 'uae.einvoice.price', '12000');
 }
 
+Set<String> uaeVisibleText(WidgetTester tester) => {
+  for (final element in find.byWidgetPredicate((w) => w is Text || w is RichText || w is EditableText).evaluate())
+    switch (element.widget) {
+      Text(:final data, :final textSpan) => data ?? textSpan?.toPlainText() ?? '',
+      RichText(:final text) => text.toPlainText(),
+      EditableText(:final controller) => controller.text,
+      _ => '',
+    },
+};
+
+Future<Set<String>> uaeEveryText(WidgetTester tester) async {
+  final seen = <String>{...uaeVisibleText(tester)};
+  final lists = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down);
+  for (var at = 0; at < lists.evaluate().length; at++) {
+    final state = tester.state<ScrollableState>(lists.at(at));
+    final position = state.position;
+    if (!position.hasContentDimensions || position.maxScrollExtent <= 0) continue;
+    position.jumpTo(0);
+    await tester.pump();
+    for (var step = 0; step < 60 && position.pixels < position.maxScrollExtent; step++) {
+      position.jumpTo((position.pixels + position.viewportDimension * 0.8).clamp(0, position.maxScrollExtent));
+      await tester.pump();
+      seen.addAll(uaeVisibleText(tester));
+    }
+    position.jumpTo(0);
+    await tester.pump();
+  }
+  return seen;
+}
+
+final Map<String, UaeWalk> uaeScreenWalks = {
+  'home': (t, api) async {},
+  'new entry sheet': (t, api) async {
+    await t.tap(find.byTooltip(uaeWords(t).newEntry));
+    await t.pumpAndSettle();
+  },
+  'customer picker': (t, api) async => openNewEntry(t, uaeWords(t).iSold),
+  'supplier picker': (t, api) async => openNewEntry(t, uaeWords(t).iBought),
+  'new sale': (t, api) async {
+    api.savedProfile = uaeSavedProfile;
+    await openUaeSale(t);
+    await fillUaeSale(t);
+  },
+  'new sale, held for confirmation': (t, api) async {
+    api.savedProfile = uaeSavedProfile;
+    await openUaeSale(t);
+    await fillUaeSale(t);
+    await uaeTap(t, 'uae.sale.preview');
+  },
+  'new purchase bill': (t, api) async {
+    await openUaeBill(t);
+    await fillUaeBill(t);
+  },
+  'sales register': (t, api) async => openRegister(t, RegisterKind.sales),
+  'purchases register': (t, api) async => openRegister(t, RegisterKind.purchases),
+  'new customer sheet': (t, api) async {
+    await openRegister(t, RegisterKind.sales);
+    await t.tap(find.byType(FloatingActionButton));
+    await t.pumpAndSettle();
+  },
+  'customer': (t, api) async {
+    await openRegister(t, RegisterKind.sales);
+    await t.tap(find.text('Desert Rose Interiors').last);
+    await t.pumpAndSettle();
+  },
+  'customer payment': (t, api) async {
+    await openRegister(t, RegisterKind.sales);
+    await t.tap(find.text('Desert Rose Interiors').last);
+    await t.pumpAndSettle();
+    await t.tap(find.widgetWithText(ActionChip, uaeWords(t).paymentChip(true)));
+    await t.pumpAndSettle();
+  },
+  'payment terms': (t, api) async {
+    await openRegister(t, RegisterKind.sales);
+    await t.tap(find.text('Desert Rose Interiors').last);
+    await t.pumpAndSettle();
+    await uaeTapFound(t, find.widgetWithText(ActionChip, uaeWords(t).termsChip(null)));
+  },
+  'supplier': (t, api) async {
+    await openRegister(t, RegisterKind.purchases);
+    await t.tap(find.text('Emirates Office Supplies').last);
+    await t.pumpAndSettle();
+  },
+  'invoice': (t, api) async => openUaeInvoice(t),
+  'credit note sheet': (t, api) async {
+    await openUaeInvoice(t);
+    await uaeTap(t, 'uae.invoice.credit');
+  },
+  'expense': (t, api) async => openNewEntry(t, uaeWords(t).iPaidExpense),
+  'expense head picker': (t, api) async {
+    await openNewEntry(t, uaeWords(t).iPaidExpense);
+    await uaeTapFound(t, find.widgetWithText(ActionChip, uaeWords(t).headChip(null)));
+  },
+  'expenses': (t, api) async => uaeHomeRow(t, uaeWords(t).expenses),
+  'expense head': (t, api) async {
+    await uaeHomeRow(t, uaeWords(t).expenses);
+    await t.tap(find.text(uaeWords(t).accountName('Rent')).last);
+    await t.pumpAndSettle();
+  },
+  'cash': (t, api) async => uaeHomeRow(t, uaeWords(t).cash),
+  'cash balance sheet': (t, api) async {
+    await uaeHomeRow(t, uaeWords(t).cash);
+    final s = uaeWords(t);
+    await uaeTapFound(t, find.byWidgetPredicate((w) => w is Text && (w.data == s.tellBalance || w.data == s.updateBalance)));
+  },
+  'bank': (t, api) async => uaeHomeRow(t, uaeWords(t).bank),
+  'bank line': (t, api) async {
+    await uaeHomeRow(t, uaeWords(t).bank);
+    await uaeTapFound(t, find.byKey(ValueKey('bank.${api.bankLines.first['id']}')));
+  },
+  'bank transfer': (t, api) async {
+    await uaeHomeRow(t, uaeWords(t).bank);
+    await uaeTapFound(t, find.widgetWithText(ActionChip, uaeWords(t).recordTransfer));
+  },
+  'bank rules': (t, api) async {
+    await uaeHomeRow(t, uaeWords(t).bank);
+    await uaeTapFound(t, find.widgetWithText(ActionChip, uaeWords(t).rules));
+    await uaeTapFound(t, find.text(uaeWords(t).addRule));
+  },
+  'bank account': (t, api) async {
+    await uaeHomeRow(t, uaeWords(t).bank);
+    await uaeTapFound(t, find.widgetWithText(ActionChip, uaeWords(t).addAccount));
+  },
+  'repeating entries': (t, api) async {
+    await uaeHomeRow(t, uaeWords(t).repeatingEntries);
+    await uaeTap(t, 'recurring.add');
+  },
+  'reports': (t, api) async => uaeHomeRow(t, uaeWords(t).reports),
+  'report form': (t, api) async {
+    await uaeHomeRow(t, uaeWords(t).reports);
+    await uaeTapFound(t, find.byTooltip(uaeWords(t).saveAReport));
+  },
+  'audit trail': (t, api) async {
+    await uaeHomeRow(t, uaeWords(t).reports);
+    await uaeTapFound(t, find.byKey(const ValueKey('reports.audit')));
+  },
+  'statements': (t, api) async => uaeHomeRow(t, uaeWords(t).statements),
+  'balance sheet': (t, api) async {
+    await uaeHomeRow(t, uaeWords(t).statements);
+    await uaeTapFound(t, find.widgetWithText(ChoiceChip, uaeWords(t).statementTitle('Balance sheet')));
+  },
+  'cash flow': (t, api) async {
+    await uaeHomeRow(t, uaeWords(t).statements);
+    await uaeTapFound(t, find.widgetWithText(ChoiceChip, uaeWords(t).statementTitle('Cash flow')));
+  },
+  'accountant': (t, api) async => uaeHomeRow(t, uaeWords(t).yourAccountant),
+  'accountant question': (t, api) async {
+    uaeMockClipboard(t);
+    await uaeHomeRow(t, uaeWords(t).yourAccountant);
+    await uaeTapFound(t, find.text('INV-0002 · Desert Rose Interiors'));
+    await uaeTapFound(t, find.text(uaeWords(t).copyToSend));
+  },
+  'reminders': (t, api) async => uaeHomeRow(t, uaeWords(t).reminders),
+  'reminder sheet': (t, api) async {
+    await uaeHomeRow(t, uaeWords(t).reminders);
+    await uaeTapFound(t, find.widgetWithText(ActionChip, uaeWords(t).reminder));
+  },
+  'books check': (t, api) async => uaeHomeRow(t, uaeWords(t).booksCheck),
+  'ask': (t, api) async => openNewEntry(t, uaeWords(t).justAsk),
+  'business sheet': (t, api) async {
+    await t.tap(find.byTooltip(uaeWords(t).yourBusiness));
+    await t.pumpAndSettle();
+  },
+  'taxes': (t, api) async => openUaeTaxes(t),
+  'vat return from the books': (t, api) async => openUaeScreen(t, 'vat'),
+  'vat return by hand': (t, api) async {
+    await openUaeScreen(t, 'vat');
+    await fillVatQuarter(t);
+  },
+  'corporate tax': (t, api) async => openUaeScreen(t, 'ct'),
+  'profile': (t, api) async => openUaeScreen(t, 'profile'),
+  'e-invoice': (t, api) async => openUaeScreen(t, 'einvoice'),
+};
+
 final Map<String, UaeWalk> uaeWalks = {
   'home': (t, api) async {},
   'taxes': (t, api) async => openUaeTaxes(t),
@@ -113,12 +305,14 @@ Future<void> uaeHomeRow(WidgetTester tester, String title) async {
   final row = find.text(title);
   await tester.scrollUntilVisible(row, 200, scrollable: uaeList, maxScrolls: 100);
   await tester.pumpAndSettle();
+  await tester.ensureVisible(row.last);
+  await tester.pumpAndSettle();
   await tester.tap(row.last);
   await tester.pumpAndSettle();
 }
 
 Future<void> openNewEntry(WidgetTester tester, String row) async {
-  await tester.tap(find.byTooltip('New entry'));
+  await tester.tap(find.byTooltip(uaeWords(tester).newEntry));
   await tester.pumpAndSettle();
   await tester.ensureVisible(find.text(row));
   await tester.pumpAndSettle();
@@ -136,9 +330,12 @@ Future<void> openFromRegister(WidgetTester tester, String register, String party
   await tester.pumpAndSettle();
 }
 
+Future<void> openRegister(WidgetTester tester, RegisterKind kind) => uaeHomeRow(tester, kind == RegisterKind.sales ? uaeWords(tester).sales : uaeWords(tester).purchases);
+
 Future<void> openUaeSale(WidgetTester tester, {String party = 'Gulf Star General Trading LLC', bool viaRegister = false}) async {
-  if (viaRegister) return openFromRegister(tester, 'Sales', party, 'Sale');
-  await openNewEntry(tester, 'I sold something');
+  final s = uaeWords(tester);
+  if (viaRegister) return openFromRegister(tester, s.sales, party, s.documentChip(true, false));
+  await openNewEntry(tester, s.iSold);
   await tester.enterText(find.byType(TextField).last, party.split(' ').first);
   await tester.pumpAndSettle();
   await tester.tap(find.text(party).last);
@@ -146,8 +343,9 @@ Future<void> openUaeSale(WidgetTester tester, {String party = 'Gulf Star General
 }
 
 Future<void> openUaeBill(WidgetTester tester, {String party = 'Emirates Office Supplies', bool viaRegister = false}) async {
-  if (viaRegister) return openFromRegister(tester, 'Purchases', party, 'Bill');
-  await openNewEntry(tester, 'I bought something');
+  final s = uaeWords(tester);
+  if (viaRegister) return openFromRegister(tester, s.purchases, party, s.documentChip(false, false));
+  await openNewEntry(tester, s.iBought);
   await tester.enterText(find.byType(TextField).last, party.split(' ').first);
   await tester.pumpAndSettle();
   await tester.tap(find.text(party).last);
@@ -179,14 +377,15 @@ Future<void> fillUaeBill(WidgetTester tester) async {
 }
 
 Future<void> openUaeInvoice(WidgetTester tester, {String party = 'Desert Rose Interiors', String id = 'INV-0002'}) async {
-  await uaeHomeRow(tester, 'Sales');
+  final s = uaeWords(tester);
+  await uaeHomeRow(tester, s.sales);
   await tester.ensureVisible(find.text(party).last);
   await tester.pumpAndSettle();
   await tester.tap(find.text(party).last);
   await tester.pumpAndSettle();
-  await tester.ensureVisible(find.text('Invoice $id').last);
+  await tester.ensureVisible(find.text(s.invoiceTitle(id)).last);
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Invoice $id').last);
+  await tester.tap(find.text(s.invoiceTitle(id)).last);
   await tester.pumpAndSettle();
 }
 
@@ -236,4 +435,28 @@ final Map<String, UaeWalk> uaeEntryWalks = {
     await t.enterText(find.byKey(const ValueKey('uae.credit.reason')), 'Two site visits not made');
     await t.pumpAndSettle();
   },
+};
+
+final Map<String, UaeWalk> uaeTouchedWalks = {
+  for (final key in [
+    'new entry sheet',
+    'sales register',
+    'customer',
+    'customer payment',
+    'payment terms',
+    'expense head',
+    'expense head picker',
+    'cash',
+    'cash balance sheet',
+    'bank',
+    'bank line',
+    'reminder sheet',
+    'reports',
+    'statements',
+    'accountant question',
+    'books check',
+    'ask',
+    'business sheet',
+  ])
+    key.replaceAll(' ', '_'): uaeScreenWalks[key]!,
 };

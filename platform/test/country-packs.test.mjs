@@ -20,16 +20,19 @@ test('the checks catch a pack that would break residency, pricing or merging', (
 });
 
 test('only live and beta packs are countries a business can pick', () => {
-  assert.deepEqual(Object.keys(COUNTRIES), ['IN', 'US', 'GB', 'AE']);
+  assert.deepEqual(Object.keys(COUNTRIES), ['IN', 'US', 'GB', 'AE', 'MY']);
   assert.equal(isServedCountry('GB'), true);
   assert.equal(isServedCountry('CA'), false);
   assert.equal(countryPack('ca').status, 'planned');
+  assert.equal(isServedCountry('MY'), true);
   assert.ok(PACKS.length >= 6);
 });
 
 test('the app flavor picks the country pack', () => {
   assert.equal(packForFlavor('india').code, 'IN');
   assert.equal(packForFlavor('us').app.androidId, 'com.mldynamic.myca.us');
+  assert.equal(packForFlavor('my').app.androidId, 'com.mldynamic.myca.my');
+  assert.equal(packForFlavor('my').app.label, 'MyCA Malaysia');
   assert.equal(packForFlavor('nope'), null);
 });
 

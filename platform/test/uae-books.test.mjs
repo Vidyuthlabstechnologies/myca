@@ -301,3 +301,36 @@ test('every English message written in the UAE files has an Arabic translation',
     assert.ok(hint.en && ARABIC.test(hint.ar), code);
   }
 });
+
+test('in the UAE the shared credit note reverses VAT, and India-only payroll, TDS, TCS and GST portal tools are not served', async () => {
+  const state = aeState();
+  const { invoice } = run.create_ae_invoice(state, { partyName: 'Oasis', date: '2027-02-10', lines: [{ rate: 1000 }] });
+  const preview = previewOf(state, 'create_credit_note', { invoiceId: invoice.id, amount: 105, date: '2027-02-12', reason: 'Discount' });
+  assert.match(preview.summary, /AED 5\.00 VAT/);
+  const note = await runTool(state, 'create_credit_note', { invoiceId: invoice.id, amount: 105, date: '2027-02-12', reason: 'Discount' });
+  assert.equal(note.ok, true);
+  assert.equal(note.creditNote.country, 'AE');
+  assert.equal(balance(state, VAT_OUTPUT), 45);
+  for (const tool of ['payroll_run', 'add_employee', 'generate_tds_fvu', 'import_tcs_statement', 'save_gstr1_portal', 'set_registration']) {
+    assert.equal((await runTool(state, tool, {})).error, 'NOT_FOR_COUNTRY', tool);
+  }
+  assert.notEqual((await runTool(createState(), 'payroll_run', {})).error, 'NOT_FOR_COUNTRY');
+});
+
+test('a UAE invoice document is a bilingual tax invoice with TRNs, VAT by line and totals in AED', async () => {
+  const state = aeState();
+  ENGINE.run.set_ae_business_profile(state, { name: 'Falcon Trading LLC', nameAr: 'فالكون للتجارة', emirate: 'DXB', trn: '100123456700003', addressLine: 'Bay Square', city: 'Dubai' });
+  const { invoice } = run.create_ae_invoice(state, { partyName: 'Oasis', buyerTrn: '100987654300003', date: '2027-02-10', lines: [{ description: 'Work', rate: 20000 }, { description: 'Export', rate: 1000, treatment: 'zero-rated' }] });
+  const doc = await runTool(state, 'invoice_document', { id: invoice.id });
+  assert.equal(doc.ok, true);
+  assert.deepEqual(doc.data.documentTitle, { en: 'Tax Invoice', ar: 'فاتورة ضريبية' });
+  assert.equal(doc.data.seller.trn, '100123456700003');
+  assert.equal(doc.data.buyer.trn, '100987654300003');
+  assert.deepEqual(doc.data.lines.map((line) => [line.vatRate, line.vat]), [[5, 1000], [0, 0]]);
+  assert.equal(doc.data.lines[1].note.en, 'Zero-rated');
+  assert.equal(doc.data.total, 22000);
+  assert.deepEqual(doc.data.missing, ['BUYER_ADDRESS']);
+  const small = run.create_ae_invoice(state, { partyName: 'Walk-in', date: '2027-02-10', lines: [{ rate: 100 }] }).invoice;
+  assert.equal((await runTool(state, 'invoice_document', { id: small.id })).data.documentTitle.en, 'Simplified Tax Invoice');
+  assert.equal((await runTool(state, 'invoice_document', { id: 'NOPE' })).error, 'INVOICE_NOT_FOUND');
+});

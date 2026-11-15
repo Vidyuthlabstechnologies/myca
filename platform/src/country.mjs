@@ -92,6 +92,7 @@ export function toolServesCountry(toolName, country) {
   if (engineTakesOver(name, pack.code)) return true;
   const owner = toolOwner(name) || engineOwner;
   if (owner) return owner === pack.code;
+  if ((pack.withheld || []).includes(name)) return false;
   if (pack.toolPolicy === 'unclaimed') return true;
   return SHARED_TOOLS.has(name) || SHARED_EXTRA.has(name);
 }

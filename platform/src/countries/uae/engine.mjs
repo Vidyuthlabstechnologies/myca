@@ -8,7 +8,7 @@ import { uaeDeadlines } from './deadlines.mjs';
 import { penaltyEstimate } from './penalties.mjs';
 import { buildPintAe } from './einvoice.mjs';
 import { sendThroughAsp, issuedEinvoices, aspMode } from './asp.mjs';
-import { createAeInvoice, createAePurchase, createAeCreditNote, planAeInvoice, planAePurchase, planAeCreditNote, aeVatLines } from './books.mjs';
+import { createAeInvoice, createAePurchase, createAeCreditNote, planAeInvoice, planAePurchase, planAeCreditNote, aeVatLines, aeInvoiceDocument } from './books.mjs';
 import { langOf, localise, toArabic } from './messages.mjs';
 import { gratuityEstimate, uaePayrollRun, wpsSalaryFile } from './payroll.mjs';
 
@@ -81,7 +81,7 @@ function blockersOf(planned, lang) {
 
 const EFFECT_AR = Object.freeze({
   'VAT returns, corporate tax estimates and e-invoices use these details.': 'تستخدم إقرارات ضريبة القيمة المضافة وتقديرات ضريبة الشركات والفواتير الإلكترونية هذه البيانات.',
-  'Checked against PINT AE and saved with a UUID; nothing is sent to the FTA.': 'يتم التحقق وفق PINT AE والحفظ برقم تعريف فريد؛ ولا يُرسل شيء إلى الهيئة.',
+  'The main PINT AE fields are checked and it is saved with a UUID; full Peppol validation happens at the Accredited Service Provider, and nothing is sent to the FTA.': 'يتم التحقق من الحقول الأساسية وفق PINT AE والحفظ برقم تعريف فريد؛ ويتم التحقق الكامل لدى مزود الخدمة المعتمد، ولا يُرسل شيء إلى الهيئة.',
   'The ASP delivers it to the buyer and reports the tax data to the FTA.': 'يسلّمها مزود الخدمة المعتمد إلى المشتري ويبلّغ الهيئة بالبيانات الضريبية.',
   'An issued e-invoice is corrected only by a credit note.': 'لا تُصحَّح الفاتورة الإلكترونية الصادرة إلا بإشعار دائن.',
   'No Accredited Service Provider is connected yet; live e-invoices cannot be sent.': 'لم يُربط بعد أي مزود خدمة معتمد؛ لا يمكن إرسال الفواتير الإلكترونية الفعلية.',
@@ -203,7 +203,7 @@ const PREVIEW = Object.freeze({
       const credit = built.document.type === 'credit-note';
       const foreign = built.totals.currency === 'AED' ? '' : ` (${built.totals.currency} ${built.totals.payable.toFixed(2)})`;
       const blockers = sandbox ? [] : ['No Accredited Service Provider is connected yet; live e-invoices cannot be sent.'];
-      const effects = sandbox ? ['Checked against PINT AE and saved with a UUID; nothing is sent to the FTA.'] : ['The ASP delivers it to the buyer and reports the tax data to the FTA.', 'An issued e-invoice is corrected only by a credit note.'];
+      const effects = sandbox ? ['The main PINT AE fields are checked and it is saved with a UUID; full Peppol validation happens at the Accredited Service Provider, and nothing is sent to the FTA.'] : ['The ASP delivers it to the buyer and reports the tax data to the FTA.', 'An issued e-invoice is corrected only by a credit note.'];
       const summary = lang === 'ar'
         ? `${sandbox ? 'تسجيل (وضع التجربة)' : 'إرسال'} ${credit ? 'الإشعار الدائن' : 'الفاتورة الإلكترونية'} ${built.document.number} بمبلغ ${aed(built.totals.payableAed, lang)}${foreign}.`
         : `${sandbox ? 'Record (sandbox)' : 'Send'} ${credit ? 'credit note' : 'e-invoice'} ${built.document.number} for ${aed(built.totals.payableAed)}${foreign}.`;
@@ -345,5 +345,7 @@ export const ENGINE = Object.freeze({
   books: Object.freeze({
     create_invoice: Object.freeze({ run: RUN.create_ae_invoice, preview: PREVIEW.create_ae_invoice }),
     create_purchase: Object.freeze({ run: RUN.create_ae_purchase, preview: PREVIEW.create_ae_purchase }),
+    create_credit_note: Object.freeze({ run: RUN.create_ae_credit_note, preview: PREVIEW.create_ae_credit_note }),
+    invoice_document: Object.freeze({ run: (state, args = {}) => localise(aeInvoiceDocument(state, args), langOf(args)) }),
   }),
 });

@@ -35,12 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _openParty(String name, String gstin, {bool openComposer = false}) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => PartyScreen(
-          kind: widget.kind,
-          partyName: name,
-          partyGstin: gstin,
-          openComposer: openComposer,
-        ),
+        builder: (_) => PartyScreen(kind: widget.kind, partyName: name, partyGstin: gstin, openComposer: openComposer),
       ),
     );
   }
@@ -60,20 +55,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final bigText = MediaQuery.textScalerOf(context).scale(14) > 14 * 1.3;
     final state = AppScope.of(context);
     final snapshot = state.snapshot;
-    final documents = snapshot == null
-        ? const <Invoice>[]
-        : (_sales ? snapshot.invoices : snapshot.purchases);
+    final documents = snapshot == null ? const <Invoice>[] : (_sales ? snapshot.invoices : snapshot.purchases);
     final all = partiesOf(documents);
     final parties = searchParties(all, _query.text);
     final tint = _sales ? Tint.sales : Tint.purchases;
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(_sales ? 'Sales' : 'Purchases')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _newParty,
-        icon: const Icon(Icons.add),
-        label: Text(uaeEdition(context) ? UaeStrings.of(context).newParty(_sales) : (_sales ? 'New customer' : 'New supplier')),
-      ),
+      appBar: AppBar(title: Text(_sales ? s.sales : s.purchases)),
+      floatingActionButton: FloatingActionButton.extended(onPressed: _newParty, icon: const Icon(Icons.add), label: Text(s.newParty(_sales))),
       body: RefreshIndicator(
         onRefresh: state.refresh,
         child: ListView(
@@ -84,21 +74,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: TextField(
                   controller: _query,
-                  decoration: InputDecoration(
-                    hintText: _sales ? 'Search customers' : 'Search suppliers',
-                    prefixIcon: const Icon(Icons.search),
-                  ),
+                  decoration: InputDecoration(hintText: s.searchParties(_sales), prefixIcon: const Icon(Icons.search)),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
-            if (all.isEmpty)
-              EmptyNote(
-                text: _sales
-                    ? 'No customers yet. Add one to record your first sale.'
-                    : 'No suppliers yet. Add one to record your first bill.',
-              )
-            else if (parties.isEmpty)
-              const EmptyNote(text: 'No one by that name.'),
+            if (all.isEmpty) EmptyNote(text: s.noPartiesRegister(_sales)) else if (parties.isEmpty) EmptyNote(text: s.noOneByThatName),
             if (parties.isNotEmpty)
               Panel(
                 children: [
@@ -107,25 +87,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       leading: TintTile(tint: tint, letter: party.initial),
                       title: party.name,
                       subtitle: bigText
-                          ? '${lastEntryLine(party.latest!, widget.kind)} · ${party.latest!.date}'
-                          : lastEntryLine(party.latest!, widget.kind),
+                          ? '${s.lastEntryLine(party.latest!, widget.kind)} · ${s.ar ? s.longDate(party.latest!.date) : party.latest!.date}'
+                          : s.lastEntryLine(party.latest!, widget.kind),
                       badge: bigText && _sales && party.unpaid.isNotEmpty
-                          ? StatusTag(text: '${party.unpaid.length} unpaid', color: Palette.warn)
+                          ? StatusTag(text: s.unpaidCount(party.unpaid.length), color: Palette.warn)
                           : null,
                       trailing: bigText
                           ? null
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  party.latest!.date,
-                                  style: text.bodySmall?.copyWith(color: Palette.muted),
-                                ),
-                                if (_sales && party.unpaid.isNotEmpty) ...[
-                                  const SizedBox(height: 6),
-                                  StatusTag(text: '${party.unpaid.length} unpaid', color: Palette.warn),
+                          : ConstrainedBox(
+                              constraints: BoxConstraints(maxWidth: s.ar ? 80 : double.infinity),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    s.ar ? s.longDate(party.latest!.date) : party.latest!.date,
+                                    textAlign: TextAlign.end,
+                                    style: text.bodySmall?.copyWith(color: Palette.muted),
+                                  ),
+                                  if (_sales && party.unpaid.isNotEmpty) ...[const SizedBox(height: 6), StatusTag(text: s.unpaidCount(party.unpaid.length), color: Palette.warn)],
                                 ],
-                              ],
+                              ),
                             ),
                       onTap: () => _openParty(party.name, party.gstin),
                     ),

@@ -13,6 +13,21 @@ class UaeFakeApi extends FakeMycaApi {
     companyName = 'Al Noor Trading LLC';
     quotes.clear();
     customerTerms.clear();
+    caRequests
+      ..clear()
+      ..add({
+        'id': 'ASK-0001',
+        'title': 'INV-0002 · Desert Rose Interiors',
+        'facts': ['AED 10,500.00', '2026-10-12'],
+        'status': 'answered',
+        'askedBy': 'u-owner',
+        'lastOn': '2026-10-04',
+        'messages': <Map<String, Object?>>[
+          {'by': 'u-owner', 'on': '2026-10-03', 'text': 'هل ضريبة 5% صحيحة على أعمال التصميم؟'},
+          {'by': 'u-ca', 'on': '2026-10-04', 'text': 'نعم، النسبة الأساسية 5% صحيحة.'},
+        ],
+        'text': 'INV-0002 · Desert Rose Interiors',
+      });
     if (!emptyBooks) {
       invoices
         ..clear()
@@ -457,15 +472,15 @@ class UaeFakeApi extends FakeMycaApi {
     }
     final items = <Map<String, Object?>>[];
     if (args['vatPeriodEnd'] is String) {
-      items.add(item('vat-return', 'VAT return (VAT 201) and payment on EmaraTax', DateTime.parse('${args['vatPeriodEnd']}').add(const Duration(days: 28))));
+      items.add(item('vat-return', _say(args, 'VAT return (VAT 201) and payment on EmaraTax', 'إقرار ضريبة القيمة المضافة (VAT 201) والسداد عبر إمارات تاكس'), DateTime.parse('${args['vatPeriodEnd']}').add(const Duration(days: 28))));
     }
     if (args['ctPeriodEnd'] is String) {
       final end = DateTime.parse('${args['ctPeriodEnd']}');
-      items.add(item('ct-return', 'Corporate Tax return and payment on EmaraTax', DateTime(end.year, end.month + 10, 0)));
+      items.add(item('ct-return', _say(args, 'Corporate Tax return and payment on EmaraTax', 'إقرار ضريبة الشركات والسداد عبر إمارات تاكس'), DateTime(end.year, end.month + 10, 0)));
     }
     if (args['revenue'] != null) {
-      items.add(item('einvoice-asp', 'Appoint an Accredited Service Provider for e-invoicing', DateTime(2027, 3, 31)));
-      items.add(item('einvoice-live', 'Send and receive every B2B and B2G invoice as a PINT AE e-invoice', DateTime(2027, 7, 1)));
+      items.add(item('einvoice-asp', _say(args, 'Appoint an Accredited Service Provider for e-invoicing', 'تعيين مزوّد خدمة معتمد للفوترة الإلكترونية'), DateTime(2027, 3, 31)));
+      items.add(item('einvoice-live', _say(args, 'Send and receive every B2B and B2G invoice as a PINT AE e-invoice', 'إرسال واستلام كل فواتير الشركات والجهات الحكومية بصيغة PINT AE'), DateTime(2027, 7, 1)));
     }
     items.sort((a, b) => '${a['date']}'.compareTo('${b['date']}'));
     return {'ok': true, 'data': {'today': args['today'], 'items': items}};
@@ -569,7 +584,7 @@ class UaeFakeApi extends FakeMycaApi {
     return _aeWords(await super.query(name, args));
   }
 
-  static const _indiaWords = {'GSTR-1': 'VAT 201', 'GSTR-3B': 'VAT 201', 'GSTIN': 'TRN', 'GST': 'VAT', '₹': 'AED ', 'UPI': 'IPP', 'TDS': 'WHT', 'MSME': 'SME', 'IFSC': 'IBAN', 'HSN': 'item code'};
+  static const _indiaWords = {'GST output CGST': 'VAT output payable', 'GSTR-1': 'VAT 201', 'GSTR-3B': 'VAT 201', 'GSTIN': 'TRN', 'GST': 'VAT', '₹': 'AED ', 'UPI': 'IPP', 'TDS': 'WHT', 'MSME': 'SME', 'IFSC': 'IBAN', 'HSN': 'item code'};
 
   static Object? _aeWords(Object? value) {
     if (value is String) {

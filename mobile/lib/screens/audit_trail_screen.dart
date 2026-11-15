@@ -6,6 +6,8 @@ import '../app_state.dart';
 import '../excel.dart';
 import '../marks.dart';
 import '../theme.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 
 const _periods = {
@@ -66,13 +68,14 @@ class _AuditTrailScreenState extends State<AuditTrailScreen> {
 
   Future<void> _saveExcel() async {
     final state = AppScope.of(context);
+    final aeStrings = uaeEdition(context) ? UaeStrings.of(context) : null;
     setState(() {
       _saving = true;
       _excelNote = '';
     });
     var note = '';
     try {
-      note = await saveXlsx(state, toolData(await state.api.query('export_xlsx', {'report': 'audit_trail', 'period': _period})));
+      note = await saveXlsx(state, toolData(await state.api.query('export_xlsx', {'report': 'audit_trail', 'period': _period})), aeStrings);
     } on MycaApiException catch (err) {
       note = err.message;
     }
@@ -90,7 +93,7 @@ class _AuditTrailScreenState extends State<AuditTrailScreen> {
       for (final option in options.entries)
         ChoiceChip(
           key: ValueKey('$prefix.${option.key}'),
-          label: Text(option.value),
+          label: Text(UaeStrings.of(context).auditPeriod(option.key)),
           selected: selected == option.key,
           selectedColor: Palette.sunken,
           showCheckmark: false,
@@ -101,37 +104,37 @@ class _AuditTrailScreenState extends State<AuditTrailScreen> {
     ],
   );
 
-  List<Widget> _trailHead(AuditTrail trail, TextTheme text) => [
+  List<Widget> _trailHead(AuditTrail trail, TextTheme text, UaeStrings s) => [
     Text(
-      trail.chainWords,
+      s.chainWords(trail),
       key: const ValueKey('audit.chain'),
       style: text.bodyMedium?.copyWith(color: trail.chainOk ? null : Palette.danger, fontWeight: trail.chainOk ? null : FontWeight.w600),
     ),
     if (!trail.ledgerOk) ...[
       const SizedBox(height: 4),
       Text(
-        'The record of entries fails its integrity check. Ask your CA before recording more.',
+        uaeEdition(context) ? s.ledgerFailsAccountant : 'The record of entries fails its integrity check. Ask your CA before recording more.',
         style: text.bodyMedium?.copyWith(color: Palette.danger, fontWeight: FontWeight.w600),
       ),
     ],
     const SizedBox(height: 12),
-    if (trail.events.isEmpty) const EmptyNote(text: 'Nothing changed in this period.'),
+    if (trail.events.isEmpty) EmptyNote(text: s.nothingChanged),
   ];
 
-  List<Widget> _trailFoot(AuditTrail trail, TextTheme text) => [
+  List<Widget> _trailFoot(AuditTrail trail, TextTheme text, UaeStrings s) => [
     if (trail.more && !_longest)
       Padding(
         padding: const EdgeInsets.only(top: 8),
         child: TextButton(
           key: const ValueKey('audit.more'),
           onPressed: () => _reload(longest: true),
-          child: const Text('Show more'),
+          child: Text(s.showMore),
         ),
       ),
     if (trail.more && _longest)
       Padding(
         padding: const EdgeInsets.only(top: 8),
-        child: Text('The latest $_longestList are shown. Save as Excel for the full list.', style: text.bodySmall),
+        child: Text(s.latestShown(_longestList), style: text.bodySmall),
       ),
   ];
 
@@ -176,8 +179,9 @@ class _AuditTrailScreenState extends State<AuditTrailScreen> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Audit trail')),
+      appBar: AppBar(title: Text(s.auditTrail)),
       body: FutureBuilder<AuditTrail?>(
         future: _trail,
         builder: (context, snap) {
@@ -189,7 +193,7 @@ class _AuditTrailScreenState extends State<AuditTrailScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 sliver: SliverList.list(
                   children: [
-                    Text('Who changed what and when. Every change made through MyCA is listed, and the log is checked for edits.', style: text.bodyMedium),
+                    Text(s.auditIntro, style: text.bodyMedium),
                     const SizedBox(height: 12),
                     _chips('audit.period', _periods, _period, (key) => _reload(period: key)),
                     const SizedBox(height: 8),
@@ -201,13 +205,13 @@ class _AuditTrailScreenState extends State<AuditTrailScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text('The audit trail could not be loaded.', style: text.bodyMedium),
+                          Text(s.auditNotLoaded, style: text.bodyMedium),
                           const SizedBox(height: 8),
-                          TextButton(onPressed: _reload, child: const Text('Try again')),
+                          TextButton(onPressed: _reload, child: Text(s.tryAgain)),
                         ],
                       )
                     else
-                      ..._trailHead(trail, text),
+                      ..._trailHead(trail, text, s),
                   ],
                 ),
               ),
@@ -216,11 +220,11 @@ class _AuditTrailScreenState extends State<AuditTrailScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                 sliver: SliverList.list(
                   children: [
-                    if (trail != null) ..._trailFoot(trail, text),
+                    if (trail != null) ..._trailFoot(trail, text, s),
                     const SizedBox(height: 16),
                     OutlinedButton(
                       onPressed: _saving ? null : _saveExcel,
-                      child: const Text('Save as Excel'),
+                      child: Text(s.saveAsExcel),
                     ),
                     if (_excelNote.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_excelNote, style: text.bodyMedium)),
                   ],
