@@ -161,7 +161,7 @@ export class ChannelClient {
     };
     if (op === 'sandbox_public_token') return post('/sandbox/public_token/create', { institution_id: params.institution, initial_products: ['transactions'] });
     if (op === 'exchange') return post('/item/public_token/exchange', { public_token: params.publicToken });
-    if (op === 'link_token') return post('/link/token/create', { client_name: 'MyCA', user: { client_user_id: params.userId || 'owner' }, products: ['transactions'], country_codes: ['US'], language: 'en' });
+    if (op === 'link_token') return post('/link/token/create', { client_name: 'MyCA', user: { client_user_id: params.userId || 'owner' }, products: ['transactions'], country_codes: [params.countryCode === 'GB' ? 'GB' : 'US'], language: 'en', ...(params.androidPackageName ? { android_package_name: params.androidPackageName } : {}) });
     const transactions = [];
     let cursor = config.cursor || '';
     for (let i = 0; i < 50; i += 1) {

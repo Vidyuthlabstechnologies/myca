@@ -12,8 +12,8 @@ import assert from 'node:assert/strict';
 import { createState } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
 import { setChannelClient, ChannelClient } from '../src/channel-client.mjs';
-import { loadChannelConfig } from '../src/channel-connectors.mjs';
-import { plaidTransactionsToCsv, gustoPayrollsToCsv, gustoRedirectUri } from '../src/us-connectors.mjs';
+import { loadChannelConfig, publicChannelConfig } from '../src/channel-connectors.mjs';
+import { plaidTransactionsToCsv, gustoPayrollsToCsv, gustoRedirectUri, plaidLinkToken, mockUsReport } from '../src/us-connectors.mjs';
 import { documentsOf } from '../src/document-store.mjs';
 import { createMemoryDocumentStore } from '../src/store-ports.mjs';
 import { localToday } from '../src/dates.mjs';
@@ -159,4 +159,27 @@ test('Track1099 keys are kept for the day the API is wired; the US connectors vi
   for (const name of ['us_connectors', 'plaid_link_sandbox', 'plaid_link_token', 'plaid_exchange', 'taxjar_rate', 'gusto_connect_url', 'set_channel_connector', 'channel_connectors']) assert.ok(html.includes(`'${name}'`), name);
   assert.ok(html.includes('dashboard.plaid.com') && html.includes('app.taxjar.com') && html.includes('dev.gusto.com') && html.includes('track1099.com'));
   assert.ok(html.includes('https://cdn.plaid.com/link/v2/stable/link-initialize.js'), 'Plaid Link loads from Plaid only');
+});
+
+test('Plaid for a UK business: the link token asks for GB banks with the UK app package, and the connector is offered to GB', async () => {
+  const state = usBooks();
+  state.company = { ...state.company, country: 'GB' };
+  const log = [];
+  setChannelClient(new ChannelClient({ fetchFn: async (url, init = {}) => {
+    log.push({ url, body: JSON.parse(init.body) });
+    return { ok: true, status: 200, text: async () => JSON.stringify({ link_token: 'link-sandbox-gb-1', expiration: '2026-11-15T06:00:00Z' }) };
+  } }));
+  const config = { clientId: 'plaid-client-1', secret: 'plaid-secret-1234', environment: 'sandbox' };
+  const out = await plaidLinkToken(state, { userId: 'owner' }, { userId: 'owner' }, { config, save: async () => ({ ok: true }) });
+  assert.equal(out.ok, true, JSON.stringify(out));
+  assert.equal(out.data.countryCode, 'GB');
+  assert.equal(out.data.mock, false);
+  assert.deepEqual(log[0].body.country_codes, ['GB']);
+  assert.equal(log[0].body.android_package_name, 'com.mldynamic.myca.uk');
+  const us = await plaidLinkToken(usBooks(), { userId: 'owner' }, { userId: 'owner' }, { config, save: async () => ({ ok: true }) });
+  assert.equal(us.data.countryCode, 'US');
+  assert.deepEqual(log[1].body.country_codes, ['US']);
+  assert.equal(log[1].body.android_package_name, undefined);
+  assert.deepEqual(publicChannelConfig('plaid').countries, ['US', 'GB']);
+  assert.match(mockUsReport('plaid', 'bank', '2026-10-01', '2026-10-31', 'GB'), /FASTER PAYMENT HARBOUR CAFE LTD,540\.00,credit/);
 });

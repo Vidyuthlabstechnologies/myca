@@ -151,7 +151,9 @@ class _ConnectorsScreenState extends State<ConnectorsScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               children: [
                 Text(
-                  country == 'US'
+                  country == 'GB'
+                      ? 'Your bank, read-only through Open Banking. Keys stay on the MyCA server, encrypted; nothing posts to the books without you.'
+                      : country == 'US'
                       ? 'Your bank, sales tax rates, payroll and 1099 filing. Keys stay on the MyCA server, encrypted; nothing posts to the books without you.'
                       : 'Marketplaces, payment gateways and Zoho Books. Keys stay on the MyCA server, encrypted; nothing posts to the books without you.',
                   style: text.bodyMedium,
