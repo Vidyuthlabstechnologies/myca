@@ -268,6 +268,17 @@ GitHub repository **variables** that turn on the staging rollout:
 | `GCP_API_REGION_STAGING`, `GCP_WIF_PROVIDER_STAGING`, `GCP_DEPLOY_SA_STAGING` | only when staging is in its own project; empty uses the production values |
 | `MYCA_CLOUD_URL_STAGING` | the staging `api_url` output, for `test` Android builds and the nightly app smoke |
 
+Sandbox (`myca-sandbox`, all five country apps from `develop`, test data only; set up once with
+`scripts/sandbox-cloud-setup.sh` in Cloud Shell, see `docs/release/SANDBOX-APKS.md`). The
+**Deploy the sandbox (develop)** workflow has working defaults. Set these optional variables only
+to move it:
+
+| Variable | Value |
+|---|---|
+| `GCP_SANDBOX_PROJECT_ID`, `GCP_SANDBOX_REGION` | where `myca-sandbox` runs; default `myca-prod-in`, `asia-south1` |
+| `GCP_SANDBOX_WIF_PROVIDER`, `GCP_SANDBOX_DEPLOY_SA` | the sandbox-only identity pool provider (admits `develop` only) and `myca-sandbox-deployer`; defaults are what the setup script creates |
+| `MYCA_SANDBOX_URL` | the sandbox address; default `https://myca-sandbox-tvfsqs2oha-el.a.run.app` |
+
 Create a `staging` GitHub environment. With staging on, a push to `main` runs the hosted API suite,
 rolls out to staging, and checks that `/v1/health` reports `environment: staging` and that `/v1/plans`
 answers. Production rolls out only after that passes (`cloud-run-rollout.yml` does both). To approve
