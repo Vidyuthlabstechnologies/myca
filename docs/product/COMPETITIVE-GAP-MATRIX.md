@@ -39,8 +39,8 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | UPI payment request on invoices, WhatsApp reminders | yes | Parity |
 | Quotes, delivery challans, purchase orders, restock | yes | Parity |
 | CA-firm multi-client books, CA review | yes | Ahead |
-| Barcode scan item lookup and fast counter (POS) billing | no | Gap (Vyapar, myBillBook) |
-| Thermal (58/80 mm) receipt printing | no | Gap (Vyapar, myBillBook) |
+| Barcode scan item lookup and fast counter (POS) billing | yes (camera scan, `find_item`, Counter sale screen) | Built |
+| Thermal (58/80 mm) receipt printing | yes (Bluetooth ESC/POS, engine figures only) | Built |
 | Full offline billing on the phone | partial (desktop is local) | Gap on Android (Vyapar) |
 | App in Hindi and regional languages | no | Gap (Vyapar, myBillBook) |
 | Loyalty points, online catalogue/store link | no | Gap (myBillBook, Vyapar) |
@@ -113,7 +113,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | **WPS salary information file (SIF) with IBAN and total checks** | `ae_wps_file` | **Built now** (Zoho charges per employee for payroll) |
 | Direct EmaraTax filing | no API exists | Not possible for anyone but Zoho's partnership; MyCA prepares |
 | Bank feeds (Wio, Mashreq) | no | Gap |
-| Full payroll run (leave, payslips) | no | Gap |
+| Full payroll run (overtime, unpaid leave, GPSSA pension, gratuity accrual, WPS lines) | `ae_payroll_run` | **Built now**; payslip PDFs and annual leave balances still open |
 | Cost centres / project profitability | no | Gap (Wafeq) |
 
 ## Malaysia (rivals: Bukku, SQL Account, AutoCount, Xero)
@@ -132,7 +132,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | SST-02 return, SST registration test | yes | Ahead of Xero |
 | Income tax estimate | yes | Ahead |
 | Bilingual (English, Malay) | yes (launch branch) | Parity |
-| Payroll statutory (EPF, SOCSO, EIS) | `my_payroll` from the Third Schedule and the PERKESO RM100-band tables | **Built now**; PCB, wages of RM300 or less and SOCSO second category still open |
+| Payroll statutory (EPF, SOCSO, EIS, PCB) | `my_payroll` from the Third Schedule, the PERKESO RM100-band tables and LHDN's computerised PCB method (categories, children, bonus, year to date, zakat) | **Built now**; wages of RM300 or less, SOCSO second category and CP39 file export still open |
 | Bank feeds and receipt extraction | no | Gap (Bukku) |
 | Inventory with batches/serials | basic | Gap (AutoCount) |
 
@@ -141,12 +141,12 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | # | Country | Gap | Why it matters | Suggested owner |
 |---|---|---|---|---|
 | 1 | US | Sign the e-file partner (1099-B/crypto CSV import is built) | No filing, no revenue; investors are the users TurboTax upsells hardest | US launch thread + owner |
-| 2 | Malaysia | PCB (monthly tax deduction) on top of the EPF/SOCSO/EIS payroll now built | SQL Account's payroll add-on is the main reason SMEs stay on desktop | Malaysia thread, from the official KWSP/PERKESO/LHDN tables |
-| 3 | India | Barcode counter billing and thermal printing on Android | Retail shops pick Vyapar/myBillBook for this alone | India mobile thread |
+| 2 | Malaysia | PCB (monthly tax deduction) on top of the EPF/SOCSO/EIS payroll (BUILT; next: CP39 file for e-PCB Plus) | SQL Account's payroll add-on is the main reason SMEs stay on desktop | Malaysia thread, from the official KWSP/PERKESO/LHDN tables |
+| 3 | India | Barcode counter billing and thermal printing on Android (BUILT) | Retail shops pick Vyapar/myBillBook for this alone | India mobile thread |
 | 4 | UK | Open Banking bank feeds and receipt OCR on UK screens | Every rival has them; quarterly MTD updates need categorised bank lines | UK thread (TrueLayer or Yapily via a cloud port) |
 | 5 | India | Hindi and regional-language app | Vyapar's growth came from it | Design system thread |
 | 6 | US | Prior-year import, 2441, 8962, Schedule E, 1040-X, states | Common returns that now bounce to a rival | US engine thread |
-| 7 | UAE | Bank feeds (Wio, Mashreq) and a full payroll run on top of WPS/gratuity | Zoho's bank links; Wafeq's payroll | UAE thread |
+| 7 | UAE | Bank feeds (Wio, Mashreq); the full payroll run on top of WPS/gratuity is BUILT | Zoho's bank links; Wafeq's payroll | UAE thread |
 | 8 | UK | Payroll RTI, GPS mileage | QuickBooks and Sage keep sole traders who hire | UK thread |
 
 ## Sources

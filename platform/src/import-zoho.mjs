@@ -27,25 +27,36 @@ function cellMap(header) {
 }
 
 function split(text) {
-  const lines = String(text).replace(/^\uFEFF/, '').split(/\r?\n/).filter((l) => l.trim());
-  return lines.map((line) => {
-    const out = [];
-    let cur = '';
-    let q = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (q) {
-        if (ch === '"') {
-          if (line[i + 1] === '"') { cur += '"'; i++; }
-          else q = false;
-        } else cur += ch;
-      } else if (ch === '"') q = true;
-      else if (ch === ',') { out.push(cur); cur = ''; }
-      else cur += ch;
-    }
-    out.push(cur);
-    return out;
-  });
+  const source = String(text).replace(/^\uFEFF/, '');
+  const rows = [];
+  let row = [];
+  let cur = '';
+  let q = false;
+  const endRow = () => {
+    row.push(cur);
+    if (row.some((cell) => cell.trim())) rows.push(row);
+    row = [];
+    cur = '';
+  };
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (q) {
+      if (ch === '"') {
+        if (source[i + 1] === '"') { cur += '"'; i++; }
+        else q = false;
+      } else cur += ch === '\r' && source[i + 1] === '\n' ? '' : ch;
+    } else if (ch === '"') q = true;
+    else if (ch === ',') { row.push(cur); cur = ''; }
+    else if (ch === '\n') endRow();
+    else if (ch !== '\r') cur += ch;
+  }
+  if (cur || row.length) endRow();
+  return rows;
+}
+
+function quantity(cell) {
+  const raw = String(cell == null ? '' : cell).replace(/[,\s]/g, '');
+  return raw === '' ? 1 : Number(raw);
 }
 
 // Keep an unreadable date as written so the posting step refuses it by name
@@ -84,8 +95,8 @@ export function parseZohoBooksCsv(text) {
     }
     grouped.get(id).lines.push({
       description: cells[idx.description] || 'Item',
-      hsn: cells[idx.hsn] || '0000',
-      qty: Number(cells[idx.qty] || 1),
+      hsn: String(cells[idx.hsn] || '').trim(),
+      qty: quantity(cells[idx.qty]),
       rate: Number(String(cells[idx.rate] || '0').replace(/[,₹]/g, '')),
       gstRate: taxRate(cells[idx.gstRate]),
     });

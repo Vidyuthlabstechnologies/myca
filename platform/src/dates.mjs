@@ -27,7 +27,12 @@ export function localToday(now = new Date()) {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
-const MONTH_NUMBERS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 };
+export function localDateTime(now = new Date()) {
+  const two = (n) => String(n).padStart(2, '0');
+  return `${localToday(now)} ${two(now.getHours())}:${two(now.getMinutes())}:${two(now.getSeconds())}`;
+}
+
+const MONTH_NUMBERS ={ jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 };
 
 export function reportDate(value) {
   const raw = String(value == null ? '' : value).trim();

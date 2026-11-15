@@ -5,6 +5,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../billing/store_billing.dart';
 import '../cloud/cloud_session.dart';
+import '../format.dart';
 import '../theme.dart';
 
 bool get buyInApp => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
@@ -57,7 +58,7 @@ String renewalTerms(PlanOffer plan, StoreProduct? product) {
 const notAdvice = 'MyCA is software. It is not a firm of chartered accountants and does not give tax or legal advice. You approve every return before it is filed.';
 
 String entitlementLine(Entitlement e) {
-  final until = e.currentEnd.length >= 10 ? e.currentEnd.substring(0, 10) : '';
+  final until = e.currentEnd.length >= 10 ? longDate(e.currentEnd.substring(0, 10)) : '';
   if (e.trialDaysLeft != null) return 'Free trial of ${e.planTitle}: ${e.trialDaysLeft} ${e.trialDaysLeft == 1 ? 'day' : 'days'} left.';
   if (e.status == 'pending') return 'Google Play is still processing the payment. The plan starts as soon as it clears.';
   if (e.status == 'on_hold' || e.status == 'paused') return 'Google Play could not take the last payment, so the books are read-only. Fix the payment method in Google Play to get the plan back.';

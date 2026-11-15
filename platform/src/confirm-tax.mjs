@@ -1,6 +1,6 @@
 import { planAdvanceTaxPayment } from './advance-tax.mjs';
 import { checkAnswer, stepText } from './gst-review.mjs';
-import { keyTooLongErrors, parse2bFile } from './gstr2b-check.mjs';
+import { keyTooLongErrors, parse2bFile, twobFor } from './gstr2b-check.mjs';
 import { planImsDecision, pinImsRows, IMS_DECISION_WORDS, IMS_SELECTS } from './ims.mjs';
 import { isReturnPeriod } from './return-period.mjs';
 import { planBillTds } from './invoice.mjs';
@@ -97,7 +97,7 @@ export function creditOpeningPreview(state, args) {
   const o = plan.opening;
   return {
     blockers: [],
-    summary: `GST credit balance at the start of ${o.period}: IGST ${money(o.igst)}, CGST ${money(o.cgst)}, SGST ${money(o.sgst)}, ${money(o.total)} in all${plan.was ? ` (replaces the balance set for ${plan.was.period})` : ''}.`,
+    summary: `GST credit balance at the start of ${o.period}: IGST ${money(o.igst)}, CGST ${money(o.cgst)}, SGST ${money(o.sgst)}, ${money(o.total)} in all${o.cess != null ? `, and cess ${money(o.cess)}` : ''}${plan.was ? ` (replaces the balance set for ${plan.was.period})` : ''}.`,
     effects: ["From that month on, the amount to pay counts this credit brought forward, set off before the month's own credit."],
     figures: { period: o.period, igst: o.igst, cgst: o.cgst, sgst: o.sgst },
   };
@@ -180,7 +180,7 @@ export function gstr2bPreview(state, args) {
   const { rows, errors } = parse2bFile(args.csv);
   if (!rows.length) return { blockers: ['No GSTR-2B rows could be read from this file. Use the CSV downloaded from the GST portal.'], summary: '', effects: [], figures: {} };
   const suppliers = new Set(rows.map((row) => row.supplierGstin)).size;
-  const replaces = state.gstr2b && Object.hasOwn(state.gstr2b, args.period);
+  const replaces = Boolean(twobFor(state, args.period, args.gstin));
   return {
     blockers: [],
     summary: `GSTR-2B for ${args.period}: ${rows.length} ${rows.length === 1 ? 'entry' : 'entries'} from ${suppliers} ${suppliers === 1 ? 'supplier' : 'suppliers'}${errors.length ? `; ${errors.length} ${errors.length === 1 ? 'row' : 'rows'} could not be read and will be left out` : ''}.${replaces ? ' This replaces the 2B already added for that month.' : ''}`,

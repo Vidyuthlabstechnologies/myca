@@ -57,10 +57,15 @@ export function planSkuCost(state, args = {}) {
   const hsn = args.hsn != null ? String(args.hsn).trim().slice(0, 8) : before?.hsn || '';
   const gstRate = args.gstRate == null || args.gstRate === '' ? before?.gstRate ?? null : Number(args.gstRate);
   if (gstRate != null && !(Number.isFinite(gstRate) && gstRate >= 0 && gstRate <= 28)) return { ok: false, error: 'BAD_RATE' };
-  if (cost == null && !name && !hsn && args.gstRate == null) return { ok: false, error: 'NOTHING_TO_CHANGE' };
+  const barcode = args.barcode != null ? String(args.barcode).replace(/\s/g, '').slice(0, 32) : before?.barcode || '';
+  if (barcode && !/^[0-9A-Za-z-]{4,32}$/.test(barcode)) return { ok: false, error: 'BAD_BARCODE' };
+  const price = args.price == null || args.price === '' ? before?.price ?? null : round2(args.price);
+  if (price != null && !(Number.isFinite(price) && price >= 0)) return { ok: false, error: 'BAD_AMOUNT' };
+  if (barcode && Object.entries(skus(state)).some(([other, item]) => other !== sku && item?.barcode === barcode)) return { ok: false, error: 'BARCODE_IN_USE', barcode };
+  if (cost == null && !name && !hsn && args.gstRate == null && args.barcode == null && args.price == null) return { ok: false, error: 'NOTHING_TO_CHANGE' };
   const on = args.on ? postingDate(args.on) : localToday();
   if (args.on && !on) return { ok: false, error: 'INVALID_DATE', on: args.on };
-  return { ok: true, plan: { sku, next: { name, hsn, gstRate, cost: cost == null ? before?.cost ?? null : cost, costOn: cost == null ? before?.costOn || '' : on }, before } };
+  return { ok: true, plan: { sku, next: { name, hsn, gstRate, cost: cost == null ? before?.cost ?? null : cost, costOn: cost == null ? before?.costOn || '' : on, ...(barcode ? { barcode } : {}), ...(price == null ? {} : { price }) }, before } };
 }
 
 export function setSkuCost(state, args = {}) {
@@ -281,4 +286,16 @@ export function stockWords(data, money) {
   for (const row of data.rows.slice(0, 12)) lines.push(`· ${row.sku}${row.name ? ` ${row.name}` : ''} at ${row.location}: ${row.qty}${row.value != null ? ` (${money(row.value)})` : ''}`);
   if (data.negative.length) lines.push(`Negative at ${data.negative.length === 1 ? '1 location' : `${data.negative.length} locations`}: ${data.negative.map((row) => `${row.sku} at ${row.location} ${row.qty}`).join('; ')}. Record the stock you sent there.`);
   return lines.join('\n');
+}
+
+export function findItem(state, args = {}) {
+  const code = String(args.code == null ? '' : args.code).replace(/\s/g, '');
+  if (!code) return { ok: false, error: 'CODE_REQUIRED', hint: 'Scan or type the barcode or SKU.' };
+  const all = skus(state);
+  const key = skuKey(code);
+  const sku = Object.hasOwn(all, key) ? key : Object.keys(all).find((name) => all[name]?.barcode === code) || null;
+  if (!sku) return { ok: true, data: { found: false, code, hint: 'No item has this barcode or SKU yet. Save it once with its name, price and GST rate, and later scans fill the bill.' } };
+  const item = all[sku];
+  const onHand = stockPosition(state, { sku }).data.rows.reduce((sum, row) => sum + row.qty, 0);
+  return { ok: true, data: { found: true, code, sku, name: item.name || sku, barcode: item.barcode || '', hsn: item.hsn || '', gstRate: item.gstRate ?? null, price: item.price ?? null, cost: item.cost ?? null, onHand: Math.round(onHand * 1000) / 1000, tracked: (state.stockMoves || []).some((move) => move.sku === sku) } };
 }

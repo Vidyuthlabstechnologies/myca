@@ -280,11 +280,10 @@ class _Totals extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     Widget line(String label, num amount, {bool strong = false}) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: strong ? text.titleMedium : text.bodyMedium)),
-          Text(rupees(amount), style: (strong ? text.titleMedium : text.bodyMedium)?.copyWith(fontFeatures: moneyFigures)),
-        ],
+      child: AmountRow(
+        start: Padding(padding: const EdgeInsets.only(right: 12), child: Text(label, style: strong ? text.titleMedium : text.bodyMedium)),
+        amount: rupees(amount),
+        style: (strong ? text.titleMedium : text.bodyMedium)?.copyWith(fontFeatures: moneyFigures),
       ),
     );
     return Container(

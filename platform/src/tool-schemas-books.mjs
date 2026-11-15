@@ -1,5 +1,5 @@
 import { REPORT_KEYS } from './report-sheets.mjs';
-import { noArgs, salaryComponent } from './tool-schema-parts.mjs';
+import { noArgs, salaryComponent, REGISTRATION_ARG } from './tool-schema-parts.mjs';
 
 export const BOOKS_TOOL_SCHEMAS = {
   company_profile: noArgs,
@@ -332,8 +332,16 @@ export const BOOKS_TOOL_SCHEMAS = {
       name: { type: 'string', maxLength: 120 },
       hsn: { type: 'string', maxLength: 8 },
       gstRate: { type: 'number', minimum: 0, maximum: 28 },
+      barcode: { type: 'string', maxLength: 32 },
+      price: { type: 'number', minimum: 0 },
       on: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
     },
+  },
+  find_item: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['code'],
+    properties: { code: { type: 'string', minLength: 1, maxLength: 64 } },
   },
   import_sku_costs: {
     type: 'object',
@@ -673,7 +681,7 @@ export const BOOKS_TOOL_SCHEMAS = {
   credit_at_risk: {
     type: 'object',
     additionalProperties: false,
-    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }, gstin: REGISTRATION_ARG },
   },
   export_entries: {
     type: 'object',

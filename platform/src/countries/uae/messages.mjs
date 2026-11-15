@@ -175,6 +175,18 @@ const EXACT = new Map(Object.entries({
   'Upload this file through your WPS agent (the bank or exchange house) so salaries are paid and reported to MOHRE.': 'ارفع هذا الملف عبر وكيل نظام حماية الأجور (البنك أو شركة الصرافة) لتُدفع الرواتب ويُبلَّغ عنها لوزارة الموارد البشرية والتوطين.',
   'Appoint an Accredited Service Provider for e-invoicing': 'تعيين مزود خدمة معتمد للفوترة الإلكترونية',
   'Send and receive every B2B and B2G invoice as a PINT AE e-invoice': 'إرسال واستلام كل فاتورة بين الشركات ومع الجهات الحكومية كفاتورة إلكترونية وفق PINT AE',
+  'Give the basic monthly wage in AED.': 'أدخل الأجر الأساسي الشهري بالدرهم.',
+  'Overtime is a number of hours, zero or more.': 'العمل الإضافي عدد ساعات، صفر أو أكثر.',
+  'Rest days worked are a whole number of days in the month.': 'أيام الراحة التي عُمل فيها عدد صحيح من أيام الشهر.',
+  'Unpaid leave is deducted from the gross fixed pay or the basic wage, as the contract says.': 'تُخصم الإجازة دون أجر من إجمالي الأجر الثابت أو من الأجر الأساسي، بحسب العقد.',
+  'Overtime is more than two hours a day on average this month; the law caps overtime at two hours a day.': 'يزيد العمل الإضافي هذا الشهر على ساعتين يوميًا في المتوسط؛ والقانون يحدّه بساعتين في اليوم.',
+  'The overtime rule does not apply to shift workers; check the contract before paying this overtime.': 'لا تسري قاعدة العمل الإضافي على العاملين بنظام المناوبات؛ راجع العقد قبل صرف هذا العمل الإضافي.',
+  'GPSSA pension is due for this Emirati employee; MyCA has no GPSSA rate for this month.': 'اشتراك المعاش لدى الهيئة العامة للمعاشات مستحق لهذا الموظف المواطن؛ ولا يوجد لدى MyCA نسبة لهذا الشهر.',
+  'This employee was registered with GPSSA before 31 October 2023; read the contribution from GPSSA, MyCA covers the 2023 law only.': 'سُجّل هذا الموظف لدى الهيئة العامة للمعاشات قبل 31 أكتوبر 2023؛ خذ قيمة الاشتراك من الهيئة، إذ يغطي MyCA قانون 2023 فقط.',
+  'Deductions from the wage cannot be more than half of this month\'s wage.': 'لا يجوز أن تزيد الاستقطاعات من الأجر على نصف أجر هذا الشهر.',
+  'Fix the employees listed and run the payroll again.': 'صحّح بيانات الموظفين المذكورين وشغّل الرواتب من جديد.',
+  'This payroll follows the 2021 Labour Law, in force from 2 February 2022.': 'تتبع هذه الرواتب قانون العمل لسنة 2021 النافذ منذ 2 فبراير 2022.',
+  'Pay salaries through WPS (ae_wps_file builds the file from wpsEmployees once each employee has a labour id, routing code and account), and pay GPSSA contributions for Emirati staff through the GPSSA portal.': 'ادفع الرواتب عبر نظام حماية الأجور (ينشئ ae_wps_file الملف من wpsEmployees متى توفر لكل موظف الرقم الشخصي ورمز التوجيه والحساب)، وسدّد اشتراكات المعاش للموظفين المواطنين عبر بوابة الهيئة العامة للمعاشات.',
 }));
 
 const PATTERNS = [

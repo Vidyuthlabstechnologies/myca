@@ -9,6 +9,8 @@
 import { createHash } from 'node:crypto';
 import { invoiceAsFiled, amendmentsInPeriod } from './invoice-amendments.mjs';
 import { rules, gstin as gstinLib } from './sprint-load.mjs';
+import { hsnSummary, documentsIssued, isVoided } from './gstr1-tables.mjs';
+import { cessLineNotInForce, carriesCessAmount } from './compensation-cess.mjs';
 
 const FP_RE = /^(0[1-9]|1[0-2])\d{4}$/;
 
@@ -42,13 +44,22 @@ function itemsByRate(lines) {
     row.camt = round2(row.camt + round2(l.cgst));
     row.samt = round2(row.samt + round2(l.sgst));
     row.iamt = round2(row.iamt + round2(l.igst));
+    row.csamt = round2(row.csamt + round2(l.cess));
   }
   return [...byRate.values()].sort((a, b) => a.rt - b.rt).map((itm_det, idx) => ({ num: idx + 1, itm_det }));
 }
 
-function holdReason(inv) {
-  const bad = (inv.lines || []).find((l) => !rateInForce(l.gstRate || 0, inv.date));
+const INV_TYP = { SEZWP: 'SEWP', SEZWOP: 'SEWOP', DEXP: 'DE' };
+
+function invTyp(doc) {
+  return INV_TYP[doc?.supplyType] || 'R';
+}
+
+function holdReason(inv, taxDate = inv.date) {
+  const bad = (inv.lines || []).find((l) => !rateInForce(l.gstRate || 0, taxDate));
   if (bad) return { code: 'RATE_NOT_IN_FORCE', rate: Number(bad.gstRate || 0) };
+  const cess = cessLineNotInForce(inv.lines, taxDate, carriesCessAmount);
+  if (cess) return { code: 'CESS_NOT_IN_FORCE', line: cess.line, ...(cess.hsn != null ? { hsn: cess.hsn } : {}), rule: cess.rule, hint: cess.hint };
   if (inv.partyGstin) {
     const check = gstinLib.validateGstin(inv.partyGstin, { onDate: inv.date });
     if (!check.ok) return { code: 'INVALID_GSTIN', gstin: String(inv.partyGstin), errors: check.errors.map((e) => e.code) };
@@ -100,14 +111,14 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
         ...(inv.export.portCode ? { sbpcode: inv.export.portCode } : {}),
         ...(inv.export.shippingBillNo ? { sbnum: inv.export.shippingBillNo } : {}),
         ...(inv.export.shippingBillDate ? { sbdt: ddmmyyyy(inv.export.shippingBillDate) } : {}),
-        itms: (inv.lines || []).map((l, i) => ({ num: i + 1, txval: round2(l.taxable), rt: Number(l.gstRate || 0), iamt: round2(l.igst), csamt: 0 })),
+        itms: (inv.lines || []).map((l, i) => ({ num: i + 1, txval: round2(l.taxable), rt: Number(l.gstRate || 0), iamt: round2(l.igst), csamt: round2(l.cess) })),
       });
       continue;
     }
     if (inv.partyGstin) {
       const ctin = String(inv.partyGstin).toUpperCase();
       if (!b2bMap.has(ctin)) b2bMap.set(ctin, []);
-      b2bMap.get(ctin).push({ inum: inv.id, idt: ddmmyyyy(inv.date), val, pos, rchrg: 'N', inv_typ: 'R', itms: itemsByRate(inv.lines) });
+      b2bMap.get(ctin).push({ inum: inv.id, idt: ddmmyyyy(inv.date), val, pos, rchrg: 'N', inv_typ: invTyp(inv), itms: itemsByRate(inv.lines) });
     } else if (isB2cl(inv, pos, supplierState)) {
       if (!b2clMap.has(pos)) b2clMap.set(pos, []);
       b2clMap.get(pos).push({ inum: inv.id, idt: ddmmyyyy(inv.date), val, itms: itemsByRate(inv.lines) });
@@ -123,6 +134,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
         row.camt = round2(row.camt + itm_det.camt);
         row.samt = round2(row.samt + itm_det.samt);
         row.iamt = round2(row.iamt + itm_det.iamt);
+        row.csamt = round2(row.csamt + itm_det.csamt);
       }
     }
   }
@@ -134,8 +146,9 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
     ...(opts.creditNotes || []).map((note) => ({ ...note, ntty: 'C', sign: -1 })),
     ...(opts.debitNotes || []).map((note) => ({ ...note, ntty: 'D', sign: 1 })),
   ].filter((note) => note.date && fpFromDate(note.date) === fp);
+  const noteHoldReason = (note) => holdReason(note, allInvoices.get(note.invoiceId)?.date || note.invoiceDate || note.date);
   for (const note of notesInPeriod) {
-    const reason = holdReason(note);
+    const reason = noteHoldReason(note);
     if (reason) {
       held.push({ inum: note.id, idt: ddmmyyyy(note.date), ...reason, creditNote: true });
       continue;
@@ -146,7 +159,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
     if (note.partyGstin) {
       const ctin = String(note.partyGstin).toUpperCase();
       if (!cdnrMap.has(ctin)) cdnrMap.set(ctin, []);
-      cdnrMap.get(ctin).push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), pos, rchrg: 'N', inv_typ: 'R', val, itms: itemsByRate(note.lines) });
+      cdnrMap.get(ctin).push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), pos, rchrg: 'N', inv_typ: invTyp(note.supplyType ? note : original), val, itms: itemsByRate(note.lines) });
     } else if (original.export || pos === '96') {
       cdnur.push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), typ: original.export?.withTax ? 'EXPWP' : 'EXPWOP', val, itms: itemsByRate(note.lines) });
     } else if (isB2cl(original, pos, supplierState)) {
@@ -163,6 +176,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
         row.camt = round2(row.camt + note.sign * itm_det.camt);
         row.samt = round2(row.samt + note.sign * itm_det.samt);
         row.iamt = round2(row.iamt + note.sign * itm_det.iamt);
+        row.csamt = round2(row.csamt + note.sign * itm_det.csamt);
       }
     }
   }
@@ -188,7 +202,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
       continue;
     }
     const pos = String(revised.partyState || revised.placeOfSupply || supplierState).padStart(2, '0');
-    const entry = { oinum: original.id, oidt: ddmmyyyy(original.date), inum: revised.id, idt: ddmmyyyy(revised.date), val: round2(revised.total), pos, rchrg: 'N', inv_typ: 'R', itms: itemsByRate(revised.lines) };
+    const entry = { oinum: original.id, oidt: ddmmyyyy(original.date), inum: revised.id, idt: ddmmyyyy(revised.date), val: round2(revised.total), pos, rchrg: 'N', inv_typ: invTyp(original), itms: itemsByRate(revised.lines) };
     if (revised.partyGstin) {
       const ctin = String(revised.partyGstin).toUpperCase();
       if (!b2baMap.has(ctin)) b2baMap.set(ctin, []);
@@ -206,6 +220,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
         row.camt = round2(row.camt + itm_det.camt);
         row.samt = round2(row.samt + itm_det.samt);
         row.iamt = round2(row.iamt + itm_det.iamt);
+        row.csamt = round2(row.csamt + itm_det.csamt);
       }
     }
   }
@@ -214,10 +229,26 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
   if (b2csaMap.size) body.b2csa = [...b2csaMap.values()];
   if (cdnrMap.size) body.cdnr = [...cdnrMap.entries()].map(([ctin, nt]) => ({ ctin, nt }));
   if (cdnur.length) body.cdnur = cdnur;
+  const aato = turnover(opts.aato ?? company.aato ?? gt);
+  const hsnEntries = [
+    ...inPeriod.filter((inv) => !isVoided(inv) && !holdReason(inv)).map((inv) => ({ doc: inv, sign: 1, original: inv })),
+    ...notesInPeriod.filter((note) => !noteHoldReason(note)).map((note) => ({ doc: note, sign: note.sign, original: allInvoices.get(note.invoiceId) || note })),
+  ];
+  const hsn = hsnSummary(hsnEntries, { fp, aato });
+  body.hsn = hsn.table;
+  const issued = documentsIssued({
+    invoices: opts.allGiven ? dated : dated.filter((inv) => fpFromDate(inv.date) === fp),
+    creditNotes: notesInPeriod.filter((note) => note.ntty === 'C'),
+    debitNotes: notesInPeriod.filter((note) => note.ntty === 'D'),
+  });
+  if (issued.table) body.doc_issue = issued.table;
   const hash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
   const warnings = [];
   if (gt == null || curGt == null) warnings.push('GT_NOT_PROVIDED: enter last FY and current FY aggregate turnover before upload if the offline tool asks for them.');
   if (held.length) warnings.push(`${held.length} invoice(s) held back for review; see held.`);
+  if (aato == null) warnings.push('HSN_AATO_UNKNOWN: last FY aggregate turnover is not set, so table 12 HSN codes were checked for 4 digits only; above Rs 5 crore 6 digits are required.');
+  if (hsn.problems.length) warnings.push(`HSN_CODE_PROBLEM: ${hsn.problems.length === 1 ? '1 line is' : `${hsn.problems.length} lines are`} left out of table 12 because the HSN/SAC code is missing or shorter than ${hsn.need} digits; correct the code on the document. See hsnProblems.`);
+  for (const gap of issued.gaps) warnings.push(`DOC_SERIES_GAP: series ${gap.from} to ${gap.to} has ${gap.missing === 1 ? '1 number' : `${gap.missing} numbers`} missing in this period; check whether they were issued in another period or deleted before table 13 is filed.`);
   const nilMap = new Map();
   let unsplitZeroLines = 0;
   for (const inv of inPeriod) {
@@ -250,6 +281,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
     row.igst = round2(row.igst + Number(inv.igst || 0));
     row.cgst = round2(row.cgst + Number(inv.cgst || 0));
     row.sgst = round2(row.sgst + Number(inv.sgst || 0));
+    row.csamt = round2(row.csamt + Number(inv.cess || 0));
     ecoMap.set(etin, row);
   }
   if (ecoMap.size) body.supeco = { clttx: [...ecoMap.values()] };
@@ -260,6 +292,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
     ...body,
     hash,
     held,
+    hsnProblems: hsn.problems,
     warnings,
     caveat: 'JSON for GSTN offline utility / CA review. MyCA does not upload this file.',
   };

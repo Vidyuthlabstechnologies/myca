@@ -73,12 +73,12 @@ Health and education cess of {{income-tax.cess.health-education#ratePercent}} is
 
 ## advance-tax: Advance tax instalments
 Keywords: advance tax, instalment, installment, 15 june, 15 september, 15 december, 15 march, 234b, 234c, interest, self assessment
-Source: Income-tax Act 1961 s.207, s.208, s.211, s.234B, s.234C
+Source: Income-tax Act 1961 s.207, s.208, s.211, s.234B, s.234C; Income-tax Rules 1962 r.119A
 Rules: due-date.income-tax.advance-tax, due-date.income-tax.advance-tax.presumptive
 
 Advance tax is payable when the tax for the year, after TDS and TCS, is ten thousand rupees or more. A resident senior citizen with no business or professional income need not pay it. The instalments are {{due-date.income-tax.advance-tax}}. A taxpayer on presumptive income pays the whole by {{due-date.income-tax.advance-tax.presumptive}}.
 
-A shortfall carries simple interest of one per cent a month: under 234C for each instalment paid short, and under 234B when less than ninety per cent of the tax was paid by 31 March. `advance_tax` works out the instalments from the books.
+A shortfall carries simple interest of one per cent a month: under 234C for each instalment paid short (three months for each of the first three, one month for 15 March; nothing for June when twelve per cent was paid or for September at thirty-six per cent), and under 234B when less than ninety per cent of the tax was paid by 31 March, from 1 April until the return, recomputed on the smaller shortfall after self-assessment tax. A part of a month counts as a month and the amount is rounded down to a hundred rupees (Rule 119A). `advance_tax` works out the instalments from the books and the 234C so far; `income_tax_interest` works out 234A, 234B and 234C on the final figures.
 
 ## return-due-dates: When the income tax return is due
 Keywords: itr, return, due date, last date, 31 july, file return, audit, 31 october, filing deadline
@@ -87,7 +87,7 @@ Rules: due-date.income-tax.return.other, due-date.income-tax.return.non-audit-bu
 
 The return is due {{due-date.income-tax.return.other}} for most individuals; {{due-date.income-tax.return.non-audit-business}} for business or professional income whose accounts need no audit; {{due-date.income-tax.return.audit}} where the accounts must be audited; and {{due-date.income-tax.return.transfer-pricing}} where a transfer-pricing report is needed.
 
-A return after the due date loses the right to carry forward most losses and attracts a late fee under s.234F and interest under s.234A.
+A return after the due date loses the right to carry forward most losses and attracts a late fee under s.234F and interest under s.234A of one per cent a month or part on the tax still unpaid at the due date, from the day after it to the date of filing. `income_tax_interest` works it out.
 
 ## belated-revised-updated: Belated, revised and updated returns
 Keywords: belated return, revised return, updated return, itr-u, 139(4), 139(5), 139(8a), mistake in return, correct return, missed deadline

@@ -167,6 +167,11 @@ class StatementView {
   }
 }
 
+Widget _amount(BuildContext context, String amount, TextStyle? style) => ConstrainedBox(
+  constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.4),
+  child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerRight, child: Text(amount, style: style)),
+);
+
 class StatementsScreen extends StatefulWidget {
   const StatementsScreen({super.key, this.initial = StatementKind.profitAndLoss, this.customer = ''});
 
@@ -337,8 +342,3 @@ class _StatementsScreenState extends State<StatementsScreen> {
     );
   }
 }
-
-Widget _amount(BuildContext context, String amount, TextStyle? style) => ConstrainedBox(
-  constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.4),
-  child: Text(amount, style: style, textAlign: TextAlign.end),
-);

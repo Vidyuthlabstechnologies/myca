@@ -21,6 +21,8 @@ export const PAYROLL_ACCOUNTS = [
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const toRupees = (p) => p / 100;
 const paise = (rupees) => Math.round(Number(rupees || 0) * 100);
+const nearestRupee = (basePaise, basisPoints) => Math.round((basePaise * basisPoints) / 1000000) * 100;
+const nextRupee = (basePaise, basisPoints) => Math.ceil((basePaise * basisPoints) / 1000000 - 1e-9) * 100;
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 function fail(error, extra = {}) {
@@ -213,10 +215,10 @@ export function computePayroll(state, requested) {
       if (wages.assumed) row.notes.push('No Basic or DA part in the salary, so the whole pay is taken as provident fund wages.');
       const pfWages = Math.min(wages.paise, ceiling.value.monthlyWagesPaise);
       row.pfWagesPaise = pfWages;
-      row.pfEmployeePaise = Math.round((pfWages * employeeRate.value.basisPoints) / 10000);
-      row.epsPaise = Math.round((pfWages * employerRate.value.pensionBasisPoints) / 10000);
-      row.pfEmployerPaise = Math.round((pfWages * employerRate.value.basisPoints) / 10000) - row.epsPaise;
-      row.edliPaise = Math.round((pfWages * edli.value.basisPoints) / 10000);
+      row.pfEmployeePaise = nearestRupee(pfWages, employeeRate.value.basisPoints);
+      row.epsPaise = nearestRupee(pfWages, employerRate.value.pensionBasisPoints);
+      row.pfEmployerPaise = nearestRupee(pfWages, employerRate.value.basisPoints) - row.epsPaise;
+      row.edliPaise = nearestRupee(pfWages, edli.value.basisPoints);
     }
     if (employee.esiMember) {
       const ceiling = ruleOn('payroll.esi.wage-ceiling', asOf, used, unreviewed);
@@ -225,10 +227,10 @@ export function computePayroll(state, requested) {
       if (missing) return fail(missing.error, { ruleId: missing.ruleId });
       const fullMonthGross = structure.components.reduce((sum, item) => sum + paise(item.amount), 0);
       if (fullMonthGross <= ceiling.value.monthlyWagesPaise) {
-        row.esiEmployerPaise = Math.round((grossPaise * rates.value.employerBasisPoints) / 10000);
+        row.esiEmployerPaise = nextRupee(grossPaise, rates.value.employerBasisPoints);
         const dailyWages = Math.round(fullMonthGross / days);
         if (dailyWages <= rates.value.employeeExemptDailyWagesUpToPaise) row.notes.push('Average daily wages are within the limit, so no employee state insurance is deducted; the employer share is still due.');
-        else row.esiEmployeePaise = Math.round((grossPaise * rates.value.employeeBasisPoints) / 10000);
+        else row.esiEmployeePaise = nextRupee(grossPaise, rates.value.employeeBasisPoints);
       } else {
         row.notes.push('Monthly pay is above the state insurance wage limit, so nothing is deducted for it.');
       }
@@ -263,7 +265,7 @@ export function computePayroll(state, requested) {
     const admin = ruleOn('payroll.epf.admin-charge', asOf, used, unreviewed);
     if (admin.error) return fail(admin.error, { ruleId: admin.ruleId });
     const pfWagesTotal = rows.reduce((sum, row) => sum + (row.pfWagesPaise || 0), 0);
-    adminPaise = Math.max(Math.round((pfWagesTotal * admin.value.basisPoints) / 10000), admin.value.minimumPerMonthPaise);
+    adminPaise = Math.max(nearestRupee(pfWagesTotal, admin.value.basisPoints), admin.value.minimumPerMonthPaise);
   }
   const sum = (key) => rows.reduce((total, row) => total + (row[key] || 0), 0);
   const totals = {

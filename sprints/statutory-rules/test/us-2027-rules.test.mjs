@@ -55,6 +55,14 @@ test('2027 standard deduction, capital gains bands, child tax credit, student lo
   assert.deepEqual(Object.fromEntries(Object.entries(qbi.thresholdCents).map(([k, v]) => [k, dollars(v)])), { mfj: 416600, qss: 416600, mfs: 208325, single: 208300, hoh: 208300 });
 
   assert.equal(dollars(valueOf('us.federal.individual.educator-expenses').maxPerEducatorCents), 350);
+
+  const minimum2027 = valueOf('us.federal.individual.qbi-minimum');
+  assert.equal(dollars(minimum2027.minimumCents), 415);
+  assert.equal(dollars(minimum2027.activeQbiFloorCents), 1030);
+  const minimum2026 = valueOf('us.federal.individual.qbi-minimum', '2026-06-30');
+  assert.equal(dollars(minimum2026.minimumCents), 400);
+  assert.equal(dollars(minimum2026.activeQbiFloorCents), 1000);
+  assert.equal(rule('us.federal.individual.qbi-minimum', '2025-06-30').ok, false);
 });
 
 test('2027 earned income credit is Rev. Proc. 2026-35 section 3.06, and its maximum credits and completed phase-outs follow from the table', () => {

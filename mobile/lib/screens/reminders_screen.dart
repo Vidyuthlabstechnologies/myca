@@ -101,7 +101,7 @@ class _ReminderSheetState extends State<_ReminderSheet> {
         22,
         22 + MediaQuery.viewInsetsOf(context).bottom,
       ),
-      child: Column(
+      child: SingleChildScrollView(child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -155,7 +155,7 @@ class _ReminderSheetState extends State<_ReminderSheet> {
             child: FilledButton(onPressed: _done, child: Text(s.preview)),
           ),
         ],
-      ),
+      )),
     );
   }
 }
