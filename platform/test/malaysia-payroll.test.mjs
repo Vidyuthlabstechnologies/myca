@@ -115,3 +115,14 @@ test('foreign workers pay first-category SOCSO (Invalidity Scheme from July 2024
   assert.match(before.notes.join(' '), /mandatory only from October 2025/);
   assert.equal(one({ wages: 3000 }, '2025-09').epf.employee, 330);
 });
+
+test('from June 2026 the payroll says LINDUNG 24 Jam is still to be deducted for foreign workers and for locals who opted in', () => {
+  const foreign = one({ wages: 3000, citizen: false }, '2026-06');
+  assert.match(foreign.notes.join(' '), /LINDUNG 24 Jam is not in this net pay.*foreign worker also pays 0\.75% of wages up to RM6000/);
+  assert.doesNotMatch(one({ wages: 3000, citizen: false }, '2026-05').notes.join(' '), /LINDUNG/);
+  assert.doesNotMatch(one({ wages: 3000 }, '2026-06').notes.join(' '), /LINDUNG/);
+  assert.match(one({ wages: 3000, lindung24Jam: true }, '2026-11').notes.join(' '), /employee who opted in also pays 0\.75%/);
+  const run = malaysiaPayroll({ month: '2026-06', employees: [{ name: 'A', wages: 3000, citizen: false }] });
+  assert.ok(run.data.rulesUsed.some((rule) => rule.id === 'my.payroll.lindung-24-jam'));
+  assert.ok(!malaysiaPayroll({ month: '2026-05', employees: [{ name: 'A', wages: 3000 }] }).data.rulesUsed.some((rule) => rule.id === 'my.payroll.lindung-24-jam'));
+});

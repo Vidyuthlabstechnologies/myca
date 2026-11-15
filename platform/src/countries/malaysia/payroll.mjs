@@ -51,6 +51,8 @@ export function malaysiaPayroll(args = {}) {
   const epf = ruleOn('my.payroll.epf', date);
   const socso = ruleOn('my.payroll.socso', date);
   const eis = ruleOn('my.payroll.eis', date);
+  const lindung = ruleOn('my.payroll.lindung-24-jam', date);
+  const lindungPhase = lindung ? lindung.value.phases.find((phase) => date >= phase.from && (phase.to === null || date <= phase.to)) : null;
   if (!epf || !socso || !eis) return fail('RULE_NOT_IN_FORCE', { hint: 'MyCA has the contribution tables from October 2024 wages.' });
   const pcbUsed = pcbRules(date);
   const employees = Array.isArray(args.employees) ? args.employees : [];
@@ -88,6 +90,8 @@ export function malaysiaPayroll(args = {}) {
         if (employee.citizen === false && employee.eisCovered !== true) notes.push('Foreign workers are not covered by EIS unless PERKESO says otherwise.');
       }
     }
+    const inLindung = employee.citizen === false || employee.lindung24Jam === true;
+    if (lindungPhase && wageSen > 0 && inLindung) notes.push(`LINDUNG 24 Jam is not in this net pay: from the June 2026 contribution month the ${employee.citizen === false ? 'foreign worker' : 'employee who opted in'} also pays ${lindungPhase.employeeBasisPoints / 100}% of wages up to RM${lindung.value.ceilingSen / 100} to PERKESO. Take the amount from PERKESO's LINDUNG 24 Jam schedule and deduct it as well.`);
     const employeeTotal = epfPart.employee + socsoEmployee + eisEach;
     const employerTotal = epfPart.employer + socsoEmployer + eisEach;
     let pcb = null;
@@ -125,7 +129,7 @@ export function malaysiaPayroll(args = {}) {
       totals: { wages: sum((row) => row.wages + row.bonus), pcb: sum((row) => (row.pcb ? row.pcb.amount : 0)), epf: sum((row) => row.epf.employee + row.epf.employer), socso: sum((row) => row.socso.employee + row.socso.employer), eis: sum((row) => row.eis.employee + row.eis.employer), employerCost: sum((row) => row.employerCost) },
       dueBy: `${next}-15`,
       notes: ['Pay EPF through i-Akaun (Employer), SOCSO and EIS through PERKESO ASSIST, and PCB through e-PCB Plus, by the 15th of the next month.', 'PCB follows LHDN\'s computerised method with EPF, the individual, spouse and child reliefs; other reliefs the employee declared on Form TP1 go in deductions. Check a few employees against LHDN\'s e-PCB calculator until the PCB rules are attested.'],
-      rulesUsed: [note(epf), note(socso), note(eis), ...(pcbUsed ? [note(pcbUsed.pcb), note(pcbUsed.bands), note(pcbUsed.rebate)] : [])],
+      rulesUsed: [note(epf), note(socso), note(eis), ...(lindung ? [note(lindung)] : []), ...(pcbUsed ? [note(pcbUsed.pcb), note(pcbUsed.bands), note(pcbUsed.rebate)] : [])],
     },
   };
 }
