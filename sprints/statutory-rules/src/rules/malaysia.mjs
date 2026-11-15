@@ -88,7 +88,7 @@ export const RULES = [
   record(
     'my.income-tax.resident-bands', { bands: RESIDENT_BANDS }, 'chargeable_income_of_a_resident_individual_in_sen',
     '2023-01-01', null, 'ITA-1967', 'Schedule 1 Part I',
-    `PwC Worldwide Tax Summaries, Malaysia, individual taxes on personal income, "prevailing tax rates" for residents: 0% to RM5,000, 1% to RM20,000, 3% to RM35,000, 6% to RM50,000, 11% to RM70,000, 19% to RM100,000, 25% to RM400,000, 26% to RM600,000, 28% to RM2,000,000, 30% above (https://taxsummaries.pwc.com/malaysia/individual/taxes-on-personal-income). Coverage starts at year of assessment 2023; ${YA_LOOKUP}`
+    `LHDN tax rate page, table for years of assessment 2023, 2024 and 2025 (https://www.hasil.gov.my/en/individu/kadar-cukai/, read on 2026-11-15): 0% on the first RM5,000, 1% to RM20,000, 3% to RM35,000, 6% to RM50,000, 11% to RM70,000, 19% to RM100,000, 25% to RM400,000, 26% to RM600,000, 28% to RM2,000,000, 30% above; the same schedule is in LHDN's 2026 PCB specification. First taken from PwC Worldwide Tax Summaries (https://taxsummaries.pwc.com/malaysia/individual/taxes-on-personal-income). Coverage starts at year of assessment 2023; ${YA_LOOKUP}`
   ),
   record(
     'my.income-tax.non-resident-rate', { basisPoints: 3000, reliefsAllowed: false, rebatesAllowed: false }, 'chargeable_income_of_a_non_resident_individual',
@@ -98,7 +98,7 @@ export const RULES = [
   record(
     'my.income-tax.rebate', { chargeableIncomeAtMostSen: 35000 * RINGGIT, selfSen: 400 * RINGGIT, spouseSen: 400 * RINGGIT, zakat: 'actual amount paid, limited to the tax charged after the RM400 rebate, any excess not refundable' }, 'rebate_against_tax_charged_when_chargeable_income_does_not_exceed',
     '2023-01-01', null, 'ITA-1967', '6A(2), 6A(3)',
-    `PwC Worldwide Tax Summaries, Malaysia, other tax credits: MYR 400 when chargeable income does not exceed MYR 35,000, another MYR 400 for a spouse with no income, zakat at the actual amount paid; rebates are deducted from tax charged and any excess is not refundable (https://taxsummaries.pwc.com/malaysia/individual/other-tax-credits-and-incentives); RinggitPlus YA 2025 reliefs (https://ringgitplus.com/en/blog/tax/everything-you-can-claim-as-income-tax-relief-in-malaysia-2026-filing-for-ya-2025.html); ${YA_LOOKUP}`,
+    `LHDN rebate page: RM400 for each spouse from year of assessment 2009 for a resident whose chargeable income is within the RM35,000 limit, and zakat limited to the tax charged (https://www.hasil.gov.my/en/individu/rebat/, read on 2026-11-15). PwC Worldwide Tax Summaries, Malaysia, other tax credits: MYR 400 when chargeable income does not exceed MYR 35,000, another MYR 400 for a spouse with no income, zakat at the actual amount paid; rebates are deducted from tax charged and any excess is not refundable (https://taxsummaries.pwc.com/malaysia/individual/other-tax-credits-and-incentives); RinggitPlus YA 2025 reliefs (https://ringgitplus.com/en/blog/tax/everything-you-can-claim-as-income-tax-relief-in-malaysia-2026-filing-for-ya-2025.html); ${YA_LOOKUP}`,
     CHECKED_14
   ),
   record(
