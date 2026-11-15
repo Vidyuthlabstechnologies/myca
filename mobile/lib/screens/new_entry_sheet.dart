@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_state.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../registers.dart';
 import '../theme.dart';
@@ -40,52 +41,52 @@ Future<void> showNewEntrySheet(BuildContext context) {
             Padding(
               padding: const EdgeInsets.fromLTRB(6, 0, 0, 10),
               child: Text(
-                'What happened?',
+                inText(context, 'What happened?'),
                 style: Theme.of(sheet).textTheme.headlineSmall,
               ),
             ),
             _SheetRow(
               tint: Tint.sales,
               mark: Mark.sales,
-              title: 'I sold something',
-              subtitle: 'Raise an invoice for a customer',
+              title: inText(context, 'I sold something'),
+              subtitle: inText(context, 'Raise an invoice for a customer'),
               onTap: () => entry(RegisterKind.sales),
             ),
             if (india)
             _SheetRow(
               tint: Tint.sales,
               mark: Mark.sales,
-              title: 'Counter sale',
-              subtitle: 'Scan barcodes, bill at the counter and print a receipt',
+              title: inText(context, 'Counter sale'),
+              subtitle: inText(context, 'Scan barcodes, bill at the counter and print a receipt'),
               onTap: () => go(const CounterSaleScreen()),
             ),
             _SheetRow(
               tint: Tint.purchases,
               mark: Mark.purchases,
-              title: 'I bought something',
-              subtitle: 'Add a supplier bill',
+              title: inText(context, 'I bought something'),
+              subtitle: inText(context, 'Add a supplier bill'),
               onTap: () => entry(RegisterKind.purchases),
             ),
             if (!ae)
             _SheetRow(
               tint: Tint.purchases,
               mark: Mark.comingUp,
-              title: 'Read a bill from a photo',
-              subtitle: 'A photo, PDF or text of a supplier bill, previewed before it posts',
+              title: inText(context, 'Read a bill from a photo'),
+              subtitle: inText(context, 'A photo, PDF or text of a supplier bill, previewed before it posts'),
               onTap: () => go(const BillCaptureScreen()),
             ),
             _SheetRow(
               tint: Tint.expense,
               mark: Mark.expense,
-              title: 'I paid an expense',
-              subtitle: 'Rent, fuel, anything without a supplier bill',
+              title: inText(context, 'I paid an expense'),
+              subtitle: inText(context, 'Rent, fuel, anything without a supplier bill'),
               onTap: () => go(const ExpenseScreen()),
             ),
             _SheetRow(
               tint: Tint.ask,
               mark: Mark.ask,
-              title: 'Just ask',
-              subtitle: 'Type anything, MyCA will sort it',
+              title: inText(context, 'Just ask'),
+              subtitle: inText(context, 'Type anything, MyCA will sort it'),
               onTap: () => go(const AskScreen()),
             ),
           ],

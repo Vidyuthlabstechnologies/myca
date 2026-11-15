@@ -4,6 +4,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../pos/escpos.dart';
 import '../pos/printer.dart';
 import '../pos/receipt.dart';
@@ -31,8 +32,15 @@ class CartLine {
   };
 }
 
-Map<String, Object?> counterSaleArgs(List<CartLine> cart, {String customer = ''}) => {
+const buyerDetailsFromRupees = 50000;
+
+num billTotal(List<CartLine> cart) => cart.fold<num>(0, (sum, line) => sum + ((line.amount * (100 + line.gstRate)).round() / 100));
+
+bool needsBuyerDetails(List<CartLine> cart) => billTotal(cart) >= buyerDetailsFromRupees;
+
+Map<String, Object?> counterSaleArgs(List<CartLine> cart, {String customer = '', String address = ''}) => {
   'partyName': customer.trim().isEmpty ? 'Walk-in customer' : customer.trim(),
+  if (address.trim().isNotEmpty) 'partyAddress': address.trim(),
   'lines': [for (final line in cart) line.toLine()],
 };
 
@@ -49,6 +57,7 @@ class CounterSaleScreen extends StatefulWidget {
 class _CounterSaleScreenState extends State<CounterSaleScreen> {
   final _code = TextEditingController();
   final _customer = TextEditingController();
+  final _address = TextEditingController();
   final cart = <CartLine>[];
   String _message = '';
   bool _busy = false;
@@ -61,6 +70,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
   void dispose() {
     _code.dispose();
     _customer.dispose();
+    _address.dispose();
     super.dispose();
   }
 
@@ -144,12 +154,16 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
 
   Future<void> _makeBill() async {
     if (cart.isEmpty) return;
+    if (needsBuyerDetails(cart) && (_customer.text.trim().isEmpty || _address.text.trim().isEmpty)) {
+      setState(() => _message = inText(context, 'A bill of ₹50,000 or more must carry the customer\'s name and address with the state. Add both, then make the bill.'));
+      return;
+    }
     setState(() {
       _busy = true;
       _message = '';
     });
     try {
-      final reply = await api.propose('create_invoice', counterSaleArgs(cart, customer: _customer.text));
+      final reply = await api.propose('create_invoice', counterSaleArgs(cart, customer: _customer.text, address: _address.text));
       if (!mounted) return;
       setState(() {
         _preview = reply.preview;
@@ -178,7 +192,11 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
         _preview = null;
         _posted = invoice;
         _message = reply.posted ? reply.reply : reply.reply;
-        if (reply.posted) cart.clear();
+        if (reply.posted) {
+          cart.clear();
+          _customer.clear();
+          _address.clear();
+        }
       });
       if (reply.posted) await AppScope.of(context).refresh();
     } on MycaApiException catch (err) {
@@ -197,7 +215,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
       final choices = await widget.printer.paired();
       if (!mounted) return;
       if (choices.isEmpty) {
-        setState(() => _message = 'Allow Nearby devices for MyCA and pair the receipt printer in Android Bluetooth settings, then print again.');
+        setState(() => _message = inText(context, 'Allow Nearby devices for MyCA and pair the receipt printer in Android Bluetooth settings, then print again.'));
         return;
       }
       printer = await showModalBottomSheet<PrinterChoice>(
@@ -206,7 +224,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
           child: ListView(
             shrinkWrap: true,
             children: [
-              const ListTile(title: Text('Choose the receipt printer')),
+              ListTile(title: Text(inText(context, 'Choose the receipt printer'))),
               for (final choice in choices) ListTile(title: Text(choice.name), subtitle: Text(choice.address), onTap: () => Navigator.of(sheet).pop(choice)),
             ],
           ),
@@ -239,7 +257,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
     final text = Theme.of(context).textTheme;
     final subtotal = cart.fold<num>(0, (sum, line) => sum + line.amount);
     return Scaffold(
-      appBar: AppBar(title: const Text('Counter sale')),
+      appBar: AppBar(title: Text(inText(context, 'Counter sale'))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
@@ -251,16 +269,16 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
                   controller: _code,
                   textInputAction: TextInputAction.done,
                   onSubmitted: _add,
-                  decoration: const InputDecoration(labelText: 'Barcode or item code'),
+                  decoration: InputDecoration(labelText: inText(context, 'Barcode or item code')),
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton.filled(key: const Key('counter-scan'), tooltip: 'Scan', onPressed: _busy ? null : _scan, icon: const Icon(Icons.qr_code_scanner)),
+              IconButton.filled(key: const Key('counter-scan'), tooltip: inText(context, 'Scan'), onPressed: _busy ? null : _scan, icon: const Icon(Icons.qr_code_scanner)),
             ],
           ),
           const SizedBox(height: 12),
           if (cart.isEmpty)
-            Padding(padding: const EdgeInsets.symmetric(vertical: 24), child: Text('Scan or type an item to start the bill.', style: text.bodyMedium, textAlign: TextAlign.center)),
+            Padding(padding: const EdgeInsets.symmetric(vertical: 24), child: Text(inText(context, 'Scan or type an item to start the bill.'), style: text.bodyMedium, textAlign: TextAlign.center)),
           for (final line in cart)
             Card(
               child: ListTile(
@@ -269,13 +287,13 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(tooltip: 'One less', icon: const Icon(Icons.remove_circle_outline), onPressed: () => setState(() {
+                    IconButton(tooltip: inText(context, 'One less'), icon: const Icon(Icons.remove_circle_outline), onPressed: () => setState(() {
                       line.qty -= 1;
                       if (line.qty <= 0) cart.remove(line);
                       _preview = null;
                     })),
                     Text('${line.qty}', style: text.titleMedium),
-                    IconButton(tooltip: 'One more', icon: const Icon(Icons.add_circle_outline), onPressed: () => setState(() {
+                    IconButton(tooltip: inText(context, 'One more'), icon: const Icon(Icons.add_circle_outline), onPressed: () => setState(() {
                       line.qty += 1;
                       _preview = null;
                     })),
@@ -287,9 +305,13 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
             const SizedBox(height: 8),
             Text('Before GST: ${rupees(subtotal)}', style: text.titleMedium, key: const Key('counter-subtotal')),
             const SizedBox(height: 8),
-            TextField(controller: _customer, decoration: const InputDecoration(labelText: 'Customer (optional)', hintText: 'Walk-in customer')),
+            TextField(key: const Key('counter-customer'), controller: _customer, decoration: InputDecoration(labelText: needsBuyerDetails(cart) ? inText(context, 'Customer name') : inText(context, 'Customer (optional)'), hintText: needsBuyerDetails(cart) ? null : inText(context, 'Walk-in customer'))),
+            if (needsBuyerDetails(cart)) ...[
+              const SizedBox(height: 8),
+              TextField(key: const Key('counter-address'), controller: _address, maxLength: 200, decoration: InputDecoration(labelText: inText(context, 'Customer address with state'), helperText: inText(context, 'Needed on bills of ₹50,000 or more'))),
+            ],
             const SizedBox(height: 12),
-            if (_preview == null) FilledButton(key: const Key('counter-make'), onPressed: _busy ? null : _makeBill, child: const Text('Make bill')),
+            if (_preview == null) FilledButton(key: const Key('counter-make'), onPressed: _busy ? null : _makeBill, child: Text(inText(context, 'Make bill'))),
           ],
           if (_preview != null) ...[
             Card(
@@ -304,18 +326,18 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
                 ),
               ),
             ),
-            FilledButton(key: const Key('counter-post'), onPressed: _busy ? null : _post, child: const Text('Post bill')),
+            FilledButton(key: const Key('counter-post'), onPressed: _busy ? null : _post, child: Text(inText(context, 'Post bill'))),
           ],
           if (_posted != null) ...[
             const SizedBox(height: 12),
-            OutlinedButton.icon(key: const Key('counter-print'), onPressed: _busy ? null : _print, icon: const Icon(Icons.print_outlined), label: const Text('Print receipt')),
+            OutlinedButton.icon(key: const Key('counter-print'), onPressed: _busy ? null : _print, icon: const Icon(Icons.print_outlined), label: Text(inText(context, 'Print receipt'))),
             TextButton(
               onPressed: () async {
                 final next = await widget.printer.paper() == PaperWidth.mm58 ? PaperWidth.mm80 : PaperWidth.mm58;
                 await widget.printer.setPaper(next);
                 if (mounted) setState(() => _message = 'Receipts now print on ${next == PaperWidth.mm58 ? '58' : '80'} mm paper.');
               },
-              child: const Text('Change paper width'),
+              child: Text(inText(context, 'Change paper width')),
             ),
           ],
           if (_message.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_message, key: const Key('counter-message'), style: text.bodyMedium)),
@@ -355,9 +377,9 @@ class _NewItemSheetState extends State<_NewItemSheet> {
   void _save() {
     final price = parseAmount(_price.text);
     final gst = parseRate(_gst.text);
-    if (_name.text.trim().isEmpty) return setState(() => _error = 'Give the item a name.');
-    if (price == null) return setState(() => _error = 'Enter the selling price before GST.');
-    if (gst == null) return setState(() => _error = 'Enter the GST rate, for example 5 or 18. Use 0 if there is none.');
+    if (_name.text.trim().isEmpty) return setState(() => _error = inText(context, 'Give the item a name.'));
+    if (price == null) return setState(() => _error = inText(context, 'Enter the selling price before GST.'));
+    if (gst == null) return setState(() => _error = inText(context, 'Enter the GST rate, for example 5 or 18. Use 0 if there is none.'));
     final sku = widget.sku.isNotEmpty ? widget.sku : widget.code.toUpperCase();
     Navigator.of(context).pop(CartLine(sku: sku.length > 64 ? sku.substring(0, 64) : sku, name: _name.text.trim(), price: price, gstRate: gst, hsn: _hsn.text.trim()));
   }
@@ -371,14 +393,14 @@ class _NewItemSheetState extends State<_NewItemSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text('New item ${widget.code}', style: Theme.of(context).textTheme.titleLarge),
-          const Text('Saved once; the next scan fills the bill.'),
-          TextField(key: const Key('item-name'), controller: _name, decoration: const InputDecoration(labelText: 'Name')),
-          TextField(key: const Key('item-price'), controller: _price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Selling price before GST')),
-          TextField(key: const Key('item-gst'), controller: _gst, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'GST %')),
-          TextField(controller: _hsn, decoration: const InputDecoration(labelText: 'HSN (optional)')),
+          Text(inText(context, 'Saved once; the next scan fills the bill.')),
+          TextField(key: const Key('item-name'), controller: _name, decoration: InputDecoration(labelText: inText(context, 'Name'))),
+          TextField(key: const Key('item-price'), controller: _price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: inText(context, 'Selling price before GST'))),
+          TextField(key: const Key('item-gst'), controller: _gst, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: inText(context, 'GST %'))),
+          TextField(controller: _hsn, decoration: InputDecoration(labelText: inText(context, 'HSN (optional)'))),
           if (_error.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error, style: TextStyle(color: Theme.of(context).colorScheme.error))),
           const SizedBox(height: 12),
-          FilledButton(key: const Key('item-save'), onPressed: _save, child: const Text('Save and add')),
+          FilledButton(key: const Key('item-save'), onPressed: _save, child: Text(inText(context, 'Save and add'))),
         ],
       ),
     );

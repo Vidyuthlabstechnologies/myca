@@ -6,6 +6,7 @@ import '../api/models.dart';
 import '../notifications.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import '../india/india_strings.dart';
 import '../attention.dart';
 import '../brand.dart';
 import '../format.dart';
@@ -146,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 9),
             child: Tooltip(
-              message: 'Your business',
+              message: inText(context, 'Your business'),
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: () => showBusinessSheet(context, snapshot),
@@ -169,10 +170,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        tooltip: 'New entry',
+        tooltip: inText(context, 'New entry'),
         onPressed: () => showNewEntrySheet(context),
         icon: const Icon(Icons.add, size: 20),
-        label: const Text('New entry'),
+        label: Text(inText(context, 'New entry')),
       ),
       body: RefreshIndicator(
         onRefresh: state.refresh,
@@ -325,12 +326,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 26),
             ],
-            const SectionLabel('Your books'),
+            SectionLabel(inText(context, 'Your books')),
             Panel(
               children: [
                 RowCard(
                   leading: const TintTile(tint: Tint.sales, mark: Mark.sales),
-                  title: 'Sales',
+                  title: inText(context, 'Sales'),
                   subtitle: registerSubtitle(
                     snapshot.invoices,
                     RegisterKind.sales,
@@ -344,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     tint: Tint.purchases,
                     mark: Mark.purchases,
                   ),
-                  title: 'Purchases',
+                  title: inText(context, 'Purchases'),
                   subtitle: registerSubtitle(
                     snapshot.purchases,
                     RegisterKind.purchases,
@@ -358,7 +359,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     tint: Tint.expense,
                     mark: Mark.expense,
                   ),
-                  title: 'Expenses',
+                  title: inText(context, 'Expenses'),
                   subtitle: expensesSubtitle(snapshot.expenses),
                   trailing: const Chevron(),
                   onTap: () => _open(const ExpensesScreen()),
@@ -369,22 +370,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (!uk)
                   RowCard(
                     leading: const TintTile(tint: Tint.ask, mark: Mark.employee),
-                    title: 'Employees',
-                    subtitle: 'Who works for you and what they are paid',
+                    title: inText(context, 'Employees'),
+                    subtitle: inText(context, 'Who works for you and what they are paid'),
                     trailing: const Chevron(),
                     onTap: () => _open(const EmployeesScreen()),
                   ),
               ],
             ),
             const SizedBox(height: 26),
-            const SectionLabel('Money and follow-up'),
+            SectionLabel(inText(context, 'Money and follow-up')),
             Panel(
               children: [
                 RowCard(
                   leading: const TintTile(tint: Tint.sales, mark: Mark.bringIn),
-                  title: 'Cash',
+                  title: inText(context, 'Cash'),
                   subtitle:
-                      'Bank and cash, the next 30 days, and can I afford it',
+                      inText(context, 'Bank and cash, the next 30 days, and can I afford it'),
                   trailing: const Chevron(),
                   onTap: () => _open(const CashScreen()),
                 ),
@@ -392,57 +393,57 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (!uk)
                 RowCard(
                   leading: const TintTile(tint: Tint.sales, mark: Mark.otherApp),
-                  title: 'Marketplace',
-                  subtitle: 'Payouts, TCS and TDS, margins by SKU, stock, GST registrations',
+                  title: inText(context, 'Marketplace'),
+                  subtitle: inText(context, 'Payouts, TCS and TDS, margins by SKU, stock, GST registrations'),
                   trailing: const Chevron(),
                   onTap: () => _open(const MarketplaceScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.switchBooks),
-                  title: 'Bank',
-                  subtitle: 'Your statement next to your books, matched and not matched',
+                  title: inText(context, 'Bank'),
+                  subtitle: inText(context, 'Your statement next to your books, matched and not matched'),
                   trailing: const Chevron(),
                   onTap: () => _open(const BankScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.comingUp),
-                  title: 'Repeating entries',
-                  subtitle: 'Invoices, bills and expenses posted on their dates',
+                  title: inText(context, 'Repeating entries'),
+                  subtitle: inText(context, 'Invoices, bills and expenses posted on their dates'),
                   trailing: const Chevron(),
                   onTap: () => _open(const RecurringScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.taxes, mark: Mark.sales),
-                  title: 'Reports',
-                  subtitle: 'Saved reports run by name, compared with the period before',
+                  title: inText(context, 'Reports'),
+                  subtitle: inText(context, 'Saved reports run by name, compared with the period before'),
                   trailing: const Chevron(),
                   onTap: () => _open(const ReportsScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
-                  title: 'Statements',
-                  subtitle: 'Profit and loss, balance sheet, cash flow, customer statements',
+                  title: inText(context, 'Statements'),
+                  subtitle: inText(context, 'Profit and loss, balance sheet, cash flow, customer statements'),
                   trailing: const Chevron(),
                   onTap: () => _open(const StatementsScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.people),
-                  title: company.country == 'AE' ? UaeStrings.of(context).yourAccountant : uk ? 'Your accountant' : 'Your CA',
-                  subtitle: company.country == 'AE' ? UaeStrings.of(context).yourAccountantSubtitle : 'Questions you asked and their answers',
+                  title: company.country == 'AE' ? UaeStrings.of(context).yourAccountant : uk ? 'Your accountant' : inText(context, 'Your CA'),
+                  subtitle: company.country == 'AE' ? UaeStrings.of(context).yourAccountantSubtitle : inText(context, 'Questions you asked and their answers'),
                   trailing: const Chevron(),
                   onTap: () => _open(const CaScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.comingUp),
-                  title: 'Reminders',
-                  subtitle: 'Anything you asked to be reminded of',
+                  title: inText(context, 'Reminders'),
+                  subtitle: inText(context, 'Anything you asked to be reminded of'),
                   trailing: const Chevron(),
                   onTap: () => _open(const RemindersScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.taxes, mark: Mark.confirm),
-                  title: 'Books check',
-                  subtitle: 'What needs you, worked out from your books',
+                  title: inText(context, 'Books check'),
+                  subtitle: inText(context, 'What needs you, worked out from your books'),
                   trailing: const Chevron(),
                   onTap: () => _open(const BooksCheckScreen()),
                 ),
@@ -479,7 +480,7 @@ class _RecoveryNote extends StatelessWidget {
           Text(words, style: text.bodyLarge),
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton(onPressed: onDismiss, child: const Text('Got it')),
+            child: TextButton(onPressed: onDismiss, child: Text(inText(context, 'Got it'))),
           ),
         ],
       ),
@@ -607,21 +608,21 @@ class _TodayPanel extends StatelessWidget {
     final urgent = open.any(isUrgent);
     final gst = data?.gst;
     final headline = failed
-        ? 'Could not check your taxes'
+        ? inText(context, 'Could not check your taxes')
         : data == null
-        ? 'Checking your books…'
+        ? inText(context, 'Checking your books…')
         : open.isEmpty
-        ? 'You are all caught up'
+        ? inText(context, 'You are all caught up')
         : open.length == 1
-        ? '1 thing needs you'
-        : '${open.length} things need you';
+        ? inThingsNeedYou(context, 1)
+        : inThingsNeedYou(context, open.length);
     final detail = failed
-        ? 'Pull down to try again.'
+        ? inText(context, 'Pull down to try again.')
         : open.isNotEmpty
         ? open.first.title
         : data == null
         ? ''
-        : 'No returns overdue and nothing waiting on you.';
+        : inText(context, 'No returns overdue and nothing waiting on you.');
     return Material(
       color: Palette.surface,
       shape: RoundedRectangleBorder(
@@ -648,10 +649,10 @@ class _TodayPanel extends StatelessWidget {
                           runSpacing: 4,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            Text('TAXES AND FILINGS', style: text.labelSmall),
+                            Text(inText(context, 'TAXES AND FILINGS'), style: text.labelSmall),
                             if (open.isNotEmpty)
                               StatusTag(
-                                text: urgent ? 'Overdue' : 'Due soon',
+                                text: urgent ? inText(context, 'Overdue') : inText(context, 'Due soon'),
                                 color: urgent ? Palette.danger : Palette.warn,
                               ),
                           ],
@@ -757,12 +758,12 @@ class _FirstSaleCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Log your first sale',
+                      inText(context, 'Log your first sale'),
                       style: text.titleLarge?.copyWith(color: Palette.accent),
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'Name the customer, enter the amount, confirm.',
+                      inText(context, 'Name the customer, enter the amount, confirm.'),
                       style: text.bodyMedium?.copyWith(color: Palette.accent),
                     ),
                   ],
@@ -814,19 +815,19 @@ class _SummaryPanel extends StatelessWidget {
           Row(
             children: [
               _Figure(
-                label: 'Sold',
+                label: inText(context, 'Sold'),
                 amount: summary.current.salesNet,
                 before: summary.previous.salesNet,
                 onTap: onSales,
               ),
               _Figure(
-                label: 'Bought',
+                label: inText(context, 'Bought'),
                 amount: summary.current.purchases,
                 before: summary.previous.purchases,
                 onTap: onPurchases,
               ),
               _Figure(
-                label: 'Spent',
+                label: inText(context, 'Spent'),
                 amount: summary.current.expenses,
                 before: summary.previous.expenses,
                 onTap: onExpenses,
@@ -834,7 +835,7 @@ class _SummaryPanel extends StatelessWidget {
               if (summary.current.payrollStatus == 'approved' ||
                   summary.previous.payrollStatus == 'approved')
                 _Figure(
-                  label: 'Paid staff',
+                  label: inText(context, 'Paid staff'),
                   amount: summary.current.payrollGross,
                   before: summary.previous.payrollGross,
                   onTap: onPayroll ?? () {},
@@ -846,7 +847,7 @@ class _SummaryPanel extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(flex: 3, child: Text('Owed to you', style: text.titleMedium)),
+              Expanded(flex: 3, child: Text(inText(context, 'Owed to you'), style: text.titleMedium)),
               const SizedBox(width: 12),
               Expanded(
                 flex: 2,
@@ -863,7 +864,7 @@ class _SummaryPanel extends StatelessWidget {
           ),
           Text(
             summary.openInvoices == 0
-                ? 'No invoice is waiting for payment.'
+                ? inText(context, 'No invoice is waiting for payment.')
                 : owed.map((c) => '${c.name} ${rupees(c.due)}').join(' · '),
             style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
           ),
@@ -872,7 +873,7 @@ class _SummaryPanel extends StatelessWidget {
             children: [
               Expanded(
                 flex: 3,
-                child: Text('You owe suppliers', style: text.titleMedium),
+                child: Text(inText(context, 'You owe suppliers'), style: text.titleMedium),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -890,7 +891,7 @@ class _SummaryPanel extends StatelessWidget {
           ),
           Text(
             summary.unpaidBills == 0
-                ? 'No bill is waiting to be paid.'
+                ? inText(context, 'No bill is waiting to be paid.')
                 : summary.suppliers
                       .map((s) => '${s.name} ${rupees(s.due)}')
                       .join(' · '),
@@ -935,13 +936,13 @@ class _AskBarState extends State<_AskBar> {
       textInputAction: TextInputAction.send,
       onSubmitted: (_) => _send(),
       decoration: InputDecoration(
-        hintText: 'Tell or ask MyCA anything',
+        hintText: inText(context, 'Tell or ask MyCA anything'),
         prefixIcon: Padding(
           padding: EdgeInsets.all(12),
           child: MarkIcon(mark: Mark.ask, size: 20, color: Palette.muted),
         ),
         suffixIcon: IconButton(
-          tooltip: 'Send',
+          tooltip: inText(context, 'Send'),
           icon: const Icon(Icons.arrow_upward, size: 20),
           onPressed: _send,
         ),
@@ -1096,7 +1097,7 @@ class _WeekPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionLabel(overdue > 0 ? 'This week · $overdue overdue' : 'This week'),
+        SectionLabel(overdue > 0 ? 'This week · $overdue overdue' : inText(context, 'This week')),
         Panel(
           children: [
             for (final item in items.take(6))
@@ -1123,7 +1124,7 @@ class _DuePanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionLabel('Due today'),
+        SectionLabel(inText(context, 'Due today')),
         Panel(
           children: [
             for (final reminder in reminders)
