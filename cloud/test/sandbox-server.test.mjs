@@ -68,7 +68,7 @@ test('the India + US sandbox server answers both apps end to end behind one addr
   assert.match(out, new RegExp(`/in\\b`));
   const run = await promisify(execFile)(process.execPath, ['scripts/sandbox-server-check.mjs', `http://127.0.0.1:${port}`, consoleKey], { cwd: root }).catch((err) => err);
   assert.equal(run.code ?? 0, 0, `${run.stdout}${run.stderr}`);
-  assert.match(run.stdout, /36 passed, 0 failed/);
+  assert.match(run.stdout, /54 passed, 0 failed/);
 
   const india = await (await fetch(`http://127.0.0.1:${port}/in/v1/health/live`)).json();
   const us = await (await fetch(`http://127.0.0.1:${port}/us/v1/health/live`)).json();

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-const [base = 'http://127.0.0.1:8080', consoleKey = process.env.MYCA_SANDBOX_CONSOLE_KEY || ''] = process.argv.slice(2);
+const [base = 'http://127.0.0.1:8080', given = process.env.MYCA_SANDBOX_CONSOLE_KEY || ''] = process.argv.slice(2);
+const consoleKey = given === '--no-console' ? '' : given;
 const code = process.env.MYCA_TEST_CODE || '246810';
 const results = [];
 const step = (app, name, ok, detail = '') => {
@@ -118,7 +119,7 @@ async function us() {
   step(app, 'the return shows as paid', purchase.body.paid === true, purchase.text);
   const filed = await write('file_us_return', { taxYear });
   step(app, 'file through the e-file partner', filed.status === 200 && result(filed, 'file_us_return').ok === true, filed.text);
-  if (!consoleKey) return step(app, 'partner events (needs the console key)', false, 'no console key given');
+  if (!consoleKey) return console.log('SKIPPED US    partner events and the 1040 acceptance (no console key given)');
   const login = await call(`/?k=${consoleKey}`, { json: false });
   const cookie = String(login.status === 303 ? `myca_sandbox=${consoleKey}` : '');
   const blocked = await call('/state');
@@ -135,7 +136,20 @@ async function us() {
   step(app, 'the 1040 hub shows accepted', data.status === 'accepted', status.text);
 }
 
-for (const run of [india, us]) {
+async function others() {
+  for (const [app, pre, phone, region, country] of [['UK', '/uk', '+919000000003', 'GB', 'GB'], ['UAE', '/uae', '+971501000001', 'AE', 'AE'], ['MY', '/my', '+60123000001', 'MY', 'MY']]) {
+    prefix = pre;
+    const token = await signIn(app, phone, region);
+    const created = await call('/v1/businesses', { method: 'POST', token, body: { name: `Sandbox ${app} ${Date.now()}`, country } });
+    step(app, 'create a business', created.status === 200 && created.body.business?.country === country, created.text);
+    const listed = await call(`/v1/businesses/${created.body.business?.id}/query`, { method: 'POST', token, body: { name: 'list_invoices', args: {} } });
+    step(app, 'read the books', listed.status === 200, listed.text);
+    const live = await call('/v1/health/live');
+    step(app, 'government calls are simulated', live.body.providerMode === 'simulated' && live.body.environment !== 'production', live.text);
+  }
+}
+
+for (const run of [india, us, others]) {
   try { await run(); } catch (err) { step(run.name, 'unexpected error', false, err?.stack || err); }
 }
 for (const r of results) console.log(`${r.ok ? 'PASSED' : 'FAILED'}  ${r.app.padEnd(5)} ${r.name}${r.ok ? '' : `\n        ${r.detail}`}`);

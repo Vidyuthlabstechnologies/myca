@@ -35,6 +35,25 @@ try {
     $DatabaseUrl = "postgres://myca@127.0.0.1:5439/myca_sandbox"
   }
 
+  if (-not $env:MYCA_SANDBOX_SEED) {
+    $seed = [System.Environment]::GetEnvironmentVariable("MYCA_SANDBOX_SEED", "User")
+    if (-not $seed) {
+      $bytes = New-Object byte[] 32
+      [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+      $seed = -join ($bytes | ForEach-Object { $_.ToString("x2") })
+      [System.Environment]::SetEnvironmentVariable("MYCA_SANDBOX_SEED", $seed, "User")
+    }
+    $env:MYCA_SANDBOX_SEED = $seed
+  }
+  if (-not $env:MYCA_MODEL_API_KEY) {
+    $saved = [System.Environment]::GetEnvironmentVariable("MYCA_MODEL_API_KEY", "User")
+    if (-not $saved) {
+      $typed = Read-Host -AsSecureString "Anthropic API key for AI chat (Enter to skip)"
+      $saved = [System.Net.NetworkCredential]::new("", $typed).Password
+      if ($saved) { [System.Environment]::SetEnvironmentVariable("MYCA_MODEL_API_KEY", $saved, "User") }
+    }
+    if ($saved) { $env:MYCA_MODEL_API_KEY = $saved }
+  }
   Start-Process ngrok -ArgumentList @("http", "--url=$Domain", "$Port") | Out-Null
   $env:MYCA_DATABASE_URL = $DatabaseUrl
   $extra = @()
