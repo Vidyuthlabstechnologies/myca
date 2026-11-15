@@ -201,6 +201,10 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - US start from last year (2026-11-14): `import_us_prior_year` copies the profile, sealed SSNs and
   dependents from last year's MyCA return, fills last year's AGI, tax and capital loss carryovers (or
   takes them typed), and lists the forms to expect; the US app has a Start from last year screen
+- UK payroll calculation (2026-11-15): `gb_payroll_run` works out a weekly or monthly pay run for 2026-27 by the
+  HMRC computerised PAYE method (cumulative, week 1/month 1, K, BR, D and NT codes, Scottish and Welsh
+  prefixes, the 50% limit), Class 1 National Insurance by category letter, student and postgraduate loans
+  and pensions, from `gb.paye.calculation` and `gb.ni.class-1`; it does not send RTI to HMRC
 
 
 ### Data import

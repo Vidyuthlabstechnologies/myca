@@ -69,7 +69,7 @@ test('the UK pack is a served beta country with its own app, London data and Pla
 test('the UK manifest is clean, its tools serve only the UK, and provider tools are flagged for the hosted service', () => {
   const manifest = manifestFor('GB');
   assert.deepEqual(manifestProblems([manifest], ['GB']), []);
-  assert.equal(manifest.tools.length, 23);
+  assert.equal(manifest.tools.length, 24);
   assert.ok(ENGINE_PROVIDER_TOOLS.includes('submit_gb_vat_return'));
   assert.ok(ENGINE_PROVIDER_TOOLS.includes('sync_gb_hmrc'));
   assert.equal(ENGINE_PROVIDER_TOOLS.includes('gb_tax_estimate'), false);

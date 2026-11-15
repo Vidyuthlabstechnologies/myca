@@ -83,6 +83,33 @@ const STUDENT_LOANS_2026 = {
 const CGT_2025 = { annualExemptAmountPence: pounds(3000), basisPoints: { basic: 1800, higher: 2400 }, residentialBasisPoints: { basic: 1800, higher: 2400 }, businessAssetDisposalBasisPoints: 1400, businessAssetDisposalLifetimePence: pounds(1000000), residentialReportingDays: 60 };
 const CGT_2026 = { ...CGT_2025, businessAssetDisposalBasisPoints: 1800 };
 
+const PAYE_2026 = {
+  emergencyCode: '1257L',
+  maxDeductionBasisPoints: 5000,
+  freePay: { poundsPerCodePoint: 10, addPounds: 9, blockOfCodePoints: 500 },
+  basicRateBand: 'basic',
+  flatRateCodes: { BR: 0, D0: 1, D1: 2, D2: 3 },
+  periodsInYear: { monthly: 12, weekly: 52 },
+};
+
+const CLASS_1_2026 = {
+  thresholdsPence: {
+    weekly: { lowerEarningsLimit: pounds(129), primary: pounds(242), secondary: pounds(96), freeportUpperSecondary: pounds(481), upperEarningsLimit: pounds(967) },
+    monthly: { lowerEarningsLimit: pounds(559), primary: pounds(1048), secondary: pounds(417), freeportUpperSecondary: pounds(2083), upperEarningsLimit: pounds(4189) },
+  },
+  employee: {
+    aboveUpperEarningsLimitBasisPoints: 200,
+    mainBasisPoints: { A: 800, B: 185, C: null, D: 200, E: 185, F: 800, H: 800, I: 185, J: 200, K: null, L: 200, M: 800, N: 800, S: null, V: 800, Z: 200 },
+  },
+  employer: {
+    basisPoints: 1500,
+    nothingUpTo: { A: 'secondary', B: 'secondary', C: 'secondary', J: 'secondary', D: 'freeportUpperSecondary', E: 'freeportUpperSecondary', F: 'freeportUpperSecondary', I: 'freeportUpperSecondary', K: 'freeportUpperSecondary', L: 'freeportUpperSecondary', N: 'freeportUpperSecondary', S: 'freeportUpperSecondary', H: 'upperEarningsLimit', M: 'upperEarningsLimit', V: 'upperEarningsLimit', Z: 'upperEarningsLimit' },
+  },
+  rounding: 'nearest_penny_half_down',
+  employmentAllowancePence: pounds(10500),
+  studentLoanDeductionRounding: 'down_to_pound',
+};
+
 export const RULES = [
   record('gb.income-tax.allowances', { ...ALLOWANCES, blindPersonsAllowancePence: pounds(3130) }, 'personal_marriage_blind_trading_and_property_allowances', Y2025, 'ITA-2007', '35, 55B, 38; ITTOIA-2005 783A, 783AK', 'GOV.UK Income Tax rates and allowances for current and past years (https://www.gov.uk/government/publications/rates-and-allowances-income-tax/income-tax-rates-and-allowances-current-and-past)'),
   record('gb.income-tax.allowances', { ...ALLOWANCES, blindPersonsAllowancePence: pounds(3250) }, 'personal_marriage_blind_trading_and_property_allowances', FROM_2026, 'ITA-2007', '35, 55B, 38; ITTOIA-2005 783A, 783AK', 'GOV.UK Income Tax rates and allowances; personal allowance frozen at £12,570 to 2030-31 (Autumn Budget 2025) (https://www.gov.uk/government/publications/rates-and-allowances-income-tax/income-tax-rates-and-allowances-current-and-past)'),
@@ -99,6 +126,8 @@ export const RULES = [
   record('gb.ni.class-4', CLASS_4_2025, 'class_4_profits_limits_and_rates', FROM_2025, 'SSCBA-1992', '15', 'GOV.UK rates and thresholds for employers and self-employed National Insurance (https://www.gov.uk/self-employed-national-insurance-rates)'),
   record('gb.ni.class-2', CLASS_2_2025, 'voluntary_class_2_weekly_rate_and_small_profits_threshold', Y2025, 'SSCBA-1992', '11', 'GOV.UK self-employed National Insurance rates 2025-26: Class 2 no longer compulsory from 6 April 2024 (https://www.gov.uk/self-employed-national-insurance-rates)'),
   record('gb.ni.class-2', CLASS_2_2026, 'voluntary_class_2_weekly_rate_and_small_profits_threshold', FROM_2026, 'SSCBA-1992', '11', 'GOV.UK self-employed National Insurance rates 2026-27 (https://www.gov.uk/self-employed-national-insurance-rates)'),
+  record('gb.ni.class-1', CLASS_1_2026, 'class_1_thresholds_and_rates_by_category_letter_for_employees_and_employers', Y2026, 'SSCBA-1992', '6, 8, 9; Social Security (Contributions) Regulations 2001', 'GOV.UK rates and thresholds for employers 2026 to 2027: weekly and monthly thresholds, employee and employer rates by category letter, Employment Allowance £10,500; CWG2 2026 to 2027 for the exact percentage method, rounded to the nearest penny with exactly half a penny rounded down; HMRC CSLM18025 for student loan deductions rounded down to the pound (https://www.gov.uk/guidance/rates-and-thresholds-for-employers-2026-to-2027, https://www.gov.uk/government/publications/cwg2-further-guide-to-paye-and-national-insurance-contributions/2026-to-2027-employer-further-guide-to-paye-and-national-insurance-contributions, https://www.gov.uk/hmrc-internal-manuals/collection-of-student-loans-manual/cslm18025)'),
+  record('gb.paye.calculation', PAYE_2026, 'computerised_paye_free_pay_flat_rate_codes_and_regulatory_limit', Y2026, 'Income-Tax-PAYE-Regulations-2003', 'Part 2; regulation 2 (overriding limit)', 'HMRC Specification for PAYE tax table routines, version 24.0, February 2026: free pay from the code number, thresholds to four decimal places, tax to date rounded down to the penny, codes BR and D0 to D2 at the rate after the basic rate pointer, deduction capped at 50% of the pay; emergency code 1257L from GOV.UK rates and thresholds for employers 2026 to 2027 (https://www.gov.uk/government/publications/payroll-technical-specifications-paye-tax-table-routines, https://www.gov.uk/guidance/rates-and-thresholds-for-employers-2026-to-2027)'),
   record('gb.student-loan.plans', STUDENT_LOANS_2025, 'repayment_thresholds_and_rates_by_plan', Y2025, 'Education-Student-Loans-Repayment-Regulations-2009', 'Part 3', 'GOV.UK repaying your student loan: what you pay (https://www.gov.uk/repaying-your-student-loan/what-you-pay)'),
   record('gb.student-loan.plans', STUDENT_LOANS_2026, 'repayment_thresholds_and_rates_by_plan', Y2026, 'Education-Student-Loans-Repayment-Regulations-2009', 'Part 3', 'GOV.UK repaying your student loan: what you pay, 2026-27 thresholds (https://www.gov.uk/repaying-your-student-loan/what-you-pay)'),
   record('gb.cgt.rates', CGT_2025, 'annual_exempt_amount_rates_and_business_asset_disposal_relief', Y2025, 'TCGA-1992', '1H, 1I, 169N', 'GOV.UK Capital Gains Tax rates and allowances (https://www.gov.uk/capital-gains-tax/rates)'),
