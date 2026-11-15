@@ -92,7 +92,7 @@ class MemoryLanguageStore implements LanguageStore {
   Future<void> save(String code) async => this.code = code;
 }
 
-AppState myState(MycaApi api, {bool welcomed = true, String language = '', DateTime? now, Future<bool> Function(String text)? share, MyTurnoverStore? turnover}) {
+AppState myState(MycaApi api, {bool welcomed = true, String language = '', DateTime? now, Future<bool> Function(String text)? share, Future<bool> Function(String name, String content)? save, MyTurnoverStore? turnover}) {
   myTurnoverStore = turnover ?? MemoryMyTurnoverStore();
   return AppState(
     api: api,
@@ -102,6 +102,7 @@ AppState myState(MycaApi api, {bool welcomed = true, String language = '', DateT
     edition: 'MY',
     languages: MemoryLanguageStore(language),
     shareText: share ?? (_) async => true,
+    saveTextFile: save ?? (_, _) async => true,
   );
 }
 

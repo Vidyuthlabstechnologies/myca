@@ -150,6 +150,8 @@ class SampleMalaysia {
     'my_sst_return',
     'my_sst_rate',
     'my_tax_estimate',
+    'my_payroll',
+    'my_cp39_file',
     'set_my_einvoice_profile',
     'issue_my_einvoice',
     'cancel_my_einvoice',
@@ -175,6 +177,7 @@ class SampleMalaysia {
     'my_sst_return' => _sstReturn(args),
     'my_sst_rate' => _rate(args),
     'my_tax_estimate' => _tax(args),
+    'my_payroll' || 'my_cp39_file' => _fail('NOT_IN_SANDBOX'),
     _ => _fail('NOT_QUERYABLE', {'tool': name}),
   };
 

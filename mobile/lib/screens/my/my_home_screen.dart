@@ -10,6 +10,7 @@ import '../../tour/tour.dart';
 import 'my_einvoice_detail_screen.dart';
 import 'my_einvoice_list_screen.dart';
 import 'my_obligation_card.dart';
+import 'my_payroll_screen.dart';
 import 'my_plan_screen.dart';
 import 'my_profile_screens.dart';
 import 'my_sst_screen.dart';
@@ -209,6 +210,17 @@ class _MyHomeScreenState extends State<MyHomeScreen> {
                         Text(t.homeTaxBody, style: text.bodyMedium),
                         const SizedBox(height: 8),
                         OutlinedButton(key: const Key('myHome.tax'), onPressed: () => _open(const MyTaxScreen()), child: Text(t.estimateTax)),
+                      ],
+                    ),
+                  ),
+                  MySection(t.homePayroll),
+                  MyPanel(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(t.homePayrollBody, style: text.bodyMedium),
+                        const SizedBox(height: 8),
+                        OutlinedButton(key: const Key('myHome.payroll'), onPressed: () => _open(const MyPayrollScreen()), child: Text(t.runPayroll)),
                       ],
                     ),
                   ),

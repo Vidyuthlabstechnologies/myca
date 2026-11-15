@@ -623,6 +623,100 @@ class MyTaxEstimate {
   final String filing;
 }
 
+class MyPayslip {
+  const MyPayslip({required this.name, required this.wages, required this.bonus, required this.epfEmployee, required this.epfEmployer, required this.socsoEmployee, required this.socsoEmployer, required this.eisEmployee, required this.eisEmployer, required this.pcb, required this.netPay, required this.employerCost, required this.notes});
+
+  factory MyPayslip.fromJson(Map<String, dynamic> map) {
+    final pcb = map['pcb'];
+    return MyPayslip(
+      name: _text(map['name']),
+      wages: _num(map['wages']),
+      bonus: _num(map['bonus']),
+      epfEmployee: _num(_map(map['epf'])['employee']),
+      epfEmployer: _num(_map(map['epf'])['employer']),
+      socsoEmployee: _num(_map(map['socso'])['employee']),
+      socsoEmployer: _num(_map(map['socso'])['employer']),
+      eisEmployee: _num(_map(map['eis'])['employee']),
+      eisEmployer: _num(_map(map['eis'])['employer']),
+      pcb: pcb is Map ? _num(pcb['amount']) : null,
+      netPay: _num(map['netPay']),
+      employerCost: _num(map['employerCost']),
+      notes: [for (final note in (map['notes'] is List ? map['notes'] as List : const [])) _text(note)],
+    );
+  }
+
+  final String name;
+  final num wages;
+  final num bonus;
+  final num epfEmployee;
+  final num epfEmployer;
+  final num socsoEmployee;
+  final num socsoEmployer;
+  final num eisEmployee;
+  final num eisEmployer;
+  final num? pcb;
+  final num netPay;
+  final num employerCost;
+  final List<String> notes;
+}
+
+class MyPayrollRun {
+  const MyPayrollRun({required this.month, required this.employees, required this.wages, required this.epf, required this.socso, required this.eis, required this.pcb, required this.employerCost, required this.dueBy, required this.unreviewed});
+
+  factory MyPayrollRun.fromJson(Map<String, dynamic> map) {
+    final totals = _map(map['totals']);
+    final used = _maps(map['rulesUsed']);
+    return MyPayrollRun(
+      month: _text(map['month']),
+      employees: _maps(map['employees']).map(MyPayslip.fromJson).toList(),
+      wages: _num(totals['wages']),
+      epf: _num(totals['epf']),
+      socso: _num(totals['socso']),
+      eis: _num(totals['eis']),
+      pcb: _num(totals['pcb']),
+      employerCost: _num(totals['employerCost']),
+      dueBy: _text(map['dueBy']),
+      unreviewed: used.isEmpty || used.any((rule) => rule['unreviewed'] != false),
+    );
+  }
+
+  final String month;
+  final List<MyPayslip> employees;
+  final num wages;
+  final num epf;
+  final num socso;
+  final num eis;
+  final num pcb;
+  final num employerCost;
+  final String dueBy;
+  final bool unreviewed;
+}
+
+class MyCp39File {
+  const MyCp39File({required this.fileName, required this.content, required this.records, required this.pcb, required this.cp38, required this.leftOut, required this.dueBy});
+
+  factory MyCp39File.fromJson(Map<String, dynamic> map) {
+    final totals = _map(map['totals']);
+    return MyCp39File(
+      fileName: _text(map['fileName']),
+      content: _text(map['content']),
+      records: _num(map['records']).toInt(),
+      pcb: _num(totals['pcb']),
+      cp38: _num(totals['cp38']),
+      leftOut: [for (final name in (map['leftOut'] is List ? map['leftOut'] as List : const [])) _text(name)],
+      dueBy: _text(map['dueBy']),
+    );
+  }
+
+  final String fileName;
+  final String content;
+  final int records;
+  final num pcb;
+  final num cp38;
+  final List<String> leftOut;
+  final String dueBy;
+}
+
 class MyTools {
   const MyTools(this.api);
 
@@ -802,6 +896,19 @@ class MyTools {
   }
 
   Future<MyTaxEstimate> taxEstimate(Map<String, Object?> args) async => MyTaxEstimate.fromJson(await _read('my_tax_estimate', args));
+
+  Future<MyPayrollRun> payroll({required String month, required List<Map<String, Object?>> employees}) async {
+    final body = _map(await api.query('my_payroll', {'month': month, 'employees': employees}));
+    if (body['ok'] == false) {
+      final failure = MyToolFailure.fromResult(body);
+      throw MyToolFailure(failure.code, detail: failure.detail, problems: [
+        for (final row in _maps(body['problems'])) MyProblem(row['employee'] is num ? 'employees[${row['employee']}].${_text(row['field'])}' : _text(row['field']), _text(row['why'])),
+      ]);
+    }
+    return MyPayrollRun.fromJson(_map(body['data']));
+  }
+
+  Future<MyCp39File> cp39File({required String month, required String employerNo, required List<Map<String, Object?>> employees}) async => MyCp39File.fromJson(await _read('my_cp39_file', {'month': month, 'employerNo': employerNo, 'employees': employees}));
 }
 
 String twoMonthPeriod(DateTime day) {
