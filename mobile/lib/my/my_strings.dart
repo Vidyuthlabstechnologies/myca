@@ -501,6 +501,7 @@ class MyStrings {
   String get staffIc => _t('MyKad number', 'Nombor MyKad');
   String get staffPassport => _t('Passport number (foreign employee)', 'Nombor pasport (pekerja asing)');
   String get staffCountry => _t('Country code, two letters (foreign employee)', 'Kod negara, dua huruf (pekerja asing)');
+  String get staffRemembered => _t('Employees from your last payroll, kept on this phone only. Check the wages before you work it out.', 'Pekerja daripada gaji terakhir anda, disimpan pada telefon ini sahaja. Semak gaji sebelum mengira.');
   String get addEmployee => _t('Add an employee', 'Tambah pekerja');
   String get removeEmployee => _t('Remove this employee', 'Buang pekerja ini');
   String get workOutPayroll => _t('Work out payroll', 'Kira gaji');
