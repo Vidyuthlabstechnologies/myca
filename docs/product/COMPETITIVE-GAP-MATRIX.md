@@ -132,7 +132,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | SST-02 return, SST registration test | yes | Ahead of Xero |
 | Income tax estimate | yes | Ahead |
 | Bilingual (English, Malay) | yes (launch branch) | Parity |
-| Payroll statutory (EPF, SOCSO, EIS, PCB) | `my_payroll` from the Third Schedule, the PERKESO RM100-band tables and LHDN's computerised PCB method (categories, children, bonus, year to date, zakat) | **Built now**; wages of RM300 or less, SOCSO second category and CP39 file export still open |
+| Payroll statutory (EPF, SOCSO, EIS, PCB) | `my_payroll` from the Third Schedule, the PERKESO RM100-band tables and LHDN's computerised PCB method (categories, children, bonus, year to date, zakat) | **Built now**; wages of RM300 or less, SOCSO second category, the LINDUNG 24 Jam amount (from June 2026 the run only says it is due and at what rate) and CP39 file export still open |
 | Bank feeds and receipt extraction | no | Gap (Bukku) |
 | Inventory with batches/serials | basic | Gap (AutoCount) |
 

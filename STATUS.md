@@ -210,6 +210,9 @@ and [`README.md`](README.md) for what is left and how it is being done.
   text passed to `inText` has no Hindi line. Other screens and server replies stay in English for now
 - India counter sale buyer details (2026-11-15): a counter bill of ₹50,000 or more is held until the
   customer's name and address are entered, and the address goes on the invoice (`partyAddress`)
+- Malaysia LINDUNG 24 Jam (2026-11-15): `my.payroll.lindung-24-jam` records the employee-paid Non-Employment
+  Injury Scheme from June 2026 (0.75%, then 1% and 1.25%; mandatory for foreign workers, voluntary for
+  locals); `my_payroll` says it is due and not in net pay, because the ringgit schedule is not encoded yet
 - UK flat-rate mileage (2026-11-15): `gb.income-tax.simplified-expenses` is 55p a mile for the first 10,000
   business miles from 6 April 2026 and stays 45p for 2025-26
 
