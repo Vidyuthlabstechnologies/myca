@@ -3,6 +3,8 @@ const RP_2025 = 'Rev. Proc. 2024-40 as modified by Public Law 119-21 (One Big Be
 const RP_2026 = 'Rev. Proc. 2025-32 (inflation adjustments for 2026, including the Public Law 119-21 amendments)';
 const RP_2027 = 'Rev. Proc. 2026-35 (inflation adjustments for 2027)';
 const READ_2027 = 'figures read from the revenue procedure text, irs.gov/pub/irs-drop/rp-26-35.pdf, on 2026-11-12';
+const CHECKED_2026 = 'checked against the text of Rev. Proc. 2025-32 (irs.gov/pub/irs-drop/rp-25-32.pdf) on 2026-11-15 and the figures match';
+const CHECKED_2025 = 'checked against the text of Rev. Proc. 2024-40 (irs.gov/pub/irs-drop/rp-24-40.pdf) on 2026-11-15 and the figures match';
 const NOT_REREAD = 'figures as stated in published IRS guidance and secondary summaries read on 2026-11-11; the revenue procedure text not re-read for this record';
 
 const bands = (tops) => {
@@ -33,7 +35,7 @@ export const RULES = [
     ...year(2025),
     act: 'IRC',
     section: '1(j); 1(f)',
-    source: `IRC section 1(j) rate schedules made permanent by Public Law 119-21 section 70101, inflation-adjusted for 2025 by ${RP_2025} (${NOT_REREAD})`,
+    source: `IRC section 1(j) rate schedules made permanent by Public Law 119-21 section 70101, inflation-adjusted for 2025 by ${RP_2025} (${CHECKED_2025})`,
     attestations: []
   },
   {
@@ -48,7 +50,7 @@ export const RULES = [
     ...year(2026),
     act: 'IRC',
     section: '1(j); 1(f)',
-    source: `IRC section 1(j) as made permanent by Public Law 119-21 section 70101; ${RP_2026} section 4.01 (${NOT_REREAD})`,
+    source: `IRC section 1(j) as made permanent by Public Law 119-21 section 70101; ${RP_2026} section 4.01 (${CHECKED_2026})`,
     attestations: []
   },
   {
@@ -83,7 +85,7 @@ export const RULES = [
     ...year(2026),
     act: 'IRC',
     section: '63(c)',
-    source: `IRC section 63(c) as amended by Public Law 119-21; ${RP_2026} section 4.15 (${NOT_REREAD})`,
+    source: `IRC section 63(c) as amended by Public Law 119-21; ${RP_2026} section 4.15 (${CHECKED_2026})`,
     attestations: []
   },
   {
@@ -103,7 +105,7 @@ export const RULES = [
     ...year(2025),
     act: 'IRC',
     section: '1(h); 1(j)(5)',
-    source: `IRC section 1(h) and 1(j)(5); maximum zero and fifteen per cent rate amounts from ${RP_2025} (${NOT_REREAD}). Unrecaptured section 1250 gain and collectibles are not encoded`,
+    source: `IRC section 1(h) and 1(j)(5); maximum zero and fifteen per cent rate amounts from ${RP_2025} (${CHECKED_2025}). Unrecaptured section 1250 gain and collectibles are not encoded`,
     attestations: []
   },
   {
@@ -113,7 +115,7 @@ export const RULES = [
     ...year(2026),
     act: 'IRC',
     section: '1(h); 1(j)(5)',
-    source: `IRC section 1(h) and 1(j)(5); ${RP_2026} section 4.03 (${NOT_REREAD})`,
+    source: `IRC section 1(h) and 1(j)(5); ${RP_2026} section 4.03 (${CHECKED_2026})`,
     attestations: []
   },
   {
@@ -165,7 +167,7 @@ export const RULES = [
     ...year(2026),
     act: 'IRC',
     section: '24(h)',
-    source: `IRC section 24(h) as amended by Public Law 119-21 section 70104; ${RP_2026}: maximum credit two thousand two hundred dollars, refundable base amount one thousand seven hundred dollars (${NOT_REREAD})`,
+    source: `IRC section 24(h) as amended by Public Law 119-21 section 70104; ${RP_2026}: maximum credit two thousand two hundred dollars, refundable base amount one thousand seven hundred dollars (${CHECKED_2026})`,
     attestations: []
   },
   {
@@ -191,7 +193,7 @@ export const RULES = [
     ...year(2025),
     act: 'IRC',
     section: '32(b); 32(i); 32(j)',
-    source: `IRC section 32(b) credit and phase-out percentages; earned income amounts, phase-out thresholds and the investment income limit from ${RP_2025} (maximum credits six hundred forty-nine, four thousand three hundred twenty-eight, seven thousand one hundred fifty-two and eight thousand forty-six dollars) (${NOT_REREAD}). The IRS EIC table works in fifty-dollar bands, encoded as bandCents`,
+    source: `IRC section 32(b) credit and phase-out percentages; earned income amounts, phase-out thresholds and the investment income limit from ${RP_2025} (maximum credits six hundred forty-nine, four thousand three hundred twenty-eight, seven thousand one hundred fifty-two and eight thousand forty-six dollars) (${CHECKED_2025}). The IRS EIC table works in fifty-dollar bands, encoded as bandCents`,
     attestations: []
   },
   {
@@ -207,7 +209,7 @@ export const RULES = [
     ...year(2026),
     act: 'IRC',
     section: '32(b); 32(i); 32(j)',
-    source: `IRC section 32; ${RP_2026} section 4.06 (maximum credits six hundred sixty-four, four thousand four hundred twenty-seven, seven thousand three hundred sixteen and eight thousand two hundred thirty-one dollars; investment income limit twelve thousand two hundred dollars) (${NOT_REREAD})`,
+    source: `IRC section 32; ${RP_2026} section 4.06 (maximum credits six hundred sixty-four, four thousand four hundred twenty-seven, seven thousand three hundred sixteen and eight thousand two hundred thirty-one dollars; investment income limit twelve thousand two hundred dollars) (${CHECKED_2026})`,
     attestations: []
   },
   {
@@ -329,7 +331,7 @@ export const RULES = [
     ...year(2025),
     act: 'IRC',
     section: '221',
-    source: `IRC section 221; phase-out range from ${RP_2025} (${NOT_REREAD})`,
+    source: `IRC section 221; phase-out range from ${RP_2025} (${CHECKED_2025})`,
     attestations: []
   },
   {
@@ -339,7 +341,7 @@ export const RULES = [
     ...year(2026),
     act: 'IRC',
     section: '221',
-    source: `IRC section 221; ${RP_2026} section 4.24 (${NOT_REREAD})`,
+    source: `IRC section 221; ${RP_2026} section 4.24 (${CHECKED_2026})`,
     attestations: []
   },
   {
@@ -403,7 +405,7 @@ export const RULES = [
     ...year(2025),
     act: 'IRC',
     section: '199A',
-    source: `IRC section 199A made permanent by Public Law 119-21 section 70105; threshold amounts from ${RP_2025} (${NOT_REREAD}). Above the threshold, the wage and property limits and specified service rules apply and are not encoded`,
+    source: `IRC section 199A made permanent by Public Law 119-21 section 70105; threshold amounts from ${RP_2025} (${CHECKED_2025}). Above the threshold, the wage and property limits and specified service rules apply and are not encoded`,
     attestations: []
   },
   {
@@ -413,7 +415,7 @@ export const RULES = [
     ...year(2026),
     act: 'IRC',
     section: '199A',
-    source: `IRC section 199A as amended by Public Law 119-21 section 70105; ${RP_2026} section 4.26 (${NOT_REREAD}). The minimum deduction for active QBI is the separate record us.federal.individual.qbi-minimum`,
+    source: `IRC section 199A as amended by Public Law 119-21 section 70105; ${RP_2026} section 4.26 (${CHECKED_2026}). The minimum deduction for active QBI is the separate record us.federal.individual.qbi-minimum`,
     attestations: []
   },
   {
