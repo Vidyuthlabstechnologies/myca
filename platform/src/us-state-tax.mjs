@@ -3,10 +3,12 @@ import { computeForm1040, ageAtYearEnd } from './us-1040.mjs';
 import { engineInput } from './us-return.mjs';
 
 export const US_STATE_TAX_YEARS = Object.freeze(['2025', '2026']);
-export const US_STATE_TAX_STATES = Object.freeze(['CO', 'GA', 'IL', 'KY', 'LA', 'MI', 'NC']);
+export const US_STATE_TAX_STATES = Object.freeze(['AZ', 'CO', 'GA', 'IA', 'IL', 'KY', 'LA', 'MI', 'NC']);
 
-const STATE_NAMES = Object.freeze({ AK: 'Alaska', FL: 'Florida', NV: 'Nevada', NH: 'New Hampshire', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', WY: 'Wyoming', WA: 'Washington', IL: 'Illinois', MI: 'Michigan', NC: 'North Carolina', CO: 'Colorado', GA: 'Georgia', KY: 'Kentucky', LA: 'Louisiana' });
+const STATE_NAMES = Object.freeze({ AK: 'Alaska', FL: 'Florida', NV: 'Nevada', NH: 'New Hampshire', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', WY: 'Wyoming', WA: 'Washington', IL: 'Illinois', MI: 'Michigan', NC: 'North Carolina', CO: 'Colorado', GA: 'Georgia', KY: 'Kentucky', LA: 'Louisiana', AZ: 'Arizona', IA: 'Iowa' });
 const LEFT_OUT = Object.freeze({
+  AZ: ['Arizona additions to and subtractions from federal AGI', 'The exemptions for age 65 or over, blindness and other exemptions', 'The increase in the standard deduction for charitable gifts', 'The dependent tax credit and other credits', 'Part-year and nonresident rules (Forms 140PY and 140NR)'],
+  IA: ['Net Iowa modifications (Schedule 1), including the retirement income exclusion', 'The alternate tax calculation, which can lower the tax for filers other than single', 'The exemption credits and other credits', 'Iowa lump-sum tax and school district surtax', 'Part-year and nonresident rules (IA 126)'],
   CO: ['Colorado additions to and subtractions from federal taxable income', 'The state sales tax (TABOR) refund and any temporary TABOR rate cut the state declares', 'Child tax and earned income credits', 'Part-year and nonresident rules (DR 0104PN)'],
   GA: ['Georgia adjustments to federal AGI, including the retirement income exclusion', 'Georgia itemized deductions', 'Low income and other credits', 'Part-year and nonresident rules (Schedule 3)'],
   KY: ['Kentucky additions and subtractions (Schedule M), including the pension exclusion', 'Kentucky itemized deductions and the family size tax credit', 'A second standard deduction when spouses file separately on a combined return', 'Local occupational taxes', 'Part-year and nonresident rules (Form 740-NP)'],

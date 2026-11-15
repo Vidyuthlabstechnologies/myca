@@ -84,6 +84,26 @@ export const RULES = [
     attestations: []
   },
   {
+    id: 'us.state.individual.AZ',
+    value: { form: '140', start: 'federal_agi', rateBasisPoints: 250, exemptionCents: 0, seniorOrBlindExtraCents: 0, exemptionAgiLimitCents: null, standardDeductionCents: { single: 15750 * D, mfj: 31500 * D, mfs: 15750 * D, hoh: 23625 * D, qss: 23625 * D } },
+    basis: 'flat_rate_on_federal_agi_less_the_arizona_standard_deduction_by_filing_status_a_qualifying_surviving_spouse_files_as_head_of_household_the_age_65_blind_and_other_exemptions_are_not_counted',
+    ...year(2025),
+    act: 'Ariz. Rev. Stat.',
+    section: '43-1011; 43-1041',
+    source: `Arizona Department of Revenue, Individual Income Tax Highlights (azdor.gov/forms/individual-income-tax-highlights): for 2025 a tax rate of 2.5% for all income levels and filing statuses, standard deduction $15,750 single or married filing separately, $31,500 married filing jointly, $23,625 head of household; 2025 Form 140 instructions (azdor.gov/sites/default/files/document/FORMS_INDIVIDUAL_2025_140i.pdf): "Arizona uses federal adjusted gross income as a starting point to determine Arizona taxable income", and head of household applies when "You qualify to file as a qualifying widow or widower on your federal return" (${READ}; the statute sections are cited from memory of the statute layout)`,
+    attestations: []
+  },
+  {
+    id: 'us.state.individual.IA',
+    value: { form: 'IA 1040', start: 'federal_taxable_income', rateBasisPoints: 380, exemptionCents: 0, seniorOrBlindExtraCents: 0, exemptionAgiLimitCents: null, standardDeductionCents: null },
+    basis: 'flat_rate_on_federal_taxable_income_before_net_iowa_modifications_the_alternate_tax_calculation_and_the_exemption_credits_are_not_counted',
+    ...year(2025),
+    act: 'Iowa Code',
+    section: '422.5',
+    source: `Iowa Department of Revenue, 2025 IA 1040 (revenue.iowa.gov/media/4400/download): line 2 "Federal taxable income from federal 1040, line 15", line 4 "Iowa taxable income", line 5 "Iowa tax. Multiply line 4 by 3.8% or amount from alternate tax calculation"; expanded instructions, line 5 (revenue.iowa.gov/taxes/tax-guidance/individual-income-tax/1040-expanded-instructions/iowa-tax): "Iowa now has a flat tax rate of 3.8%" (${READ}; the code section is cited from memory of the statute layout)`,
+    attestations: []
+  },
+  {
     id: 'us.state.individual.no-wage-income-tax',
     value: { states: ['AK', 'FL', 'NV', 'NH', 'SD', 'TN', 'TX', 'WY'], capitalGainsOnly: ['WA'] },
     basis: 'states_that_levy_no_individual_income_tax_and_states_that_tax_only_capital_gains_of_high_earners',

@@ -261,6 +261,11 @@ and [`README.md`](README.md) for what is left and how it is being done.
   with the month's totals and due date from `my_payroll`, and saves the CP39 file from `my_cp39_file`. Employees
   with nothing to remit no longer need a tax number for the CP39 file. Open: employees are typed in each month,
   the sandbox does not run payroll, and the file has not been uploaded to e-PCB Plus.
+- US state estimate adds Arizona and Iowa (2026-11-15): `us_state_tax` answers for tax year 2025 in Arizona (2.5% on
+  federal AGI less the Arizona standard deduction) and Iowa (3.8% on federal taxable income), from the Arizona
+  Department of Revenue highlights and Form 140 instructions and the 2025 IA 1040. No 2026 records yet, so 2026
+  answers `STATE_YEAR_NOT_SUPPORTED_YET` for these two. Arizona's age and blind exemptions and Iowa's alternate
+  tax calculation are listed as not counted.
 - Malaysia payroll remembers employees (2026-11-15): after a payroll run the Malaysia app keeps the employees (name,
   wages, PCB category, children, tax number, MyKad or passport) and the employer's E number in the phone's secure
   storage, per business, and fills them in next month. The bonus is not kept. Nothing is sent to the server, so

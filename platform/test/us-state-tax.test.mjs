@@ -106,6 +106,32 @@ test('Kentucky: one $3,270 standard deduction at 4%', async () => {
   assert.equal(result.data.tax, 2269);
 });
 
+test('Arizona: the federal-sized standard deduction at a flat 2.5%, with a surviving spouse as head of household, 2025 only', async () => {
+  const single = usStateTax(await household('AZ'), { taxYear: '2025' });
+  assert.equal(single.ok, true, JSON.stringify(single));
+  assert.equal(single.data.start, 'federal AGI');
+  assert.equal(single.data.standardDeduction, 15750);
+  assert.equal(single.data.taxableIncome, 44250);
+  assert.equal(single.data.tax, Math.round(44250 * 0.025));
+  assert.equal(single.data.form, '140');
+  assert.match(usStateTaxWords(single.data), /age 65 or over/);
+  const widow = usStateTax(await household('AZ', { filingStatus: 'qss', dependents: [DEPENDENT] }), { taxYear: '2025' });
+  assert.equal(widow.data.standardDeduction, 23625);
+  const next = usStateTax(await household('AZ', { taxYear: '2026' }), { taxYear: '2026' });
+  assert.equal(next.error, 'STATE_YEAR_NOT_SUPPORTED_YET');
+});
+
+test('Iowa: 3.8% of federal taxable income, 2025 only', async () => {
+  const result = usStateTax(await household('IA'), { taxYear: '2025' });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.data.start, 'federal taxable income');
+  assert.equal(result.data.standardDeduction, 0);
+  assert.equal(result.data.tax, Math.round((result.data.startAmount * 380) / 10000));
+  assert.equal(result.data.form, 'IA 1040');
+  assert.match(usStateTaxWords(result.data), /alternate tax calculation/);
+  assert.equal(usStateTax(await household('IA', { taxYear: '2026' }), { taxYear: '2026' }).error, 'STATE_YEAR_NOT_SUPPORTED_YET');
+});
+
 test('Louisiana: the $12,500 standard deduction at a flat 3%', async () => {
   const result = usStateTax(await household('LA'), { taxYear: '2025' });
   assert.equal(result.data.standardDeduction, 12500);
