@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'format.dart' show readableDay;
 import 'api/models.dart';
 import 'marks.dart';
 import 'theme.dart';
+import 'uae/uae_strings.dart';
 
 class RulesStatusNote extends StatelessWidget {
   const RulesStatusNote({super.key, required this.status});
@@ -377,6 +377,7 @@ class Bubble extends StatelessWidget {
       _ => Palette.muted,
     };
     final foreground = mine ? Palette.onInk : Palette.ink;
+    final s = UaeStrings.of(context);
     final stampColor = switch (stamp) {
       'Unpaid' || 'Part paid' || 'Declined' || 'Expired' => Palette.warn,
       'Cancelled' => Palette.danger,
@@ -417,7 +418,7 @@ class Bubble extends StatelessWidget {
                     children: [
                       if (label != null)
                         Text(
-                          readableDay(label!).toUpperCase(),
+                          s.readableDay(s.bubbleLabel(label)).toUpperCase(),
                           style: TextStyle(
                             color: status,
                             fontSize: 11,
@@ -426,7 +427,7 @@ class Bubble extends StatelessWidget {
                           ),
                         ),
                       if (stamp != null)
-                        StatusTag(text: stamp!, color: stampColor),
+                        StatusTag(text: s.stamp(stamp), color: stampColor),
                     ],
                   ),
                 ),
@@ -517,7 +518,7 @@ class ProposalBar extends StatelessWidget {
             Expanded(
               child: OutlinedButton(
                 onPressed: busy ? null : onDiscard,
-                child: const Text('Discard'),
+                child: Text(UaeStrings.of(context).discard),
               ),
             ),
             const SizedBox(width: 10),
@@ -525,7 +526,7 @@ class ProposalBar extends StatelessWidget {
               flex: 2,
               child: FilledButton(
                 onPressed: busy ? null : onPost,
-                child: Text(postLabel),
+                child: Text(postLabel == 'Post it' ? UaeStrings.of(context).postIt : postLabel),
               ),
             ),
           ],

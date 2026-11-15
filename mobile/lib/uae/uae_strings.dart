@@ -1,5 +1,11 @@
 import 'package:flutter/widgets.dart';
 
+import '../api/models.dart';
+import '../brand.dart' show greetingFor;
+import '../format.dart' as format;
+import '../registers.dart' as registers;
+import '../registers.dart' show RegisterKind;
+
 class UaeStrings {
   const UaeStrings(this.ar);
 
@@ -327,6 +333,723 @@ class UaeStrings {
     'From your books: $invoices ${invoices == 1 ? 'invoice' : 'invoices'}, $creditNotes ${creditNotes == 1 ? 'credit note' : 'credit notes'}, $purchases ${purchases == 1 ? 'bill' : 'bills'}.',
     'من دفاترك: فواتير المبيعات $invoices، والإشعارات الدائنة $creditNotes، وفواتير المشتريات $purchases.',
   );
+
+  static const _monthsAr = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+
+  String longDate(String iso) {
+    if (!ar) return format.longDate(iso);
+    final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(iso.trim());
+    final month = match == null ? 0 : int.parse(match.group(2)!);
+    if (match == null || month < 1 || month > 12) return iso;
+    return '${int.parse(match.group(3)!)} ${_monthsAr[month - 1]} ${match.group(1)}';
+  }
+
+  String readableDay(String text) => ar && RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(text.trim()) ? longDate(text) : format.readableDay(text);
+
+  String monthLabel(String period) {
+    if (!ar) return format.monthLabel(period);
+    final parts = period.split('-');
+    final month = parts.length == 2 ? int.tryParse(parts[1]) : null;
+    if (month == null || month < 1 || month > 12) return period;
+    return '${_monthsAr[month - 1]} ${parts[0]}';
+  }
+
+  String greeting(DateTime now) {
+    if (!ar) return greetingFor(now);
+    if (now.hour < 5) return 'تعمل حتى وقت متأخر';
+    if (now.hour < 12) return 'صباح الخير';
+    return 'مساء الخير';
+  }
+
+  String get yourBusiness => _('Your business', 'منشأتك');
+  String get newEntry => _('New entry', 'قيد جديد');
+  String sharedByOwner(String date) => _(
+    'Shared by the owner as of $date. Entries after that are not shown, and changes are made by the owner.',
+    'شاركها المالك حتى $date. لا تظهر القيود اللاحقة، والتعديلات يجريها المالك.',
+  );
+  String get gotIt => _('Got it', 'حسنًا');
+  String get send => _('Send', 'إرسال');
+  String get askAnything => _('Tell or ask MyCA anything', 'أخبر MyCA أو اسأله عن أي شيء');
+  String get sold => _('Sold', 'بعت');
+  String get bought => _('Bought', 'اشتريت');
+  String get spent => _('Spent', 'أنفقت');
+  String get paidStaff => _('Paid staff', 'رواتب الموظفين');
+  String lastFigure(String amount) => _('last $amount', 'السابق $amount');
+  String get owedToYou => _('Owed to you', 'المستحق لك');
+  String get noInvoiceWaiting => _('No invoice is waiting for payment.', 'لا توجد فاتورة بانتظار السداد.');
+  String get youOweSuppliers => _('You owe suppliers', 'المستحق للمورّدين');
+  String get noBillWaiting => _('No bill is waiting to be paid.', 'لا توجد فاتورة مشتريات بانتظار السداد.');
+  String get firstSale => _('Log your first sale', 'سجّل أول عملية بيع');
+  String get firstSaleLine => _('Name the customer, enter the amount, confirm.', 'اكتب اسم العميل، وأدخل المبلغ، ثم أكّد.');
+  String get yourBooks => _('Your books', 'دفاترك');
+  String get moneyAndFollowUp => _('Money and follow-up', 'المال والمتابعة');
+  String get sales => _('Sales', 'المبيعات');
+  String get purchases => _('Purchases', 'المشتريات');
+  String get expenses => _('Expenses', 'المصروفات');
+  String get cash => _('Cash', 'النقد');
+  String get cashSubtitle => _('Bank and cash, the next 30 days, and can I afford it', 'البنك والنقد، والأيام الثلاثون القادمة، وهل أستطيع تحمّل التكلفة');
+  String get bankSubtitle => _('Your statement next to your books, matched and not matched', 'كشف حسابك بجانب دفاترك، المطابق وغير المطابق');
+  String get repeatingEntries => _('Repeating entries', 'القيود المتكررة');
+  String get repeatingSubtitle => _('Invoices, bills and expenses posted on their dates', 'فواتير ومصروفات تُسجَّل في مواعيدها');
+  String get reports => _('Reports', 'التقارير');
+  String get reportsSubtitle => _('Saved reports run by name, compared with the period before', 'تقارير محفوظة تُشغَّل باسمها، مقارنةً بالفترة السابقة');
+  String get statements => _('Statements', 'القوائم المالية');
+  String get statementsSubtitle => _('Profit and loss, balance sheet, cash flow, customer statements', 'الأرباح والخسائر، والميزانية العمومية، والتدفقات النقدية، وكشوف حسابات العملاء');
+  String get reminders => _('Reminders', 'التذكيرات');
+  String get remindersSubtitle => _('Anything you asked to be reminded of', 'كل ما طلبت التذكير به');
+  String get booksCheck => _('Books check', 'فحص الدفاتر');
+  String get booksCheckSubtitle => _('What needs you, worked out from your books', 'ما يحتاج إلى اهتمامك، مستخلصًا من دفاترك');
+  String get dueTodayTitle => _('Due today', 'مستحق اليوم');
+  String thisWeek(int overdue) => overdue > 0 ? _('This week · $overdue overdue', 'هذا الأسبوع · متأخر: $overdue') : _('This week', 'هذا الأسبوع');
+  String booksToday(bool closed, int needs) => closed
+      ? _('Books today · closed', 'دفاتر اليوم · مقفلة')
+      : _('Books today · $needs ${needs == 1 ? 'needs' : 'need'} you', 'دفاتر اليوم · تحتاج إليك: $needs');
+  String closeCash(String bank, String owed) => _('Bank $bank · customers owe $owed', 'البنك $bank · مستحق على العملاء $owed');
+  String closeSource(bool recorded, String on) => recorded
+      ? _('As recorded; give today\'s bank balance for the real figure', 'كما هو مسجّل؛ أدخل رصيد البنك اليوم للحصول على الرقم الفعلي')
+      : _('From the balance on $on plus what was recorded since', 'من الرصيد في $on مضافًا إليه ما سُجّل بعده');
+  String owesOn(String who, String amount, String id) => _('$who owes $amount on $id', 'على $who مبلغ $amount عن $id');
+
+  String registerSubtitle(List<Invoice> documents, RegisterKind kind) {
+    if (!ar) return registers.registerSubtitle(documents, kind);
+    if (documents.isEmpty) return kind == RegisterKind.sales ? 'لا مبيعات بعد' : 'لا مشتريات بعد';
+    final parties = registers.partiesOf(documents);
+    final latest = parties.first;
+    final count = kind == RegisterKind.sales ? 'العملاء: ${parties.length}' : 'المورّدون: ${parties.length}';
+    return '$count · ${latest.name}: ${format.rupees(latest.latest!.total)}';
+  }
+
+  String expensesSubtitle(List<Expense> expenses) {
+    if (!ar) return registers.expensesSubtitle(expenses);
+    if (expenses.isEmpty) return 'لا مصروفات بعد';
+    final threads = registers.headThreadsOf(expenses);
+    final latest = threads.first;
+    return 'البنود: ${threads.length} · ${accountName(latest.name)}: ${format.rupees(latest.latest.amount)}';
+  }
+
+  String headSubtitle(registers.HeadThread thread) {
+    if (!ar) return registers.headSubtitle(thread);
+    return 'القيود: ${thread.expenses.length} · ${format.rupees(thread.total)} · آخرها ${longDate(thread.latest.date)}';
+  }
+
+  String lastEntryLine(Invoice doc, RegisterKind kind) {
+    if (!ar) return registers.lastEntryLine(doc, kind);
+    final what = kind == RegisterKind.sales ? 'الفاتورة' : 'فاتورة المشتريات';
+    final state = doc.cancelled ? 'cancelled' : doc.paid ? 'paid' : doc.partial ? 'partial' : 'unpaid';
+    return '$what ${doc.id}، ${format.rupees(doc.total)}، ${status(state)}';
+  }
+
+  String unpaidCount(int n) => _('$n unpaid', 'غير مدفوعة: $n');
+  String searchParties(bool sales) => sales ? _('Search customers', 'ابحث في العملاء') : _('Search suppliers', 'ابحث في المورّدين');
+  String noPartiesRegister(bool sales) => sales
+      ? _('No customers yet. Add one to record your first sale.', 'لا يوجد عملاء بعد. أضف عميلًا لتسجيل أول عملية بيع.')
+      : _('No suppliers yet. Add one to record your first bill.', 'لا يوجد مورّدون بعد. أضف مورّدًا لتسجيل أول فاتورة مشتريات.');
+  String get noOneByThatName => _('No one by that name.', 'لا أحد بهذا الاسم.');
+
+  String get whatHappened => _('What happened?', 'ماذا حدث؟');
+  String get iSold => _('I sold something', 'بعت شيئًا');
+  String get iSoldSubtitle => _('Raise an invoice for a customer', 'أصدر فاتورة لعميل');
+  String get iBought => _('I bought something', 'اشتريت شيئًا');
+  String get iBoughtSubtitle => _('Add a supplier bill', 'أضف فاتورة مورّد');
+  String get iPaidExpense => _('I paid an expense', 'دفعت مصروفًا');
+  String get iPaidExpenseSubtitle => _('Rent, fuel, anything without a supplier bill', 'إيجار أو وقود أو أي شيء بلا فاتورة مورّد');
+  String get justAsk => _('Just ask', 'اسأل فحسب');
+  String get justAskSubtitle => _('Type anything, MyCA will sort it', 'اكتب أي شيء، وسيتولّى MyCA ترتيبه');
+
+  String stamp(String? code) => switch (code) {
+    'Accepted' => _('Accepted', 'مقبول'),
+    'Declined' => _('Declined', 'مرفوض'),
+    'Invoiced' => _('Invoiced', 'صدرت فاتورته'),
+    'Expired' => _('Expired', 'منتهي'),
+    'Cancelled' => _('Cancelled', 'ملغاة'),
+    'Came back' => _('Came back', 'أُعيد'),
+    'Open' => _('Open', 'مفتوح'),
+    'Paid' => _('Paid', 'مدفوعة'),
+    'Part paid' => _('Part paid', 'مدفوعة جزئيًا'),
+    'Unpaid' => _('Unpaid', 'غير مدفوعة'),
+    'Cash' => _('Cash', 'نقدًا'),
+    _ => code ?? '',
+  };
+  String get postIt => _('Post it', 'سجّله');
+  String get yes => _('Yes', 'نعم');
+
+  String get expense => _('Expense', 'مصروف');
+  String get expenseHead => _('Expense head', 'بند المصروف');
+  String get noExpensesYet => _('No expenses yet. Add one and MyCA will put it under the right head: rent, salaries, travel and so on.', 'لا مصروفات بعد. أضف مصروفًا وسيضعه MyCA تحت البند الصحيح: الإيجار والرواتب والسفر وغيرها.');
+  String nothingUnder(String head) => _('Nothing under $head yet.', 'لا شيء تحت $head بعد.');
+  String get tapToMoveHead => _('Tap to move it to the right head', 'اضغط لنقله إلى البند الصحيح');
+  String moveTo(String what) => _('Move $what to', 'انقل $what إلى');
+  String moveSaid(String what, String head) => _('Move $what to $head', 'انقل $what إلى $head');
+  String get whatFor => _('What was it for', 'ما الغرض منه');
+  String get paidTo => _('Paid to (optional)', 'المدفوع له (اختياري)');
+  String get fromBank => _('From bank', 'من البنك');
+  String get fromCash => _('From cash', 'من النقد');
+  String headChip(String? head) => head == null ? _('Head: automatic', 'البند: تلقائي') : _('Head: $head', 'البند: $head');
+  String underHead(String head) => _('Under $head · change', 'تحت $head · تغيير');
+  String get sayWhatFor => _('Say what the expense was for.', 'اذكر الغرض من المصروف.');
+  String get enterAmount => _('Enter the amount.', 'أدخل المبلغ.');
+  String expenseSaid(String what, String amount, bool bank) => _('$what: $amount from ${bank ? 'bank' : 'cash'}', '$what: $amount ${bank ? 'من البنك' : 'من النقد'}');
+  String putUnder(String head) => _('Put it under $head', 'ضعه تحت $head');
+  String get whichHead => _('Which head?', 'أي بند؟');
+  String get headsNotLoaded => _('The heads could not be loaded.', 'تعذّر تحميل البنود.');
+  String get headsRemembered => _('MyCA remembers your choice for the same payee or wording.', 'يتذكّر MyCA اختيارك للمستفيد نفسه أو الوصف نفسه.');
+
+  String get yesterday => _('Yesterday', 'أمس');
+  String daysAgo(int days) => _('$days days ago', 'قبل $days أيام');
+  String get today => _('Today', 'اليوم');
+  String get tomorrow => _('Tomorrow', 'غدًا');
+  String get inAWeek => _('In a week', 'بعد أسبوع');
+  String get pickADay => _('Pick a day', 'اختر يومًا');
+  String get remindMe => _('Remind me', 'ذكّرني');
+  String get whatAbout => _('What about', 'بخصوص ماذا');
+  String get sayWhatToRemind => _('Say what to remind you about.', 'اذكر ما تريد التذكير به.');
+  String get chooseADay => _('Choose a day.', 'اختر يومًا.');
+  String get openTheBill => _('Open the bill', 'افتح الفاتورة');
+  String get markDone => _('Mark done', 'تم');
+  String get noReminders => _('No reminders. Add one here, or say "remind me to call Rajesh tomorrow" in Ask.', 'لا توجد تذكيرات. أضف تذكيرًا هنا، أو قل «ذكّرني بالاتصال بأحمد غدًا» في خانة السؤال.');
+  String get reminder => _('Reminder', 'تذكير');
+  String remindSaid(String text) => _('Remind me: $text', 'ذكّرني: $text');
+
+  String bubbleLabel(String? label) => ar ? threadLabel(label) : (label ?? '');
+
+  String get statementOfAccount => _('Statement of account', 'كشف الحساب');
+  String billTitle(String id) => _('Bill $id', 'فاتورة المشتريات $id');
+  String get tapToView => _('Tap to view or send', 'اضغط للعرض أو الإرسال');
+  String stillOwed(String amount) => _('$amount still owed', 'المتبقي $amount');
+  String creditNoteAgainst(String id, String doc, String reason) => _('Credit note $id against $doc: $reason', 'إشعار دائن $id على $doc: $reason');
+  String cancelledDoc(String doc, String reason) => _('Cancelled $doc: $reason', 'أُلغيت $doc: $reason');
+  String _mode(String mode) => switch (mode) {
+    'bank' => 'عبر البنك',
+    'cash' => 'نقدًا',
+    _ => mode,
+  };
+  String receivedAgainst(String mode, String doc) => _('Received by $mode against $doc', 'مُحصّل ${_mode(mode)} عن $doc');
+  String paidAgainst(String mode, String doc) => _('Paid by $mode against $doc', 'مدفوع ${_mode(mode)} عن $doc');
+  String receivedSaid(String amount, String mode, String doc) => _('Received $amount by $mode against $doc', 'استلمت $amount ${_mode(mode)} عن $doc');
+  String paidSaid(String amount, String mode, String doc) => _('Paid $amount by $mode against $doc', 'دفعت $amount ${_mode(mode)} عن $doc');
+  String nothingLogged(bool sales, String name) => sales
+      ? _('Nothing logged for $name yet. Enter the sale below and you will see it before it is posted.', 'لم يُسجَّل شيء لـ$name بعد. أدخل عملية البيع أدناه وستراها قبل تسجيلها.')
+      : _('Nothing logged for $name yet. Enter the bill below and you will see it before it is posted.', 'لم يُسجَّل شيء لـ$name بعد. أدخل فاتورة المشتريات أدناه وستراها قبل تسجيلها.');
+  String documentChip(bool sales, bool again) => sales
+      ? (again ? _('Another sale', 'بيع آخر') : _('Sale', 'بيع'))
+      : (again ? _('Another bill', 'فاتورة مشتريات أخرى') : _('Bill', 'فاتورة مشتريات'));
+  String paymentChip(bool sales) => sales ? _('Payment received', 'دفعة مستلمة') : _('Paid', 'دفعت');
+  String termsChip(int? days) => days == null ? _('Set terms', 'حدّد مهلة السداد') : _('Terms: ${termsLabel(days)}', 'المهلة: ${termsLabel(days)}');
+  String termsLabel(int? days) => !ar ? format.termsLabel(days) : days == null ? '' : days == 0 ? 'مستحق عند الاستلام' : 'خلال $days يومًا';
+  String paymentTitle(bool sales) => sales ? _('Payment received', 'دفعة مستلمة') : _('Payment made', 'دفعة مسدّدة');
+  String againstDocument(bool sales) => sales ? _('Against invoice', 'مقابل الفاتورة') : _('Against bill', 'مقابل فاتورة المشتريات');
+  String owedOn(String id, String amount) => _('$id · $amount owed', '$id · المتبقي $amount');
+  String amountReceivedOrPaid(bool sales) => sales ? _('Amount received', 'المبلغ المحصّل') : _('Amount paid', 'المبلغ المدفوع');
+  String enterAmountReceivedOrPaid(bool sales) => sales ? _('Enter the amount received.', 'أدخل المبلغ المحصّل.') : _('Enter the amount paid.', 'أدخل المبلغ المدفوع.');
+  String get cancel => _('Cancel', 'إلغاء');
+  String howLongToPay(String name) => _('How long does $name have to pay?', 'ما المهلة الممنوحة لـ$name للسداد؟');
+  String get termsNote => _('New invoices get a due date. Invoices already raised keep theirs.', 'تحصل الفواتير الجديدة على تاريخ استحقاق، وتحتفظ الفواتير الصادرة بتواريخها.');
+  String get postedDot => _('Posted.', 'تم التسجيل.');
+  String dueWords(String dueDate, DateTime today, {required bool open}) {
+    if (!ar) return format.dueWords(dueDate, today, open: open);
+    if (dueDate.isEmpty || !open) return '';
+    final parts = dueDate.split('-').map(int.parse).toList();
+    final days = DateTime(parts[0], parts[1], parts[2]).difference(DateTime(today.year, today.month, today.day)).inDays;
+    if (days < 0) return 'متأخرة منذ ${-days} ${-days == 1 ? 'يوم' : 'أيام'}';
+    if (days == 0) return dueToday;
+    return dueOn(longDate(dueDate));
+  }
+
+  String get noOpenQuestions => _('No open questions. Ask your accountant from an invoice or a flagged item; MyCA attaches the details.', 'لا توجد أسئلة مفتوحة. اسأل محاسبك من فاتورة أو بند يحتاج إلى مراجعة؛ يرفق MyCA التفاصيل.');
+  String get accountantSees => _('Your accountant or registered tax agent sees these in MyCA once you have invited them from People.', 'يرى محاسبك أو وكيلك الضريبي المسجّل هذه الأسئلة في MyCA بعد دعوته من صفحة الأشخاص.');
+  String accountantStatus(String status) => switch (status) {
+    'answered' => _('Answered', 'تمت الإجابة'),
+    'closed' => _('Closed', 'مغلق'),
+    _ => _('Waiting for your accountant', 'بانتظار محاسبك'),
+  };
+  String get askYourAccountant => _('Ask your accountant', 'اسأل محاسبك');
+  String askAbout(String about) => _('About $about. MyCA attaches the details.', 'بخصوص $about. يرفق MyCA التفاصيل.');
+  String get yourQuestion => _('Your question', 'سؤالك');
+  String get attaching => _('Attaching…', 'جارٍ الإرفاق…');
+  String get attachFile => _('Attach a file', 'أرفق ملفًا');
+  String get atMostFive => _('At most five files on one question.', 'خمسة ملفات على الأكثر للسؤال الواحد.');
+  String get writeQuestion => _('Write what you want to ask.', 'اكتب ما تريد أن تسأل عنه.');
+  String get sendToAccountant => _('Send to your accountant?', 'أترسله إلى محاسبك؟');
+  String get notSent => _('Not sent.', 'لم يُرسل.');
+  String attached(String names) => _('Attached: $names', 'المرفقات: $names');
+  String replyOn(String date) => _('Reply · $date', 'رد · $date');
+  String get copyToSend => _('Copy to send', 'انسخ للإرسال');
+  String get close => _('Close', 'إغلاق');
+  String get reply => _('Reply', 'رد');
+  String get copiedForAccountant => _('Copied. Paste it into WhatsApp or email if your accountant is not on MyCA yet.', 'تم النسخ. الصقه في واتساب أو البريد الإلكتروني إن لم يكن محاسبك على MyCA بعد.');
+
+  String starter(String text) => !ar ? text : switch (text) {
+    'How is business?' => 'كيف حال العمل؟',
+    'Who owes me?' => 'من المدين لي؟',
+    'Who should I chase?' => 'من يجب أن أطالبه بالسداد؟',
+    'Who do I need to pay?' => 'لمن يجب أن أدفع؟',
+    'Cash forecast' => 'توقعات النقد',
+    'Can I make payroll?' => 'هل أستطيع دفع الرواتب؟',
+    'What should I reorder?' => 'ماذا يجب أن أعيد طلبه؟',
+    'How much tax should I set aside?' => 'كم يجب أن أدّخر للضريبة؟',
+    'Close the month' => 'أقفل الشهر',
+    'My reminders' => 'تذكيراتي',
+    'Show deadlines' => 'اعرض المواعيد',
+    _ => text,
+  };
+  String get askMyCa => _('Ask MyCA', 'اسأل MyCA');
+  String get messageMyCa => _('Message MyCA', 'راسل MyCA');
+
+  String signedInAs(String name) => _('Signed in as $name', 'تم تسجيل الدخول باسم $name');
+  String get people => _('People', 'الأشخاص');
+  String get peopleSubtitle => _('Who can work in these books', 'من يمكنه العمل في هذه الدفاتر');
+  String get inviteOwner => _('Invite a business owner', 'ادعُ صاحب منشأة');
+  String get inviteOwnerSubtitle => _('Share your invite code, or use one you were sent', 'شارك رمز دعوتك، أو استخدم رمزًا أُرسل إليك');
+  String get security => _('Security', 'الأمان');
+  String get securitySubtitle => _('Two-step sign-in and where you are signed in', 'التحقق بخطوتين والأجهزة التي سجّلت الدخول منها');
+  String get connections => _('Connections', 'الاتصالات');
+  String get connectionsSubtitle => _('A POS or an inbox that feeds these books', 'نقطة بيع أو بريد وارد يغذّي هذه الدفاتر');
+  String get yourBusinesses => _('Your businesses', 'منشآتك');
+  String get yourBusinessesSubtitle => _('Switch business or answer an invitation', 'بدّل المنشأة أو ردّ على دعوة');
+  String get setScreenLock => _('Set a screen lock on this phone to protect MyCA with it.', 'اضبط قفل الشاشة على هذا الهاتف لحماية MyCA به.');
+  String get bringInMore => _('Bring in more books', 'استورد مزيدًا من الدفاتر');
+  String get bringInMoreSubtitle => _('Tally, Zoho or a bank statement', 'من Tally أو Zoho أو كشف حساب بنكي');
+  String get briefFailed => _('Could not change the Monday brief setting.', 'تعذّر تغيير إعداد ملخص الإثنين.');
+  String get mondayBrief => _('Monday brief on WhatsApp', 'ملخص الإثنين على واتساب');
+  String get mondayBriefSubtitle => _(
+    'Every Monday at 7 am: cash and runway, sales against last week, who owes you and for how long, what is due, and the one thing to do.',
+    'كل يوم إثنين الساعة 7 صباحًا: النقد والمدة التي يكفيها، والمبيعات مقارنةً بالأسبوع الماضي، ومن المدين لك ومنذ متى، وما هو مستحق، والأمر الأهم الذي يجب فعله.',
+  );
+  String get crashReports => _('Send crash reports', 'أرسل تقارير الأعطال');
+  String get crashReportsAe => _('Only what went wrong in the app. Names, amounts, TRNs and phone numbers are removed before it leaves the phone.', 'ما حدث من خطأ في التطبيق فقط. تُحذف الأسماء والمبالغ والأرقام الضريبية وأرقام الهواتف قبل أن يغادر الهاتف.');
+  String get appLock => _('App lock', 'قفل التطبيق');
+  String get appLockSubtitle => _('Ask for your fingerprint, face or screen lock to open MyCA', 'اطلب بصمتك أو وجهك أو قفل الشاشة لفتح MyCA');
+
+  String get enterAnAmount => _('Enter an amount.', 'أدخل مبلغًا.');
+  String get couldNotWorkThatOut => _('That could not be worked out.', 'تعذّر احتساب ذلك.');
+  String get useTheseBalances => _('Use these balances?', 'أتستخدم هذه الأرصدة؟');
+  String get useThem => _('Use them', 'استخدمها');
+  String get forecastFailed => _('The forecast could not be worked out.', 'تعذّر احتساب التوقعات.');
+  String get bankAndCashNow => _('BANK AND CASH NOW', 'البنك والنقد الآن');
+  String bankAndCash(String bank, String cash) => _('Bank $bank · cash in hand $cash', 'البنك $bank · النقد في الصندوق $cash');
+  String fromBalanceOn(String date) => _('From the balance you gave on $date, with what was recorded since.', 'من الرصيد الذي أدخلته في $date، مع ما سُجّل بعده.');
+  String get updateBalance => _('Update balance', 'حدّث الرصيد');
+  String get tellBalance => _('Tell MyCA your balance today', 'أخبر MyCA برصيدك اليوم');
+  String nextDays(int days) => _('NEXT $days DAYS', 'الأيام الـ$days القادمة');
+  String get comingIn => _('Coming in', 'الوارد');
+  String get goingOut => _('Going out', 'الصادر');
+  String onDate(String date) => _('On $date', 'في $date');
+  String lowestOn(String date) => _('Lowest, on $date', 'الأدنى، في $date');
+  String overdueNotCounted(String amount) => _('Overdue and not counted: $amount. MyCA cannot tell when it will be paid.', 'متأخر وغير محتسب: $amount. لا يستطيع MyCA معرفة موعد سداده.');
+  String get canIAfford => _('CAN I AFFORD IT?', 'هل أستطيع تحمّل التكلفة؟');
+  String get amountToSpend => _('Amount to spend', 'المبلغ المراد إنفاقه');
+  String cashWhen(String key) => switch (key) {
+    'Today' => today,
+    'Next month' => _('Next month', 'الشهر القادم'),
+    'In 3 months' => _('In 3 months', 'بعد 3 أشهر'),
+    _ => key,
+  };
+  String get enterBalances => _('Enter the bank balance, the cash in hand, or both.', 'أدخل رصيد البنك أو النقد في الصندوق أو كليهما.');
+  String get yourBalanceToday => _('Your balance today', 'رصيدك اليوم');
+  String get balanceSheetNote => _('As your bank app or passbook shows it. This posts nothing to your books.', 'كما يظهر في تطبيق البنك أو دفتر الحساب. لا يُسجَّل شيء في دفاترك.');
+  String get bankBalance => _('Bank balance', 'رصيد البنك');
+  String get cashInHand => _('Cash in hand', 'النقد في الصندوق');
+
+  String bankFilter(String key) => switch (key) {
+    'all' => _('All', 'الكل'),
+    'unmatched' => _('Not matched yet', 'غير مطابق بعد'),
+    'matched' => _('Matched', 'مطابق'),
+    'booked' => _('Booked', 'مسجّل'),
+    'ignored' => _('Ignored', 'مستبعد'),
+    _ => key,
+  };
+  String bankEmpty(String key) => switch (key) {
+    'all' => _('No statement lines yet.', 'لا توجد أسطر كشف بعد.'),
+    'unmatched' => _('Nothing waiting to be matched.', 'لا شيء بانتظار المطابقة.'),
+    'matched' => _('No matched lines yet.', 'لا توجد أسطر مطابقة بعد.'),
+    'booked' => _('No booked lines yet.', 'لا توجد أسطر مسجّلة بعد.'),
+    'ignored' => _('No ignored lines.', 'لا توجد أسطر مستبعدة.'),
+    _ => '',
+  };
+  String accountLabel(String label) => !ar ? label : switch (label) {
+    'Cash' => 'النقد',
+    'Bank' => 'البنك',
+    _ => label,
+  };
+  String accountKind(String kind) => switch (kind) {
+    'bank' => _('Bank account', 'حساب بنكي'),
+    'cash' => _('Cash', 'النقد'),
+    'wallet' => _('Wallet', 'محفظة'),
+    _ => _('Bank account', 'حساب بنكي'),
+  };
+  String windowWords(bool older) => older ? _('Showing two years', 'عرض سنتين') : _('Showing the last 90 days', 'عرض آخر 90 يومًا');
+  String get bringInStatement => _('Bring in a statement', 'استورد كشف حساب');
+  String get recordTransfer => _('Record a transfer', 'سجّل تحويلًا');
+  String get bookBankCharges => _('Book bank charges', 'سجّل الرسوم البنكية');
+  String get rules => _('Rules', 'القواعد');
+  String get addAccount => _('Add an account', 'أضف حسابًا');
+  String get saveAsExcel => _('Save as Excel', 'احفظ بصيغة Excel');
+  String get saveAsCsv => _('Save as CSV', 'احفظ بصيغة CSV');
+  String get bankEmptyNote => _('Bring in a bank statement and MyCA shows it next to your books.', 'استورد كشف حساب بنكي وسيعرضه MyCA بجانب دفاترك.');
+  String showOlder(bool older) => older ? _('Show recent', 'اعرض الأحدث') : _('Show older', 'اعرض الأقدم');
+  String inBooksNotOnStatement(bool noLines) => noLines ? _('In the books, not on a statement yet', 'في الدفاتر، وليس في أي كشف بعد') : _('In the books, not on the statement', 'في الدفاتر، وليس في الكشف');
+  String statementBalanceOn(String on) => on.isEmpty ? _('Statement balance', 'رصيد الكشف') : _('Statement balance on ${longDate(on)}', 'رصيد الكشف في ${longDate(on)}');
+  String get inTheBooks => _('In the books', 'في الدفاتر');
+  String get difference => _('Difference', 'الفرق');
+  String bankStatus(String status) => switch (status) {
+    'unmatched' => _('Not matched yet', 'غير مطابق بعد'),
+    'matched' => _('Matched', 'مطابق'),
+    'booked' => _('Booked', 'مسجّل'),
+    'ignored' => _('Ignored', 'مستبعد'),
+    _ => status,
+  };
+  String _side(bool isIn, num moneyIn, num moneyOut) => isIn ? 'وارد ${format.rupees(moneyIn)}' : 'صادر ${format.rupees(moneyOut)}';
+  String bankLineTitle(BankLine line) => ar && line.narration.trim().isEmpty && line.refNo.isEmpty ? 'سطر كشف' : line.title;
+  String bankLineSubtitle(BankLine line) => !ar ? line.subtitle : '${longDate(line.date)} · ${_side(line.isIn, line.moneyIn, line.moneyOut)} · ${bankStatus(line.status)}';
+  String bankLineDetail(BankLine line) => !ar ? line.detailWords : [longDate(line.date), _side(line.isIn, line.moneyIn, line.moneyOut), if (line.refNo.isNotEmpty) 'مرجع ${line.refNo}'].join(' · ');
+  String _docKind(String docKind) => switch (docKind) {
+    'receipt' => 'تحصيل',
+    'payment' => 'دفعة',
+    'expense' => 'مصروف',
+    'settlement' => 'تسوية',
+    'transfer' => 'تحويل',
+    'salary' => 'راتب',
+    'gst' => 'دفعة ضريبة',
+    _ => 'قيد',
+  };
+  String bankBooksTitle(BankBooksRow row) => !ar ? row.title : [_docKind(row.docKind), if (row.docId.isNotEmpty) row.docId, if (row.party.isNotEmpty) '· ${row.party}'].join(' ');
+  String bankBooksSubtitle(BankBooksRow row) => !ar ? row.subtitle : '${longDate(row.date)} · ${_side(row.moneyIn > 0, row.moneyIn, row.moneyOut)}';
+  String statementBalanceWords(BankTotals totals) => ar && totals.statementBalance == null ? 'لا كشف بعد' : totals.statementBalanceWords;
+  String unmatchedWords(BankTotals totals) => !ar ? totals.unmatchedWords : totals.unmatched > 0 ? 'غير مطابق: ${totals.unmatched}' : totals.lines == 0 ? 'لا شيء للمطابقة بعد' : 'كلها مطابقة';
+  String bankMatchWords(BankMatch match) {
+    if (!ar) return match.words;
+    final by = match.ruleId.isEmpty ? '' : ' بالقاعدة ${match.ruleId}';
+    return switch (match.kind) {
+      'books' => 'موجود في الدفاتر: ${match.id}',
+      'receipt' => 'تحصيل مقابل ${match.id}$by',
+      'payment' => 'دفعة مقابل ${match.id}$by',
+      'expense' => 'مصروف ${match.id}$by',
+      'charge' => 'رسوم بنكية ${match.id}$by'.replaceAll('  ', ' ').trim(),
+      'interest' => 'فائدة مكتسبة$by',
+      'transfer' => 'تحويل ${match.id}$by',
+      'auto' => 'سُجّل تحت بند مُقدَّر',
+      'ignore' => match.note.isEmpty ? 'مستبعد$by' : 'مستبعد: ${match.note}',
+      _ => match.kind,
+    };
+  }
+  String bankSuggestionWords(BankSuggestion suggestion) {
+    if (!ar) return suggestion.words;
+    return switch (suggestion.kind) {
+      'books' => 'موجود في الدفاتر: ${_docKind(suggestion.docKind)} ${suggestion.docId}${suggestion.date.isEmpty ? '' : ' في ${longDate(suggestion.date)}'}',
+      'receipt' => 'تحصيل${suggestion.invoiceIds.isEmpty ? '' : ' ${suggestion.invoiceIds.join('، ')}'} من ${suggestion.partyName}',
+      'payment' => 'دفعة${suggestion.billIds.isEmpty ? '' : ' ${suggestion.billIds.join('، ')}'} إلى ${suggestion.partyName}',
+      'charge' => 'رسوم بنكية',
+      'interest' => 'فائدة مكتسبة',
+      'transfer' => 'تحويل إلى حساب آخر',
+      _ => suggestion.why.isEmpty ? suggestion.kind : suggestion.why,
+    };
+  }
+  String get runningBalanceOff => _('The running balance does not tie at this line. Check the statement.', 'الرصيد الجاري لا يتطابق عند هذا السطر. راجع الكشف.');
+  String get unlink => _('Unlink', 'ألغِ الربط');
+  String get postedFromLine => _('It was posted to your books from this line. To change it, reverse that entry the normal way.', 'سُجّل في دفاترك من هذا السطر. لتغييره، اعكس ذلك القيد بالطريقة المعتادة.');
+  String get likelyMatches => _('Likely matches', 'مطابقات محتملة');
+  String get orRecordAs => _('Or record it as', 'أو سجّله على أنه');
+  String get receiptFromCustomer => _('Receipt from a customer…', 'تحصيل من عميل…');
+  String get paymentToSupplier => _('Payment to a supplier…', 'دفعة إلى مورّد…');
+  String get expenseEllipsis => _('Expense…', 'مصروف…');
+  String get bankCharge => _('Bank charge', 'رسوم بنكية');
+  String get interestEarned => _('Interest earned', 'فائدة مكتسبة');
+  String get transferEllipsis => _('Transfer…', 'تحويل…');
+  String get ignore => _('Ignore', 'استبعد');
+  String rememberFor(String hint) => hint.isEmpty ? _('Remember this for similar lines', 'تذكّر هذا للأسطر المشابهة') : _('Remember this for $hint', 'تذكّر هذا لـ$hint');
+  String get leaveLineOut => _('Leave this line out of the books', 'استبعد هذا السطر من الدفاتر');
+  String get staysIgnored => _('It stays on the statement as ignored, so the difference still ties.', 'يبقى في الكشف مستبعدًا، فيظل الفرق متطابقًا.');
+  String get whyOptional => _('Why (optional)', 'السبب (اختياري)');
+  String get whyOptionalHint => _('For example a personal payment, or already in the books by hand', 'مثل دفعة شخصية، أو مسجّل يدويًا في الدفاتر');
+  String get ignoreThisLine => _('Ignore this line', 'استبعد هذا السطر');
+  String get enterAmountMoved => _('Enter the amount moved.', 'أدخل المبلغ المحوّل.');
+  String get pickBothAccounts => _('Pick the account it came from and the account it went to.', 'اختر الحساب المحوّل منه والحساب المحوّل إليه.');
+  String get pickTwoAccounts => _('Pick two different accounts.', 'اختر حسابين مختلفين.');
+  String get unreadableDate => _('That is not a date I can read. Use the form 2026-11-03.', 'لا يمكن قراءة هذا التاريخ. استخدم الصيغة 2026-11-03.');
+  String get transferNote => _('Money moved between your own accounts is recorded once, not as a sale or an expense.', 'يُسجَّل المال المحوّل بين حساباتك مرة واحدة، لا كبيع ولا كمصروف.');
+  String get from => _('From', 'من');
+  String get to => _('To', 'إلى');
+  String get dateHint => _('Year, month and day, like 2026-11-03', 'السنة والشهر واليوم، مثل 2026-11-03');
+  String get referenceOptional => _('Reference (optional)', 'المرجع (اختياري)');
+  String get referenceHint => _('The UTR or cheque number, if you have it', 'رقم المرجع أو الشيك إن وُجد');
+  String transferSaid(String amount, String from, String to) => _('Transfer $amount from $from to $to', 'تحويل $amount من $from إلى $to');
+  String get bookChargesSaid => _('Book the bank charges and interest', 'سجّل الرسوم البنكية والفوائد');
+  String removeRuleSaid(String id) => _('Remove the rule $id', 'احذف القاعدة $id');
+  String ruleSaid(String words) => _('Rule: $words', 'قاعدة: $words');
+  String addAccountSaid(String label) => _('Add the account $label', 'أضف الحساب $label');
+  String unlinkSaid(String id) => _('Unlink $id', 'ألغِ ربط $id');
+  String bankMatchSaid(String kind, {String party = '', String head = '', String account = '', bool isIn = true, String note = ''}) => switch (kind) {
+    'receipt' => _('Receipt from $party', 'تحصيل من $party'),
+    'payment' => _('Payment to $party', 'دفعة إلى $party'),
+    'expense' => _('Expense under $head', 'مصروف تحت $head'),
+    'charge' => bankCharge,
+    'interest' => interestEarned,
+    'transfer' => _('Transfer ${isIn ? 'from' : 'to'} $account', 'تحويل ${isIn ? 'من' : 'إلى'} $account'),
+    'ignore' => note.isEmpty ? ignore : _('Ignore: $note', 'استبعد: $note'),
+    _ => kind,
+  };
+  String get whichHeadIsIt => _('Which head is it?', 'تحت أي بند هو؟');
+  String accountFromOrTo(bool isIn) => isIn ? _('Which account did it come from?', 'من أي حساب ورد؟') : _('Which account did it go to?', 'إلى أي حساب ذهب؟');
+  String get whichHeadExpense => _('Which head is the expense under?', 'تحت أي بند المصروف؟');
+  String get enterNarrationWords => _('Enter the words that appear in the narration.', 'أدخل الكلمات الواردة في وصف العملية.');
+  String get sayWhichCustomer => _('Say which customer the money is from.', 'اذكر العميل الذي ورد منه المال.');
+  String get sayWhichSupplier => _('Say which supplier the money goes to.', 'اذكر المورّد الذي يذهب إليه المال.');
+  String get pickHeadExpense => _('Pick the head for the expense.', 'اختر بند المصروف.');
+  String get pickOtherAccount => _('Pick the other account.', 'اختر الحساب الآخر.');
+  String get rulesNote => _('A rule books a statement line on its own when the words match. Rules run on every statement you bring in and in the daily run.', 'تسجّل القاعدة سطر الكشف تلقائيًا عند تطابق الكلمات. تعمل القواعد على كل كشف تستورده وفي التشغيل اليومي.');
+  String get noRulesYet => _('No rules yet.', 'لا توجد قواعد بعد.');
+  String get remove => _('Remove', 'احذف');
+  String get addRule => _('Add a rule', 'أضف قاعدة');
+  String get when => _('When', 'عندما');
+  String get then => _('Then', 'عندئذٍ');
+  String get narrationWords => _('Words in the narration', 'كلمات في وصف العملية');
+  String get narrationWordsHint => _('For example SHARMA TRADERS or SMS CHARGES', 'مثل SHARMA TRADERS أو SMS CHARGES');
+  String get recordItAs => _('Record it as', 'سجّله على أنه');
+  String ruleSide(String key) => switch (key) {
+    'any' => _('Money in or out', 'مال وارد أو صادر'),
+    'in' => _('Money in', 'مال وارد'),
+    'out' => _('Money out', 'مال صادر'),
+    _ => key,
+  };
+  String ruleKind(String key) => switch (key) {
+    'receipt' => _('Receipt from a customer', 'تحصيل من عميل'),
+    'payment' => _('Payment to a supplier', 'دفعة إلى مورّد'),
+    'expense' => _('Expense', 'مصروف'),
+    'charge' => bankCharge,
+    'interest' => interestEarned,
+    'transfer' => _('Transfer to another account', 'تحويل إلى حساب آخر'),
+    'ignore' => ignore,
+    _ => key,
+  };
+  String ruleParty(String kind) => kind == 'receipt' ? customer : kind == 'payment' ? supplier : paidTo;
+  String get whyLeftOut => _('Why it is left out (optional)', 'سبب الاستبعاد (اختياري)');
+  String ruleWords(BankRule rule) {
+    if (!ar) return rule.words;
+    final low = rule.minAmount;
+    final high = rule.maxAmount;
+    final when = [
+      if (rule.contains.isNotEmpty) 'تحتوي «${rule.contains}»' else if (rule.pattern.isNotEmpty) 'تطابق ${rule.pattern}',
+      if (low != null && high != null) 'بين ${format.rupees(low)} و${format.rupees(high)}' else if (low != null) 'بمبلغ ${format.rupees(low)} أو أكثر' else if (high != null) 'حتى ${format.rupees(high)}',
+    ].join(' ');
+    final then = switch (rule.kind) {
+      'receipt' => 'تحصيل من ${rule.partyName}',
+      'payment' => 'دفعة إلى ${rule.partyName}',
+      'expense' => rule.head.isEmpty ? 'مصروف' : 'مصروف تحت البند ${rule.head}',
+      'charge' => 'رسوم بنكية',
+      'interest' => 'فائدة مكتسبة',
+      'transfer' => rule.otherAccount.isEmpty ? 'تحويل' : 'تحويل مع الحساب ${rule.otherAccount}',
+      'ignore' => rule.note.isEmpty ? 'مستبعد' : 'مستبعد (${rule.note})',
+      _ => rule.kind,
+    };
+    return [ruleSide(rule.side == '' ? 'any' : rule.side), if (when.isNotEmpty) when, '← $then'].join(' ');
+  }
+  String ruleHits(BankRule rule) => _(rule.hitsWords, 'الأسطر حتى الآن: ${rule.hits}');
+  String get accountNameNeeded => _('Give the account a name, for example HDFC current.', 'سمِّ الحساب، مثل الحساب الجاري لدى البنك.');
+  String get addAccountNote => _('Another bank account, a cash box or a wallet. Money moved between your accounts is then recorded once.', 'حساب بنكي آخر أو صندوق نقد أو محفظة. يُسجَّل المال المحوّل بين حساباتك عندئذٍ مرة واحدة.');
+  String get accountNameHint => _('For example HDFC current or Paytm wallet', 'مثل الحساب الجاري أو المحفظة الإلكترونية');
+  String get lastFourDigits => _('Last 4 digits of the account number (optional)', 'آخر 4 أرقام من رقم الحساب (اختياري)');
+
+  String get excelNotPrepared => _('The Excel file could not be prepared.', 'تعذّر إعداد ملف Excel.');
+  String get excelNotRead => _('The Excel file could not be read.', 'تعذّرت قراءة ملف Excel.');
+  String excelSaved(String name) => _('Saved $name. Open it in Excel or send it to your accountant.', 'تم حفظ $name. افتحه في Excel أو أرسله إلى محاسبك.');
+  String get notSaved => _('Not saved.', 'لم يُحفظ.');
+
+  String get reportFailed => _('The report could not be run.', 'تعذّر تشغيل التقرير.');
+  String deleteReportSaid(String name) => _('Delete the report $name', 'احذف التقرير $name');
+  String saveReportSaid(String name) => _('Save the report $name', 'احفظ التقرير $name');
+  String wasAmount(String amount) => _('was $amount', 'كان $amount');
+  String moreRows(int n) => _('$n more', 'المزيد: $n');
+  String get excelForFullList => _('Save as Excel for the full list', 'احفظ بصيغة Excel للقائمة الكاملة');
+  String get saveAReport => _('Save a report', 'احفظ تقريرًا');
+  String get builtIn => _('Built-in', 'مدمجة');
+  String get auditTrail => _('Audit trail', 'سجل التدقيق');
+  String get auditTrailSubtitle => _('Who changed what and when, with a check for edits to the log', 'من غيّر ماذا ومتى، مع فحص لأي تعديل على السجل');
+  String get noSavedReports => _('No saved reports yet. Tap + to save one: sales by customer this month, expenses by head this quarter, and so on.', 'لا توجد تقارير محفوظة بعد. اضغط + لحفظ تقرير: المبيعات حسب العميل هذا الشهر، أو المصروفات حسب البند هذا الربع، وهكذا.');
+  String get yourReports => _('Your reports', 'تقاريرك');
+  String deleteNamed(String name) => _('Delete $name', 'احذف $name');
+  String get what => _('What', 'ماذا');
+  String get groupedBy => _('Grouped by', 'مجمّعة حسب');
+  String get period => _('Period', 'الفترة');
+  String get compareBefore => _('Compare with the period before', 'قارن بالفترة السابقة');
+  String reportOption(String option) => !ar ? option.replaceAll('-', ' ') : switch (option) {
+    'sales' => 'المبيعات',
+    'purchases' => 'المشتريات',
+    'expenses' => 'المصروفات',
+    'owed' => 'المستحق لك',
+    'owing' => 'المستحق عليك',
+    'customer' => 'العميل',
+    'supplier' => 'المورّد',
+    'head' => 'البند',
+    'month' => 'الشهر',
+    'none' => 'بلا تجميع',
+    'this-month' => 'هذا الشهر',
+    'last-month' => 'الشهر الماضي',
+    'this-quarter' => 'هذا الربع',
+    'this-year' => 'هذه السنة',
+    'last-year' => 'السنة الماضية',
+    _ => option,
+  };
+  String reportWords(SavedReport report) => !ar
+      ? report.words
+      : '${reportOption(report.metric)}${report.groupBy == 'none' || report.groupBy.isEmpty ? '' : ' حسب ${reportOption(report.groupBy)}'}، ${reportOption(report.period)}${report.compare ? '، مع المقارنة' : ''}';
+  String reportComparison(ReportResult result) {
+    if (!ar) return reportComparisonWords(result, format.rupees);
+    final compare = result.compare;
+    if (compare == null) return '';
+    final pct = compare.changePct;
+    if (pct == null) return 'كان ${format.rupees(compare.total)} في ${compare.label}';
+    final size = pct.abs().toStringAsFixed(pct.abs() == pct.abs().roundToDouble() ? 0 : 1);
+    final direction = pct == 0 ? 'دون تغيير' : '${pct > 0 ? 'ارتفاع' : 'انخفاض'} $size%';
+    return '$direction مقارنةً بـ${compare.label}، ${format.rupees(compare.total)}';
+  }
+
+  String auditPeriod(String key) => switch (key) {
+    'this-month' => _('This month', 'هذا الشهر'),
+    'last-month' => _('Last month', 'الشهر الماضي'),
+    'this-quarter' => _('This quarter', 'هذا الربع'),
+    'this-year' => _('This year', 'هذه السنة'),
+    'changes' => _('Changes', 'التغييرات'),
+    'all' => _('Everything', 'كل شيء'),
+    _ => key,
+  };
+  String chainWords(AuditTrail trail) {
+    if (!ar) return trail.chainWords;
+    if (!trail.chainOk) return 'السلسلة مكسورة عند ${trail.brokenAt}';
+    final caveats = [
+      if (trail.chained > 0) 'العميل الذي يُسجَّل تحته الحدث غير مختوم',
+      if (trail.unchained > 0) 'أحداث سابقة سُجّلت قبل الختم ولا تشملها السلسلة: ${trail.unchained}',
+    ];
+    return 'تم التحقق من سلسلة السجل (الأحداث: ${trail.chained}${caveats.map((said) => '؛ $said').join()})';
+  }
+  String get ledgerFailsAccountant => _('The record of entries fails its integrity check. Ask your accountant before recording more.', 'سجل القيود لا يجتاز فحص السلامة. استشر محاسبك قبل تسجيل المزيد.');
+  String get nothingChanged => _('Nothing changed in this period.', 'لم يتغيّر شيء في هذه الفترة.');
+  String get showMore => _('Show more', 'اعرض المزيد');
+  String latestShown(int n) => _('The latest $n are shown. Save as Excel for the full list.', 'يُعرض أحدث $n. احفظ بصيغة Excel للقائمة الكاملة.');
+  String get auditIntro => _('Who changed what and when. Every change made through MyCA is listed, and the log is checked for edits.', 'من غيّر ماذا ومتى. يُدرج كل تغيير أُجري عبر MyCA، ويُفحص السجل بحثًا عن أي تعديل.');
+  String get auditNotLoaded => _('The audit trail could not be loaded.', 'تعذّر تحميل سجل التدقيق.');
+
+  String statementTitle(String en) => !ar ? en : switch (en) {
+    'Profit and loss' => 'الأرباح والخسائر',
+    'Balance sheet' => 'الميزانية العمومية',
+    'Cash flow' => 'التدفقات النقدية',
+    'Customer statement' => 'كشف حساب العميل',
+    'This year' => 'هذه السنة',
+    'Last year' => 'السنة الماضية',
+    'This month' => 'هذا الشهر',
+    'Last month' => 'الشهر الماضي',
+    'Income' => 'الإيرادات',
+    'Expenses' => 'المصروفات',
+    'Result' => 'النتيجة',
+    'Net profit' => 'صافي الربح',
+    'Net loss' => 'صافي الخسارة',
+    'Assets' => 'الأصول',
+    'Liabilities' => 'الالتزامات',
+    'Equity' => 'حقوق الملكية',
+    'At the start' => 'في البداية',
+    'Cash and bank' => 'النقد والبنك',
+    'From running the business' => 'من تشغيل النشاط',
+    'Assets and deposits' => 'الأصول والودائع',
+    'Owner' => 'المالك',
+    'At the end' => 'في النهاية',
+    'Opening' => 'الرصيد الافتتاحي',
+    'Balance at the start' => 'الرصيد في البداية',
+    'Entries' => 'القيود',
+    'Closing' => 'الرصيد الختامي',
+    'Balance at the end' => 'الرصيد في النهاية',
+    'Total' => 'الإجمالي',
+    _ => en,
+  };
+  String get undatedLeftOut => _('Some entries have no date and are left out of this period.', 'بعض القيود بلا تاريخ ومستبعدة من هذه الفترة.');
+  String get doesNotBalance => _('It does not balance. Ask your accountant to look at the books.', 'الميزانية غير متوازنة. اطلب من محاسبك مراجعة الدفاتر.');
+  String get doesNotTie => _('The movements do not add up to the closing balance. Ask your accountant to look.', 'الحركات لا تساوي الرصيد الختامي. اطلب من محاسبك المراجعة.');
+  String inOut(String moneyIn, String moneyOut) => _('In $moneyIn · out $moneyOut', 'وارد $moneyIn · صادر $moneyOut');
+  String chargedOrPaid(bool charged, String amount) => charged ? _('charged $amount', 'مستحق $amount') : _('paid $amount', 'مدفوع $amount');
+  String get statementFailed => _('This statement could not be prepared.', 'تعذّر إعداد هذه القائمة.');
+  String statementSaved(String name) => _('Saved $name. Send it to your accountant or the customer.', 'تم حفظ $name. أرسله إلى محاسبك أو إلى العميل.');
+  String get asAtEndOf => _('As at the end of', 'كما في نهاية');
+  String get typeCustomerName => _('Type the customer\'s name to see their statement.', 'اكتب اسم العميل لعرض كشف حسابه.');
+  String get nothingInPeriod => _('Nothing in this period', 'لا شيء في هذه الفترة');
+
+  String repeatEvery(String key) => switch (key) {
+    'week' => _('Every week', 'كل أسبوع'),
+    'month' => _('Every month', 'كل شهر'),
+    'quarter' => _('Every quarter', 'كل ربع سنة'),
+    'half-year' => _('Every six months', 'كل ستة أشهر'),
+    'year' => _('Every year', 'كل سنة'),
+    _ => key,
+  };
+  String recurringKind(String kind) => switch (kind) {
+    'invoice' => _('Invoice to', 'فاتورة إلى'),
+    'bill' => _('Bill from', 'فاتورة مشتريات من'),
+    _ => _('Expense', 'مصروف'),
+  };
+  String get enterAmountEachTime => _('Enter the amount paid each time.', 'أدخل المبلغ المدفوع في كل مرة.');
+  String get sayWhatItIsFor => _('Say what it is for, for example broadband or rent.', 'اذكر الغرض منه، مثل الإنترنت أو الإيجار.');
+  String recurringExpenseSaid(String amount, String what, String every) => _('Expense: $amount for $what, ${every.toLowerCase()}', 'مصروف: $amount لـ$what، $every');
+  String recurringSubtitle(String every, {required bool active, required String status, required String next, required int count, required String lastError}) => [
+    every,
+    if (active) _('next $next', 'التالي $next') else if (status == 'ended') _('ended', 'انتهى') else _('stopped', 'متوقف'),
+    if (count > 0) _('$count made', 'المُنشأ: $count'),
+    if (lastError.isNotEmpty) _('last try failed: $lastError', 'فشلت المحاولة الأخيرة: $lastError'),
+  ].join(' · ');
+  String get recurringIntro => _('Invoices, bills and expenses that repeat are posted on their dates by the daily run, exactly as if you entered them. Set a repeating invoice or bill from the customer or supplier page.', 'تُسجَّل الفواتير والمصروفات المتكررة في مواعيدها عبر التشغيل اليومي، كما لو أدخلتها بنفسك. اضبط فاتورة متكررة من صفحة العميل أو المورّد.');
+  String get nothingRepeats => _('Nothing repeats yet.', 'لا شيء يتكرر بعد.');
+  String stopSaid(String id) => _('Stop $id', 'أوقف $id');
+  String get stop => _('Stop', 'أوقف');
+  String get addRepeatingExpense => _('Add a repeating expense', 'أضف مصروفًا متكررًا');
+  String get whatItIsFor => _('What it is for', 'الغرض منه');
+  String get whatItIsForHint => _('For example broadband, shop rent or software', 'مثل الإنترنت أو إيجار المحل أو البرمجيات');
+  String get amountEachTime => _('Amount paid each time', 'المبلغ المدفوع في كل مرة');
+  String get repeat => _('Repeat', 'التكرار');
+  String get repeatHint => _('From today, paid from the bank', 'من اليوم، يُدفع من البنك');
+  String get booksCheckTitle => _('Your books check', 'فحص دفاترك');
+  String get checkFailed => _('The check could not be run.', 'تعذّر إجراء الفحص.');
+  String asOf(String date) => _('AS OF $date', 'حتى $date');
+  String get workedOutNothingChanged => _('Everything below is worked out from your books. Nothing has been changed or filed.', 'كل ما يلي مستخلص من دفاترك. لم يُغيَّر أو يُقدَّم أي شيء.');
+
+  String accountName(String name) => !ar ? name : switch (name) {
+    'Cash' => 'النقد',
+    'Bank' => 'البنك',
+    'Trade receivables' => 'الذمم المدينة التجارية',
+    'Trade payables' => 'الذمم الدائنة التجارية',
+    'VAT input recoverable' => 'ضريبة المدخلات القابلة للاسترداد',
+    'VAT output payable' => 'ضريبة المخرجات المستحقة',
+    'Capital' => 'رأس المال',
+    'Profit to date' => 'الأرباح حتى تاريخه',
+    'Sales' => 'المبيعات',
+    'Interest income' => 'إيرادات الفوائد',
+    'Purchases' => 'المشتريات',
+    'Operating expenses' => 'المصروفات التشغيلية',
+    'Other expenses' => 'مصروفات أخرى',
+    'Rent' => 'الإيجار',
+    'Salaries and wages' => 'الرواتب والأجور',
+    'Electricity and water' => 'الكهرباء والماء',
+    'Telephone and internet' => 'الهاتف والإنترنت',
+    'Travel and conveyance' => 'السفر والتنقل',
+    'Repairs and maintenance' => 'الإصلاح والصيانة',
+    'Professional fees' => 'الأتعاب المهنية',
+    'Bank charges' => 'الرسوم البنكية',
+    'Office and stationery' => 'المكتب والقرطاسية',
+    'Advertising and marketing' => 'الإعلان والتسويق',
+    'Freight and delivery' => 'الشحن والتوصيل',
+    'Insurance' => 'التأمين',
+    'Software and subscriptions' => 'البرمجيات والاشتراكات',
+    'Packing material' => 'مواد التغليف',
+    'Food and refreshments' => 'الطعام والضيافة',
+    'Staff welfare and gifts' => 'رعاية الموظفين والهدايا',
+    'Club and fitness memberships' => 'عضويات الأندية واللياقة',
+    'Car running and insurance' => 'تشغيل السيارة وتأمينها',
+    'Personal and household' => 'مصروفات شخصية ومنزلية',
+    'Received from customers' => 'المحصّل من العملاء',
+    'Other income and cash sales' => 'إيرادات أخرى ومبيعات نقدية',
+    'Paid to suppliers' => 'المدفوع للمورّدين',
+    'Expenses paid' => 'المصروفات المدفوعة',
+    'Taxes, salaries and other dues' => 'الضرائب والرواتب والمستحقات الأخرى',
+    'Deposits, advances and assets' => 'الودائع والسلف والأصول',
+    'Owner\'s money in and out' => 'أموال المالك الداخلة والخارجة',
+    'Usual expenses' => 'المصروفات المعتادة',
+    _ => name,
+  };
 
   String threadLabel(String? label) => switch (label) {
     'Not posted yet' => notPostedYet,

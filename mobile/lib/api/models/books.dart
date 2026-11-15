@@ -606,6 +606,9 @@ class AuditTrail {
     required this.chainOk,
     required this.chainWords,
     required this.ledgerOk,
+    this.chained = 0,
+    this.unchained = 0,
+    this.brokenAt = '',
   });
 
   static AuditTrail? fromTool(Object? json) {
@@ -631,6 +634,9 @@ class AuditTrail {
       chainOk: chainOk,
       chainWords: chainOk ? 'Log chain verified ($chained ${chained == 1 ? 'event' : 'events'}${caveats.map((said) => '; $said').join()})' : 'Log chain broken at ${_text(chain['at'])}',
       ledgerOk: _map(data['ledger'])['ok'] != false,
+      chained: chained,
+      unchained: earlier,
+      brokenAt: _text(chain['at']),
     );
   }
 
@@ -645,6 +651,9 @@ class AuditTrail {
   final bool chainOk;
   final String chainWords;
   final bool ledgerOk;
+  final int chained;
+  final int unchained;
+  final String brokenAt;
 }
 
 class ReportRow {

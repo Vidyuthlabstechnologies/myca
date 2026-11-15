@@ -166,7 +166,7 @@ class _PartyPickerState extends State<_PartyPicker> {
                         size: 42,
                       ),
                       title: Text(party.name, style: text.titleMedium),
-                      subtitle: Text(lastEntryLine(party.latest!, widget.kind)),
+                      subtitle: Text(UaeStrings.of(context).lastEntryLine(party.latest!, widget.kind)),
                       onTap: () => Navigator.of(
                         context,
                       ).pop((name: party.name, gstin: ae != null && party.gstin.isEmpty ? party.latest!.partyTrn : party.gstin)),

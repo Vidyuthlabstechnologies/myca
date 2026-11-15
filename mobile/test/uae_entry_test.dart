@@ -319,7 +319,7 @@ void main() {
     testWidgets('$language: an expense in the UAE edition has no GST rate, shows AED and points to a purchase bill', (tester) async {
       await uaeView(tester, language: language);
       await openUaeApp(tester);
-      await openNewEntry(tester, 'I paid an expense');
+      await openNewEntry(tester, s.iPaidExpense);
       expect(find.text(s.amountPaidWithVat), findsOneWidget);
       expect(find.text('AED '), findsOneWidget);
       expect(find.textContaining('GST'), findsNothing);
@@ -332,7 +332,7 @@ void main() {
     testWidgets('$language: a new customer from the register asks for a TRN, not a GSTIN, and opens the UAE sale', (tester) async {
       await uaeView(tester, language: language);
       await openUaeApp(tester);
-      await uaeHomeRow(tester, 'Sales');
+      await uaeHomeRow(tester, s.sales);
       await tester.tap(find.text(s.newParty(true)));
       await tester.pumpAndSettle();
       expect(find.text(s.trnOptional), findsOneWidget);
