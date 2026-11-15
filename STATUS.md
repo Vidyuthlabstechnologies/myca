@@ -185,6 +185,18 @@ and [`README.md`](README.md) for what is left and how it is being done.
   books themselves (sales, receipts, credit notes, purchases, payments, expenses with their
   heads and TDS sections, approved payroll) when no ledger file is attached (2026-10-16)
 
+- Competitive gaps (2026-11-14, see docs/product/COMPETITIVE-GAP-MATRIX.md): US refund booster
+  (`us_refund_boost`, each unused deduction priced by re-running the return); UK simplified expenses
+  and trading allowance check (`gb_simplified_expenses`) and CIS deductions (`gb_cis_deductions`);
+  UAE end-of-service gratuity (`ae_gratuity`) and WPS salary file (`ae_wps_file`), all from dated rules
+- India counter billing (2026-11-14): `find_item` looks up a SKU by code or barcode, `set_sku_cost`
+  stores barcode and selling price; the Android Counter sale screen scans with the camera, bills through
+  `create_invoice` and prints the engine's figures on a 58/80 mm Bluetooth ESC/POS printer
+- Malaysia PCB (2026-11-14): `my_payroll` works out the monthly tax deduction by LHDN's computerised
+  method from `my.payroll.pcb` and the resident bands and rebate rules (categories 1 to 3, children,
+  bonus, year to date, zakat, TP1 deductions; flat rate for non-residents)
+
+
 ### Data import
 - Tally Day Book CSV and TallyPrime XML → posted invoices (row isolation, alias mapping)
 - Zoho Books invoice CSV → posted invoices

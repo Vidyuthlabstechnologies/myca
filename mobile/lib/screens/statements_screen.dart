@@ -163,6 +163,11 @@ class StatementView {
   }
 }
 
+Widget _amount(BuildContext context, String amount, TextStyle? style) => ConstrainedBox(
+  constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.4),
+  child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerRight, child: Text(amount, style: style)),
+);
+
 class StatementsScreen extends StatefulWidget {
   const StatementsScreen({super.key, this.initial = StatementKind.profitAndLoss, this.customer = ''});
 
@@ -312,14 +317,12 @@ class _StatementsScreenState extends State<StatementsScreen> {
                                 style: text.titleSmall?.copyWith(fontFeatures: moneyFigures),
                               ),
                               subtitle: line.detail.isEmpty ? null : Text(line.detail),
+                              trailing: _amount(context, rupees(line.amount), text.titleSmall),
                             ),
                           if (section.total != null)
                             ListTile(
-                              title: AmountRow(
-                                start: Text(section.totalLabel, style: text.titleSmall),
-                                amount: rupees(section.total!),
-                                style: text.titleSmall?.copyWith(fontFeatures: moneyFigures),
-                              ),
+                              title: Text(section.totalLabel, style: text.titleSmall),
+                              trailing: _amount(context, rupees(section.total!), text.titleSmall),
                             ),
                         ],
                       ),

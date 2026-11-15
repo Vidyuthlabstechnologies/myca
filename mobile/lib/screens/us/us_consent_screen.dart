@@ -1,5 +1,7 @@
+import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/material.dart';
 
+import '../../us/us_text_scaler.dart';
 import '../../api/myca_api.dart';
 import '../../app_state.dart';
 import '../../format.dart';
@@ -126,18 +128,18 @@ class _UsConsentScreenState extends State<UsConsentScreen> {
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
-                Text(form.title, style: text.headlineSmall),
+                Text(wholeWords(form.title), style: text.headlineSmall),
                 const SizedBox(height: 14),
-                Text(form.text, key: const Key('usConsent.text'), style: text.bodyLarge?.copyWith(color: Palette.ink)),
+                Text(form.text, key: const Key('usConsent.text'), style: text.bodyLarge?.copyWith(color: context.myca.ink)),
                 const SizedBox(height: 18),
                 if (form.signed) ...[
                   Container(
                     key: const Key('usConsent.signed'),
                     padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(color: Palette.accentSoft, borderRadius: BorderRadius.circular(radiusControl)),
+                    decoration: BoxDecoration(color: context.myca.accentSoft, borderRadius: BorderRadius.circular(radiusControl)),
                     child: Text(
                       'You signed this on ${longDate(form.signedAt.substring(0, 10))}. It is valid until ${longDate(form.validUntil.substring(0, 10))}.',
-                      style: text.bodyMedium?.copyWith(color: Palette.ink),
+                      style: text.bodyMedium?.copyWith(color: context.myca.ink),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -148,7 +150,7 @@ class _UsConsentScreenState extends State<UsConsentScreen> {
                   if (!form.ready)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: Text('This consent cannot be signed yet. You can still e-file and type your Social Security numbers on the partner\'s screen.', key: const Key('usConsent.notReady'), style: text.bodyMedium?.copyWith(color: Palette.warn)),
+                      child: Text('This consent cannot be signed yet. You can still e-file and type your Social Security numbers on the partner\'s screen.', key: const Key('usConsent.notReady'), style: text.bodyMedium?.copyWith(color: context.myca.warn)),
                     ),
                   ListTile(
                     key: const Key('usConsent.until'),
@@ -172,7 +174,7 @@ class _UsConsentScreenState extends State<UsConsentScreen> {
                 ],
                 const SizedBox(height: 8),
                 TextButton(key: const Key('usConsent.copy'), onPressed: () => AppScope.of(context).shareText(form.text), child: const Text('Save a copy')),
-                if (_note.isNotEmpty) ...[const SizedBox(height: 8), Text(_note, key: const Key('usConsent.note'), style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))],
+                if (_note.isNotEmpty) ...[const SizedBox(height: 8), Text(_note, key: const Key('usConsent.note'), style: TextStyle(color: context.myca.danger, fontWeight: FontWeight.w500))],
               ],
             );
           },

@@ -78,7 +78,7 @@ class _UsSetupScreenState extends State<UsSetupScreen> {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radiusCard),
-        border: Border.all(color: picked ? context.myca.accent : Palette.line, width: picked ? 2 : 1),
+        border: Border.all(color: picked ? context.myca.accent : context.myca.line, width: picked ? 2 : 1),
       ),
       clipBehavior: Clip.antiAlias,
       child: RowCard(
@@ -86,7 +86,7 @@ class _UsSetupScreenState extends State<UsSetupScreen> {
         leading: TintTile(tint: picked ? Tint.taxes : Tint.ask, mark: mark),
         title: title,
         subtitle: subtitle,
-        trailing: Icon(picked ? Icons.radio_button_checked : Icons.radio_button_off, color: picked ? context.myca.accent : Palette.faint),
+        trailing: Icon(picked ? Icons.radio_button_checked : Icons.radio_button_off, color: picked ? context.myca.accent : context.myca.faint),
         onTap: () => setState(() {
           _goal = value;
           _error = '';
@@ -132,7 +132,7 @@ class _UsSetupScreenState extends State<UsSetupScreen> {
             ),
             Text('What would you like to do?', style: text.headlineMedium),
             const SizedBox(height: 6),
-            Text('You can add the other one later.', style: text.bodyLarge?.copyWith(color: Palette.muted)),
+            Text('You can add the other one later.', style: text.bodyLarge?.copyWith(color: context.myca.muted)),
             const SizedBox(height: 20),
             _choice('personal', Mark.taxes, 'File my personal tax return', 'Form 1040 with your W-2s, 1099s and deductions, e-filed with the IRS'),
             const SizedBox(height: 10),
@@ -163,7 +163,7 @@ class _UsSetupScreenState extends State<UsSetupScreen> {
               ),
             if (_error.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+              Text(_error, style: TextStyle(color: context.myca.danger, fontWeight: FontWeight.w500)),
             ],
             const SizedBox(height: 24),
             FilledButton(
@@ -174,7 +174,7 @@ class _UsSetupScreenState extends State<UsSetupScreen> {
             const SizedBox(height: 18),
             Text(
               'Your return is encrypted on our servers, your Social Security number is sealed separately and never shown in full, and nothing is sent to the IRS until you sign.',
-              style: text.bodySmall?.copyWith(color: Palette.muted),
+              style: text.bodySmall?.copyWith(color: context.myca.muted),
             ),
           ],
         ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:myca_design/myca_design.dart' show MycaSurfaceColors, mycaCountryLooks;
+import 'package:myca_design/myca_design.dart' show MycaPalette, MycaSurfaceColors, mycaCountryLooks;
 
 class PaletteSet {
   const PaletteSet({
@@ -58,6 +58,40 @@ class PaletteSet {
   final Color warnSoft;
   final Color danger;
   final Color dangerSoft;
+}
+
+MycaPalette mycaPaletteOf(PaletteSet p) => MycaPalette(
+  canvas: p.canvas,
+  surface: p.surface,
+  sunken: p.sunken,
+  ink: p.ink,
+  onInk: p.onInk,
+  muted: p.muted,
+  faint: p.faint,
+  line: p.line,
+  accent: p.accent,
+  accentSoft: p.accentSoft,
+  highlight: const Color(0xFFE2A93B),
+  warn: p.warn,
+  warnSoft: p.warnSoft,
+  danger: p.danger,
+  dangerSoft: p.dangerSoft,
+  bahi: p.danger,
+);
+
+final indiaPalette = mycaPaletteOf(PaletteSet.light);
+
+MycaPalette paletteOf(BuildContext context) => Theme.of(context).extension<MycaPalette>() ?? mycaPaletteOf(Palette.current);
+
+Color toneOf(BuildContext context, Color color) {
+  final p = paletteOf(context);
+  bool any(Color Function(PaletteSet s) pick) => color == pick(PaletteSet.light) || color == pick(PaletteSet.dark);
+  if (any((s) => s.ink)) return p.ink;
+  if (any((s) => s.warn)) return p.warn;
+  if (any((s) => s.danger)) return p.danger;
+  if (any((s) => s.muted)) return p.muted;
+  if (any((s) => s.accent)) return p.accent;
+  return color;
 }
 
 class Palette {
@@ -142,6 +176,7 @@ ThemeData mycaTheme([Brightness brightness = Brightness.light]) {
         borderSide: BorderSide(color: color, width: width),
       );
   return base.copyWith(
+    extensions: [mycaPaletteOf(p)],
     scaffoldBackgroundColor: p.canvas,
     splashFactory: InkSparkle.splashFactory,
     pageTransitionsTheme: const PageTransitionsTheme(

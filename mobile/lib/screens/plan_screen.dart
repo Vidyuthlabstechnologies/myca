@@ -5,6 +5,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../billing/store_billing.dart';
 import '../cloud/cloud_session.dart';
+import '../format.dart';
 import '../theme.dart';
 
 bool get buyInApp => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
@@ -57,7 +58,7 @@ String renewalTerms(PlanOffer plan, StoreProduct? product) {
 const notAdvice = 'MyCA is software. It is not a firm of chartered accountants and does not give tax or legal advice. You approve every return before it is filed.';
 
 String entitlementLine(Entitlement e) {
-  final until = e.currentEnd.length >= 10 ? e.currentEnd.substring(0, 10) : '';
+  final until = e.currentEnd.length >= 10 ? longDate(e.currentEnd.substring(0, 10)) : '';
   if (e.trialDaysLeft != null) return 'Free trial of ${e.planTitle}: ${e.trialDaysLeft} ${e.trialDaysLeft == 1 ? 'day' : 'days'} left.';
   if (e.status == 'pending') return 'Google Play is still processing the payment. The plan starts as soon as it clears.';
   if (e.status == 'on_hold' || e.status == 'paused') return 'Google Play could not take the last payment, so the books are read-only. Fix the payment method in Google Play to get the plan back.';
@@ -192,7 +193,7 @@ class _PlanScreenState extends State<PlanScreen> {
           ? Center(
               child: _error.isEmpty
                   ? const CircularProgressIndicator()
-                  : Padding(padding: const EdgeInsets.all(24), child: Text(_error, textAlign: TextAlign.center, style: text.bodyMedium?.copyWith(color: Palette.danger))),
+                  : Padding(padding: const EdgeInsets.all(24), child: Text(_error, textAlign: TextAlign.center, style: text.bodyMedium?.copyWith(color: paletteOf(context).danger))),
             )
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -200,7 +201,7 @@ class _PlanScreenState extends State<PlanScreen> {
                 Text(entitlementLine(e), style: text.titleMedium),
                 if (e.testPurchase) ...[
                   const SizedBox(height: 6),
-                  Text('This is a Google Play test purchase: no real money is taken.', style: text.bodyMedium?.copyWith(color: Palette.warn)),
+                  Text('This is a Google Play test purchase: no real money is taken.', style: text.bodyMedium?.copyWith(color: paletteOf(context).warn)),
                 ],
                 if (_note.isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -223,7 +224,7 @@ class _PlanScreenState extends State<PlanScreen> {
                           for (final feature in plan.features) Text('• ${featureWords[feature] ?? feature}', style: text.bodyMedium),
                           if (plan.opening) ...[
                             const SizedBox(height: 8),
-                            Text('Opening soon. It opens once the professional who reviews and files is named here.', style: text.bodyMedium?.copyWith(color: Palette.warn)),
+                            Text('Opening soon. It opens once the professional who reviews and files is named here.', style: text.bodyMedium?.copyWith(color: paletteOf(context).warn)),
                           ],
                           if (plan.professional.isNotEmpty) ...[
                             const SizedBox(height: 8),

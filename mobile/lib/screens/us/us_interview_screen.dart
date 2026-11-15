@@ -1,8 +1,9 @@
+import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/material.dart';
 
+import '../../us/us_text_scaler.dart';
 import '../../api/myca_api.dart';
 import '../../app_state.dart';
-import '../../theme.dart';
 import '../../us/us_return.dart';
 import 'us_fields.dart';
 
@@ -215,16 +216,16 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
                       const SizedBox(height: 8),
                       Text('Question ${_at + 1} of ${questions.length}', style: text.bodySmall),
                       const SizedBox(height: 20),
-                      Text(q.text, key: const Key('usInterview.question'), style: text.headlineSmall),
+                      Text(wholeWords(q.text), key: const Key('usInterview.question'), style: text.headlineSmall),
                       if (q.help.isNotEmpty) ...[
                         const SizedBox(height: 8),
-                        Text(q.help, style: text.bodyMedium?.copyWith(color: Palette.muted)),
+                        Text(q.help, style: text.bodyMedium?.copyWith(color: context.myca.muted)),
                       ],
                       const SizedBox(height: 20),
                       _input(q),
                       if (_note.isNotEmpty) ...[
                         const SizedBox(height: 12),
-                        Text(_note, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                        Text(_note, style: TextStyle(color: context.myca.danger, fontWeight: FontWeight.w500)),
                       ],
                       const SizedBox(height: 24),
                       Row(

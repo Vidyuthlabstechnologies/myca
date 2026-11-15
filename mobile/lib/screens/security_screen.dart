@@ -160,7 +160,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
   }
 
   Widget _loading(AsyncSnapshot<Object?> loaded) => loaded.hasError
-      ? Text('${loaded.error}', style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))
+      ? Text('${loaded.error}', style: TextStyle(color: paletteOf(context).danger, fontWeight: FontWeight.w500))
       : const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()));
 
   @override
@@ -204,7 +204,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
           ),
           if (_error.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+            Text(_error, style: TextStyle(color: paletteOf(context).danger, fontWeight: FontWeight.w500)),
           ],
           if (_note.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -229,7 +229,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                           title: device.label,
                           subtitle: _when(device),
                           trailing: device.current
-                              ? StatusTag(text: 'This phone', color: Palette.accent)
+                              ? StatusTag(text: 'This phone', color: paletteOf(context).accent)
                               : TextButton(onPressed: _busy ? null : () => _signOutDevice(device), child: const Text('Sign out')),
                         ),
                     ],
@@ -248,7 +248,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
   }
 }
 
-TextStyle? _dialogText(BuildContext context) => Theme.of(context).textTheme.bodyMedium?.copyWith(color: Palette.ink);
+TextStyle? _dialogText(BuildContext context) => Theme.of(context).textTheme.bodyMedium?.copyWith(color: paletteOf(context).ink);
 
 class _CodeDialog extends StatefulWidget {
   const _CodeDialog({required this.title, required this.action});
@@ -290,7 +290,7 @@ class _CodeDialogState extends State<_CodeDialog> {
           labelText: 'Code',
           helperText: 'Code from your authenticator app or a recovery code',
           helperMaxLines: 3,
-          helperStyle: Theme.of(context).textTheme.bodySmall?.copyWith(color: Palette.ink),
+          helperStyle: Theme.of(context).textTheme.bodySmall?.copyWith(color: paletteOf(context).ink),
           counterText: '',
         ),
         onChanged: (_) => setState(() {}),

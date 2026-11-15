@@ -1,5 +1,7 @@
+import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/material.dart';
 
+import '../../us/us_text_scaler.dart';
 import '../../app_state.dart';
 import '../../format.dart';
 import '../../theme.dart';
@@ -92,7 +94,7 @@ class _UsStateSheetScreenState extends State<UsStateSheetScreen> {
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
-                Text('${sheet.stateName} carry-over sheet', style: text.headlineMedium),
+                Text(wholeWords('${sheet.stateName} carry-over sheet'), style: text.headlineMedium),
                 const SizedBox(height: 6),
                 Text(stateReturnNote, style: text.bodyMedium),
                 const SizedBox(height: 16),
@@ -102,7 +104,7 @@ class _UsStateSheetScreenState extends State<UsStateSheetScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         child: AmountRow(
-                          start: Text('Line $line · $label', style: text.bodyMedium?.copyWith(color: Palette.ink)),
+                          start: Text('Line $line · $label', style: text.bodyMedium?.copyWith(color: context.myca.ink)),
                           amount: dollars(amount),
                           style: text.titleSmall?.copyWith(fontFeatures: moneyFigures),
                         ),
@@ -121,7 +123,7 @@ class _UsStateSheetScreenState extends State<UsStateSheetScreen> {
                 const SizedBox(height: 18),
                 OutlinedButton(key: const Key('usState.share'), onPressed: () => AppScope.of(context).shareText(sheet.asText()), child: const Text('Share or save this sheet')),
                 const SizedBox(height: 10),
-                Text('Most state returns start from your federal adjusted gross income. Check your state\'s instructions for what else it asks.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+                Text('Most state returns start from your federal adjusted gross income. Check your state\'s instructions for what else it asks.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
               ],
             );
           },

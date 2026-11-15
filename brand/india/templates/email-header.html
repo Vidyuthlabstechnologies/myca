@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<title>MyCA email headers</title>
+<link rel="stylesheet" href="brand.css">
+<style>
+  .eh { width: 1200px; height: 400px; background: var(--paper); }
+  .eh.g { background: var(--green); color: #fff; }
+  .eh .logo { position: absolute; left: 64px; top: 52px; height: 48px; }
+  .eh h1 { position: absolute; left: 64px; top: 150px; width: 760px; font-size: 60px; line-height: 1.08; font-weight: 600; letter-spacing: -0.025em; text-wrap: balance; }
+  .eh p { position: absolute; left: 64px; bottom: 56px; font-size: 26px; color: var(--muted); }
+  .eh.g p { color: rgba(255,255,255,.8); }
+  .eh .bahi { position: absolute; right: 80px; bottom: 30px; width: 300px; }
+</style>
+</head>
+<body>
+<script>
+  const rows = [
+    ['header-01-launch', true, 'MyCA is live. Your books, kept right.', 'Books, GST and payroll by chat', 'wave'],
+    ['header-02-first-entry', false, 'Your first sale takes <span class="green">one line.</span>', 'Type it, check it, say yes', 'happy'],
+    ['header-03-gst', false, 'Your GST return is <span class="green">taking shape.</span>', 'GSTR-1 and GSTR-3B, drafted from your books', 'thinking'],
+    ['header-04-plans', false, 'Keep your books <span class="green">kept right.</span>', 'Two days left on your Pro trial', 'worried'],
+    ['header-05-ca', false, 'A quieter month end for <span class="green">your clients.</span>', 'MyCA for CA firms', 'celebrate'],
+  ];
+  for (const [name, green, title, line, mood] of rows) {
+    document.write(`<section class="frame eh ${green ? 'g' : ''}" data-frame="${name}">
+      <img class="logo" src="../../logo/${green ? 'myca-lockup-on-green' : 'myca-lockup'}.svg" alt="">
+      <h1>${title}</h1><p>${line}</p>
+      <img class="bahi" src="../../../design/flutter/myca_design/assets/mascot/${mood}.png" alt="">
+    </section>`);
+  }
+</script>
+</body>
+</html>

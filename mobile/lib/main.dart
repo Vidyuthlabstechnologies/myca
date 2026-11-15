@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
-import 'package:myca_design/myca_design.dart' show MycaDesign;
+import 'package:myca_design/myca_design.dart' show MycaDesign, MycaPalette;
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
@@ -14,6 +14,7 @@ import 'app_config.dart';
 import 'app_services.dart';
 import 'app_state.dart';
 import 'brand.dart';
+import 'cloud/apple_auth.dart';
 import 'cloud/cloud_session.dart';
 import 'cloud/google_auth.dart';
 import 'cloud/keystore_token_store.dart';
@@ -37,6 +38,7 @@ import 'screens/us/us_return_home_screen.dart';
 import 'growth.dart';
 import 'shared_file.dart';
 import 'theme.dart';
+import 'us/us_text_scaler.dart';
 import 'tour/tour.dart';
 import 'tour/tour_coach.dart';
 import 'uae/uae_format.dart';
@@ -86,6 +88,9 @@ void main() {
         funnel: config.hosted ? FunnelTracker(store: DeviceFunnelStore(), edition: editionFor(appFlavor)) : null,
         google: config.hosted && config.googleServerClientId.isNotEmpty && defaultTargetPlatform != TargetPlatform.windows
             ? DeviceGoogleAuth(config.googleServerClientId)
+            : null,
+        apple: config.hosted && appleSignInOffered(platform: defaultTargetPlatform, edition: editionFor(appFlavor))
+            ? DeviceAppleAuth()
             : null,
         oidc: config.hosted && config.oidcClientId.isNotEmpty
             ? OidcAuth(
@@ -181,7 +186,8 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
             title: 'MyCA',
             debugShowCheckedModeBanner: false,
             theme: widget.state.edition == 'AE' ? uaeDesign.light : widget.state.edition == 'US' ? usAppTheme() : widget.state.edition == 'GB' ? MycaDesign.forFlavor('uk').light : mycaTheme(),
-            darkTheme: widget.state.edition == 'AE' ? uaeDesign.dark : widget.state.edition == 'US' ? usAppTheme(Brightness.dark) : widget.state.edition == 'GB' ? MycaDesign.forFlavor('uk').dark : mycaTheme(Brightness.dark),
+            darkTheme: widget.state.edition == 'AE' ? uaeDesign.dark : widget.state.edition == 'US' ? usAppTheme(brightness: Brightness.dark) : widget.state.edition == 'GB' ? MycaDesign.forFlavor('uk').dark : mycaTheme(Brightness.dark),
+            themeMode: ThemeMode.system,
             localizationsDelegates: widget.state.edition == 'AE' ? MycaDesign.localizationsDelegates : null,
             supportedLocales: widget.state.edition == 'AE' ? uaeDesign.supportedLocales : const [Locale('en', 'US')],
             localeResolutionCallback: widget.state.edition == 'AE' ? uaeResolveLocale : null,
@@ -199,13 +205,13 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
                           child: MediaQuery.removePadding(
                             context: context,
                             removeTop: true,
-                            child: _Readable(child: child ?? const SizedBox.shrink()),
+                            child: _Readable(us: widget.state.edition == 'US', child: child ?? const SizedBox.shrink()),
                           ),
                         ),
                       ],
                     )
                   else if (child != null)
-                    _Readable(child: child),
+                    _Readable(us: widget.state.edition == 'US', child: child),
                   if (_tour.active && !widget.state.locked) TourCoach(tour: _tour),
                   if (widget.state.locked) AppScope(state: widget.state, child: const LockScreen()),
                 ],
@@ -248,30 +254,40 @@ class _PaletteSyncState extends State<PaletteSync> {
   }
 }
 
-ThemeData usAppTheme([Brightness brightness = Brightness.light]) {
+
+const usDarkHint = Color(0xFF888C91);
+
+ThemeData usAppTheme({Brightness brightness = Brightness.light}) {
   final design = MycaDesign.forFlavor('us');
   final base = brightness == Brightness.dark ? design.dark : design.light;
   const roomy = WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 10));
   return base.copyWith(
-    inputDecorationTheme: base.inputDecorationTheme.copyWith(helperMaxLines: 4, errorMaxLines: 4),
+    inputDecorationTheme: base.inputDecorationTheme.copyWith(
+      helperMaxLines: 4,
+      errorMaxLines: 4,
+      hintStyle: brightness == Brightness.dark ? base.inputDecorationTheme.hintStyle?.copyWith(color: usDarkHint) : null,
+    ),
     filledButtonTheme: FilledButtonThemeData(style: (base.filledButtonTheme.style ?? const ButtonStyle()).copyWith(padding: roomy)),
     outlinedButtonTheme: OutlinedButtonThemeData(style: (base.outlinedButtonTheme.style ?? const ButtonStyle()).copyWith(padding: roomy)),
   );
 }
 
 class _Readable extends StatelessWidget {
-  const _Readable({required this.child});
+  const _Readable({required this.child, this.us = false});
 
   static const widest = 720.0;
 
   final Widget child;
+  final bool us;
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
+    final outer = MediaQuery.of(context);
+    final media = us ? outer.copyWith(textScaler: UsTextScaler.wrap(outer.textScaler)) : outer;
+    final child = us ? MediaQuery(data: media, child: this.child) : this.child;
     if (media.size.width <= widest + 120) return child;
     return ColoredBox(
-      color: Palette.sunken,
+      color: Theme.of(context).extension<MycaPalette>()?.sunken ?? Palette.sunken,
       child: Center(
         child: SizedBox(
           width: widest,

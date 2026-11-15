@@ -4,6 +4,7 @@ import { malaysiaIncomeTax } from './income-tax.mjs';
 import { serviceTaxRate, salesTaxRate, sstReturn, sstRegistrationCheck } from './sst.mjs';
 import { buildMyInvoisDocument, documentProblems, isTinFormat } from './myinvois-document.mjs';
 import { submitMyInvois, cancelMyInvois, readMyInvoisSubmission, checkMyTin } from './myinvois-actions.mjs';
+import { malaysiaPayroll } from './payroll.mjs';
 
 const PROFILE_FIELDS = ['name', 'tin', 'idType', 'idValue', 'sst', 'ttx', 'msic', 'phone', 'email', 'address'];
 
@@ -43,6 +44,7 @@ export const ENGINE = Object.freeze({
   country: 'MY',
   run: Object.freeze({
     my_tax_estimate: (state, args = {}) => malaysiaIncomeTax(args),
+    my_payroll: (state, args = {}) => malaysiaPayroll(args),
     my_sst_rate: (state, args = {}) => {
       const out = args.kind === 'sales' ? salesTaxRate(args.rateBasisPoints, args.date) : serviceTaxRate(args.category, args.date);
       if (!out.ok) return out;
@@ -91,6 +93,7 @@ export const ENGINE = Object.freeze({
     cancel_my_einvoice: (state, args = {}) => ({ blockers: String(args.reason || '').trim() ? [] : ['Give the reason for cancelling.'], summary: `Cancel e-invoice ${args.uuid || ''} at LHDN.`, effects: ['The buyer sees it as cancelled; issue a new e-invoice if one is still owed.'], figures: {} }),
   }),
   words: Object.freeze({
+    my_payroll: (result) => (result.ok ? `Payroll for ${result.data.month}: wages ${money(result.data.totals.wages)}, EPF ${money(result.data.totals.epf)}, SOCSO ${money(result.data.totals.socso)}, EIS ${money(result.data.totals.eis)}, PCB ${money(result.data.totals.pcb)}, all due by ${result.data.dueBy}.` : ''),
     my_tax_estimate: (result) => {
       if (!result.ok) return '';
       const d = result.data;

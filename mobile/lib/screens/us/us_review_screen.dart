@@ -104,7 +104,7 @@ class _UsReviewScreenState extends State<UsReviewScreen> {
                   key: const Key('usReview.result'),
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: review.owed > 0 ? Palette.warnSoft : context.myca.accentSoft,
+                    color: review.owed > 0 ? context.myca.warnSoft : context.myca.accentSoft,
                     borderRadius: BorderRadius.circular(radiusCard),
                   ),
                   child: Column(
@@ -133,7 +133,7 @@ class _UsReviewScreenState extends State<UsReviewScreen> {
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: c.blocking ? Palette.dangerSoft : Palette.warnSoft,
+                        color: c.blocking ? context.myca.dangerSoft : context.myca.warnSoft,
                         borderRadius: BorderRadius.circular(radiusControl),
                       ),
                       child: Column(
@@ -162,7 +162,7 @@ class _UsReviewScreenState extends State<UsReviewScreen> {
                               ? Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(l.line.isEmpty ? l.label : 'Line ${l.line} · ${l.label}', style: text.bodyMedium?.copyWith(color: Palette.ink)),
+                                    Text(l.line.isEmpty ? l.label : 'Line ${l.line} · ${l.label}', style: text.bodyMedium?.copyWith(color: context.myca.ink)),
                                     if (l.source.isNotEmpty) Text(l.source, style: text.bodySmall),
                                     const SizedBox(height: 2),
                                     Text(dollars(l.amount), style: text.titleSmall?.copyWith(fontFeatures: moneyFigures)),
@@ -172,7 +172,7 @@ class _UsReviewScreenState extends State<UsReviewScreen> {
                                   start: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(l.line.isEmpty ? l.label : 'Line ${l.line} · ${l.label}', style: text.bodyMedium?.copyWith(color: Palette.ink)),
+                                      Text(l.line.isEmpty ? l.label : 'Line ${l.line} · ${l.label}', style: text.bodyMedium?.copyWith(color: context.myca.ink)),
                                       if (l.source.isNotEmpty) Text(l.source, style: text.bodySmall),
                                     ],
                                   ),
@@ -185,7 +185,7 @@ class _UsReviewScreenState extends State<UsReviewScreen> {
                 ],
                 if (_note.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  Text(_note, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                  Text(_note, style: TextStyle(color: context.myca.danger, fontWeight: FontWeight.w500)),
                 ],
                 const SizedBox(height: 22),
                 OutlinedButton(key: const Key('usReview.pdf'), onPressed: _saving ? null : _pdf, child: Text(_saving ? 'Preparing…' : 'Download Form 1040 (PDF)')),
@@ -196,7 +196,7 @@ class _UsReviewScreenState extends State<UsReviewScreen> {
                   child: Text(!review.canFile ? "MyCA can't file this return yet" : review.blocked ? 'Fix the items above to sign' : 'Looks right: sign and file'),
                 ),
                 const SizedBox(height: 10),
-                Text('Every figure here is worked out by MyCA\'s tax engine from your forms and answers. The AI assistant explains them but never sets them.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+                Text('Every figure here is worked out by MyCA\'s tax engine from your forms and answers. The AI assistant explains them but never sets them.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
               ],
             );
           },

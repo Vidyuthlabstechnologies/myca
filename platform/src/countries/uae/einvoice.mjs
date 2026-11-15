@@ -55,7 +55,7 @@ function partyProblems(party, prefix, { seller }) {
 }
 
 function tinOf(party) {
-  if (party.tin && checkTin(party.tin).valid) return String(party.tin).replace(/[\s-]/g, '');
+  if (party.tin && checkTin(party.tin).valid) return checkTin(party.tin).tin;
   const trn = party.trn ? checkTrn(party.trn) : null;
   return trn && trn.valid ? trn.tin : '';
 }

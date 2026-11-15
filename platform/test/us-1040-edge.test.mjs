@@ -369,6 +369,10 @@ test('Invalid inputs: unknown year or status refuses; non-numbers count as zero;
   const negative = run('single', [w2(50000, -5000)]);
   assert.equal(negative.data.lines['25a'], 0);
   assert.ok(negative.data.checks.some((item) => item.code === 'FORM_AMOUNT_NEGATIVE' && item.level === 'error'));
+  const brokerWithheld = (federalWithheld) => run('single', [w2(50000), { kind: '1099-B', payer: 'Broker', fields: { federalWithheld, transactions: [{ proceeds: 1000, costBasis: 500, term: 'long', federalWithheld: 40 }, { proceeds: 800, costBasis: 900, term: 'short', federalWithheld: -200 }] } }]);
+  assert.equal(brokerWithheld(60).data.lines['25b'], 100);
+  assert.equal(brokerWithheld(-300).data.lines['25b'], 40);
+  assert.ok(brokerWithheld(-300).data.checks.some((item) => item.code === 'FORM_AMOUNT_NEGATIVE' && /federalWithheld/.test(item.message)));
   const badDob = run('single', [w2(50000)], { taxpayer: { ...adult, dateOfBirth: '04/02/1988' } });
   assert.ok(badDob.data.checks.some((item) => item.code === 'TAXPAYER_DOB_INVALID' && item.level === 'error'));
 });
@@ -473,4 +477,66 @@ test('2026: non-itemizers deduct up to $1,000 of cash gifts ($2,000 joint, not Q
   const itemized = run('single', [w2(100000)], { answers: { itemize: 'yes', charityCash: 5000 } }, '2026');
   assert.equal(itemized.data.schedules.A['14'], 4500);
   assert.equal(run('single', [w2(60000)], { answers: { charityCash: 1500 } }, '2025').data.lines['13b'], 0);
+});
+
+const smallBusiness = (net, participation) => ({ businesses: [{ name: 'Studio', grossReceipts: net + 500, totalExpenses: 500 }], ...(participation === undefined ? {} : { answers: { qbiMaterialParticipation: participation } }) });
+
+test('IRC 199A(i) 2026: an active business with QBI of at least $1,000 gets the $400 minimum when 20% of QBI is lower (draft Form 8995 lines 15 to 17)', () => {
+  const yes = run('single', [w2(30000)], smallBusiness(1500, 'yes'), '2026');
+  assert.equal(yes.ok, true);
+  const form = yes.data.schedules[8995];
+  assert.ok(form['2'] >= 1000);
+  assert.ok(form['15'] < 400);
+  assert.equal(form['16'], 400);
+  assert.equal(form['17'], 400);
+  assert.equal(yes.data.lines['13a'], 400);
+  assert.ok(!codes(yes).includes('QBI_MINIMUM_NEEDS_ANSWER'));
+  assert.equal(run('single', [w2(30000)], smallBusiness(1500, true), '2026').data.lines['13a'], 400);
+  assert.ok(!yes.data.unsupported.some((item) => item.form === 'QBI minimum deduction'));
+});
+
+test('IRC 199A(i) 2026: no minimum without material participation, below $1,000 of QBI, or when 20% of QBI is already higher', () => {
+  const no = run('single', [w2(30000)], smallBusiness(1500, 'no'), '2026');
+  assert.ok(no.data.lines['13a'] < 400);
+  assert.equal(no.data.lines['13a'], no.data.schedules[8995]['15']);
+  assert.equal(no.data.schedules[8995]['16'], 0);
+  assert.ok(!codes(no).includes('QBI_MINIMUM_NEEDS_ANSWER'));
+  const small = run('single', [w2(30000)], smallBusiness(1000, 'yes'), '2026');
+  assert.ok(small.data.schedules[8995]['2'] < 1000);
+  assert.ok(small.data.lines['13a'] < 400);
+  assert.ok(!codes(small).includes('QBI_MINIMUM_NEEDS_ANSWER'));
+  const big = run('single', [w2(30000)], smallBusiness(8000, 'yes'), '2026');
+  assert.ok(big.data.lines['13a'] > 400);
+  assert.equal(big.data.lines['13a'], big.data.schedules[8995]['15']);
+});
+
+test('IRC 199A(i) 2026: an unanswered participation question warns without blocking, and only when the minimum would help', () => {
+  const unanswered = run('single', [w2(30000)], smallBusiness(1500), '2026');
+  assert.ok(unanswered.data.lines['13a'] < 400);
+  assert.ok(codes(unanswered).includes('QBI_MINIMUM_NEEDS_ANSWER'));
+  assert.equal(unanswered.data.checks.find((item) => item.code === 'QBI_MINIMUM_NEEDS_ANSWER').level, 'warning');
+  assert.deepEqual(needs(unanswered), []);
+  assert.ok(!codes(run('single', [w2(30000)], smallBusiness(8000), '2026')).includes('QBI_MINIMUM_NEEDS_ANSWER'));
+  assert.ok(!codes(run('single', [w2(30000)], {}, '2026')).includes('QBI_MINIMUM_NEEDS_ANSWER'));
+});
+
+test('IRC 199A(i): the minimum applies even when the taxable-income limit is lower, and taxable income never goes below zero', () => {
+  const out = run('single', [], smallBusiness(1500, 'yes'), '2026');
+  assert.equal(out.data.schedules[8995]['14'], 0);
+  assert.equal(out.data.lines['13a'], 400);
+  assert.equal(out.data.lines['15'], 0);
+});
+
+test('IRC 199A(i): 2025 has no minimum and keeps the 2025 Form 8995 layout', () => {
+  const y2025 = run('single', [w2(30000)], smallBusiness(1500, 'yes'), '2025');
+  assert.ok(y2025.data.lines['13a'] < 400);
+  assert.equal(y2025.data.schedules[8995]['17'], undefined);
+  assert.ok(!codes(y2025).includes('QBI_MINIMUM_NEEDS_ANSWER'));
+});
+
+test('IRC 199A(i) 2026: a net business loss is carried forward on line 18 with no minimum', () => {
+  const out = run('single', [w2(30000)], { businesses: [{ name: 'Studio', grossReceipts: 1000, totalExpenses: 3000 }], answers: { qbiMaterialParticipation: 'yes' } }, '2026');
+  assert.equal(out.data.lines['13a'], 0);
+  assert.ok(out.data.schedules[8995]['18'] < 0);
+  assert.equal(out.data.schedules[8995]['16'], 0);
 });

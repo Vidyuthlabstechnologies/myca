@@ -25,6 +25,11 @@ export function ctDueDate(periodEnd) {
   return addMonthsClamped(periodEnd, rule.value.dueMonthsAfterPeriodEnd);
 }
 
+function nilBandOf(bands) {
+  const taxed = bands.filter((band) => band.basisPoints > 0).map((band) => band.fromFils);
+  return taxed.length ? Math.min(...taxed) : 0;
+}
+
 function bandTax(taxableFils, bands) {
   const out = progressiveTax(taxableFils, bands.map((band) => ({ over: band.fromFils, rateBp: band.basisPoints })));
   return out.ok ? out.tax : null;
@@ -140,7 +145,7 @@ export function corporateTaxEstimate(args = {}) {
     data: {
       ...base, relief, taxableIncome: toDirhams(taxable), zeroRatedQualifyingIncome: toDirhams(zeroRated), tax: toDirhams(tax),
       foreignTaxCreditUsed: toDirhams(creditUsed), payable: toDirhams(payable), lossUsed: toDirhams(lossUsed), lossCarriedForward: toDirhams(lossCarriedForward),
-      eligibleForSmallBusinessRelief: sbr.eligible, smallBusinessReliefReasons: sbr.reasons, nilBand: qualifying ? 0 : 375000,
+      eligibleForSmallBusinessRelief: sbr.eligible, smallBusinessReliefReasons: sbr.reasons, nilBand: qualifying ? 0 : toDirhams(nilBandOf(rateRule.value.bands)),
       warnings, ...ruleNote(rateRule),
     },
   };

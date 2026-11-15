@@ -57,6 +57,12 @@ export const MANIFEST = Object.freeze({
       schema: schema({ code: { type: 'string' }, state: { type: 'string' } }, ['code', 'state']),
     }),
     Object.freeze({
+      name: 'gb_cis_deductions', title: 'CIS deductions taken from your pay',
+      description: 'Add up the Construction Industry Scheme payment and deduction statements from each contractor for a tax year: gross, materials, tax deducted, and any statement whose deduction is not 20%, 30% or 0% of the payment less materials. The total is tax already paid on the Self Assessment. Read-only.',
+      access: 'read',
+      schema: schema({ taxYear, statements: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { contractor: { type: 'string' }, paymentDate: { type: 'string' }, gross: money, materials: money, deducted: money, status: { type: 'string', enum: ['registered', 'unregistered', 'gross'] } } } } }, ['statements']),
+    }),
+    Object.freeze({
       name: 'gb_hmrc_history', title: 'Everything sent to HMRC',
       description: 'Every VAT return, Income Tax quarterly update and final declaration or amendment MyCA has sent to HMRC for this business, newest first, with HMRC receipt references, the environment and the declaration agreed. Read-only.',
       access: 'read',
@@ -99,6 +105,12 @@ export const MANIFEST = Object.freeze({
       schema: schema({ frequency: { type: 'string', enum: ['quarterly', 'monthly', 'annual'] }, regime: { type: 'string', enum: ['vat', 'itsa'] }, submissions: lines, today: { type: 'string' } }, ['submissions']),
     }),
     Object.freeze({
+      name: 'gb_simplified_expenses', title: 'Simplified expenses and the trading allowance',
+      description: 'Work out the HMRC flat rates for a tax year: business mileage (45p then 25p after 10,000 miles, 24p on a motorcycle) against actual vehicle costs, working from home by hours each month, and the private use of business premises you live in; then compare the total expenses with the £1,000 trading allowance. Read-only.',
+      access: 'read',
+      schema: schema({ taxYear, vehicles: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string' }, kind: { type: 'string', enum: ['car', 'van', 'motorcycle'] }, businessMiles: money, actualCosts: money } } }, homeHours: { type: 'array', items: money }, homeHoursPerMonth: money, homeMonths: money, livingAtPremises: { type: 'object', additionalProperties: false, properties: { people: money, months: money } }, otherExpenses: money, turnover: money }, ['taxYear']),
+    }),
+    Object.freeze({
       name: 'gb_tax_calendar', title: 'UK tax deadlines for a tax year',
       description: 'Every Self Assessment, payment on account, MTD Income Tax and VAT deadline for one UK tax year in date order, from the saved taxpayer profile. Read-only.',
       access: 'read',
@@ -120,7 +132,7 @@ export const MANIFEST = Object.freeze({
       name: 'gb_vat_return_check', title: 'Prepare a UK VAT return',
       description: 'Build the nine-box MTD VAT return from sales and purchase lines (standard or flat rate scheme) and list every box that breaks HMRC\'s rules, with the due date. Read-only; nothing is sent.',
       access: 'read',
-      schema: schema({ periodKey: { type: 'string' }, from: { type: 'string' }, to: { type: 'string' }, scheme: { type: 'string', enum: ['standard', 'flat-rate'] }, sales: lines, purchases: lines, flatRateBasisPoints: { type: 'integer' }, firstYearOfRegistration: { type: 'boolean' }, periodMonths: { type: 'integer' }, fromBooks: { type: 'boolean' } }, ['periodKey']),
+      schema: schema({ periodKey: { type: 'string' }, from: { type: 'string' }, to: { type: 'string' }, scheme: { type: 'string', enum: ['standard', 'flat-rate'] }, sales: lines, purchases: lines, flatRateBasisPoints: { type: 'integer' }, limitedCostTrader: { type: 'boolean' }, firstYearOfRegistration: { type: 'boolean' }, periodMonths: { type: 'integer' }, fromBooks: { type: 'boolean' } }, ['periodKey']),
     }),
     Object.freeze({
       name: 'set_gb_taxpayer', title: 'Save the UK taxpayer details',

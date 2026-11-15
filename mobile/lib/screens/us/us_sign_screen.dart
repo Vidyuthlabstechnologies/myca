@@ -1,7 +1,9 @@
+import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../us/us_text_scaler.dart';
 import '../../api/models.dart';
 import '../../api/myca_api.dart';
 import '../../app_state.dart';
@@ -17,6 +19,10 @@ import '../../us/us_consents.dart';
 import '../security_screen.dart';
 import 'us_consent_screen.dart';
 import 'us_fields.dart';
+
+const _jurat = 'Under penalties of perjury, I declare that I have examined this return and accompanying schedules and statements, and to the best of my knowledge and belief they are true, correct and complete. I authorize MyCA to send it to the IRS and to receive the IRS acknowledgment.';
+
+bool _largeText(BuildContext context) => MediaQuery.textScalerOf(context).scale(14) / 14 > 1.6;
 
 String deviceTypeName() => switch (defaultTargetPlatform) {
   TargetPlatform.android => 'Android',
@@ -134,17 +140,17 @@ class _UsSignScreenState extends State<UsSignScreen> {
     if (_note.isEmpty) return const SizedBox.shrink();
     final text = Theme.of(context).textTheme;
     if (!_needsSecondStep) {
-      return Padding(padding: const EdgeInsets.only(top: 12), child: Text(_note, key: const Key('usSign.note'), style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)));
+      return Padding(padding: const EdgeInsets.only(top: 12), child: Text(_note, key: const Key('usSign.note'), style: TextStyle(color: context.myca.danger, fontWeight: FontWeight.w500)));
     }
     return Container(
       key: const Key('usSign.secondStep'),
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Palette.warnSoft, borderRadius: BorderRadius.circular(radiusControl)),
+      decoration: BoxDecoration(color: context.myca.warnSoft, borderRadius: BorderRadius.circular(radiusControl)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(_note, style: text.bodyMedium?.copyWith(color: Palette.ink)),
+          Text(_note, style: text.bodyMedium?.copyWith(color: context.myca.ink)),
           const SizedBox(height: 10),
           FilledButton(key: const Key('usSign.openSecurity'), onPressed: _openSecurity, child: const Text('Turn on two-step sign-in')),
         ],
@@ -387,7 +393,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
-        Text(resuming ? 'Finish e-filing' : 'Ready to e-file', style: text.headlineMedium),
+        Text(wholeWords(resuming ? 'Finish e-filing' : 'Ready to e-file'), style: text.headlineMedium),
         const SizedBox(height: 8),
         Text(owed ? 'You owe ${dollars(ctx.review.owed)}.' : 'Your refund is ${dollars(ctx.review.refund)}.', style: text.titleMedium),
         const SizedBox(height: 12),
@@ -403,8 +409,8 @@ class _UsSignScreenState extends State<UsSignScreen> {
         if (ctx.tins != null && !resuming) ...[
           const SizedBox(height: 12),
           Material(
-            color: Palette.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusControl), side: BorderSide(color: Palette.line)),
+            color: context.myca.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusControl), side: BorderSide(color: context.myca.line)),
             clipBehavior: Clip.antiAlias,
             child: ListTile(
               key: const Key('usSign.prefillTins'),
@@ -419,7 +425,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: Palette.warnSoft, borderRadius: BorderRadius.circular(radiusControl)),
+            decoration: BoxDecoration(color: context.myca.warnSoft, borderRadius: BorderRadius.circular(radiusControl)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -429,7 +435,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
             ),
           ),
         ],
-        if (ctx.efile.sandbox) ...[const SizedBox(height: 12), StatusTag(text: 'IRS test system: nothing is really filed', color: Palette.warn)],
+        if (ctx.efile.sandbox) ...[const SizedBox(height: 12), StatusTag(text: 'IRS test system: nothing is really filed', color: context.myca.warn)],
         const SizedBox(height: 22),
         if (!ctx.fee.filingOpen)
           _notOpen()
@@ -451,8 +457,8 @@ class _UsSignScreenState extends State<UsSignScreen> {
   Widget _notOpen() => Container(
         key: const Key('usSign.notOpen'),
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Palette.warnSoft, borderRadius: BorderRadius.circular(radiusCard)),
-        child: Text(usFilingNotOpenLine, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Palette.ink)),
+        decoration: BoxDecoration(color: context.myca.warnSoft, borderRadius: BorderRadius.circular(radiusCard)),
+        child: Text(usFilingNotOpenLine, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: context.myca.ink)),
       );
 
   Widget _blockedView(UsReview review) {
@@ -468,7 +474,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: Palette.dangerSoft, borderRadius: BorderRadius.circular(radiusControl)),
+            decoration: BoxDecoration(color: context.myca.dangerSoft, borderRadius: BorderRadius.circular(radiusControl)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -498,7 +504,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
           style: text.bodyLarge,
         ),
         if (efile.submissionId.isNotEmpty) ...[const SizedBox(height: 12), Text('Submission ID ${efile.submissionId}', style: text.bodySmall)],
-        if (efile.sandbox) ...[const SizedBox(height: 12), StatusTag(text: 'IRS test system: this return is not really filed', color: Palette.warn)],
+        if (efile.sandbox) ...[const SizedBox(height: 12), StatusTag(text: 'IRS test system: this return is not really filed', color: context.myca.warn)],
         const SizedBox(height: 22),
         FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Back to my return')),
       ],
@@ -540,7 +546,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                   Text(owed ? 'You owe ${dollars(ctx.review.owed)}.' : 'Your refund is ${dollars(ctx.review.refund)}.', style: text.titleMedium),
                   if (ctx.efile.sandbox) ...[
                     const SizedBox(height: 12),
-                    StatusTag(text: 'IRS test system: nothing is really filed', color: Palette.warn),
+                    StatusTag(text: 'IRS test system: nothing is really filed', color: context.myca.warn),
                   ],
                   const SizedBox(height: 22),
                   if (!ctx.fee.filingOpen)
@@ -552,7 +558,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                   else ...[
                     Container(
                       padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(color: Palette.warnSoft, borderRadius: BorderRadius.circular(radiusControl)),
+                      decoration: BoxDecoration(color: context.myca.warnSoft, borderRadius: BorderRadius.circular(radiusControl)),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -640,22 +646,24 @@ class _UsSignScreenState extends State<UsSignScreen> {
                   ),
                 if (_usesBank(ctx.review)) ...[const SizedBox(height: 8), ..._bankFields(debit: owed)],
                 const SizedBox(height: 22),
+                if (_largeText(context)) ...[
+                  Text(_jurat, style: text.bodyLarge),
+                  const SizedBox(height: 4),
+                ],
                 CheckboxListTile(
                   key: const Key('usSign.consent'),
                   contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,
                   value: _consent,
                   onChanged: (v) => setState(() => _consent = v ?? false),
-                  title: const Text(
-                    'Under penalties of perjury, I declare that I have examined this return and accompanying schedules and statements, and to the best of my knowledge and belief they are true, correct and complete. I authorize MyCA to send it to the IRS and to receive the IRS acknowledgment.',
-                  ),
-                  subtitle: _errors['consent'] == null ? null : Text(_errors['consent']!, style: TextStyle(color: Palette.danger)),
+                  title: Text(_largeText(context) ? 'I declare and sign the above' : _jurat),
+                  subtitle: _errors['consent'] == null ? null : Text(_errors['consent']!, style: TextStyle(color: context.myca.danger)),
                 ),
                 _noteView(),
                 const SizedBox(height: 18),
                 FilledButton(key: const Key('usSign.sign'), onPressed: _busy ? null : () => _sign(ctx), child: Text(_busy ? 'Signing…' : 'Sign my return')),
                 const SizedBox(height: 10),
-                Text('Signing does not send anything. You get one more look before your return goes to the IRS.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+                Text('Signing does not send anything. You get one more look before your return goes to the IRS.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
               ],
             );
           },

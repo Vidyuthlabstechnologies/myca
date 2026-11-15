@@ -10,6 +10,7 @@ import { buildPintAe } from './einvoice.mjs';
 import { sendThroughAsp, issuedEinvoices, aspMode } from './asp.mjs';
 import { createAeInvoice, createAePurchase, createAeCreditNote, planAeInvoice, planAePurchase, planAeCreditNote, aeVatLines } from './books.mjs';
 import { langOf, localise, toArabic } from './messages.mjs';
+import { gratuityEstimate, wpsSalaryFile } from './payroll.mjs';
 
 const PROFILE_FIELDS = ['name', 'nameAr', 'trn', 'tin', 'legalId', 'legalIdType', 'emirate', 'city', 'addressLine', 'freeZone', 'freeZoneName', 'financialYearEnd', 'vatPeriod'];
 const YEAR_END = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
@@ -27,7 +28,8 @@ function withSeller(state, args) {
 
 function profileFrom(args) {
   const out = Object.fromEntries(PROFILE_FIELDS.filter((key) => args[key] !== undefined && args[key] !== null && args[key] !== '').map((key) => [key, typeof args[key] === 'string' ? args[key].trim() : args[key]]));
-  if (out.trn) out.trn = out.trn.replace(/[\s-]/g, '');
+  if (out.trn) out.trn = checkTrn(out.trn).trn;
+  if (out.tin) out.tin = checkTin(out.tin).tin;
   const emirate = emirateOf(out.emirate);
   if (emirate) out.emirate = emirate.code;
   return out;
@@ -111,10 +113,12 @@ const RUN = localiseRuns({
       return { ok: true, data: { ready: true, mode: aspMode(), totals: built.totals, document: built.document, warnings: built.warnings, xml: built.xml } };
     },
     ae_einvoice_list: (state) => ({ ok: true, data: { mode: aspMode(), einvoices: issuedEinvoices(state).sort((a, b) => (a.sentAt < b.sentAt ? 1 : -1)) } }),
+    ae_gratuity: (state, args = {}) => gratuityEstimate(args),
     ae_penalty_estimate: (state, args = {}) => penaltyEstimate(args),
     ae_vat_registration: (state, args = {}) => vatRegistrationCheck(args),
     ae_vat_lines: (state, args = {}) => aeVatLines(state, args),
     ae_vat_return: (state, args = {}) => vatReturnRun(state, args),
+    ae_wps_file: (state, args = {}) => wpsSalaryFile(args),
     create_ae_credit_note: (state, args = {}) => createAeCreditNote(state, args),
     create_ae_invoice: (state, args = {}) => createAeInvoice(state, args),
     create_ae_purchase: (state, args = {}) => createAePurchase(state, args),
@@ -256,6 +260,11 @@ const WORDS = Object.freeze({
       const count = result.data.einvoices.length;
       return langOf(args) === 'ar' ? `عدد الفواتير الإلكترونية الصادرة من MyCA: ${count}.` : `${count} e-invoice${count === 1 ? '' : 's'} issued from MyCA.`;
     },
+    ae_gratuity: (result, money, args = {}) => {
+      if (!result.ok) return '';
+      const d = result.data;
+      return langOf(args) === 'ar' ? `مكافأة نهاية الخدمة ${aed(d.gratuity, 'ar')} عن ${d.serviceYears} سنة خدمة. ${d.why}` : `End-of-service gratuity ${aed(d.gratuity)} for ${d.serviceYears} years of service. ${d.why}`;
+    },
     ae_penalty_estimate: (result, money, args = {}) => {
       if (!result.ok) return '';
       const lang = langOf(args);
@@ -279,6 +288,11 @@ const WORDS = Object.freeze({
       return d.refund
         ? `VAT 201 for ${d.period}: output tax ${aed(d.totalDue)}, recoverable ${aed(d.totalRecoverable)}, so ${aed(-d.payable)} is refundable or carried forward. File on EmaraTax by ${d.due}.`
         : `VAT 201 for ${d.period}: output tax ${aed(d.totalDue)}, recoverable ${aed(d.totalRecoverable)}, ${aed(d.payable)} to pay by ${d.due} on EmaraTax.`;
+    },
+    ae_wps_file: (result, money, args = {}) => {
+      if (!result.ok) return '';
+      const d = result.data;
+      return langOf(args) === 'ar' ? `ملف حماية الأجور ${d.fileName}: ${d.employees} موظف بإجمالي ${aed(d.total, 'ar')}.` : `WPS file ${d.fileName}: ${d.employees} employee${d.employees === 1 ? '' : 's'}, ${aed(d.total)} in total.`;
     },
     create_ae_credit_note: (result, money, args = {}) => {
       if (!result.ok) return '';

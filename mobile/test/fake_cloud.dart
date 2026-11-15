@@ -59,6 +59,13 @@ class FakeCloud {
   int gustoConnects = 0;
   bool connectorsUnavailable = false;
   bool pullsOn = true;
+  List<Map<String, Object?>> plans = [
+    {'id': 'essentials', 'title': 'Essentials', 'monthlyRupees': 999, 'yearlyRupees': 9999, 'productId': '', 'buyable': false, 'limits': {'invoicesPerMonth': null, 'members': 2}, 'features': ['books', 'post', 'chat', 'gst-reports', 'team']},
+    {'id': 'pro', 'title': 'Pro', 'monthlyRupees': 1999, 'yearlyRupees': 19999, 'productId': '', 'buyable': false, 'opening': true, 'limits': {'invoicesPerMonth': null, 'members': 5}, 'features': ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team']},
+    {'id': 'assured', 'title': 'MyCA Assured', 'monthlyRupees': 4999, 'yearlyRupees': 49999, 'productId': '', 'buyable': false, 'limits': {'invoicesPerMonth': null, 'members': 5}, 'features': ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team', 'ca-assured', 'accuracy-promise', 'priority-support']},
+    {'id': 'firm', 'title': 'CA firm', 'monthlyRupees': 5999, 'yearlyRupees': 59999, 'productId': '', 'buyable': false, 'limits': {'invoicesPerMonth': null, 'members': 25}, 'features': ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team', 'priority-support']},
+  ];
+  Map<String, Object?> subscription = {'plan': 'pro', 'planTitle': 'Pro', 'enforced': true, 'trial': {'daysLeft': 12}};
 
   Map<String, Object?> _connectorView(String channel) {
     final spec = connectorSpecs[channel]!;
@@ -96,6 +103,8 @@ class FakeCloud {
   bool phoneOn = true;
   bool googleOn = true;
   bool oidcOn = false;
+  bool appleOn = false;
+  final appleBodies = <Map<String, dynamic>>[];
   String oidcIssuer = 'https://login.firm.example';
   String oidcToken = 'oidc-id-token';
   final deviceLabels = <String>[];
@@ -203,7 +212,22 @@ class FakeCloud {
       });
     }
     if (path == '/v1/auth/methods') {
-      return _json(200, {'ok': true, 'phone': phoneOn, 'google': googleOn, 'oidc': oidcOn, if (oidcOn) 'oidcIssuer': oidcIssuer});
+      return _json(200, {'ok': true, 'phone': phoneOn, 'google': googleOn, 'apple': appleOn, 'oidc': oidcOn, if (oidcOn) 'oidcIssuer': oidcIssuer});
+    }
+    if (path == '/v1/auth/apple') {
+      deviceLabels.add('${body['deviceLabel']}');
+      appleBodies.add(Map<String, dynamic>.from(body));
+      if (!appleOn) return _json(503, {'ok': false, 'error': 'APPLE_SIGN_IN_UNAVAILABLE'});
+      if (body['idToken'] != 'apple-id-token') return _json(400, {'ok': false, 'error': 'INVALID_APPLE_TOKEN'});
+      if ('${body['rawNonce'] ?? ''}'.length < 16) return _json(400, {'ok': false, 'error': 'APPLE_NONCE_MISMATCH'});
+      final fullName = body['fullName'];
+      if (userName.isEmpty && fullName is Map) userName = '${fullName['givenName'] ?? ''} ${fullName['familyName'] ?? ''}'.trim();
+      if (secondStepOn) return _json(200, _secondStep());
+      return _json(200, {
+        ..._issue(),
+        'user': {'id': 'u1', 'name': userName, 'isNew': businesses.isEmpty},
+        'consent': {'document': 'privacy', 'version': 'v-test', 'accepted': noticeAccepted},
+      });
     }
     if (path == '/v1/auth/oidc') {
       deviceLabels.add('${body['deviceLabel']}');
@@ -408,6 +432,7 @@ class FakeCloud {
       businesses.add(joined);
       return _json(200, {'ok': true, 'business': joined});
     }
+    if (path == '/v1/plans' && request.method == 'GET') return _json(200, {'ok': true, 'plans': plans});
     if (path == '/v1/businesses' && request.method == 'GET') return _json(200, {'ok': true, 'businesses': businesses});
     if (path == '/v1/businesses' && request.method == 'POST') {
       if (body['demo'] == true) {
@@ -694,6 +719,7 @@ class FakeCloud {
       members.removeWhere((m) => m['id'] == id);
       return _json(200, {'ok': true});
     }
+    if (path == '$books/subscription' && request.method == 'GET') return _json(200, {'ok': true, ...subscription});
     if (path == '$books/snapshot') {
       return _json(200, {
         'ok': true,

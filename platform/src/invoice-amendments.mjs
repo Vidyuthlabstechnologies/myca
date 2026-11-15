@@ -1,5 +1,5 @@
 import { createTransfers, TRANSFER_FLAGS, paise } from './ledger.mjs';
-import { gstSplit } from './chart.mjs';
+import { gstSplit, hasCess } from './chart.mjs';
 import { localToday, postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { filingFor } from './filings.mjs';
@@ -36,7 +36,7 @@ function revisedLines(state, invoice, rawLines) {
   if (specs.some((spec) => !Number.isFinite(spec.qty) || spec.qty <= 0 || !Number.isFinite(spec.rate) || spec.rate < 0 || !Number.isFinite(spec.gstRate))) return { error: 'BAD_LINE' };
   const lines = specs.map((spec) => {
     const taxable = round2(spec.qty * spec.rate);
-    const split = invoice.zeroRated ? { intra: false, cgst: 0, sgst: 0, igst: 0, tax: 0 } : gstSplit({ taxable, rate: spec.gstRate, supplierState: invoice.registrationState || state.company.state, partyState: invoice.placeOfSupply || invoice.partyState });
+    const split = invoice.zeroRated ? { intra: false, cgst: 0, sgst: 0, igst: 0, tax: 0 } : gstSplit({ taxable, rate: spec.gstRate, supplierState: invoice.registrationState || state.company.state, partyState: invoice.placeOfSupply || invoice.partyState, interState: invoice.supplyType === 'SEZWP' });
     return { description: spec.description, hsn: spec.hsn, qty: spec.qty, rate: spec.rate, gstRate: spec.gstRate, taxable, ...split, amount: round2(taxable + split.tax) };
   });
   const sum = (key) => round2(lines.reduce((total, line) => total + Number(line[key] || 0), 0));
@@ -62,6 +62,7 @@ export function planAmendment(state, args = {}) {
   if (filingFor(state, 'GSTR-1', periodOf(date))) return { ok: false, error: 'AMENDMENT_PERIOD_FILED', period: periodOf(date), hint: 'GSTR-1 for the month of the amendment is already filed; date it in an open month.' };
   const reason = String(args.reason || '').trim().slice(0, 120);
   if (!reason) return { ok: false, error: 'REASON_REQUIRED' };
+  if (hasCess(invoice) && Array.isArray(args.lines) && args.lines.length) return { ok: false, error: 'CESS_AMENDMENT_BY_NOTE', hint: 'This invoice carries cess; correct its value with a credit or debit note.' };
   const before = snapshot(invoice);
   let partyGstin = before.partyGstin;
   if (args.partyGstin != null) {

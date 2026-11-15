@@ -177,14 +177,14 @@ class _BusinessesScreenState extends State<BusinessesScreen> {
                       leading: TintTile(tint: Tint.ask, letter: business.name.isEmpty ? '?' : business.name[0].toUpperCase()),
                       title: business.name,
                       subtitle: business.demo ? '${roleLabel(business.role)} · Demo business, made-up figures' : roleLabel(business.role),
-                      trailing: business.id == current ? StatusTag(text: 'Open', color: Palette.accent) : (business.demo ? StatusTag(text: 'Demo', color: Palette.warn) : const Chevron()),
+                      trailing: business.id == current ? StatusTag(text: 'Open', color: paletteOf(context).accent) : (business.demo ? StatusTag(text: 'Demo', color: paletteOf(context).warn) : const Chevron()),
                       onTap: business.id == current ? null : () => _open(business.id),
                     ),
                 ],
               ),
               if (_error.isNotEmpty) ...[
                 const SizedBox(height: 10),
-                Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                Text(_error, style: TextStyle(color: paletteOf(context).danger, fontWeight: FontWeight.w500)),
               ],
               if (_note.isNotEmpty) ...[
                 const SizedBox(height: 10),
@@ -247,7 +247,7 @@ class _BusinessesScreenState extends State<BusinessesScreen> {
               Text(
                 aboutLine(AppScope.of(context).server),
                 key: const Key('about.version'),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Palette.muted),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: paletteOf(context).muted),
               ),
             ],
           );

@@ -44,7 +44,12 @@ class _LockScreenState extends State<LockScreen> {
     final text = Theme.of(context).textTheme;
     return Scaffold(
       body: SafeArea(
-        child: Padding(
+        child: LayoutBuilder(
+          builder: (context, box) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: box.maxHeight),
+              child: IntrinsicHeight(
+                child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
@@ -56,7 +61,7 @@ class _LockScreenState extends State<LockScreen> {
               Text(
                 _failed ? 'That did not work. Try again.' : 'Use your fingerprint, face or screen lock to open your books.',
                 textAlign: TextAlign.center,
-                style: text.bodyLarge?.copyWith(color: _failed ? Palette.danger : Palette.muted),
+                style: text.bodyLarge?.copyWith(color: _failed ? paletteOf(context).danger : paletteOf(context).muted),
               ),
               const Spacer(flex: 3),
               SizedBox(
@@ -69,6 +74,10 @@ class _LockScreenState extends State<LockScreen> {
                 child: const Text('Sign out instead'),
               ),
             ],
+          ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

@@ -47,6 +47,7 @@ const QUESTIONS = Object.freeze([
   { id: 'priorYearOverpaymentApplied', text: 'Last year\'s refund applied to this year', help: 'Only if you chose to apply it rather than receive it.', kind: 'amount' },
   { id: 'stateRefundTaxable', text: 'How much of the state refund on your 1099-G is taxable?', help: 'Zero if you took the standard deduction last year. If you itemized, the part that lowered your federal tax.', kind: 'amount', when: (ctx) => ctx.hasStateRefund },
   { id: 'earlyDistributionException', text: 'Does an exception to the 10% early distribution tax apply to your 1099-R with code 1?', help: 'For example a first home (IRA, up to $10,000), higher education costs, disability or certain medical costs. An exception is claimed on Form 5329.', kind: 'yesno', when: (ctx) => ctx.hasEarlyDistribution },
+  { id: 'qbiMaterialParticipation', text: 'Did you work in your business regularly, continuously and substantially this year?', help: 'This is material participation, for example more than 500 hours, or most of the work in the business. From 2026 it can give you a minimum business income deduction of $400 (IRC 199A(i)).', kind: 'yesno', when: (ctx) => ctx.hasBusiness && Number(ctx.taxYear) >= 2026 },
   { id: 'rentalIncome', text: 'Did you have rental or royalty income not on a 1099-MISC?', help: 'Renting out a home, room or vacation property, or royalties. These go on Schedule E.', kind: 'yesno' },
   { id: 'childCareExpenses', text: 'Child or dependent care costs you paid so you could work', help: 'Daycare, after-school care or a sitter for a child under 13 or a dependent who cannot care for themself (Form 2441).', kind: 'amount', when: (ctx) => ctx.hasDependents },
   { id: 'marketplaceCoverage', text: 'Did anyone on this return have health coverage from the Marketplace (Form 1095-A)?', help: 'Coverage bought on HealthCare.gov or a state exchange.', kind: 'yesno' },
@@ -257,7 +258,7 @@ export function planUsTaxForm(state, args = {}) {
   if (hasTransactions) {
     const local = [];
     fields.transactions = coerceFields(kind, { transactions: args.fields.transactions }, local).transactions;
-    problems.push(...local);
+    problems.push(...local.filter((problem) => problem.startsWith('Sale ')));
   }
   if (kind === 'W-2' && fields.wages > 0 && fields.federalWithheld > fields.wages) problems.push('Federal tax withheld is more than the wages.');
   if (problems.length) return fail('US_TAX_FORM_INVALID', { problems });
@@ -320,7 +321,7 @@ function context(state, ret) {
   const books = ret ? booksScheduleC(state, ret.taxYear) : null;
   const usesBooks = Boolean(books) && answers.useBooksForScheduleC !== false;
   const manualBusiness = Number(answers.businessGrossReceipts || 0) > 0;
-  return { status: ret?.filingStatus || '', answers: ret?.answers || {}, hasDependents: (ret?.dependents || []).length > 0, joint: ret?.filingStatus === 'mfj', booksHaveIncome: Boolean(books), usesBooks, books, manualBusiness, hasBusiness: usesBooks || manualBusiness || (ret?.forms || []).some((form) => form.kind === '1099-NEC'), hasStateRefund: (ret?.forms || []).some((form) => form.kind === '1099-G' && Number(form.fields.stateRefund || 0) > 0), hasEarlyDistribution: (ret?.forms || []).some((form) => form.kind === '1099-R' && String(form.fields.distributionCode || '').includes('1')) };
+  return { taxYear: ret?.taxYear || '', status: ret?.filingStatus || '', answers: ret?.answers || {}, hasDependents: (ret?.dependents || []).length > 0, joint: ret?.filingStatus === 'mfj', booksHaveIncome: Boolean(books), usesBooks, books, manualBusiness, hasBusiness: usesBooks || manualBusiness || (ret?.forms || []).some((form) => form.kind === '1099-NEC'), hasStateRefund: (ret?.forms || []).some((form) => form.kind === '1099-G' && Number(form.fields.stateRefund || 0) > 0), hasEarlyDistribution: (ret?.forms || []).some((form) => form.kind === '1099-R' && String(form.fields.distributionCode || '').includes('1')) };
 }
 
 function visibleQuestions(state, ret) {

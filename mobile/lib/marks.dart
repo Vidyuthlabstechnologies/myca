@@ -42,7 +42,7 @@ class MarkIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox.square(
       dimension: size,
-      child: CustomPaint(painter: _MarkPainter(mark, color ?? Palette.ink)),
+      child: CustomPaint(painter: _MarkPainter(mark, toneOf(context, color ?? Palette.ink))),
     );
   }
 }

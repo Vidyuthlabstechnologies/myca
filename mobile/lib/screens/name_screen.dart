@@ -57,7 +57,7 @@ class _NameScreenState extends State<NameScreen> {
                   const SizedBox(height: 8),
                   Text(
                     'People you work with will see this name next to what you record.',
-                    style: text.bodyLarge?.copyWith(color: Palette.muted),
+                    style: text.bodyLarge?.copyWith(color: paletteOf(context).muted),
                   ),
                   const SizedBox(height: 28),
                   TextField(
@@ -69,7 +69,7 @@ class _NameScreenState extends State<NameScreen> {
                   ),
                   if (_error.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                    Text(_error, style: TextStyle(color: paletteOf(context).danger, fontWeight: FontWeight.w500)),
                   ],
                   const SizedBox(height: 20),
                   FilledButton(onPressed: _busy ? null : _save, child: Text(_busy ? 'Saving…' : 'Continue')),

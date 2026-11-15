@@ -585,23 +585,19 @@ class _InvoiceBody extends StatelessWidget {
         _Sheet(
           children: [
             for (final line in doc.lines) ...[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      line.description.isEmpty ? 'Item' : line.description,
-                      style: text.titleMedium,
-                    ),
+              AmountRow(
+                align: CrossAxisAlignment.start,
+                start: Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Text(
+                    line.description.isEmpty ? 'Item' : line.description,
+                    style: text.titleMedium,
                   ),
-                  const SizedBox(width: 12),
-                  Text(
-                    rupees(line.amount),
-                    style: text.titleMedium?.copyWith(
-                      fontFeatures: moneyFigures,
-                    ),
-                  ),
-                ],
+                ),
+                amount: rupees(line.amount),
+                style: text.titleMedium?.copyWith(
+                  fontFeatures: moneyFigures,
+                ),
               ),
               Text(
                 [
@@ -1115,7 +1111,7 @@ class _CreditNoteSheetState extends State<_CreditNoteSheet> {
         22,
         22 + MediaQuery.viewInsetsOf(context).bottom,
       ),
-      child: Column(
+      child: SingleChildScrollView(child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1165,7 +1161,7 @@ class _CreditNoteSheetState extends State<_CreditNoteSheet> {
             child: FilledButton(onPressed: _done, child: const Text('Preview')),
           ),
         ],
-      ),
+      )),
     );
   }
 }
@@ -1245,11 +1241,10 @@ class _Amount extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          Expanded(child: Text(name, style: style)),
-          Text(rupees(amount), style: style),
-        ],
+      child: AmountRow(
+        start: Padding(padding: const EdgeInsets.only(right: 12), child: Text(name, style: style)),
+        amount: rupees(amount),
+        style: style,
       ),
     );
   }

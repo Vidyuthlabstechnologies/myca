@@ -1,3 +1,4 @@
+import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/material.dart';
 
 import '../../api/myca_api.dart';
@@ -167,7 +168,7 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Palette.warnSoft, borderRadius: BorderRadius.circular(radiusControl)),
+                decoration: BoxDecoration(color: context.myca.warnSoft, borderRadius: BorderRadius.circular(radiusControl)),
                 child: Text(widget.readNote, style: text.bodyMedium),
               ),
             ],
@@ -190,12 +191,12 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
             for (final f in widget.kind.fields) ...[_field(f), const SizedBox(height: 12)],
             if (_note.isNotEmpty) ...[
               const SizedBox(height: 4),
-              Text(_note, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+              Text(_note, style: TextStyle(color: context.myca.danger, fontWeight: FontWeight.w500)),
             ],
             const SizedBox(height: 18),
             FilledButton(key: const Key('usForm.save'), onPressed: _busy ? null : _save, child: Text(_busy ? 'Saving…' : 'Save')),
             const SizedBox(height: 10),
-            Text('Copy each box exactly as printed. Leave a box empty if it is blank on your form.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+            Text('Copy each box exactly as printed. Leave a box empty if it is blank on your form.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
           ],
         ),
       ),

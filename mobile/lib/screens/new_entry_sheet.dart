@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../app_state.dart';
 import '../marks.dart';
 import '../registers.dart';
 import '../theme.dart';
@@ -7,6 +8,7 @@ import '../uae/uae_edition.dart';
 import '../widgets.dart';
 import 'ask_screen.dart';
 import 'bill_capture_screen.dart';
+import 'counter_sale_screen.dart';
 import 'expense_screen.dart';
 import 'party_picker.dart';
 
@@ -23,6 +25,8 @@ Future<void> showNewEntrySheet(BuildContext context) {
   }
 
   final ae = uaeEdition(context);
+  final scope = AppScope.of(context);
+  final india = scope.edition == 'IN' && (scope.snapshot?.company.country ?? 'IN') == 'IN';
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -46,6 +50,14 @@ Future<void> showNewEntrySheet(BuildContext context) {
               title: 'I sold something',
               subtitle: 'Raise an invoice for a customer',
               onTap: () => entry(RegisterKind.sales),
+            ),
+            if (india)
+            _SheetRow(
+              tint: Tint.sales,
+              mark: Mark.sales,
+              title: 'Counter sale',
+              subtitle: 'Scan barcodes, bill at the counter and print a receipt',
+              onTap: () => go(const CounterSaleScreen()),
             ),
             _SheetRow(
               tint: Tint.purchases,

@@ -74,12 +74,14 @@ function dueSoon(state, today, until) {
     }
   }
   const month = today.slice(0, 7);
-  const lastMonth = plusDays(`${month}-01`, -1).slice(0, 7);
   const employees = (state.employees || []).filter((e) => !e.leftOn).length;
-  const payday = `${month}-07`;
-  if (employees > 0 && payday >= today && payday <= until) {
-    const run = state.payrollRuns && typeof state.payrollRuns === 'object' ? state.payrollRuns[lastMonth] : null;
-    if (!run) items.push({ key: `payroll:${lastMonth}`, due: payday, text: `Approve the payroll for ${lastMonth}` });
+  const nextMonth = plusDays(`${month}-28`, 7).slice(0, 7);
+  for (const payMonth of [month, nextMonth]) {
+    const period = plusDays(`${payMonth}-01`, -1).slice(0, 7);
+    const payday = `${payMonth}-07`;
+    if (employees === 0 || payday < today || payday > until) continue;
+    const run = state.payrollRuns && typeof state.payrollRuns === 'object' ? state.payrollRuns[period] : null;
+    if (!run) items.push({ key: `payroll:${period}`, due: payday, text: `Approve the payroll for ${period}` });
   }
   return items;
 }

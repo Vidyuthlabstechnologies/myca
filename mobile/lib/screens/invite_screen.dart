@@ -124,7 +124,7 @@ class _InviteScreenState extends State<InviteScreen> {
               if (_claimNote.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 10),
-                  child: Text(_claimNote, key: const Key('claim-note'), style: TextStyle(color: _claimed ? Palette.ink : Palette.danger, fontWeight: FontWeight.w500)),
+                  child: Text(_claimNote, key: const Key('claim-note'), style: TextStyle(color: _claimed ? paletteOf(context).ink : paletteOf(context).danger, fontWeight: FontWeight.w500)),
                 ),
             ],
           );

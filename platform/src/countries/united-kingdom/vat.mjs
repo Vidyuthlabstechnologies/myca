@@ -80,22 +80,26 @@ export function buildVatReturn(args = {}) {
     }
     if (line.blocked) { notes.push(`purchases[${index}]: VAT on this cost is blocked (for example business entertainment or a car) and is not reclaimed.`); continue; }
     if (scheme === 'standard') totals.box4 += out.vat;
-    else if (line.capitalAsset && toPence(line.net) + out.vat >= 200000) totals.box4 += out.vat;
+    else if (line.capitalAsset && out.net + out.vat >= values.schemes.flatRateCapitalAssetFromPence) totals.box4 += out.vat;
   }
   let flat = null;
   if (scheme === 'flat-rate') {
-    const gross = sales.reduce((sum, line) => { const out = lineVat(values.rates, line || {}); return sum + out.net + out.vat; }, 0);
-    const goods = purchases.filter((line) => line && line.relevantGoods).reduce((sum, line) => { const out = lineVat(values.rates, line); return sum + out.net + out.vat; }, 0);
+    const gross = sales.filter((line) => line && line.rate !== 'outside-scope').reduce((sum, line) => { const out = lineVat(values.rates, line); return sum + out.net + out.vat; }, 0);
+    const goods = purchases.filter((line) => line && line.relevantGoods === true).reduce((sum, line) => { const out = lineVat(values.rates, line); return sum + out.net + out.vat; }, 0);
     const months = Number.isInteger(args.periodMonths) ? args.periodMonths : 3;
-    const limitedCost = goods < share(gross, values.schemes.limitedCostShareBasisPoints) || goods < Math.round(values.schemes.limitedCostYearlyPence * months / 12);
+    const stated = typeof args.limitedCostTrader === 'boolean';
+    const goodsKnown = purchases.some((line) => line && typeof line.relevantGoods === 'boolean');
+    const tested = goods < share(gross, values.schemes.limitedCostShareBasisPoints) || goods < Math.round(values.schemes.limitedCostYearlyPence * months / 12);
+    const limitedCost = stated ? args.limitedCostTrader : goodsKnown ? tested : false;
+    if (!stated && !goodsKnown) notes.push(`MyCA cannot tell from these lines how much was spent on goods, so the limited cost trader test was not applied and the business's own flat rate is used. If goods cost under ${values.schemes.limitedCostShareBasisPoints / 100}% of turnover (or under £${(values.schemes.limitedCostYearlyPence / 100).toLocaleString('en-GB')} a year), the ${values.schemes.limitedCostTraderBasisPoints / 100}% limited cost trader rate applies instead: answer limitedCostTrader.`);
     let rateBp = Number.isInteger(args.flatRateBasisPoints) ? args.flatRateBasisPoints : null;
     if (limitedCost) rateBp = values.schemes.limitedCostTraderBasisPoints;
     if (rateBp === null) return fail('FLAT_RATE_NEEDED', { hint: 'Give the flat rate percentage for the trade sector as basis points (12.5% is 1250).' });
     if (args.firstYearOfRegistration && !limitedCost) rateBp = Math.max(0, rateBp - values.schemes.firstYearDiscountBasisPoints);
     totals.box1 = share(gross, rateBp, 'half-up');
     totals.box6 = gross;
-    flat = { grossTurnover: toPounds(gross), relevantGoods: toPounds(goods), limitedCostTrader: limitedCost, ratePercent: rateBp / 100 };
-    if (limitedCost) notes.push('Spending on goods is under 2% of turnover (or under £1,000 a year), so the 16.5% limited cost trader rate applies.');
+    flat = { grossTurnover: toPounds(gross), relevantGoods: goodsKnown ? toPounds(goods) : null, limitedCostTrader: stated || goodsKnown ? limitedCost : null, ratePercent: rateBp / 100 };
+    if (limitedCost && !stated) notes.push('Spending on goods is under 2% of turnover (or under £1,000 a year), so the 16.5% limited cost trader rate applies.');
   }
   const box3 = totals.box1 + totals.box2;
   const body = {

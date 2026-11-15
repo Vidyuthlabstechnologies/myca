@@ -50,12 +50,15 @@ dependencies:
   plaid_flutter: ^5.2.1
   in_app_purchase: ^3.3.1
   qr: ^3.0.3
+  mobile_scanner: 7.4.2
+  print_bluetooth_thermal: 1.2.5
   rive: ^0.14.11
   myca_design:
     path: ../design/flutter/myca_design
   myca_fonts_arabic:
     path: ../design/flutter/myca_fonts_arabic
   crypto: ^3.0.8
+  sign_in_with_apple: ^8.2.0
 
 dev_dependencies:
   flutter_test:

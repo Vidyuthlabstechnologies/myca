@@ -274,7 +274,7 @@ class _UsFilingFeeCardState extends State<UsFilingFeeCard> {
           OutlinedButton(key: const Key('usFee.paidCard'), onPressed: _buying ? null : _checkCard, child: const Text("I've paid, continue")),
         ],
         const SizedBox(height: 8),
-        Text('Card payment by Stripe for the US company. MyCA never sees your card number.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+        Text('Card payment by Stripe for the US company. MyCA never sees your card number.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
       ];
 
   @override
@@ -307,9 +307,9 @@ class _UsFilingFeeCardState extends State<UsFilingFeeCard> {
                   ? 'Google Play is not ready on this phone. Check that you are signed in to the Play Store, then open this screen again.'
                   : 'The filing fee cannot be paid in this app on this device yet. Your return is saved; nothing has been charged.',
               key: const Key('usFee.unavailable'),
-              style: text.bodySmall?.copyWith(color: Palette.muted),
+              style: text.bodySmall?.copyWith(color: context.myca.muted),
             ),
-          if (_note.isNotEmpty) ...[const SizedBox(height: 10), Text(_note, key: const Key('usFee.note'), style: text.bodySmall?.copyWith(color: Palette.danger))],
+          if (_note.isNotEmpty) ...[const SizedBox(height: 10), Text(_note, key: const Key('usFee.note'), style: text.bodySmall?.copyWith(color: context.myca.danger))],
         ],
       ),
     );
@@ -327,7 +327,7 @@ class UsUnsupportedNotice extends StatelessWidget {
     return Container(
       key: const Key('usUnsupported.notice'),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Palette.warnSoft, borderRadius: BorderRadius.circular(radiusCard)),
+      decoration: BoxDecoration(color: context.myca.warnSoft, borderRadius: BorderRadius.circular(radiusCard)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -337,7 +337,7 @@ class UsUnsupportedNotice extends StatelessWidget {
           for (final f in forms)
             if (f.reason.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text('${f.form}: ${f.reason}', style: text.bodySmall)),
           const SizedBox(height: 6),
-          Text('You can still prepare, check and download it for free.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+          Text('You can still prepare, check and download it for free.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
         ],
       ),
     );
