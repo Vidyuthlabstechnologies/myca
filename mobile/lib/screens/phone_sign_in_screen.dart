@@ -281,6 +281,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> with SecureWindow
                       autofocus: true,
                       keyboardType: TextInputType.phone,
                       inputFormatters: [
+                        const UaeWesternDigitsFormatter(),
                         FilteringTextInputFormatter.allow(state.edition == 'US' ? RegExp(r'[0-9() -]') : RegExp(r'[0-9+ ]')),
                       ],
                       autofillHints: const [AutofillHints.telephoneNumberNational],
@@ -314,7 +315,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> with SecureWindow
                       autofocus: true,
                       keyboardType: TextInputType.number,
                       maxLength: 6,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      inputFormatters: [const UaeWesternDigitsFormatter(), FilteringTextInputFormatter.digitsOnly],
                       style: const TextStyle(
                         fontSize: 22,
                         letterSpacing: 6,
