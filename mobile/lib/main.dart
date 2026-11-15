@@ -209,20 +209,16 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
             scaffoldMessengerKey: _messenger,
             title: widget.state.edition == 'MY' ? 'MyCA Malaysia' : 'MyCA',
             debugShowCheckedModeBanner: false,
-            theme: switch (widget.state.edition) {
-              'US' => usAppTheme(),
-              'GB' => MycaDesign.forFlavor('uk').light,
-              'AE' => uaeDesign.light,
-              'MY' => _myDesign.light,
-              _ => mycaTheme(),
-            },
-            darkTheme: widget.state.edition == 'MY' ? _myDesign.dark : widget.state.edition == 'US' ? usAppTheme(brightness: Brightness.dark) : null,
-            themeMode: widget.state.edition == 'MY' || widget.state.edition == 'US' ? ThemeMode.system : ThemeMode.light,
+            theme: widget.state.edition == 'MY' ? _myDesign.light : widget.state.edition == 'AE' ? uaeDesign.light : widget.state.edition == 'US' ? usAppTheme() : widget.state.edition == 'GB' ? MycaDesign.forFlavor('uk').light : mycaTheme(),
+            darkTheme: widget.state.edition == 'MY' ? _myDesign.dark : widget.state.edition == 'AE' ? uaeDesign.dark : widget.state.edition == 'US' ? usAppTheme(brightness: Brightness.dark) : widget.state.edition == 'GB' ? MycaDesign.forFlavor('uk').dark : mycaTheme(Brightness.dark),
+            themeMode: ThemeMode.system,
             localizationsDelegates: widget.state.edition == 'MY' ? _myDelegates : widget.state.edition == 'AE' ? MycaDesign.localizationsDelegates : null,
             supportedLocales: widget.state.edition == 'MY' ? const [Locale('en', 'MY'), Locale('ms', 'MY')] : widget.state.edition == 'AE' ? uaeDesign.supportedLocales : const [Locale('en', 'US')],
             locale: widget.state.edition == 'MY' ? _myLocale(widget.state.language) : null,
             localeResolutionCallback: widget.state.edition == 'MY' ? (device, supported) => device?.languageCode == 'ms' ? const Locale('ms', 'MY') : const Locale('en', 'MY') : widget.state.edition == 'AE' ? uaeResolveLocale : null,
-            builder: (context, child) => ListenableBuilder(
+            builder: (context, child) => PaletteSync(
+              brightness: Theme.of(context).brightness,
+              child: ListenableBuilder(
               listenable: widget.state,
               builder: (context, _) => Stack(
                 children: [
@@ -244,6 +240,7 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
                   if (_tour.coaching && !widget.state.locked) TourCoach(tour: _tour),
                   if (widget.state.locked) AppScope(state: widget.state, child: const LockScreen()),
                 ],
+                ),
               ),
             ),
             home: const AppGate(),
@@ -253,6 +250,35 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
     );
   }
 }
+
+class PaletteSync extends StatefulWidget {
+  const PaletteSync({super.key, required this.brightness, required this.child});
+
+  final Brightness brightness;
+  final Widget child;
+
+  @override
+  State<PaletteSync> createState() => _PaletteSyncState();
+}
+
+class _PaletteSyncState extends State<PaletteSync> {
+  static void _rebuild(Element element) {
+    element.markNeedsBuild();
+    element.visitChildElements(_rebuild);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (Palette.brightness != widget.brightness) {
+      Palette.brightness = widget.brightness;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.visitChildElements(_rebuild);
+      });
+    }
+    return widget.child;
+  }
+}
+
 
 const usDarkHint = Color(0xFF888C91);
 
@@ -319,7 +345,7 @@ class TestServerBanner extends StatelessWidget {
                 ? myMalayOr(context, 'Sandbox mode: nothing is filed with the government yet', 'Mod kotak pasir: belum ada apa-apa difailkan kepada kerajaan')
                 : myMalayOr(context, 'Test environment: nothing is filed, paid or sent', 'Persekitaran ujian: tiada apa difailkan, dibayar atau dihantar'),
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Palette.onInk, fontWeight: FontWeight.w600),
           ),
         ),
       ),

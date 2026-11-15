@@ -173,7 +173,7 @@ class _AskSheetState extends State<_AskSheet> {
             const SizedBox(height: 8),
             Text(
               _error,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Palette.danger,
                 fontWeight: FontWeight.w600,
               ),

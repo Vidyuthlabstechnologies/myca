@@ -24,6 +24,7 @@ import 'us_interview_screen.dart';
 import 'us_profile_screen.dart';
 import 'us_review_screen.dart';
 import 'us_plus_screen.dart';
+import 'us_prior_year_screen.dart';
 import 'us_sign_screen.dart';
 import 'us_state_sheet_screen.dart';
 
@@ -404,6 +405,15 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
                     const SizedBox(height: 14),
                     Panel(
                       children: [
+                        if (hub.efile.status == 'not_filed')
+                          RowCard(
+                            key: const Key('usHub.priorYear'),
+                            leading: const TintTile(tint: Tint.ask, mark: Mark.paper),
+                            title: 'Start from last year',
+                            subtitle: 'Bring in your ${year - 1} details, carryovers and the forms to expect',
+                            trailing: const Chevron(),
+                            onTap: () => _open(UsPriorYearScreen(taxYear: year)),
+                          ),
                         if (stateHasIncomeTax(hub.state))
                           RowCard(
                             key: const Key('usHub.state'),

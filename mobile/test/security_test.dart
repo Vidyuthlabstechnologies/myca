@@ -16,7 +16,7 @@ import 'package:myca/main.dart';
 import 'package:myca/widgets/qr_image.dart';
 import 'package:qr/qr.dart' as qr;
 
-import 'accessibility_test.dart' show phone;
+import 'screen_walks.dart' show phone;
 import 'cloud_test.dart' show sessionOn, signedIn;
 import 'fake_api.dart';
 import 'fake_cloud.dart';

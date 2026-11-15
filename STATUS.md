@@ -198,6 +198,9 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - UAE payroll run (2026-11-14): `ae_payroll_run` pays overtime on the basic hourly wage, rest days,
   unpaid leave, GPSSA pension for Emiratis and the month's gratuity accrual from dated rules
   (`ae.labour.overtime`, `ae.labour.wage-deductions`, `ae.pension.gpssa`) and hands WPS lines to `ae_wps_file`
+- US start from last year (2026-11-14): `import_us_prior_year` copies the profile, sealed SSNs and
+  dependents from last year's MyCA return, fills last year's AGI, tax and capital loss carryovers (or
+  takes them typed), and lists the forms to expect; the US app has a Start from last year screen
 
 
 ### Data import

@@ -125,7 +125,7 @@ class _SupplierTermsSheetState extends State<_SupplierTermsSheet> {
             ),
             if (_error.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w600)),
+              Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w600)),
             ],
             const SizedBox(height: 14),
             FilledButton(onPressed: _save, child: const Text('Save')),

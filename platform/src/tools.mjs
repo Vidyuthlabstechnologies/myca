@@ -1,5 +1,6 @@
 import { usBrokerageCsv } from './us-brokerage-import.mjs';
 import { usRefundBoost } from './us-refund-boost.mjs';
+import { importUsPriorYear } from './us-prior-year.mjs';
 import { tally, bank, gstin, filing, audit } from './sprint-load.mjs';
 import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
 import { importSettlement, settlementStatus } from './settlements.mjs';
@@ -840,6 +841,13 @@ export const TOOLS = [
     description: 'Reads a broker 1099-B or Form 8949 CSV export (Schwab, Fidelity, Robinhood, Koinly, CoinTracker and similar) or an exchange trade history (Coinbase-style buys and sells, matched first in, first out) into 1099-B sales ready for add_us_tax_form, with short- and long-term totals and rows it could not read. US only. Read-only.',
     args: ['csv', 'taxYear', 'payer'],
     run: (state, args = {}) => usBrokerageCsv(state, args),
+  },
+  {
+    name: 'import_us_prior_year',
+    title: 'Bring last year into this US return',
+    description: 'Starts a personal Form 1040 from last year: from the MyCA return of the year before it copies the filing status, people, sealed SSNs, dependents and address, and fills last year\'s AGI, total tax and capital loss carryovers; or takes those figures as typed from a return prepared elsewhere (agi, totalTax, overpaymentApplied, shortTermLossCarryover, longTermLossCarryover). Lists the forms to expect again from last year\'s payers. Answers already given are kept unless overwrite is true. US only.',
+    args: ['taxYear', 'figures', 'copyProfile', 'overwrite'],
+    run: (state, args = {}) => importUsPriorYear(state, args),
   },
   {
     name: 'us_refund_boost',

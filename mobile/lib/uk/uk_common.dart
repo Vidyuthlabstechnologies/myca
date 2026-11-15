@@ -184,7 +184,7 @@ class UkCard extends StatelessWidget {
     child: Material(
       color: tone ?? Palette.surface,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard), side: const BorderSide(color: Palette.line)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard), side: BorderSide(color: Palette.line)),
       child: SizedBox(
         width: double.infinity,
         child: Padding(

@@ -88,10 +88,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
       children: [
         for (final (mode, title, help) in caSyncChoices)
           RowCard(
-            leading: TintTile(
-              tint: Tint.ask,
-              letter: sync.mode == mode ? '✓' : '',
-            ),
+            leading: ChoiceDot(selected: sync.mode == mode),
             title: title,
             subtitle: help,
             onTap: sync.mode == mode ? null : () => _setSync(mode),

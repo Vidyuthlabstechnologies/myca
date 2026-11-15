@@ -440,7 +440,7 @@ class _UaeDocumentScreenState extends State<UaeDocumentScreen> with UaeWriteFlow
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
         color: Palette.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard), side: const BorderSide(color: Palette.line)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard), side: BorderSide(color: Palette.line)),
         child: Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Column(
