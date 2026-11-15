@@ -72,6 +72,7 @@ export const UNITED_STATES = Object.freeze({
     'import_payroll_summary',
     'import_payroll_tax_forms',
     'import_us_invoices',
+    'import_us_prior_year',
     'list_payroll_imports',
     'list_sales_tax_nexus',
     'list_sales_tax_rates',
