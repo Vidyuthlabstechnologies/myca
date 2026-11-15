@@ -6,6 +6,9 @@ const EPSILON = 0.005;
 const OWE = /\b(?:owe|owes|owed|owing|outstanding|dues)\b/i;
 const I_OWE = /\b(?:i|we)\s+(?:still\s+)?(?:owe|have\s+to\s+pay|need\s+to\s+pay)\b|\bowed\s+by\s+(?:me|us)\b|\b(?:do|did)\s+(?:i|we)\s+owe\b/i;
 const OWES_ME = /\bowes?\s+(?:me|us)\b|\bowed\s+to\s+(?:me|us)\b|\bwho\s+owes\b|\bowe\s+me\b/i;
+const HINGLISH_I_OWE = /\bkis(?:ko|e)\s+(?:\w+\s+){0,3}(?:dena|deni|dene)\b/i;
+const HINGLISH_OWES_ME = /\b(?:kaun|kisne|kis\s+ne)\s+(?:\w+\s+){0,3}(?:dena|deni|dene)\b|\b(?:lena|leni|lene)\b|\budh(?:aa|a)r\w*\b/i;
+const HINGLISH_ASK = /\b(?:kaun|kisne|kisko|kise|kitna|kitne|kya)\b/i;
 
 function inr(amount) {
   return `₹${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -69,10 +72,11 @@ function summary(rows, empty, lead) {
 
 export function planOweQuestion(state, text) {
   const raw = normalizeChat(text);
-  if (!OWE.test(raw)) return null;
-  const asking = /\?\s*$/.test(raw) || /^(?:how\s+much|what|who|whom|does|do|is|are|show|tell|list)\b/i.test(raw);
+  const hinglish = HINGLISH_ASK.test(raw) && (HINGLISH_I_OWE.test(raw) || HINGLISH_OWES_ME.test(raw) || /\b(?:baaki|baki)\b/i.test(raw));
+  if (!OWE.test(raw) && !hinglish) return null;
+  const asking = /\?\s*$/.test(raw) || /^(?:how\s+much|what|who|whom|does|do|is|are|show|tell|list)\b/i.test(raw) || hinglish;
   if (!asking) return null;
-  const toSuppliers = I_OWE.test(raw) || /\bwho\s+do\s+(?:i|we)\s+owe\b/i.test(raw) || /\b(?:suppliers?|vendors?|bills?)\b/i.test(raw);
+  const toSuppliers = I_OWE.test(raw) || HINGLISH_I_OWE.test(raw) || /\bwho\s+do\s+(?:i|we)\s+owe\b/i.test(raw) || /\b(?:suppliers?|vendors?|bills?)\b/i.test(raw);
   if (toSuppliers) {
     const rows = supplierRows(state);
     const [supplier] = named(state.purchases || [], raw);
@@ -86,7 +90,7 @@ export function planOweQuestion(state, text) {
     return summary(rows, 'You owe suppliers nothing on bills in these books. Nothing was recorded.', 'You owe suppliers');
   }
   const [customer] = named(state.invoices || [], raw);
-  if (!customer && !OWES_ME.test(raw) && !/\bcustomers?\b/i.test(raw)) return null;
+  if (!customer && !OWES_ME.test(raw) && !HINGLISH_OWES_ME.test(raw) && !/\bcustomers?\b/i.test(raw)) return null;
   const rows = customerRows(state);
   if (customer) {
     const theirs = rows.filter((row) => key(row.name) === customer.key);

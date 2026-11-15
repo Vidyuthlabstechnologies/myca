@@ -189,6 +189,15 @@ and [`README.md`](README.md) for what is left and how it is being done.
   (`us_refund_boost`, each unused deduction priced by re-running the return); UK simplified expenses
   and trading allowance check (`gb_simplified_expenses`) and CIS deductions (`gb_cis_deductions`);
   UAE end-of-service gratuity (`ae_gratuity`) and WPS salary file (`ae_wps_file`), all from dated rules
+- India counter billing (2026-11-14): `find_item` looks up a SKU by code or barcode, `set_sku_cost`
+  stores barcode and selling price; the Android Counter sale screen scans with the camera, bills through
+  `create_invoice` and prints the engine's figures on a 58/80 mm Bluetooth ESC/POS printer
+- Malaysia PCB (2026-11-14): `my_payroll` works out the monthly tax deduction by LHDN's computerised
+  method from `my.payroll.pcb` and the resident bands and rebate rules (categories 1 to 3, children,
+  bonus, year to date, zakat, TP1 deductions; flat rate for non-residents)
+- UAE payroll run (2026-11-14): `ae_payroll_run` pays overtime on the basic hourly wage, rest days,
+  unpaid leave, GPSSA pension for Emiratis and the month's gratuity accrual from dated rules
+  (`ae.labour.overtime`, `ae.labour.wage-deductions`, `ae.pension.gpssa`) and hands WPS lines to `ae_wps_file`
 
 
 ### Data import

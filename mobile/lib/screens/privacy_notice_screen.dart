@@ -197,6 +197,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                       ),
                     ),
                     Container(
+                      constraints: BoxConstraints(maxHeight: box.maxHeight * 0.6),
                       decoration: malaysia
                           ? BoxDecoration(
                               color: Theme.of(context).colorScheme.surface,
@@ -207,9 +208,11 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                               border: Border(top: BorderSide(color: paletteOf(context).line)),
                             ),
                       padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: consent,
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: consent,
+                        ),
                       ),
                     ),
                   ],

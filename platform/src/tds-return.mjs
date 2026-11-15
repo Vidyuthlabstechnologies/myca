@@ -84,6 +84,19 @@ export function allocateDeposits(state) {
   return covered;
 }
 
+export function depositedPaiseOf(state, targets) {
+  const wanted = new Set(targets);
+  const deductions = entriesOf(state, { form: 'all' });
+  let deposited = (state.tdsDeposits || []).reduce((sum, deposit) => sum + paise(deposit.amount), 0);
+  let covered = 0;
+  for (const entry of deductions) {
+    const take = Math.min(deposited, paise(entry.tds));
+    deposited -= take;
+    if (wanted.has(entry)) covered += take;
+  }
+  return covered;
+}
+
 function deducteeKey(entry) {
   return `${entry.pan || `NOPAN:${String(entry.payee || '').toUpperCase()}`}|${entry.section}`;
 }

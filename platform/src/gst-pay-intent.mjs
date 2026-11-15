@@ -57,7 +57,7 @@ export function planGstPayFromChat(text) {
     const fy = (raw.match(/\b(20\d{2}-\d{2})\b/) || [])[1];
     return { kind: 'tool', name: 'gstr9_draft', args: fy ? { fy } : {} };
   }
-  if (/\b(?:gst|tax)\s+(?:to\s+pay|payable|liability|due)\b|\bhow\s+much\s+gst\b|\bpay\s+(?:in|for)\s+gst\b|\bgst\s+(?:in\s+)?cash\b|\bset[\s-]?off\b/i.test(raw)) {
+  if (/\b(?:gst|tax)\s+(?:to\s+pay|payable|liability|due)\b|\bhow\s+much\s+gst\b|\bgst\s+kitna\b|\bkitna\s+gst\b|\bpay\s+(?:in|for)\s+gst\b|\bgst\s+(?:in\s+)?cash\b|\bset[\s-]?off\b/i.test(raw)) {
     const period = periodOf(raw, today);
     return { kind: 'tool', name: 'gst_payable', args: period ? { period } : {} };
   }

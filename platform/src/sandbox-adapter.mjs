@@ -6,6 +6,7 @@ import { quickoOperation } from './sandbox-endpoints.mjs';
 import { documentsOf, isSha256 } from './document-store.mjs';
 import { omitSecrets } from './secret-keys.mjs';
 import { EWB_ADAPTERS, EWB_MOCK_ADAPTERS, EWB_REQUEST_BUILDERS } from './ewb-adapter.mjs';
+import { localDateTime } from './dates.mjs';
 
 function fromClient(res, data) {
   if (res && res.ok === false && res.error) return { ok: false, error: res.error, ...(res.message ? { hint: res.message } : {}) };
@@ -565,16 +566,17 @@ const MOCK_ADAPTERS = {
     const payload = built.payload;
     const hashed = createHash('sha256').update(`${payload?.TranDtls?.SupplyType || 'B2B'}:${payload?.CustDtls?.LglNm || 'MOCK'}:${params.invoiceId || 'INV-0001'}`).digest('hex').toUpperCase();
     const irn = hashed.slice(0, 64);
+    const ackDate = localDateTime();
     if (built.invoice) {
       built.invoice.mockIrn = irn;
       built.invoice.mockAckNo = `MOCK-ACK-${params.invoiceId}`;
-      built.invoice.mockAckDate = '2026-09-20 12:00:00';
+      built.invoice.mockAckDate = ackDate;
       built.invoice.mockSignedQrCode = `mock_qr_${irn.slice(0, 16)}`;
     }
     return {
       ok: true,
       ...MOCK_TAG,
-      data: { irn, ackNo: `MOCK-ACK-${params.invoiceId || 'INV'}`, ackDate: '2026-09-20 12:00:00', signedQrCode: `mock_qr_${irn.slice(0, 16)}`, status: 'ACT' },
+      data: { irn, ackNo: `MOCK-ACK-${params.invoiceId || 'INV'}`, ackDate, signedQrCode: `mock_qr_${irn.slice(0, 16)}`, status: 'ACT' },
     };
   },
 
@@ -583,7 +585,7 @@ const MOCK_ADAPTERS = {
     return {
       ok: true,
       ...MOCK_TAG,
-      data: { cancelled: true, irn: params.irn, cancelDate: '2026-09-20 13:00:00' },
+      data: { cancelled: true, irn: params.irn, cancelDate: localDateTime() },
     };
   },
 

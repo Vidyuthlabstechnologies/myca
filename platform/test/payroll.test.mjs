@@ -35,8 +35,8 @@ test('the monthly run applies PF, ESI, professional tax and salary TDS from the 
   assert.equal(ravi.gross, 30000);
   assert.equal(ravi.pfWages, 15000, 'basic above the ceiling is capped');
   assert.equal(ravi.pfEmployee, 1800);
-  assert.equal(ravi.eps, 1249.5);
-  assert.equal(ravi.pfEmployer, 550.5);
+  assert.equal(ravi.eps, 1250);
+  assert.equal(ravi.pfEmployer, 550);
   assert.equal(ravi.edli, 75);
   assert.equal(ravi.esiEmployee, 0);
   assert.match(ravi.notes.join(' '), /above the state insurance wage limit/);
@@ -48,8 +48,8 @@ test('the monthly run applies PF, ESI, professional tax and salary TDS from the 
   assert.equal(meena.gross, 9290.32);
   assert.equal(meena.pfWages, 9290.32, 'no Basic part, so the whole pay counts');
   assert.match(meena.notes.join(' '), /whole pay is taken as provident fund wages/);
-  assert.equal(meena.esiEmployee, 69.68);
-  assert.equal(meena.esiEmployer, 301.94);
+  assert.equal(meena.esiEmployee, 70);
+  assert.equal(meena.esiEmployer, 302);
   assert.equal(meena.pt, 0, 'a woman earning under the limit pays no professional tax in Maharashtra');
   const arjun = d.rows.find((row) => row.name === 'Arjun Rao');
   assert.equal(arjun.pfEmployee, 0);

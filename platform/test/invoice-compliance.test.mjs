@@ -80,3 +80,24 @@ test('an issued e-invoice carries the ack date and the signed QR for the PDF', a
   assert.equal(s.status, 'sandbox');
   assert.equal(s.signedQrCode, 'sandbox.qr');
 });
+
+test('a business can say it is a composition dealer and give its LUT, and a composition sale cannot charge GST', async () => {
+  const state = books();
+  const set = await runTool(state, 'set_company', { composition: true, lutNumber: 'ad2703 26000123x' });
+  assert.equal(set.ok, true, JSON.stringify(set));
+  assert.equal(state.company.composition, true);
+  assert.equal(state.company.lutNumber, 'AD270326000123X');
+  assert.equal((await runTool(state, 'set_company', { composition: 'yes' })).ok, false);
+  assert.equal(state.company.composition, true);
+  const taxed = createInvoice(state, { date: '2026-10-03', partyName: 'Walk-in', lines: [{ description: 'Snacks', hsn: '2106', qty: 1, rate: 100, gstRate: 0 }, { description: 'Juice', hsn: '2202', qty: 1, rate: 50, gstRate: 18 }] });
+  assert.equal(taxed.ok, false);
+  assert.equal(taxed.error, 'COMPOSITION_NO_TAX');
+  assert.equal(taxed.line, 2);
+  assert.equal((state.invoices || []).length, 0);
+  const made = createInvoice(state, { date: '2026-10-03', partyName: 'Walk-in', lines: [{ description: 'Snacks', hsn: '2106', qty: 1, rate: 100, gstRate: 0 }] });
+  assert.notEqual(made.ok, false, JSON.stringify(made));
+  assert.equal(made.invoice.cgst + made.invoice.sgst + made.invoice.igst, 0);
+  assert.equal((await doc(state, made.invoice.id)).documentTitle, 'Bill of supply');
+  assert.equal((await runTool(state, 'set_company', { composition: false })).ok, true);
+  assert.notEqual(createInvoice(state, { date: '2026-10-04', partyName: 'Walk-in', lines: [{ description: 'Juice', hsn: '2202', qty: 1, rate: 50, gstRate: 18 }] }).ok, false);
+});

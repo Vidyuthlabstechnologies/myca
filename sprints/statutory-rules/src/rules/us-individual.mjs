@@ -413,7 +413,7 @@ export const RULES = [
     ...year(2026),
     act: 'IRC',
     section: '199A',
-    source: `IRC section 199A as amended by Public Law 119-21 section 70105; ${RP_2026} section 4.26 (${NOT_REREAD}). The minimum deduction for active QBI of at least one thousand dollars from 2026 is not encoded`,
+    source: `IRC section 199A as amended by Public Law 119-21 section 70105; ${RP_2026} section 4.26 (${NOT_REREAD}). The minimum deduction for active QBI is the separate record us.federal.individual.qbi-minimum`,
     attestations: []
   },
   {
@@ -423,7 +423,27 @@ export const RULES = [
     ...year(2027),
     act: 'IRC',
     section: '199A',
-    source: `IRC section 199A as amended by Public Law 119-21 section 70105; ${RP_2027} section 3.28 (${READ_2027}). The minimum deduction for active QBI (four hundred fifteen dollars when QBI is at least one thousand thirty dollars in 2027) is not encoded`,
+    source: `IRC section 199A as amended by Public Law 119-21 section 70105; ${RP_2027} section 3.28 (${READ_2027}). The minimum deduction for active QBI is the separate record us.federal.individual.qbi-minimum`,
+    attestations: []
+  },
+  {
+    id: 'us.federal.individual.qbi-minimum',
+    value: { minimumCents: 400 * D, activeQbiFloorCents: 1000 * D },
+    basis: 'minimum_qualified_business_income_deduction_when_aggregate_qbi_from_active_trades_or_businesses_in_which_the_taxpayer_materially_participates_reaches_the_floor',
+    ...year(2026),
+    act: 'IRC',
+    section: '199A(i)',
+    source: 'IRC section 199A(i) added by Public Law 119-21 section 70105(b), effective for tax years beginning after December 31, 2025 (section 70105(c)): the deduction is the greater of the computed amount or four hundred dollars when aggregate QBI from active qualified trades or businesses (material participation under section 469(h)) is at least one thousand dollars; indexed only after 2026, so Rev. Proc. 2025-32 gives no 2026 adjustment; draft 2026 Form 8995 lines 15 to 17 (www.irs.gov/pub/irs-dft/f8995--dft.pdf) read 2026-11-14',
+    attestations: []
+  },
+  {
+    id: 'us.federal.individual.qbi-minimum',
+    value: { minimumCents: 415 * D, activeQbiFloorCents: 1030 * D },
+    basis: 'minimum_qualified_business_income_deduction_when_aggregate_qbi_from_active_trades_or_businesses_in_which_the_taxpayer_materially_participates_reaches_the_floor',
+    ...year(2027),
+    act: 'IRC',
+    section: '199A(i)',
+    source: `IRC section 199A(i) added by Public Law 119-21 section 70105(b); four hundred fifteen dollars when aggregate active QBI is at least one thousand thirty dollars, from ${RP_2027} (${READ_2027})`,
     attestations: []
   },
   {

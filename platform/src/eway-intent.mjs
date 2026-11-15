@@ -15,6 +15,10 @@ function reply(text) {
 
 export function planTransportFromChat(text) {
   const raw = normalizeChat(text);
+  const asked = raw.match(INVOICE);
+  if (asked && /\be-?way\b/i.test(raw) && !DISTANCE.test(raw) && !isNegated(raw) && (isQuestion(raw) || /\b(?:status|needed|required)\b/i.test(raw))) {
+    return { kind: 'tool', name: 'eway_bill_status', args: { invoiceId: asked[1].toUpperCase() } };
+  }
   if (!/\b(?:transport|vehicle|truck|lorry|e-?way|goes\s+by|by\s+(?:road|rail|train|air|flight|ship|sea))\b/i.test(raw) || isQuestion(raw) || isNegated(raw)) return null;
   const invoice = raw.match(INVOICE);
   if (!invoice) {

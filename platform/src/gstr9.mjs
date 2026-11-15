@@ -3,6 +3,8 @@ import { periodSummary } from './period-summary.mjs';
 import { documentsForPeriod } from './return-period.mjs';
 import { localToday } from './dates.mjs';
 import { filingFor } from './filings.mjs';
+import { regArg, registrationsOf, docGstin, scopeKey } from './registrations.mjs';
+import { twobFor } from './gstr2b-check.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
@@ -31,13 +33,31 @@ function add(target, value) {
   return target;
 }
 
+function zeroRatedWithoutTax(inv) {
+  return Boolean((inv.export && !inv.export.withTax) || inv.supplyType === 'SEZWOP');
+}
+
 function exportedWithoutTax(invoices) {
   let paise = 0;
   for (const inv of invoices || []) {
-    if (!inv.export || inv.export.withTax) continue;
+    if (!zeroRatedWithoutTax(inv)) continue;
     for (const line of inv.lines || []) if (Number(line.gstRate || 0) !== 0) paise += Math.round(Number(line.taxable || 0) * 100);
   }
   return paise / 100;
+}
+
+function untaxedOriginal(note, original) {
+  return Boolean((original?.export && !original.export.withTax) || note.supplyType === 'SEZWOP' || note.zeroRated);
+}
+
+function notesByTable(notes, invoicesById) {
+  const paise = { table4: 0, table5: 0 };
+  for (const note of notes || []) {
+    const untaxed = untaxedOriginal(note, invoicesById.get(note.invoiceId));
+    const lines = Array.isArray(note.lines) && note.lines.length ? note.lines : [{ gstRate: Number(note.cgst || 0) + Number(note.sgst || 0) + Number(note.igst || 0) > 0 ? 1 : 0, taxable: note.taxable }];
+    for (const line of lines) paise[untaxed || Number(line.gstRate || 0) === 0 ? 'table5' : 'table4'] += Math.round(Number(line.taxable || 0) * 100);
+  }
+  return { table4: paise.table4 / 100, table5: paise.table5 / 100 };
 }
 
 function followsOn(fy) {
@@ -47,10 +67,18 @@ function followsOn(fy) {
 export function gstr9Draft(state, args = {}) {
   const fy = String(args.fy || '').trim() || fyOf(localToday().slice(0, 7));
   if (!followsOn(fy)) return { ok: false, error: 'BAD_FY', hint: 'Use the financial year as 2026-27.' };
+  const regd = regArg(state, args.gstin);
+  if (!regd.ok) return regd;
+  const gstin = regd.gstin;
+  const registrations = registrationsOf(state).filter((reg) => reg.gstin);
+  const invoicesById = new Map((state.invoices || []).map((inv) => [inv.id, inv]));
   const months = monthsOf(fy);
   const today = localToday().slice(0, 7);
   const outward = { taxable: 0, tax: heads(), creditNotes: { taxable: 0, tax: heads() }, debitNotes: { taxable: 0, tax: heads() }, b2b: 0, b2c: 0, invoices: 0 };
+  const zeroRatedNotes = { creditNotes: 0, debitNotes: 0 };
   const exports = { withTax: { count: 0, taxable: 0, igst: 0 }, withoutTax: { count: 0, taxable: 0 } };
+  const sez = { withTax: { count: 0, taxable: 0, igst: 0 }, withoutTax: { count: 0, taxable: 0 } };
+  const deemed = { count: 0, taxable: 0, tax: heads() };
   const itc = { availed: heads(), reversed: heads(), blocked: heads(), purchases: 0 };
   const twoB = { months: 0, available: heads() };
   const paid = { cash: heads(), credit: 0, interest: 0, lateFee: 0, months: 0 };
@@ -63,25 +91,43 @@ export function gstr9Draft(state, args = {}) {
   let unreviewed = false;
   for (const period of months) {
     if (period > today) continue;
-    const docs = documentsForPeriod(state, period);
+    const docs = documentsForPeriod(state, period, '', gstin);
     if (!docs.ok || !docs.period || (docs.invoices.length + docs.purchases.length + docs.creditNotes.length + (docs.debitNotes || []).length + (docs.purchaseNotes || []).length) === 0) {
-      monthRows.push({ period, documents: 0, filed: filingFor(state, 'GSTR-3B', period) ? 'filed' : 'nothing' });
+      monthRows.push({ period, documents: 0, filed: filingFor(state, 'GSTR-3B', period, gstin) ? 'filed' : 'nothing' });
       continue;
     }
-    const summary = periodSummary(state, period);
+    const summary = periodSummary(state, period, gstin);
     if (!summary.ok) continue;
     const s = summary.data;
     outward.taxable = round2(outward.taxable + s.grossTaxableSales - exportedWithoutTax(docs.invoices));
     add(outward.tax, { igst: Number(s.outputTax.igst) + Number(s.creditNotes?.igst || 0) - Number(s.debitNotes?.igst || 0), cgst: Number(s.outputTax.cgst) + Number(s.creditNotes?.cgst || 0) - Number(s.debitNotes?.cgst || 0), sgst: Number(s.outputTax.sgst) + Number(s.creditNotes?.sgst || 0) - Number(s.debitNotes?.sgst || 0) });
-    outward.creditNotes.taxable = round2(outward.creditNotes.taxable + Number(s.creditNotes?.taxable || 0));
+    const credited = notesByTable(docs.creditNotes, invoicesById);
+    const debited = notesByTable(docs.debitNotes, invoicesById);
+    outward.creditNotes.taxable = round2(outward.creditNotes.taxable + credited.table4);
     add(outward.creditNotes.tax, s.creditNotes);
-    outward.debitNotes.taxable = round2(outward.debitNotes.taxable + Number(s.debitNotes?.taxable || 0));
+    outward.debitNotes.taxable = round2(outward.debitNotes.taxable + debited.table4);
+    zeroRatedNotes.creditNotes = round2(zeroRatedNotes.creditNotes + credited.table5);
+    zeroRatedNotes.debitNotes = round2(zeroRatedNotes.debitNotes + debited.table5);
     add(outward.debitNotes.tax, s.debitNotes);
     outward.invoices += docs.invoices.length;
     outward.b2b += docs.invoices.filter((inv) => inv.partyGstin).length;
     outward.b2c += docs.invoices.filter((inv) => !inv.partyGstin && !inv.export).length;
     for (const inv of docs.invoices) {
-      if (!inv.export || inv.status === 'cancelled') continue;
+      if (inv.status === 'cancelled') continue;
+      if (inv.supplyType === 'SEZWP' || inv.supplyType === 'SEZWOP') {
+        const into = inv.supplyType === 'SEZWP' ? sez.withTax : sez.withoutTax;
+        into.count += 1;
+        into.taxable = round2(into.taxable + Number(inv.taxable || 0));
+        if (inv.supplyType === 'SEZWP') into.igst = round2(into.igst + Number(inv.igst || 0));
+        continue;
+      }
+      if (inv.supplyType === 'DEXP') {
+        deemed.count += 1;
+        deemed.taxable = round2(deemed.taxable + Number(inv.taxable || 0));
+        add(deemed.tax, inv);
+        continue;
+      }
+      if (!inv.export) continue;
       const bucket = inv.export.withTax ? exports.withTax : exports.withoutTax;
       bucket.count += 1;
       bucket.taxable = round2(bucket.taxable + Number(inv.taxable || 0));
@@ -94,7 +140,7 @@ export function gstr9Draft(state, args = {}) {
     for (const inv of docs.invoices) {
       if (inv.status === 'cancelled') continue;
       for (const line of inv.lines || []) {
-        if (Number(line.gstRate || 0) === 0 && !inv.export) {
+        if (Number(line.gstRate || 0) === 0 && !inv.export && inv.supplyType !== 'SEZWOP') {
           nilRated.taxable = round2(nilRated.taxable + Number(line.taxable || 0));
           nilRated.lines += 1;
           const bucket = zero[line.supply] || zero.unsplit;
@@ -109,12 +155,13 @@ export function gstr9Draft(state, args = {}) {
         hsn.set(key, row);
       }
     }
-    const stored = state.gstr2b && typeof state.gstr2b === 'object' && Object.hasOwn(state.gstr2b, period) ? state.gstr2b[period] : null;
+    const stored = twobFor(state, period, gstin);
     if (stored) {
       twoB.months += 1;
       for (const row of stored.rows || []) add(twoB.available, row);
     }
-    const payment = state.gstPayments && typeof state.gstPayments === 'object' && Object.hasOwn(state.gstPayments, period) ? state.gstPayments[period] : null;
+    const payKey = scopeKey(state, period, gstin);
+    const payment = state.gstPayments && typeof state.gstPayments === 'object' && Object.hasOwn(state.gstPayments, payKey) ? state.gstPayments[payKey] : null;
     if (payment) {
       paid.months += 1;
       add(paid.cash, payment.cash);
@@ -123,9 +170,9 @@ export function gstr9Draft(state, args = {}) {
       paid.lateFee = round2(paid.lateFee + Number(payment.lateFee || 0));
       if (payment.unreviewed) unreviewed = true;
     }
-    monthRows.push({ period, documents: docs.invoices.length + docs.purchases.length, taxableSales: s.taxableSales, outputTax: s.outputTax.total, inputCredit: s.inputCredit.total, filed: filingFor(state, 'GSTR-3B', period) ? 'filed' : 'not recorded', paid: payment ? 'paid' : 'not recorded' });
+    monthRows.push({ period, documents: docs.invoices.length + docs.purchases.length, taxableSales: s.taxableSales, outputTax: s.outputTax.total, inputCredit: s.inputCredit.total, filed: filingFor(state, 'GSTR-3B', period, gstin) ? 'filed' : 'not recorded', paid: payment ? 'paid' : 'not recorded' });
   }
-  for (const inv of state.invoices || []) {
+  for (const inv of (state.invoices || []).filter((doc) => docGstin(state, doc) === gstin)) {
     for (const amendment of Array.isArray(inv.amendments) ? inv.amendments : []) {
       if (!months.includes(amendment.period) || amendment.period > today) continue;
       amended.count += 1;
@@ -141,24 +188,27 @@ export function gstr9Draft(state, args = {}) {
   notes.add(zero.unsplit.lines ? `Table 5: ${zero.unsplit.lines === 1 ? '1 line' : `${zero.unsplit.lines} lines`} at 0% GST (${zero.unsplit.taxable}) carry no supply type; mark each as nil-rated, exempt or non-GST on the invoice so the split is complete.` : 'Table 5 is split from the supply type recorded on each 0% line.');
   notes.add('Advances (table 4F) and amendments made directly on the portal are not in these books.');
   notes.add('Blocked-credit purchases are shown for table 7; ITC on capital goods, imports and reverse charge is not separated.');
+  if (zeroRatedNotes.creditNotes || zeroRatedNotes.debitNotes) notes.add('Credit and debit notes on exports or SEZ supplies without tax and on 0% lines are shown in table 5H/5I, not 4I/4J.');
+  if (registrations.length > 1) notes.add(`GSTR-9 is one return per GSTIN; this draft is for ${gstin}. The other registrations (${registrations.filter((reg) => reg.gstin !== gstin).map((reg) => reg.gstin).join(', ')}) each need their own draft.`);
   if (unreviewed) notes.add('Set-off, interest and late fee figures come from dated rules your CA has not reviewed yet.');
   const hsnRows = [...hsn.values()].sort((a, b) => a.hsn.localeCompare(b.hsn) || a.ratePercent - b.ratePercent);
-  const draftHash = createHash('sha256').update(JSON.stringify({ fy, outward, itc, paid, hsn: hsnRows })).digest('hex');
+  const draftHash = createHash('sha256').update(JSON.stringify({ fy, gstin, outward, zeroRatedNotes, itc, paid, hsn: hsnRows })).digest('hex');
   return {
     ok: true,
     data: {
       fy,
       form: 'GSTR-9',
-      gstin: state.company?.gstin || '',
+      gstin,
+      registrations: registrations.map((reg) => ({ gstin: reg.gstin, kind: reg.kind, label: reg.label })),
       months: monthRows,
-      table4: { outwardTaxable: outward.taxable, outwardTax: outward.tax, b2bInvoices: outward.b2b, b2cInvoices: outward.b2c, exportsWithTax: exports.withTax, creditNotes: outward.creditNotes, debitNotes: outward.debitNotes, amendments: amended, netTaxable: round2(outward.taxable - outward.creditNotes.taxable + outward.debitNotes.taxable) },
-      table5: { exportsWithoutTax: exports.withoutTax, nilRatedOrExempt: nilRated.taxable, lines: nilRated.lines, nilRated: zero.nil.taxable, exempt: zero.exempt.taxable, nonGst: zero['non-gst'].taxable, unsplit: zero.unsplit.taxable, unsplitLines: zero.unsplit.lines, note: zero.unsplit.lines ? 'Some 0% lines carry no supply type yet.' : 'Split from the supply type on each 0% line (5D nil-rated, 5E exempt, 5F non-GST).' },
+      table4: { outwardTaxable: outward.taxable, outwardTax: outward.tax, b2bInvoices: outward.b2b, b2cInvoices: outward.b2c, exportsWithTax: exports.withTax, sezWithTax: sez.withTax, deemedExports: deemed, creditNotes: outward.creditNotes, debitNotes: outward.debitNotes, amendments: amended, netTaxable: round2(outward.taxable - outward.creditNotes.taxable + outward.debitNotes.taxable) },
+      table5: { creditNotes: zeroRatedNotes.creditNotes, debitNotes: zeroRatedNotes.debitNotes, exportsWithoutTax: exports.withoutTax, sezWithoutTax: sez.withoutTax, nilRatedOrExempt: nilRated.taxable, lines: nilRated.lines, nilRated: zero.nil.taxable, exempt: zero.exempt.taxable, nonGst: zero['non-gst'].taxable, unsplit: zero.unsplit.taxable, unsplitLines: zero.unsplit.lines, note: zero.unsplit.lines ? 'Some 0% lines carry no supply type yet.' : 'Split from the supply type on each 0% line (5D nil-rated, 5E exempt, 5F non-GST).' },
       table6: { itcAvailed: itc.availed, purchases: itc.purchases },
       table7: { reversed: itc.reversed, blocked: itc.blocked },
       table8: { gstr2bMonths: twoB.months, gstr2bAvailable: twoB.available, availed: itc.availed, difference: add(heads(), { igst: twoB.available.igst - itc.availed.igst, cgst: twoB.available.cgst - itc.availed.cgst, sgst: twoB.available.sgst - itc.availed.sgst }) },
       table9: { paidInCash: paid.cash, paidByCredit: paid.credit, interest: paid.interest, lateFee: paid.lateFee, monthsRecorded: paid.months },
       table17: hsnRows,
-      filed: filingFor(state, 'GSTR-9', fy),
+      filed: filingFor(state, 'GSTR-9', fy, gstin),
       draftHash,
       notes: [...notes],
     },
@@ -166,7 +216,7 @@ export function gstr9Draft(state, args = {}) {
 }
 
 export function gstr9Words(d, money) {
-  const lines = [`GSTR-9 draft for ${d.fy}:`];
+  const lines = [`GSTR-9 draft for ${d.fy}${d.registrations && d.registrations.length > 1 ? ` (GSTIN ${d.gstin})` : ''}:`];
   lines.push(`· Outward supplies: taxable ${money(d.table4.outwardTaxable)} on ${d.table4.b2bInvoices + d.table4.b2cInvoices} invoices (${d.table4.b2bInvoices} B2B), tax ${money(d.table4.outwardTax.total)}${d.table4.creditNotes.taxable > 0 ? `; credit notes ${money(d.table4.creditNotes.taxable)}` : ''}${d.table4.debitNotes.taxable > 0 ? `; debit notes ${money(d.table4.debitNotes.taxable)}` : ''}`);
   lines.push(`· Input credit availed ${money(d.table6.itcAvailed.total)} on ${d.table6.purchases} bills${d.table7.reversed.total > 0 ? `; reversed ${money(d.table7.reversed.total)}` : ''}${d.table7.blocked.total > 0 ? `; blocked ${money(d.table7.blocked.total)}` : ''}`);
   if (d.table8.gstr2bMonths > 0) lines.push(`· GSTR-2B shows ${money(d.table8.gstr2bAvailable.total)} available against ${money(d.table8.availed.total)} availed (difference ${money(d.table8.difference.total)}) over ${d.table8.gstr2bMonths} months`);

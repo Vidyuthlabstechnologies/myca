@@ -192,6 +192,7 @@ const BANK_REASONS = {
   BILL_NOT_FOUND: 'There is no bill by that id.',
   BILL_PAID: 'That bill is already paid.',
   BEFORE_BILL: 'The line is dated before the bill.',
+  BEFORE_INVOICE: 'The line is dated before the invoice; record an advance by hand instead.',
   OVERPAYMENT: 'That is more than is owed.',
   HEAD_REQUIRED: 'Say which expense head; nothing is guessed.',
   UNKNOWN_HEAD: 'That is not an expense head I know.',
@@ -373,11 +374,11 @@ export function inventoryValuationPreview(state, args) {
 
 export function skuCostPreview(state, args) {
   const planned = planSkuCost(state, args);
-  if (!planned.ok) return { blockers: [{ SKU_REQUIRED: 'Say which SKU.', BAD_AMOUNT: 'The cost is zero or more per unit.', BAD_RATE: 'A GST rate is 0 to 28.', NOTHING_TO_CHANGE: 'Give a cost, a name, an HSN or a GST rate.', INVALID_DATE: 'That is not a date I can read.' }[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  if (!planned.ok) return { blockers: [{ SKU_REQUIRED: 'Say which SKU.', BAD_AMOUNT: 'The cost is zero or more per unit.', BAD_RATE: 'A GST rate is 0 to 28.', NOTHING_TO_CHANGE: 'Give a cost, a name, an HSN, a GST rate, a barcode or a selling price.', BAD_BARCODE: 'A barcode is 4 to 32 letters or digits.', BARCODE_IN_USE: 'Another item already has this barcode.', INVALID_DATE: 'That is not a date I can read.' }[planned.error] || planned.error], summary: '', effects: [], figures: {} };
   const { plan } = planned;
   return {
     blockers: [],
-    summary: `${plan.sku}${plan.next.name ? ` (${plan.next.name})` : ''}: cost ${plan.next.cost == null ? 'not set' : money(plan.next.cost)} per unit${plan.next.gstRate != null ? `, GST ${plan.next.gstRate}%` : ''}${plan.before?.cost != null && plan.before.cost !== plan.next.cost ? ` (was ${money(plan.before.cost)})` : ''}.`,
+    summary: `${plan.sku}${plan.next.name ? ` (${plan.next.name})` : ''}: cost ${plan.next.cost == null ? 'not set' : money(plan.next.cost)} per unit${plan.next.price != null ? `, sells at ${money(plan.next.price)}` : ''}${plan.next.gstRate != null ? `, GST ${plan.next.gstRate}%` : ''}${plan.next.barcode ? `, barcode ${plan.next.barcode}` : ''}${plan.before?.cost != null && plan.before.cost !== plan.next.cost ? ` (was ${money(plan.before.cost)})` : ''}.`,
     effects: ['Margins and stock values use it from now; nothing posts to the ledger.'],
     figures: { cost: plan.next.cost },
   };
@@ -485,7 +486,7 @@ export function posImportPreview(state, args) {
   if (!plan.ok) return { blockers: [plan.error === 'NO_HEADER' ? `The file needs ${plan.parsed.need}.` : `The file could not be read: ${plan.error}.`], summary: '', effects: [], figures: {} };
   const reasons = {};
   for (const row of plan.skipped) reasons[row.reason] = (reasons[row.reason] || 0) + 1;
-  const words = { exists: 'already imported', tax_differs: 'whose GST in the file differs from the rate', RATE_REQUIRED: 'rows with no GST rate', INVALID_DATE: 'rows with a date I cannot read', BAD_AMOUNT: 'rows with an amount I cannot read', PERIOD_LOCKED: 'in a locked period' };
+  const words = { exists: 'already imported', tax_differs: 'whose GST in the file differs from the rate', RATE_REQUIRED: 'rows with no GST rate', INVALID_DATE: 'rows with a date I cannot read', BAD_AMOUNT: 'rows with an amount I cannot read', PERIOD_LOCKED: 'in a locked period', day_has_held_rows: 'whole days held because one of their rows is held' };
   const held = Object.entries(reasons).map(([reason, count]) => `${count} ${words[reason] || reason}`);
   const total = plan.ready.reduce((sum, item) => sum + item.taxable + item.tax, 0);
   return {

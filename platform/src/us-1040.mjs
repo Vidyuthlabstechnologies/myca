@@ -310,7 +310,8 @@ export function computeForm1040(input = {}, taxYearArg) {
   const tips = read('us.federal.individual.tips-deduction');
   const overtime = read('us.federal.individual.overtime-deduction');
   const carLoan = read('us.federal.individual.car-loan-interest');
-  if (missing.some((id) => !['us.federal.individual.senior-deduction', 'us.federal.individual.tips-deduction', 'us.federal.individual.overtime-deduction', 'us.federal.individual.car-loan-interest'].includes(id))) return { ok: false, error: 'RULE_NOT_IN_FORCE', taxYear, missing };
+  const qbiMinimum = read('us.federal.individual.qbi-minimum');
+  if (missing.some((id) => !['us.federal.individual.senior-deduction', 'us.federal.individual.tips-deduction', 'us.federal.individual.overtime-deduction', 'us.federal.individual.car-loan-interest', 'us.federal.individual.qbi-minimum'].includes(id))) return { ok: false, error: 'RULE_NOT_IN_FORCE', taxYear, missing };
 
   const answers = input.answers || {};
   const checks = [];
@@ -519,8 +520,18 @@ export function computeForm1040(input = {}, taxYearArg) {
     else {
       const component = ofBasis(Math.max(0, qbiIncome), qbi.basisPoints) + ofBasis(reitDividends, qbi.basisPoints);
       const incomeLimit = ofBasis(Math.max(0, beforeQbi - (qualifiedDividends + d.netCapitalGain)), qbi.basisPoints);
-      line13a = Math.min(component, incomeLimit);
-      form8995 = { 2: Math.max(0, qbiIncome), 5: ofBasis(Math.max(0, qbiIncome), qbi.basisPoints), 6: reitDividends, 10: component, 11: beforeQbi, 12: qualifiedDividends + d.netCapitalGain, 14: incomeLimit, 15: line13a, ...(qbiIncome < 0 ? { 16: qbiIncome } : {}) };
+      const beforeMinimum = Math.min(component, incomeLimit);
+      const minimumAmount = qbiMinimum ? fromCents(qbiMinimum.minimumCents) : 0;
+      const activeFloor = qbiMinimum ? fromCents(qbiMinimum.activeQbiFloorCents) : 0;
+      const participation = answers.qbiMaterialParticipation;
+      const active = participation === true || participation === 'yes';
+      const answeredNo = participation === false || participation === 'no';
+      const minimumDeduction = qbiMinimum && active && qbiIncome >= activeFloor ? minimumAmount : 0;
+      line13a = Math.max(beforeMinimum, minimumDeduction);
+      form8995 = qbiMinimum
+        ? { 2: Math.max(0, qbiIncome), 5: ofBasis(Math.max(0, qbiIncome), qbi.basisPoints), 6: reitDividends, 10: component, 11: beforeQbi, 12: qualifiedDividends + d.netCapitalGain, 14: incomeLimit, 15: beforeMinimum, 16: minimumDeduction, 17: line13a, ...(qbiIncome < 0 ? { 18: qbiIncome } : {}) }
+        : { 2: Math.max(0, qbiIncome), 5: ofBasis(Math.max(0, qbiIncome), qbi.basisPoints), 6: reitDividends, 10: component, 11: beforeQbi, 12: qualifiedDividends + d.netCapitalGain, 14: incomeLimit, 15: line13a, ...(qbiIncome < 0 ? { 16: qbiIncome } : {}) };
+      if (qbiMinimum && !active && !answeredNo && qbiIncome >= activeFloor && beforeMinimum < minimumAmount) checks.push(check('warning', 'QBI_MINIMUM_NEEDS_ANSWER', `Your business may qualify for the minimum QBI deduction of $${minimumAmount} (IRC 199A(i)) if you materially participate in it. Answer the material participation question to claim it.`, 'Answer whether you worked in your business regularly, continuously and substantially this year.', '8995'));
     }
   }
   const line14 = line12 + line13a + line13b;
@@ -613,7 +624,7 @@ export function computeForm1040(input = {}, taxYearArg) {
 
   const withheld = (kind, name = 'federalWithheld') => sum(formsOf(input, kind), (form) => field(form, name));
   const line25a = withheld('W-2');
-  const line25b = withheld('1099-INT') + withheld('1099-DIV') + withheld('1099-NEC') + withheld('1099-MISC') + withheld('1099-G') + withheld('1099-R') + withheld('SSA-1099') + sum(formsOf(input, '1099-B'), (form) => dollars(form.fields?.federalWithheld) + sum(Array.isArray(form.fields?.transactions) ? form.fields.transactions : [], (row) => row.federalWithheld));
+  const line25b = withheld('1099-INT') + withheld('1099-DIV') + withheld('1099-NEC') + withheld('1099-MISC') + withheld('1099-G') + withheld('1099-R') + withheld('SSA-1099') + sum(formsOf(input, '1099-B'), (form) => positive(form.fields?.federalWithheld) + sum(Array.isArray(form.fields?.transactions) ? form.fields.transactions : [], (row) => positive(row.federalWithheld)));
   const line25c = additionalWithheld;
   const line25d = line25a + line25b + line25c;
   const line26 = positive(answers.estimatedTaxPayments) + positive(answers.priorYearOverpaymentApplied);

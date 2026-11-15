@@ -10,7 +10,7 @@ import { buildPintAe } from './einvoice.mjs';
 import { sendThroughAsp, issuedEinvoices, aspMode } from './asp.mjs';
 import { createAeInvoice, createAePurchase, createAeCreditNote, planAeInvoice, planAePurchase, planAeCreditNote, aeVatLines } from './books.mjs';
 import { langOf, localise, toArabic } from './messages.mjs';
-import { gratuityEstimate, wpsSalaryFile } from './payroll.mjs';
+import { gratuityEstimate, uaePayrollRun, wpsSalaryFile } from './payroll.mjs';
 
 const PROFILE_FIELDS = ['name', 'nameAr', 'trn', 'tin', 'legalId', 'legalIdType', 'emirate', 'city', 'addressLine', 'freeZone', 'freeZoneName', 'financialYearEnd', 'vatPeriod'];
 const YEAR_END = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
@@ -28,7 +28,8 @@ function withSeller(state, args) {
 
 function profileFrom(args) {
   const out = Object.fromEntries(PROFILE_FIELDS.filter((key) => args[key] !== undefined && args[key] !== null && args[key] !== '').map((key) => [key, typeof args[key] === 'string' ? args[key].trim() : args[key]]));
-  if (out.trn) out.trn = out.trn.replace(/[\s-]/g, '');
+  if (out.trn) out.trn = checkTrn(out.trn).trn;
+  if (out.tin) out.tin = checkTin(out.tin).tin;
   const emirate = emirateOf(out.emirate);
   if (emirate) out.emirate = emirate.code;
   return out;
@@ -113,6 +114,7 @@ const RUN = localiseRuns({
     },
     ae_einvoice_list: (state) => ({ ok: true, data: { mode: aspMode(), einvoices: issuedEinvoices(state).sort((a, b) => (a.sentAt < b.sentAt ? 1 : -1)) } }),
     ae_gratuity: (state, args = {}) => gratuityEstimate(args),
+    ae_payroll_run: (state, args = {}) => uaePayrollRun(args),
     ae_penalty_estimate: (state, args = {}) => penaltyEstimate(args),
     ae_vat_registration: (state, args = {}) => vatRegistrationCheck(args),
     ae_vat_lines: (state, args = {}) => aeVatLines(state, args),
@@ -263,6 +265,12 @@ const WORDS = Object.freeze({
       if (!result.ok) return '';
       const d = result.data;
       return langOf(args) === 'ar' ? `مكافأة نهاية الخدمة ${aed(d.gratuity, 'ar')} عن ${d.serviceYears} سنة خدمة. ${d.why}` : `End-of-service gratuity ${aed(d.gratuity)} for ${d.serviceYears} years of service. ${d.why}`;
+    },
+    ae_payroll_run: (result, money, args = {}) => {
+      if (!result.ok) return '';
+      const t = result.data.totals;
+      const count = result.data.employees.length;
+      return langOf(args) === 'ar' ? `رواتب ${result.data.month} لعدد ${count} موظف: الإجمالي ${aed(t.grossPay, 'ar')} والصافي ${aed(t.netPay, 'ar')}، واشتراكات المعاش ${aed(t.pensionEmployee + t.pensionEmployer, 'ar')}، ومخصص المكافأة ${aed(t.gratuityAccrual, 'ar')}.` : `Payroll for ${result.data.month}, ${count} employee${count === 1 ? '' : 's'}: gross ${aed(t.grossPay)}, net ${aed(t.netPay)}, GPSSA ${aed(t.pensionEmployee + t.pensionEmployer)}, gratuity accrual ${aed(t.gratuityAccrual)}.`;
     },
     ae_penalty_estimate: (result, money, args = {}) => {
       if (!result.ok) return '';

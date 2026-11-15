@@ -149,6 +149,7 @@ function ewayBillWords(status) {
     ewbValidity: status.ewbValidity || '',
     hasIrn: Boolean(status.hasIrn),
     ...(status.sandboxEwbNo ? { sandboxEwbNo: status.sandboxEwbNo } : {}),
+    ...(status.mockEwbNo ? { mockEwbNo: status.mockEwbNo } : {}),
     next: {
       'not-needed': '',
       'transport-needed': 'Add the vehicle, distance and transporter, then the e-way bill can be generated.',
@@ -156,6 +157,7 @@ function ewayBillWords(status) {
         ? 'Ready to generate from the IRN through Sandbox by Quicko (live switch and approval).'
         : 'Ready to generate from the invoice through Sandbox by Quicko (live switch and approval); no e-invoice is needed.',
       generated: '',
+      simulated: `Simulated e-way bill ${status.mockEwbNo || ''} from the sandbox; nothing reached the e-way bill portal and the goods cannot move on it.`,
     }[status.status] || '',
   };
 }

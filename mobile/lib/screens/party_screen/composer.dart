@@ -100,8 +100,10 @@ class _ComposerCard extends StatelessWidget {
     required this.onCancel,
     required this.onSubmit,
     required this.children,
+    required this.maxHeight,
   });
 
+  final double maxHeight;
   final String title;
   final String error;
   final VoidCallback onCancel;
@@ -120,12 +122,7 @@ class _ComposerCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(radiusCard),
           border: Border.all(color: Palette.line),
         ),
-        constraints: BoxConstraints(
-          maxHeight:
-              (MediaQuery.sizeOf(context).height -
-                  MediaQuery.viewInsetsOf(context).bottom) *
-              0.62,
-        ),
+        constraints: BoxConstraints(maxHeight: maxHeight),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,

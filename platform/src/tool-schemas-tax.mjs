@@ -57,6 +57,7 @@ export const TAX_TOOL_SCHEMAS = {
       csv: { type: 'string', minLength: 1 },
       period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
       fileName: { type: 'string', maxLength: 120 },
+      gstin: REGISTRATION_ARG,
     },
   },
   record_filing: {
@@ -346,6 +347,41 @@ export const TAX_TOOL_SCHEMAS = {
     additionalProperties: false,
     properties: { regime: { type: 'string', enum: ['old', 'new'] }, presumptive: { type: 'boolean' }, otherIncome: { type: 'number', minimum: 0 }, asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
   },
+  income_tax_interest: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['fy', 'dueDate', 'filedOn', 'taxOnTotalIncome'],
+    properties: {
+      fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' },
+      dueDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      filedOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      determinedOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      taxOnTotalIncome: { type: 'number', minimum: 0, maximum: 1000000000000 },
+      taxOnReturnedIncome: { type: 'number', minimum: 0, maximum: 1000000000000 },
+      tdsTcs: { type: 'number', minimum: 0, maximum: 1000000000000 },
+      relief: { type: 'number', minimum: 0, maximum: 1000000000000 },
+      lateFee: { type: 'number', minimum: 0, maximum: 1000000000000 },
+      advanceTaxPayments: { type: 'array', maxItems: 60, items: { type: 'object', additionalProperties: false, required: ['date', 'amount'], properties: { date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, amount: { type: 'number', minimum: 0, maximum: 1000000000000 } } } },
+      selfAssessmentPayments: { type: 'array', maxItems: 60, items: { type: 'object', additionalProperties: false, required: ['date', 'amount'], properties: { date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, amount: { type: 'number', minimum: 0, maximum: 1000000000000 } } } },
+      presumptive: { type: 'boolean' },
+      seniorNoBusiness: { type: 'boolean' },
+      excludedIncome: { type: 'array', maxItems: 20, items: { type: 'object', additionalProperties: false, required: ['kind', 'arisedOn', 'tax'], properties: { kind: { type: 'string', enum: ['capital-gains', 'lottery', 'new-business', 'dividend'] }, arisedOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, tax: { type: 'number', minimum: 0, maximum: 1000000000000 }, paidInRemainingInstalments: { type: 'boolean' } } } },
+    },
+  },
+  tds_interest: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      quarter: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' },
+      form: { type: 'string', enum: ['other', 'salary'] },
+      dueDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      filedOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      tds: { type: 'number', minimum: 0, maximum: 1000000000000 },
+      late: { type: 'array', maxItems: 200, items: { type: 'object', additionalProperties: false, required: ['amount', 'deductibleOn'], properties: { amount: { type: 'number', minimum: 0, maximum: 1000000000000 }, deductibleOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, deductedOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, paidOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, depositDueDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } } } },
+      basis: { type: 'string', enum: ['calendar', 'period'] },
+      asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
   record_advance_tax: {
     type: 'object',
     additionalProperties: false,
@@ -489,7 +525,7 @@ export const TAX_TOOL_SCHEMAS = {
   gstr9_draft: {
     type: 'object',
     additionalProperties: false,
-    properties: { fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' } },
+    properties: { fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' }, gstin: REGISTRATION_ARG },
   },
   gst_payable: {
     type: 'object',
@@ -508,6 +544,7 @@ export const TAX_TOOL_SCHEMAS = {
       igst: { type: 'number', minimum: 0 },
       cgst: { type: 'number', minimum: 0 },
       sgst: { type: 'number', minimum: 0 },
+      cess: { type: 'number', minimum: 0 },
     },
   },
   prepare_gstr1: {
