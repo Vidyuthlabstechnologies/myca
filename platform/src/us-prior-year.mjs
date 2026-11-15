@@ -33,18 +33,16 @@ function typedFigures(figures, problems) {
     problems.push('Figures are amounts from last year\'s Form 1040.');
     return out;
   }
-  for (const [key, raw] of Object.entries(figures)) {
-    if (!FIGURES[key]) {
-      problems.push(`Figures can be ${Object.keys(FIGURES).join(', ')}.`);
-      continue;
-    }
+  if (Object.keys(figures).some((key) => !Object.hasOwn(FIGURES, key))) problems.push(`Figures can be ${Object.keys(FIGURES).join(', ')}.`);
+  for (const [name, spec] of Object.entries(FIGURES)) {
+    const raw = Object.hasOwn(figures, name) ? figures[name] : undefined;
     if (raw === '' || raw === null || raw === undefined) continue;
     const number = Number(raw);
     if (!Number.isFinite(number) || number < 0 || number > MAX_AMOUNT) {
-      problems.push(`${FIGURES[key].label} is an amount of zero or more.`);
+      problems.push(`${spec.label} is an amount of zero or more.`);
       continue;
     }
-    out[key] = Math.round(number * 100) / 100;
+    out[name] = Math.round(number * 100) / 100;
   }
   return out;
 }
