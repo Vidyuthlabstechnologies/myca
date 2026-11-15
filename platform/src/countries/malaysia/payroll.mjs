@@ -29,7 +29,8 @@ function percent(sen, basisPoints) {
 export function epfContribution(wageSen, profile, rule) {
   const r = rule.value;
   if (wageSen <= r.noContributionUpToSen) return { employee: 0, employer: 0, basis: 'none' };
-  if (profile.citizen === false && profile.date >= r.nonCitizen.from) {
+  if (profile.citizen === false && profile.date < r.nonCitizen.from) return { employee: 0, employer: 0, basis: 'non-citizen-elective' };
+  if (profile.citizen === false) {
     return { employee: roundUp(percent(wageSen, r.nonCitizen.employeeBasisPoints), r.roundUpToSen), employer: roundUp(percent(wageSen, r.nonCitizen.employerBasisPoints), r.roundUpToSen), basis: 'non-citizen' };
   }
   const employerRate = profile.age >= 60 ? r.over60.employerBasisPoints : wageSen <= r.employerCeilingSen ? r.employerUpToCeilingBasisPoints : r.employerAboveCeilingBasisPoints;
@@ -67,6 +68,7 @@ export function malaysiaPayroll(args = {}) {
     const wageSen = toSen(wage);
     const bonusSen = toSen(bonus);
     const notes = [];
+    if (employee.citizen === false && date < epf.value.nonCitizen.from) notes.push('EPF for non-Malaysian workers is mandatory only from October 2025 wages; before that it is elective, so add it only if the worker registered.');
     const epfProfile = { age, citizen: employee.citizen !== false, date };
     const epfOnWages = epfContribution(wageSen, epfProfile, epf);
     const epfPart = bonusSen > 0 ? epfContribution(wageSen + bonusSen, epfProfile, epf) : epfOnWages;
@@ -77,13 +79,15 @@ export function malaysiaPayroll(args = {}) {
       notes.push('Wages of RM300 or less are below the encoded SOCSO and EIS rows; read them from the PERKESO table.');
     } else if (wageSen > 0) {
       if (age >= 60) notes.push('At 60 and over only the employer pays SOCSO, under the second category; read it from the PERKESO table. No EIS is due.');
-      else {
+      else if (employee.citizen === false) {
+        notes.push('Foreign workers are covered by the SOCSO Employment Injury Scheme only: the employer pays and nothing is taken from the wage; read the employer amount from the PERKESO table. No EIS is due unless PERKESO says otherwise.');
+        if (employee.eisCovered === true) eisEach = tableRow(eis.value.rows, wageSen, eis.value.ceilingSen)[1];
+      } else {
         const row = tableRow(socso.value.rows, wageSen, socso.value.ceilingSen);
         socsoEmployer = row[1];
         socsoEmployee = row[2];
         const eisRow = tableRow(eis.value.rows, wageSen, eis.value.ceilingSen);
-        eisEach = employee.citizen === false && employee.eisCovered !== true ? 0 : eisRow[1];
-        if (employee.citizen === false && employee.eisCovered !== true) notes.push('Foreign workers are not covered by EIS unless PERKESO says otherwise.');
+        eisEach = eisRow[1];
       }
     }
     const employeeTotal = epfPart.employee + socsoEmployee + eisEach;
