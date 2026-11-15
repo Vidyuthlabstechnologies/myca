@@ -156,4 +156,37 @@ export const RULES = [
     '2026-01-01', '2026-12-31', 'Income Tax (Deduction from Remuneration) Rules 1994', 'Schedule',
     'LHDN computerised method for monthly tax deduction (PCB/MTD): PCB for the month = [((P - M) x R + B) - (Z + X)] / (n + 1), where P is the yearly chargeable income from pay to date, this month and this month repeated for the rest of the year, less EPF (capped at RM4,000 a year) and the individual RM9,000, spouse RM4,000 (category 2) and RM2,000 per child reliefs; M, R and B come from the resident rate bands, B net of the RM400 rebate (RM800 with spouse) up to RM35,000; the amount is cut to the sen and rounded up to the next 5 sen, and under RM10 is not deducted (Talenox, Malaysia tax guide: how do I calculate PCB/MTD, part 2 of 3, https://www.talenox.com/blog/malaysia-tax-guide-how-do-i-calculate-pcb-mtd-part-2-of-3/; categories per LPHS PCB 2025 notice, https://www.lphs.gov.my/storage/files/ac562881-96fc-4ce6-94ca-fd15cbb6d8dd/LPHS/pcb25.pdf; Budget 2026 relief changes listed by Ramco (https://www.ramco.com/blog/payroll/malaysia-budget-2026-tax-reliefs-payroll-benefits) do not touch these figures)'
   ),
+  record(
+    'my.payroll.cp39-text-file', {
+      fileName: 'employer number, month, underscore, year, .txt',
+      headerLength: 57,
+      detailLength: 136,
+      header: [
+        { key: 'recordType', length: 1, pad: 'space-right' },
+        { key: 'hqEmployerNo', length: 10, pad: 'zero-left' },
+        { key: 'employerNo', length: 10, pad: 'zero-left' },
+        { key: 'year', length: 4, pad: 'zero-left' },
+        { key: 'month', length: 2, pad: 'zero-left' },
+        { key: 'totalPcb', length: 10, pad: 'zero-left' },
+        { key: 'pcbRecords', length: 5, pad: 'zero-left' },
+        { key: 'totalCp38', length: 10, pad: 'zero-left' },
+        { key: 'cp38Records', length: 5, pad: 'zero-left' },
+      ],
+      detail: [
+        { key: 'recordType', length: 1, pad: 'space-right' },
+        { key: 'taxNumber', length: 11, pad: 'zero-left' },
+        { key: 'name', length: 60, pad: 'space-right' },
+        { key: 'oldIc', length: 12, pad: 'space-right' },
+        { key: 'newIc', length: 12, pad: 'space-right' },
+        { key: 'passport', length: 12, pad: 'space-right' },
+        { key: 'countryCode', length: 2, pad: 'space-right' },
+        { key: 'pcb', length: 8, pad: 'zero-left' },
+        { key: 'cp38', length: 8, pad: 'zero-left' },
+        { key: 'employeeNo', length: 10, pad: 'space-right' },
+      ],
+      amounts: 'sen, no RM and no decimal point',
+    }, 'fixed_width_text_file_layout_for_monthly_tax_deduction_data',
+    '2026-01-01', null, 'Income Tax (Deduction from Remuneration) Rules 1994', 'LHDN specification, Exhibit 4 and Exhibit 5',
+    'LHDN, Amendment to: Specification for Monthly Tax Deduction (MTD) Calculations Using Computerised Calculation for 2026, updated 1 January 2026 (https://www.hasil.gov.my/wp-content/uploads/spesifikasi-kaedah-pengiraan-berkomputer-pcb-2026.pdf), Exhibit 4, Specification Format for MTD Text File Data: file name xxxxxxxxxxmm_yyyy.txt; header H of 57 characters (HQ employer number 2-11, employer number 12-21, year 22-25, month 26-27, total MTD amount 28-37, total MTD records 38-42, total CP38 amount 43-52, total CP38 records 53-57); detail D of 136 characters (tax identification number 2-12 in 11 digits with leading zeroes, name 13-72, old IC 73-84, new IC 85-96, passport 97-108, country code 109-110, MTD amount 111-118, CP38 amount 119-126, employee number 127-136); Exhibit 5: amounts "without RM and decimal point" (RM900.00 is 00090000), the tax identification number is mandatory and the country code is "for foreigner employee only"; the specification does not say how lines end or whether an employee with no deduction is listed; earlier years of the layout were not read'
+  ),
 ];
