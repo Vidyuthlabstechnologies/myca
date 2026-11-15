@@ -202,7 +202,7 @@ class _MyEinvoiceDetailScreenState extends State<MyEinvoiceDetailScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             children: [
-              if (mySandbox(context) || record.sandbox) ...[MyNote(t.sandboxBanner), const SizedBox(height: 12)],
+              if (mySandbox(context) || simulated) ...[MyNote(t.sandboxBanner), const SizedBox(height: 12)] else if (record.sandbox) ...[MyNote(t.preprodBanner, key: const Key('myDetail.preprod')), const SizedBox(height: 12)],
               MyPanel(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
