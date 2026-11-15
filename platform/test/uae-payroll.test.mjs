@@ -50,6 +50,14 @@ test('the WPS file has one EDR per employee and a closing SCR that adds up', () 
   assert.equal(result.data.total, 13750.5);
 });
 
+test('the employer reference cannot break a WPS line or add one', () => {
+  const result = wpsSalaryFile({ ...base, employerReference: 'OCT\r\nEDR,99999999999999,201234567,X,2026-10-01,2026-10-31,31,1.00,0.00,0' });
+  const lines = result.data.content.trim().split('\r\n');
+  assert.equal(lines.length, 2);
+  assert.equal(lines[1].split(',').length, 10);
+  assert.equal(wpsSalaryFile({ ...base, employerReference: ' \n ' }).data.content.trim().split(',').pop(), 'NONE');
+});
+
 test('the WPS file refuses a bad IBAN, routing code or pay period', () => {
   const result = wpsSalaryFile({ ...base, employees: [{ ...employee, account: 'AE080331234567890123456', routingCode: '12', payStart: '2026-09-30' }] });
   assert.equal(result.error, 'WPS_FILE_INVALID');
