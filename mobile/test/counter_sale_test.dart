@@ -23,6 +23,23 @@ const _invoice = {
   'total': 59,
 };
 
+const _document = {
+  'id': 'INV-0042',
+  'date': '2026-11-14',
+  'documentTitle': 'Tax invoice',
+  'seller': {'name': 'Sharma Kirana', 'gstin': '27AABCU9603R1ZN', 'address': '4 Station Road', 'city': 'Pune', 'pin': '411001', 'state': {'code': '27', 'name': 'Maharashtra'}},
+  'buyer': {'name': 'Walk-in customer', 'gstin': '', 'address': ''},
+  'placeOfSupply': {'code': '27', 'name': 'Maharashtra'},
+  'lines': [
+    {'description': 'Parle-G 250g', 'hsn': '1905', 'qty': 2, 'rate': 25, 'gstRate': 18, 'taxable': 50},
+  ],
+  'taxable': 50,
+  'cgst': 4.5,
+  'sgst': 4.5,
+  'igst': 0,
+  'total': 59,
+};
+
 class CounterApi extends FakeMycaApi {
   final known = <String, Map<String, Object?>>{
     '8901063010031': {'found': true, 'sku': 'PARLE-G', 'name': 'Parle-G 250g', 'price': 25, 'gstRate': 18, 'hsn': '1905'},
@@ -35,6 +52,10 @@ class CounterApi extends FakeMycaApi {
     if (name == 'find_item') {
       final hit = known['${args['code']}'];
       return {'ok': true, 'data': hit ?? {'found': false, 'code': args['code']}};
+    }
+    if (name == 'invoice_document') {
+      if (args['id'] != 'INV-0042') return {'ok': false, 'error': 'INVOICE_NOT_FOUND'};
+      return {'ok': true, 'data': _document};
     }
     return super.query(name, args);
   }
@@ -131,6 +152,24 @@ void main() {
     }
   });
 
+  test('the receipt follows the engine document: title, seller address, HSN, place of supply and cess', () {
+    final text = _ascii(receiptBytes(invoice: _document, businessName: ''));
+    expect(text, contains('TAX INVOICE'));
+    expect(text, contains('4 Station Road, Pune, 411001'));
+    expect(text, contains('GSTIN 27AABCU9603R1ZN'));
+    expect(text, contains('HSN 1905'));
+    expect(text, isNot(contains('Place of supply')));
+    final interState = _ascii(receiptBytes(invoice: {..._document, 'placeOfSupply': {'code': '24', 'name': 'Gujarat'}, 'cgst': 0, 'sgst': 0, 'igst': 9, 'cess': 2.5, 'total': 61.5}, businessName: ''));
+    expect(interState, contains('Place of supply: Gujarat (24)'));
+    expect(interState, contains('Cess'));
+    expect(interState, contains('Rs.2.50'));
+    final composition = _ascii(receiptBytes(invoice: {..._document, 'documentTitle': 'Bill of supply', 'compositionDeclaration': 'Composition taxable person, not eligible to collect tax on supplies', 'cgst': 0, 'sgst': 0, 'total': 50}, businessName: ''));
+    expect(composition, contains('BILL OF SUPPLY'));
+    expect(composition, isNot(contains('TAX INVOICE')));
+    expect(composition.replaceAll('\n', ' '), contains('Composition taxable person, not eligible to collect tax on supplies'));
+    expect(_ascii(receiptBytes(invoice: _invoice, businessName: 'Shop')), isNot(contains('TAX INVOICE')));
+  });
+
   test('80 mm paper widens the lines to 48 columns', () {
     final text = _ascii(receiptBytes(invoice: _invoice, businessName: 'Shop', paper: PaperWidth.mm80));
     expect(text.split('\n').any((line) => line.length > 32 && line.length <= 48), isTrue);
@@ -195,6 +234,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(printer.kept?.address, '00:11:22:33:44:55');
     expect(_ascii(printer.sent.single), contains('INV-0042'));
+    expect(_ascii(printer.sent.single), contains('4 Station Road'));
+    expect(_ascii(printer.sent.single), contains('HSN 1905'));
     expect(find.text('Receipt sent to POS-58.'), findsOneWidget);
   });
 }

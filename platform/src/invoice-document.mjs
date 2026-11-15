@@ -59,6 +59,7 @@ function common(state, doc) {
     cgst: round2(doc.cgst),
     sgst: round2(doc.sgst),
     igst: round2(doc.igst),
+    ...(Number(doc.cess) > 0 ? { cess: round2(doc.cess) } : {}),
     total: round2(doc.total),
     missing,
     template: (() => { const t = invoiceTemplateOf(state); return { ...t, showHsn: hsnShownOn(state, doc, t), bankWords: bankWords(t.bank) }; })(),

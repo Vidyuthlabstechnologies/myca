@@ -198,6 +198,8 @@ test('GST (Compensation to States) Cess Act s.8: ad valorem and specific cess ar
   const line = inv.lines[0];
   assert.deepEqual([line.taxable, line.igst, line.cessRate, line.cessPerUnit, line.cessAdval, line.cessNonAdval, line.cess, line.amount], [10000, 2800, 5, 0.5, 500, 500, 1000, 13800]);
   assert.deepEqual([inv.cess, inv.total], [1000, 13800]);
+  const printed = (await runTool(state, 'invoice_document', { id: inv.id })).data;
+  assert.deepEqual([printed.taxable, printed.igst, printed.cess, printed.total], [10000, 2800, 1000, 13800], 'the document carries the cess so its figures add up to the total');
   assert.equal(balanceOf(state, '2103'), 1000);
   assert.equal(listAccounts(state.ledger).find((row) => row.code === '2103').name, 'GST output Cess');
   assert.equal(trialBalance(state.ledger).balanced, true);
