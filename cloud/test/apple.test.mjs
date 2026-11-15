@@ -142,6 +142,19 @@ test('a token and nonce that already signed someone in are refused the second ti
   assert.equal((await apple({ idToken: fresh.token, rawNonce: fresh.raw })).status, 200, 'a new nonce signs in again');
 });
 
+test('a used nonce is remembered until its token expires, so a long-lived token cannot be replayed after fifteen minutes', async () => {
+  let clock = Date.now();
+  const verifier = createAppleVerifier({ clientIds: [APPLE_BUNDLE_ID], keys: createAppleKeys({ fetchImpl: fakeAppleFetch(), now: () => clock }), now: () => clock, db: api.db });
+  const raw = rawNonce();
+  const seconds = Math.floor(clock / 1000);
+  const token = appleToken({ sub: '001234.longlived.0001', iat: seconds, exp: seconds + DAY / 1000 }, { nonce: hashNonce(raw) });
+  assert.equal((await verifier.verify(token, { rawNonce: raw })).ok, true);
+  clock += 60 * 60 * 1000;
+  assert.deepEqual(await verifier.verify(token, { rawNonce: raw }), { ok: false, error: 'APPLE_NONCE_REUSED' });
+  clock += DAY;
+  assert.equal((await verifier.verify(token, { rawNonce: raw })).error, 'APPLE_TOKEN_EXPIRED');
+});
+
 test('an Apple account is the same person as nobody else: a Google or OIDC subject with the same id is another account', async () => {
   const { raw, token } = signed({ sub: '1001' });
   const out = await apple({ idToken: token, rawNonce: raw });

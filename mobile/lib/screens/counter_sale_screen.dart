@@ -217,7 +217,19 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
     }
     if (!mounted) return;
     final company = AppScope.of(context).snapshot?.company;
-    final bytes = receiptBytes(invoice: invoice, businessName: company?.name ?? '', gstin: company?.gstin ?? '', paper: await widget.printer.paper());
+    Map<String, dynamic> document;
+    try {
+      document = toolData(await api.query('invoice_document', {'id': '${invoice['id']}'}));
+    } on MycaApiException catch (err) {
+      if (mounted) setState(() => _message = err.message);
+      return;
+    }
+    if (!mounted) return;
+    if (document.isEmpty) {
+      setState(() => _message = 'Could not load bill ${invoice['id']} to print. Try again.');
+      return;
+    }
+    final bytes = receiptBytes(invoice: document, businessName: company?.name ?? '', gstin: company?.gstin ?? '', paper: await widget.printer.paper());
     final problem = await widget.printer.print(printer, bytes);
     if (mounted) setState(() => _message = problem ?? 'Receipt sent to ${printer!.name}.');
   }

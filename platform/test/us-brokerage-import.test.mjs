@@ -11,7 +11,8 @@ const BROKER = [
   'Description,Date Acquired,Date Sold,Proceeds,Cost Basis,Wash Sale Loss Disallowed,Term',
   '"APPLE INC, 10 SH",01/15/2024,03/01/2025,"$2,500.00","$1,800.00",,Long Term',
   'TESLA 5 SH,2025-02-01,2025-06-01,1000,1200.50,50,Short Term',
-  'VANGUARD ETF,2024-03-01,2025-02-01,900,(100),,',
+  'VANGUARD ETF,2024-03-01,2025-02-01,900,100,,',
+  'BAD BASIS,2024-03-01,2025-02-01,900,(100),,',
   'Total,,,4400,2900.5,50,',
 ].join('\n');
 
@@ -26,7 +27,9 @@ test('a broker export becomes 1099-B sales with terms and totals', () => {
   assert.equal(form.fields.transactions[1].washSaleLossDisallowed, 50);
   assert.equal(form.fields.transactions[2].term, 'short');
   assert.equal(out.data.totals.longTermGain, 700);
-  assert.equal(out.data.totals.shortTermGain, 849.5);
+  assert.equal(out.data.totals.shortTermGain, 649.5);
+  assert.equal(out.data.skippedRows, 1);
+  assert.match(out.data.problems[0], /Row 6: cost basis cannot be negative/);
   assert.match(usBrokerageCsvWords(out.data), /long-term gain \$700/);
 });
 
@@ -47,6 +50,21 @@ test('crypto trades are matched first in, first out with holding periods and fee
   assert.deepEqual(rows.map((row) => [row.dateAcquired, row.term, row.proceeds, row.costBasis]), [['2024-01-10', 'long', 59940, 20100], ['2024-12-01', 'short', 29970, 20000]]);
   assert.equal(out.data.rewardIncome, 300);
   assert.equal(out.data.totals.longTermGain, 39840);
+});
+
+test('a Coinbase export uses the total with fees, not the subtotal, and flags converts', () => {
+  const csv = [
+    'Timestamp,Transaction Type,Asset,Quantity Transacted,Spot Price Currency,Spot Price at Transaction,Subtotal,Total (inclusive of fees and/or spread),Fees and/or Spread,Notes',
+    '2025-01-10T10:00:00Z,Buy,BTC,1,USD,20000,20000,20100,100,',
+    '2025-03-01T10:00:00Z,Sell,BTC,1,USD,30000,30000,29900,100,',
+    '2025-04-01T10:00:00Z,Convert,ETH,1,USD,3000,3000,2990,10,Converted 1 ETH to 0.05 BTC',
+  ].join('\n');
+  const out = usBrokerageCsv({}, { csv, taxYear: '2025' });
+  assert.equal(out.ok, true, JSON.stringify(out));
+  const [sale] = out.data.forms[0].fields.transactions;
+  assert.equal(sale.costBasis, 20100);
+  assert.equal(sale.proceeds, 29900);
+  assert.ok(out.data.notes.some((note) => /Convert \(1\)/.test(note)));
 });
 
 test('a sale without an earlier buy has zero basis and is called out', () => {

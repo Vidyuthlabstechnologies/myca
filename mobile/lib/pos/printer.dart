@@ -40,6 +40,7 @@ class BluetoothReceiptPrinter implements ReceiptPrinter {
 
   @override
   Future<String?> print(PrinterChoice printer, List<int> bytes) async {
+    if (!await PrintBluetoothThermal.isPermissionBluetoothGranted) return 'Allow Nearby devices for MyCA in Android settings, then print again.';
     if (!await PrintBluetoothThermal.bluetoothEnabled) return 'Turn on Bluetooth, then print again.';
     if (!await PrintBluetoothThermal.connectionStatus) {
       final connected = await PrintBluetoothThermal.connect(macPrinterAddress: printer.address);

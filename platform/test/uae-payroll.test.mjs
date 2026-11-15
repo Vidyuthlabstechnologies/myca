@@ -50,6 +50,14 @@ test('the WPS file has one EDR per employee and a closing SCR that adds up', () 
   assert.equal(result.data.total, 13750.5);
 });
 
+test('the employer reference cannot break a WPS line or add one', () => {
+  const result = wpsSalaryFile({ ...base, employerReference: 'OCT\r\nEDR,99999999999999,201234567,X,2026-10-01,2026-10-31,31,1.00,0.00,0' });
+  const lines = result.data.content.trim().split('\r\n');
+  assert.equal(lines.length, 2);
+  assert.equal(lines[1].split(',').length, 10);
+  assert.equal(wpsSalaryFile({ ...base, employerReference: ' \n ' }).data.content.trim().split(',').pop(), 'NONE');
+});
+
 test('the WPS file refuses a bad IBAN, routing code or pay period', () => {
   const result = wpsSalaryFile({ ...base, employees: [{ ...employee, account: 'AE080331234567890123456', routingCode: '12', payStart: '2026-09-30' }] });
   assert.equal(result.error, 'WPS_FILE_INVALID');
@@ -79,7 +87,8 @@ test('a payroll run pays overtime on the basic hourly wage, rest days at 150% an
   assert.equal(row.grossPay, 7572.92);
   assert.equal(row.netPay, 7272.92);
   assert.equal(row.pension, null);
-  assert.equal(row.gratuityAccrual, 297.26);
+  assert.equal(row.gratuityAccrual, 278.09, 'October accrues 29 service days, not 31: unpaid leave does not count (Article 51)');
+  assert.equal(payrollOne({ basic: 5000, housing: 2000, joinDate: '2023-03-01' }).data.employees[0].gratuityAccrual, 297.26);
   assert.equal(row.wps.fixed + row.wps.variable, row.netPay);
   assert.equal(row.wps.unpaidLeaveDays, 2);
   assert.deepEqual(run.data.rulesUsed.map((rule) => rule.id), ['ae.labour.overtime', 'ae.labour.wage-deductions', 'ae.pension.gpssa']);

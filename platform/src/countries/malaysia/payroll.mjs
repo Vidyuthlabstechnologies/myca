@@ -29,7 +29,8 @@ function percent(sen, basisPoints) {
 export function epfContribution(wageSen, profile, rule) {
   const r = rule.value;
   if (wageSen <= r.noContributionUpToSen) return { employee: 0, employer: 0, basis: 'none' };
-  if (profile.citizen === false && profile.date >= r.nonCitizen.from) {
+  if (profile.citizen === false && profile.date < r.nonCitizen.from) return { employee: 0, employer: 0, basis: 'non-citizen-elective' };
+  if (profile.citizen === false) {
     return { employee: roundUp(percent(wageSen, r.nonCitizen.employeeBasisPoints), r.roundUpToSen), employer: roundUp(percent(wageSen, r.nonCitizen.employerBasisPoints), r.roundUpToSen), basis: 'non-citizen' };
   }
   const employerRate = profile.age >= 60 ? r.over60.employerBasisPoints : wageSen <= r.employerCeilingSen ? r.employerUpToCeilingBasisPoints : r.employerAboveCeilingBasisPoints;
@@ -67,6 +68,7 @@ export function malaysiaPayroll(args = {}) {
     const wageSen = toSen(wage);
     const bonusSen = toSen(bonus);
     const notes = [];
+    if (employee.citizen === false && date < epf.value.nonCitizen.from) notes.push('EPF for non-Malaysian workers is mandatory only from October 2025 wages; before that it is elective, so add it only if the worker registered.');
     const epfProfile = { age, citizen: employee.citizen !== false, date };
     const epfOnWages = epfContribution(wageSen, epfProfile, epf);
     const epfPart = bonusSen > 0 ? epfContribution(wageSen + bonusSen, epfProfile, epf) : epfOnWages;

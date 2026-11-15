@@ -112,7 +112,7 @@ export function wpsSalaryFile(args = {}) {
   if (!/^\d+$/.test(employerId) || employerId.length > r.employerIdMaxLength) add(-1, 'employerId', 'The employer id from MOHRE is up to 13 digits.');
   const bankRouting = String(args.employerBankRouting || '').replace(/\s/g, '');
   if (!DIGITS(r.routingCodeLength).test(bankRouting)) add(-1, 'employerBankRouting', 'The routing code is 9 digits.');
-  const reference = String(args.employerReference || 'NONE').trim().slice(0, r.employerReferenceMaxLength).replace(/,/g, ' ');
+  const reference = String(args.employerReference || 'NONE').trim().replace(/[,\u0000-\u001f\u007f]/g, ' ').trim().slice(0, r.employerReferenceMaxLength) || 'NONE';
   const employees = Array.isArray(args.employees) ? args.employees : [];
   if (!employees.length) add(-1, 'employees', 'Add at least one employee.');
   const year = month ? Number(month[1]) : 0;
@@ -242,7 +242,7 @@ export function uaePayrollRun(args = {}) {
     const net = gross - deductions;
     let gratuityAccrual = null;
     if (!national && employee.joinDate && employee.joinDate <= monthEnd) {
-      const now = gratuityEstimate({ joinDate: employee.joinDate, lastDay: monthEnd, basicMonthly: toDirhams(amounts.basic) });
+      const now = gratuityEstimate({ joinDate: employee.joinDate, lastDay: monthEnd, basicMonthly: toDirhams(amounts.basic), unpaidAbsenceDays: unpaid });
       const before = previousMonthEnd(year, monthNumber);
       const earlier = before >= employee.joinDate ? gratuityEstimate({ joinDate: employee.joinDate, lastDay: before, basicMonthly: toDirhams(amounts.basic) }) : null;
       if (now.ok) gratuityAccrual = toFils(now.data.accruedLiability) - (earlier && earlier.ok ? toFils(earlier.data.accruedLiability) : 0);

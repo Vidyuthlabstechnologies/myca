@@ -13,7 +13,7 @@ function ruleNote(record) {
 }
 
 function homeRate(bands, hours) {
-  const band = bands.find((entry) => hours >= entry.fromHours && (entry.toHours === null || hours <= entry.toHours));
+  const band = [...bands].reverse().find((entry) => hours >= entry.fromHours);
   return band ? band.monthlyPence : 0;
 }
 
