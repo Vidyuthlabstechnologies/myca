@@ -721,8 +721,13 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       if (held.rows[0].token === String(session.id)) return { recorded: true, businessId, product: 'return', taxYear: year };
       const flagged = await db.query("select 1 from audit_log where business_id = $1 and action = 'billing.us_return_duplicate_payment' and metadata->>'sessionId' = $2 limit 1", [businessId, String(session.id)]);
       if (!flagged.rows.length) {
-        log({ billing: 'us_return_duplicate_payment', alarm: 'stripe-duplicate-payment', taxYear: year });
         await audit(businessId, userId, 'billing.us_return_duplicate_payment', { provider: 'stripe', taxYear: year, priceUsd, sessionId: String(session.id), paymentIntent, testPurchase: session.livemode !== true });
+        const refunded = await refundDuplicate(paymentIntent);
+        if (refunded.ok) {
+          await audit(businessId, userId, 'billing.us_return_duplicate_refunded', { provider: 'stripe', taxYear: year, priceUsd, sessionId: String(session.id), paymentIntent, refundId: refunded.refundId });
+        } else {
+          log({ billing: 'us_return_duplicate_payment', alarm: 'stripe-duplicate-payment', taxYear: year, refund: refunded.reason });
+        }
       }
       return { recorded: false, duplicate: true, businessId, product: 'return', taxYear: year };
     }
@@ -760,6 +765,17 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     if (!out.recorded && !out.duplicate) return fail(out.reason === 'not_paid' ? 'PURCHASE_NOT_COMPLETE' : 'UNKNOWN_CHECKOUT', { hint: 'The card payment has not gone through yet.' });
     if (out.product === 'return') return usReturn(businessId, out.taxYear);
     return usPlus(businessId);
+  }
+
+  async function refundDuplicate(paymentIntent) {
+    if (!paymentIntent) return { ok: false, reason: 'no_payment_intent' };
+    try {
+      const out = await stripe.refundPayment(paymentIntent, 'duplicate');
+      if (out.ok) return { ok: true, refundId: String(out.data?.id || '').slice(0, 80) };
+      return { ok: false, reason: String(out.data?.error?.code || `status_${out.status}`).slice(0, 80) };
+    } catch {
+      return { ok: false, reason: 'stripe_unreachable' };
+    }
   }
 
   async function chargeEvent(type, object) {

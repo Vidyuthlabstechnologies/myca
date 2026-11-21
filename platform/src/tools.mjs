@@ -847,7 +847,7 @@ export const TOOLS = [
   {
     name: 'import_us_prior_year',
     title: 'Bring last year into this US return',
-    description: 'Starts a personal Form 1040 from last year: from the MyCA return of the year before it copies the filing status, people, sealed SSNs, dependents and address, and fills last year\'s AGI, total tax, the refund applied to this year and capital loss carryovers; or reads them from last year\'s Form 1040 PDF made by other tax software or a preparer (documentSha256 from /api/upload: the IRS form fields, or the printed lines, with Schedule D and the Capital Loss Carryover Worksheet when included; each figure says where it was found and how sure the reading is, and the PDF\'s tax year, name and SSN last four are checked against this return), or takes those figures as typed from a return prepared elsewhere (agi, totalTax, overpaymentApplied, shortTermLossCarryover, longTermLossCarryover), typed figures winning over the PDF. Lists the forms to expect again from last year\'s payers. Answers already given are kept unless overwrite is true. US only.',
+    description: 'Starts a personal Form 1040 from last year: from the MyCA return of the year before it copies the filing status, people, sealed SSNs, dependents and address, and fills last year\'s AGI, total tax, the refund applied to this year, capital loss carryovers and the Form 8995 qualified business and REIT/PTP loss carryforwards; or reads them from last year\'s Form 1040 PDF made by other tax software or a preparer (documentSha256 from /api/upload: the IRS form fields, or the printed lines, with Schedule D and the Capital Loss Carryover Worksheet when included; each figure says where it was found and how sure the reading is, and the PDF\'s tax year, name and SSN last four are checked against this return), or takes those figures as typed from a return prepared elsewhere (agi, totalTax, overpaymentApplied, shortTermLossCarryover, longTermLossCarryover, qbiLossCarryforward, qbiReitPtpLossCarryforward), typed figures winning over the PDF. Lists the forms to expect again from last year\'s payers. Answers already given are kept unless overwrite is true. US only.',
     args: ['taxYear', 'documentSha256', 'figures', 'copyProfile', 'overwrite'],
     run: (state, args = {}) => importUsPriorYear(state, args),
   },
@@ -903,7 +903,7 @@ export const TOOLS = [
   {
     name: 'us_form_kinds',
     title: 'US tax form kinds',
-    description: 'The tax forms a personal return accepts (W-2, 1099-INT, 1099-DIV, 1099-B, 1099-NEC, 1099-MISC, 1099-G, 1099-R, SSA-1099, 1098, 1098-E, 1098-T, 1095-A), each with its boxes as field keys, labels and types. US only. Read-only.',
+    description: 'The tax forms a personal return accepts (W-2, 1099-INT, 1099-DIV, 1099-B, 1099-NEC, 1099-MISC, 1099-G, 1099-R, SSA-1099, 1098, 1098-E, 1098-T, 1095-A, 1099-SA, 5498-SA), each with its boxes as field keys, labels and types. US only. Read-only.',
     args: [],
     run: () => usFormKinds(),
   },
@@ -1217,7 +1217,7 @@ export const TOOLS = [
       const docs = documentsForPeriod(state, args.period, '', regd.gstin);
       if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
       const salesText = invoicesToSalesCsv(docs.invoices);
-      const result = filingPrep({ salesText, supplierState: regd.registration.state, fy: state.company.fy });
+      const result = filingPrep({ salesText, supplierState: regd.registration.state });
       return ok({ period: docs.period, periods: docs.periods, gstin: regd.gstin, salesText, gstr1: result.gstr1, eInvoice: result.summary });
     },
   },
@@ -1672,7 +1672,7 @@ export const TOOLS = [
       if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
       const salesText = invoicesToSalesCsv(docs.invoices);
       const inwardText = purchasesToInwardCsv(docs.purchases);
-      const filed = filingPrep({ salesText, inwardText, supplierState: regd.registration.state, fy: state.company.fy });
+      const filed = filingPrep({ salesText, inwardText, supplierState: regd.registration.state });
       const payment = paymentFor(state, docs.period, { gstin: regd.gstin });
       if (!payment.ok) return fail(payment.error, payment);
       return ok({
@@ -2049,12 +2049,12 @@ export const TOOLS = [
           }
         }
       }
-      const result = filingPrep({
-        aisText: ais,
-        tds26Text: tds26,
-        incomeText: income,
-        fy: state.company.fy,
-      });
+      let result;
+      try {
+        result = filingPrep({ aisText: ais, tds26Text: tds26, incomeText: income, fy: state.company.fy });
+      } catch {
+        return fail('NO_RULES_FOR_FY', { fy: state.company.fy, hint: 'No income-tax rules are recorded for this financial year yet; nothing was computed.' });
+      }
       return ok(result.itr);
     },
   },
@@ -2074,7 +2074,12 @@ export const TOOLS = [
           }
         }
       }
-      const result = filingPrep({ paymentsText: payments, fy: state.company.fy });
+      let result;
+      try {
+        result = filingPrep(payments ? { paymentsText: payments, fy: state.company.fy } : {});
+      } catch {
+        return fail('NO_RULES_FOR_FY', { fy: state.company.fy, hint: 'No TDS rules are recorded for this financial year yet; nothing was computed.' });
+      }
       return ok(result.tds);
     },
   },

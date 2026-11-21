@@ -21,6 +21,8 @@ jobs:
     env:
       APP: ${{ inputs.app || 'india' }}
       CLOUD_URL: ${{ (inputs.app == 'us' && vars.MYCA_CLOUD_URL_US) || vars.MYCA_CLOUD_URL }}
+      GOOGLE_SERVER_CLIENT_ID: ${{ vars.MYCA_GOOGLE_SERVER_CLIENT_ID }}
+      GOOGLE_IOS_CLIENT_ID: ${{ (inputs.app == 'us' && vars.MYCA_GOOGLE_IOS_CLIENT_ID_US) || vars.MYCA_GOOGLE_IOS_CLIENT_ID }}
       HAS_APPLE_SIGNING: ${{ secrets.APPLE_CERTIFICATE_BASE64 != '' && ((inputs.app == 'us' && secrets.APPLE_PROVISIONING_PROFILE_BASE64_US) || (inputs.app != 'us' && secrets.APPLE_PROVISIONING_PROFILE_BASE64)) != '' && secrets.APPLE_TEAM_ID != '' }}
       HAS_APP_STORE_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 != '' && secrets.APP_STORE_CONNECT_KEY_ID != '' && secrets.APP_STORE_CONNECT_ISSUER_ID != '' }}
     steps:
@@ -58,11 +60,43 @@ jobs:
             sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = com.mldynamic.myca;/PRODUCT_BUNDLE_IDENTIFIER = com.mldynamic.myca.us; CODE_SIGN_ENTITLEMENTS = Runner\/RunnerUS.entitlements;/g" ios/Runner.xcodeproj/project.pbxproj
             grep -q 'CODE_SIGN_ENTITLEMENTS = Runner/RunnerUS.entitlements;' ios/Runner.xcodeproj/project.pbxproj
             /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName MyCA US' ios/Runner/Info.plist
+            /usr/libexec/PlistBuddy -c 'Set :NSCameraUsageDescription MyCA US uses the camera when you photograph a tax form, such as a W-2 or 1099, to read it into your return.' ios/Runner/Info.plist
+            /usr/libexec/PlistBuddy -c 'Set :NSPhotoLibraryUsageDescription MyCA US reads a photo of a tax form you choose from your library, such as a W-2 or 1099, into your return.' ios/Runner/Info.plist
+            /usr/libexec/PlistBuddy -c 'Set :NSFaceIDUsageDescription MyCA US uses Face ID to unlock the app before showing your tax return.' ios/Runner/Info.plist
             echo "BUNDLE_ID=com.mldynamic.myca.us" >> "$GITHUB_ENV"
             echo "EDITION_DEFINE=--dart-define=MYCA_EDITION=US" >> "$GITHUB_ENV"
           else
             echo "BUNDLE_ID=com.mldynamic.myca" >> "$GITHUB_ENV"
             echo "EDITION_DEFINE=--dart-define=MYCA_EDITION=IN" >> "$GITHUB_ENV"
+          fi
+
+      - name: Put the Google iOS sign-in client in Info.plist
+        working-directory: mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          var_name="MYCA_GOOGLE_IOS_CLIENT_ID"; if [ "$APP" = "us" ]; then var_name="MYCA_GOOGLE_IOS_CLIENT_ID_US"; fi
+          case "$GOOGLE_IOS_CLIENT_ID" in
+            *.apps.googleusercontent.com)
+              prefix="${GOOGLE_IOS_CLIENT_ID%.apps.googleusercontent.com}"
+              /usr/libexec/PlistBuddy -c "Set :GIDClientID $GOOGLE_IOS_CLIENT_ID" ios/Runner/Info.plist
+              /usr/libexec/PlistBuddy -c "Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 com.googleusercontent.apps.$prefix" ios/Runner/Info.plist
+              ;;
+            "")
+              if [ "$HAS_APPLE_SIGNING" = "true" ]; then
+                echo "::error::Set the repository variable $var_name to the iOS OAuth client id for $BUNDLE_ID (docs/release/APP-STORE.md section 2). Without it Google sign-in crashes on iPhone, so a signed build is not made."
+                exit 1
+              fi
+              echo "::warning::$var_name is not set; this unsigned build has no Google sign-in on iPhone."
+              ;;
+            *)
+              echo "::error::$var_name must end in .apps.googleusercontent.com (now: '$GOOGLE_IOS_CLIENT_ID')."
+              exit 1
+              ;;
+          esac
+          if [ "$HAS_APPLE_SIGNING" = "true" ] && [ -z "$GOOGLE_SERVER_CLIENT_ID" ] && [ -n "$CLOUD_URL" ]; then
+            echo "::error::Set MYCA_GOOGLE_SERVER_CLIENT_ID (the web OAuth client id) so the hosted app can send Google's token to the MyCA server."
+            exit 1
           fi
 
       - name: Build without signing
@@ -73,6 +107,9 @@ jobs:
           set -euo pipefail
           define=("$EDITION_DEFINE")
           if [ -n "$CLOUD_URL" ]; then define+=(--dart-define="MYCA_CLOUD_URL=$CLOUD_URL"); fi
+          if [ -n "$GOOGLE_SERVER_CLIENT_ID" ]; then define+=(--dart-define="MYCA_GOOGLE_SERVER_CLIENT_ID=$GOOGLE_SERVER_CLIENT_ID"); fi
+          define+=(--build-number="$GITHUB_RUN_NUMBER")
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then define+=(--build-name="${GITHUB_REF_NAME#v}"); fi
           flutter build ios --release --no-codesign "${define[@]}"
           mkdir -p ../dist
           (cd build/ios/iphoneos && zip -qry ../../../../dist/myca-ios-unsigned.zip Runner.app)
@@ -113,6 +150,9 @@ jobs:
           set -euo pipefail
           define=("$EDITION_DEFINE")
           if [ -n "$CLOUD_URL" ]; then define+=(--dart-define="MYCA_CLOUD_URL=$CLOUD_URL"); fi
+          if [ -n "$GOOGLE_SERVER_CLIENT_ID" ]; then define+=(--dart-define="MYCA_GOOGLE_SERVER_CLIENT_ID=$GOOGLE_SERVER_CLIENT_ID"); fi
+          define+=(--build-number="$GITHUB_RUN_NUMBER")
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then define+=(--build-name="${GITHUB_REF_NAME#v}"); fi
           sed -i '' "s/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g" ios/Runner.xcodeproj/project.pbxproj
           sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID;/PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID; DEVELOPMENT_TEAM = $TEAM_ID; PROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\"; CODE_SIGN_IDENTITY = \"Apple Distribution\";/g" ios/Runner.xcodeproj/project.pbxproj
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
