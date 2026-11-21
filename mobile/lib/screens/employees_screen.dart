@@ -5,6 +5,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../proposal_flow.dart';
 import '../registers.dart';
@@ -47,11 +48,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Employees')),
+      appBar: AppBar(title: Text(inText(context, 'Employees'))),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _open(const EmployeeFormScreen()),
         icon: const Icon(Icons.add, size: 20),
-        label: const Text('Add employee'),
+        label: Text(inText(context, 'Add employee')),
       ),
       body: FutureBuilder<EmployeeList>(
         future: _list,
@@ -68,8 +69,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             children: [
               Text(
                 current.isEmpty
-                    ? 'No employees yet.'
-                    : '${current.length == 1 ? '1 employee' : '${current.length} employees'}, ${rupees(list.monthlyTotal)} a month before deductions.',
+                    ? inText(context, 'No employees yet.')
+                    : inCount(
+                        context,
+                        current.length,
+                        '1 employee, {amount} a month before deductions.',
+                        '{n} employees, {amount} a month before deductions.',
+                        {'amount': rupees(list.monthlyTotal)},
+                      ),
                 style: text.titleMedium,
               ),
               const SizedBox(height: 4),
@@ -82,7 +89,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     onPressed: () => _open(
                       PayrollScreen(period: isoDate(AppScope.of(context).now()).substring(0, 7)),
                     ),
-                    child: Text('Payroll for ${monthLabel(isoDate(AppScope.of(context).now()).substring(0, 7))}'),
+                    child: Text(inFormat(context, 'Payroll for {month}', {'month': monthLabel(isoDate(AppScope.of(context).now()).substring(0, 7))})),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -97,8 +104,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           letter: e.name[0].toUpperCase(),
                         ),
                         title: e.name,
-                        subtitle:
-                            '${e.designation.isEmpty ? '' : '${e.designation} · '}${rupees(e.monthly)} a month · since ${longDate(e.joinedOn)}',
+                        subtitle: e.designation.isEmpty
+                            ? inFormat(context, '{amount} a month · since {date}', {'amount': rupees(e.monthly), 'date': longDate(e.joinedOn)})
+                            : inFormat(context, '{role} · {amount} a month · since {date}', {'role': e.designation, 'amount': rupees(e.monthly), 'date': longDate(e.joinedOn)}),
                         trailing: const Chevron(),
                         onTap: () => _open(EmployeeScreen(employee: e)),
                       ),
@@ -106,7 +114,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 ),
               if (past.isNotEmpty) ...[
                 const SizedBox(height: 26),
-                const SectionLabel('Left'),
+                SectionLabel(inText(context, 'Left')),
                 Panel(
                   children: [
                     for (final e in past)
@@ -116,7 +124,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           letter: e.name[0].toUpperCase(),
                         ),
                         title: e.name,
-                        subtitle: 'Left ${longDate(e.leftOn)}',
+                        subtitle: inFormat(context, 'Left {date}', {'date': longDate(e.leftOn)}),
                       ),
                   ],
                 ),
@@ -153,42 +161,44 @@ class EmployeeScreen extends StatelessWidget {
           Text(
             [
               if (employee.designation.isNotEmpty) employee.designation,
-              'Joined ${longDate(employee.joinedOn)}',
-              if (employee.pfMember) 'Provident fund',
-              if (employee.esiMember) 'State insurance',
+              inFormat(context, 'Joined {date}', {'date': longDate(employee.joinedOn)}),
+              if (employee.pfMember) inText(context, 'Provident fund'),
+              if (employee.esiMember) inText(context, 'State insurance'),
               if (employee.taxRegime.isNotEmpty)
-                '${employee.taxRegime == 'new' ? 'New' : 'Old'} tax regime',
+                employee.taxRegime == 'new' ? inText(context, 'New tax regime') : inText(context, 'Old tax regime'),
             ].join(' · '),
             style: text.bodyMedium,
           ),
           const SizedBox(height: 16),
-          const SectionLabel('Salary history'),
+          SectionLabel(inText(context, 'Salary history')),
           Panel(
             children: [
               for (final row in employee.salary.reversed)
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.comingUp),
-                  title: '${rupees(row.monthly)} a month',
-                  subtitle:
-                      'From ${longDate(row.from)} · ${row.parts.map((p) => '${p.name} ${rupees(p.amount)}').join(' + ')}',
+                  title: inFormat(context, '{amount} a month', {'amount': rupees(row.monthly)}),
+                  subtitle: inFormat(context, 'From {date} · {parts}', {
+                    'date': longDate(row.from),
+                    'parts': row.parts.map((p) => '${p.name} ${rupees(p.amount)}').join(' + '),
+                  }),
                 ),
             ],
           ),
           const SizedBox(height: 20),
           FilledButton(
             onPressed: () => open(EmployeeFormScreen(employee: employee)),
-            child: const Text('Change salary'),
+            child: Text(inText(context, 'Change salary')),
           ),
           const SizedBox(height: 8),
           OutlinedButton(
             onPressed: () =>
                 open(EmployeeFormScreen(employee: employee, leaving: true)),
-            child: const Text('Record leaving'),
+            child: Text(inText(context, 'Record leaving')),
           ),
           const SizedBox(height: 8),
           OutlinedButton(
             onPressed: () => open(EmployeeBankScreen(employee: employee)),
-            child: const Text('Bank account for salary'),
+            child: Text(inText(context, 'Bank account for salary')),
           ),
         ],
       ),
@@ -229,12 +239,12 @@ class _EmployeeBankScreenState extends State<EmployeeBankScreen> with ProposalFl
   Future<void> _submit() async {
     final account = _account.text.replaceAll(' ', '');
     final ifsc = _ifsc.text.replaceAll(' ', '').toUpperCase();
-    if (!RegExp(r'^[0-9]{9,18}$').hasMatch(account)) return setState(() => _error = 'Enter the account number: 9 to 18 digits.');
+    if (!RegExp(r'^[0-9]{9,18}$').hasMatch(account)) return setState(() => _error = inText(context, 'Enter the account number: 9 to 18 digits.'));
     if (!RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(ifsc) && !RegExp(r'^[0-9]{9}$').hasMatch(ifsc)) {
-      return setState(() => _error = 'Enter the IFSC (11 characters, like HDFC0001234) or a 9-digit US routing number.');
+      return setState(() => _error = inText(context, 'Enter the IFSC (11 characters, like HDFC0001234) or a 9-digit US routing number.'));
     }
     setState(() => _error = '');
-    await propose('Pay ${widget.employee.name} into account ending ${account.substring(account.length - 4)}', 'set_employee_bank', {
+    await propose(inFormat(context, 'Pay {name} into account ending {last}', {'name': widget.employee.name, 'last': account.substring(account.length - 4)}), 'set_employee_bank', {
       'id': widget.employee.id,
       'bankAccount': account,
       'ifsc': ifsc,
@@ -249,12 +259,12 @@ class _EmployeeBankScreenState extends State<EmployeeBankScreen> with ProposalFl
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          Text('Used only for the salary payout file you upload to the bank. Kept with the employee, never shown in full again.', style: text.bodyMedium),
+          Text(inText(context, 'Used only for the salary payout file you upload to the bank. Kept with the employee, never shown in full again.'), style: text.bodyMedium),
           const SizedBox(height: 16),
           TextField(
             controller: _account,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Account number'),
+            decoration: InputDecoration(labelText: inText(context, 'Account number')),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -270,13 +280,13 @@ class _EmployeeBankScreenState extends State<EmployeeBankScreen> with ProposalFl
           for (final entry in entries) entry.toBubble(),
           const SizedBox(height: 12),
           if (pending == null)
-            FilledButton(onPressed: busy ? null : _submit, child: const Text('Save'))
+            FilledButton(onPressed: busy ? null : _submit, child: Text(inText(context, 'Save')))
           else
             Row(
               children: [
-                FilledButton(onPressed: busy ? null : postPending, child: const Text('Confirm')),
+                FilledButton(onPressed: busy ? null : postPending, child: Text(inText(context, 'Confirm'))),
                 const SizedBox(width: 8),
-                TextButton(onPressed: busy ? null : discardPending, child: const Text('Not now')),
+                TextButton(onPressed: busy ? null : discardPending, child: Text(inText(context, 'Not now'))),
               ],
             ),
         ],
@@ -365,7 +375,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
     final day = isoDate(_date ?? AppScope.of(context).now());
     if (widget.leaving) {
       setState(() => _error = '');
-      await propose('Last day $day', 'end_employment', {
+      await propose(inFormat(context, 'Last day {date}', {'date': day}), 'end_employment', {
         'id': widget.employee!.id,
         'leftOn': day,
       });
@@ -374,15 +384,15 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
     final parts = _parts();
     if (parts == null || parts.isEmpty) {
       return setState(
-        () => _error = 'Enter the monthly salary: at least the basic pay.',
+        () => _error = inText(context, 'Enter the monthly salary: at least the basic pay.'),
       );
     }
     if (_adding && _name.text.trim().isEmpty) {
-      return setState(() => _error = 'Enter the employee\'s name.');
+      return setState(() => _error = inText(context, 'Enter the employee\'s name.'));
     }
     setState(() => _error = '');
     if (_adding) {
-      await propose('Add ${_name.text.trim()}', 'add_employee', {
+      await propose(inFormat(context, 'Add {name}', {'name': _name.text.trim()}), 'add_employee', {
         'name': _name.text.trim(),
         'joinedOn': day,
         'components': parts,
@@ -397,7 +407,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
         },
       });
     } else {
-      await propose('New salary from $day', 'change_salary', {
+      await propose(inFormat(context, 'New salary from {date}', {'date': day}), 'change_salary', {
         'id': widget.employee!.id,
         'effectiveFrom': day,
         'components': parts,
@@ -410,11 +420,11 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
     final text = Theme.of(context).textTheme;
     final today = AppScope.of(context).now();
     final title = widget.leaving
-        ? 'Record leaving'
-        : (_adding ? 'Add employee' : 'Change salary');
+        ? inText(context, 'Record leaving')
+        : (_adding ? inText(context, 'Add employee') : inText(context, 'Change salary'));
     final dateLabel = widget.leaving
-        ? 'Last day'
-        : (_adding ? 'Joined on' : 'New salary from');
+        ? inText(context, 'Last day')
+        : (_adding ? inText(context, 'Joined on') : inText(context, 'New salary from'));
     final money = const TextInputType.numberWithOptions(decimal: true);
     return Scaffold(
       appBar: AppBar(title: Text(title)),
@@ -429,14 +439,14 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
                     TextField(
                       controller: _name,
                       textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(labelText: 'Name'),
+                      decoration: InputDecoration(labelText: inText(context, 'Name')),
                     ),
                     const SizedBox(height: 10),
                     TextField(
                       controller: _role,
                       textCapitalization: TextCapitalization.sentences,
-                      decoration: const InputDecoration(
-                        labelText: 'Designation (optional)',
+                      decoration: InputDecoration(
+                        labelText: inText(context, 'Designation (optional)'),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -454,12 +464,12 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
                   ),
                   if (!widget.leaving) ...[
                     const SizedBox(height: 10),
-                    Text('Monthly salary', style: text.titleMedium),
+                    Text(inText(context, 'Monthly salary'), style: text.titleMedium),
                     TextField(
                       controller: _basic,
                       keyboardType: money,
                       decoration: InputDecoration(
-                        labelText: 'Basic',
+                        labelText: inText(context, 'Basic'),
                         prefixText: moneyPrefix,
                       ),
                     ),
@@ -467,7 +477,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
                       controller: _hra,
                       keyboardType: money,
                       decoration: InputDecoration(
-                        labelText: 'HRA (optional)',
+                        labelText: inText(context, 'HRA (optional)'),
                         prefixText: moneyPrefix,
                       ),
                     ),
@@ -475,7 +485,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
                       controller: _other,
                       keyboardType: money,
                       decoration: InputDecoration(
-                        labelText: 'Other allowances (optional)',
+                        labelText: inText(context, 'Other allowances (optional)'),
                         prefixText: moneyPrefix,
                       ),
                     ),
@@ -504,25 +514,25 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
                     TextField(
                       controller: _pan,
                       textCapitalization: TextCapitalization.characters,
-                      decoration: const InputDecoration(
-                        labelText: 'PAN (optional)',
+                      decoration: InputDecoration(
+                        labelText: inText(context, 'PAN (optional)'),
                       ),
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('In provident fund'),
+                      title: Text(inText(context, 'In provident fund')),
                       value: _pf,
                       onChanged: (v) => setState(() => _pf = v),
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('In state insurance (ESI)'),
+                      title: Text(inText(context, 'In state insurance (ESI)')),
                       value: _esi,
                       onChanged: (v) => setState(() => _esi = v),
                     ),
                   ],
                   Text(
-                    'Records only. No payroll is run and no deduction is worked out yet.',
+                    inText(context, 'Records only. No payroll is run and no deduction is worked out yet.'),
                     style: text.bodySmall,
                   ),
                   if (_error.isNotEmpty) ...[
@@ -532,7 +542,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
                   const SizedBox(height: 14),
                   FilledButton(
                     onPressed: busy ? null : _preview,
-                    child: const Text('Preview'),
+                    child: Text(inText(context, 'Preview')),
                   ),
                 ],
                 for (final entry in entries) entry.toBubble(),
@@ -540,7 +550,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('Done'),
+                    child: Text(inText(context, 'Done')),
                   ),
                 ],
               ],

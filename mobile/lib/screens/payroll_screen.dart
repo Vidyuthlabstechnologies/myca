@@ -5,6 +5,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../proposal_flow.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -46,13 +47,14 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
   }
 
   Future<void> _approve(PayrollRun run) => propose(
-    'Approve payroll for ${run.month}',
+    inFormat(context, 'Approve payroll for {month}', {'month': run.month}),
     'approve_payroll',
     {'period': run.period, 'draftHash': run.draftHash},
   );
 
   Future<void> _saveFile(PayrollRun run, {required bool pf}) async {
     final state = AppScope.of(context);
+    final lang = indiaLang(context);
     setState(() => _fileNote = '');
     var note = '';
     try {
@@ -60,14 +62,22 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
         await state.api.query(pf ? 'pf_ecr' : 'esi_return', {'period': run.period}),
       );
       if (data.isEmpty) {
-        note = pf ? 'No provident fund member in this month.' : 'No state insurance member in this month.';
+        note = pf ? inLine(lang, 'No provident fund member in this month.') : inLine(lang, 'No state insurance member in this month.');
       } else {
         final name = data['fileName'] as String;
         final saved = await state.saveTextFile(name, (pf ? data['text'] : data['csv']) as String);
         final missing = (data[pf ? 'missingUan' : 'missingIp'] as List<Object?>? ?? const <Object?>[]).map((e) => '$e').toList();
         note = saved
-            ? 'Saved $name. Upload it on the ${pf ? 'EPFO' : 'ESIC'} portal and pay the challan.${missing.isEmpty ? '' : ' No ${pf ? 'UAN' : 'insurance number'} for ${missing.join(', ')}; add it on the employee first.'}'
-            : 'Not saved.';
+            ? [
+                pf
+                    ? inFill(inLine(lang, 'Saved {name}. Upload it on the EPFO portal and pay the challan.'), {'name': name})
+                    : inFill(inLine(lang, 'Saved {name}. Upload it on the ESIC portal and pay the challan.'), {'name': name}),
+                if (missing.isNotEmpty)
+                  pf
+                      ? inFill(inLine(lang, 'No UAN for {names}; add it on the employee first.'), {'names': missing.join(', ')})
+                      : inFill(inLine(lang, 'No insurance number for {names}; add it on the employee first.'), {'names': missing.join(', ')}),
+              ].join(' ')
+            : inLine(lang, 'Not saved.');
       }
     } on MycaApiException catch (err) {
       note = err.message;
@@ -78,20 +88,27 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
 
   Future<void> _savePayout(PayrollRun run) async {
     final state = AppScope.of(context);
+    final lang = indiaLang(context);
     setState(() => _fileNote = '');
     var note = '';
     try {
       final data = toolData(await state.api.query('payroll_payout_file', {'period': run.period}));
       if (data.isEmpty) {
-        note = 'Nothing to pay out this month.';
+        note = inLine(lang, 'Nothing to pay out this month.');
       } else {
         final name = data['fileName'] as String;
         final saved = await state.saveTextFile(name, data['csv'] as String);
         final missing = (data['missingBank'] as List<Object?>? ?? const <Object?>[]).map((e) => '$e').toList();
-        final count = data['employees'] as num? ?? 0;
+        final count = (data['employees'] as num? ?? 0).toInt();
+        final total = rupees(data['total'] as num? ?? 0);
         note = saved
-            ? 'Saved $name with ${count == 1 ? '1 employee' : '$count employees'}, ${rupees(data['total'] as num? ?? 0)}. Upload it on the bank\'s bulk payment page, then record the salary payment here.${missing.isEmpty ? '' : ' No bank account for ${missing.join(', ')}; add it on the employee first.'}'
-            : 'Not saved.';
+            ? [
+                count == 1
+                    ? inFill(inLine(lang, 'Saved {name} with 1 employee, {total}. Upload it on the bank\'s bulk payment page, then record the salary payment here.'), {'name': name, 'total': total})
+                    : inFill(inLine(lang, 'Saved {name} with {n} employees, {total}. Upload it on the bank\'s bulk payment page, then record the salary payment here.'), {'n': count, 'name': name, 'total': total}),
+                if (missing.isNotEmpty) inFill(inLine(lang, 'No bank account for {names}; add it on the employee first.'), {'names': missing.join(', ')}),
+              ].join(' ')
+            : inLine(lang, 'Not saved.');
       }
     } on MycaApiException catch (err) {
       note = err.message;
@@ -102,19 +119,22 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
 
   Future<void> _saveAnnexure(PayrollRun run) async {
     final state = AppScope.of(context);
+    final lang = indiaLang(context);
     setState(() => _fileNote = '');
     var note = '';
     try {
       final data = toolData(await state.api.query('salary_annexure'));
       final rows = data['rows'] as List<Object?>? ?? const <Object?>[];
       if (data.isEmpty || rows.isEmpty) {
-        note = 'No approved salary month in this year yet, so Annexure II has no rows.';
+        note = inLine(lang, 'No approved salary month in this year yet, so Annexure II has no rows.');
       } else {
         final name = data['fileName'] as String;
         final saved = await state.saveTextFile(name, data['csv'] as String);
         note = saved
-            ? 'Saved $name with ${rows.length == 1 ? '1 employee' : '${rows.length} employees'}. Add each employee\'s declaration (section 10 exemptions, other 80C and 80D) before filing the Q4 statement.'
-            : 'Not saved.';
+            ? rows.length == 1
+                  ? inFill(inLine(lang, 'Saved {name} with 1 employee. Add each employee\'s declaration (section 10 exemptions, other 80C and 80D) before filing the Q4 statement.'), {'name': name})
+                  : inFill(inLine(lang, 'Saved {name} with {n} employees. Add each employee\'s declaration (section 10 exemptions, other 80C and 80D) before filing the Q4 statement.'), {'n': rows.length, 'name': name})
+            : inLine(lang, 'Not saved.');
       }
     } on MycaApiException catch (err) {
       note = err.message;
@@ -125,19 +145,22 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
 
   Future<void> _saveForm16(PayrollRun run) async {
     final state = AppScope.of(context);
+    final lang = indiaLang(context);
     setState(() => _fileNote = '');
     var note = '';
     try {
       final data = toolData(await state.api.query('tds_certificates', {'form': 'salary'}));
       final rows = data['certificates'] as List<Object?>? ?? const <Object?>[];
       if (data.isEmpty || rows.isEmpty) {
-        note = 'No Form 16 draft yet: approve a salary month with TDS first, and record the TAN under Taxes.';
+        note = inLine(lang, 'No Form 16 draft yet: approve a salary month with TDS first, and record the TAN under Taxes.');
       } else {
         final name = data['fileName'] as String;
         final saved = await state.saveTextFile(name, data['csv'] as String);
         note = saved
-            ? 'Saved $name with ${rows.length == 1 ? '1 employee' : '${rows.length} employees'}. Part A comes from TRACES after the 24Q statements are processed; these are the books\' own figures for checking.'
-            : 'Not saved.';
+            ? rows.length == 1
+                  ? inFill(inLine(lang, 'Saved {name} with 1 employee. Part A comes from TRACES after the 24Q statements are processed; these are the books\' own figures for checking.'), {'name': name})
+                  : inFill(inLine(lang, 'Saved {name} with {n} employees. Part A comes from TRACES after the 24Q statements are processed; these are the books\' own figures for checking.'), {'n': rows.length, 'name': name})
+            : inLine(lang, 'Not saved.');
       }
     } on MycaApiException catch (err) {
       note = err.message;
@@ -147,7 +170,7 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
   }
 
   Future<void> _paid(PayrollRun run) => propose(
-    'Salaries for ${run.month} paid',
+    inFormat(context, 'Salaries for {month} paid', {'month': run.month}),
     'record_salary_payment',
     {'period': run.period, 'date': isoDate(AppScope.of(context).now())},
   );
@@ -156,7 +179,7 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: Text('Payroll for ${monthLabel(widget.period)}')),
+      appBar: AppBar(title: Text(inFormat(context, 'Payroll for {month}', {'month': monthLabel(widget.period)}))),
       body: FutureBuilder<PayrollRun?>(
         future: _run,
         builder: (context, snap) {
@@ -165,7 +188,7 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
           }
           final run = snap.data;
           if (run == null) {
-            return const EmptyNote(text: 'Payroll could not be prepared. Only the owner can run it.');
+            return EmptyNote(text: inText(context, 'Payroll could not be prepared. Only the owner can run it.'));
           }
           return Column(
             children: [
@@ -175,15 +198,23 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
                   children: [
                     Text(
                       run.employees == 0
-                          ? 'No one was employed in ${monthLabel(run.period)}.'
-                          : '${run.employees == 1 ? '1 employee' : '${run.employees} employees'} · gross ${rupees(run.totals.gross)} · net to pay ${rupees(run.totals.net)}',
+                          ? inFormat(context, 'No one was employed in {month}.', {'month': monthLabel(run.period)})
+                          : inCount(
+                              context,
+                              run.employees,
+                              '1 employee · gross {gross} · net to pay {net}',
+                              '{n} employees · gross {gross} · net to pay {net}',
+                              {'gross': rupees(run.totals.gross), 'net': rupees(run.totals.net)},
+                            ),
                       style: text.titleMedium,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      run.status == 'approved'
-                          ? 'Approved on ${longDate(run.approvedOn)}.${run.paidOn.isEmpty ? ' Salaries not yet recorded as paid.' : ' Paid on ${longDate(run.paidOn)}.'}'
-                          : 'A draft. Nothing is posted until you approve it.',
+                      run.status != 'approved'
+                          ? inText(context, 'A draft. Nothing is posted until you approve it.')
+                          : run.paidOn.isEmpty
+                          ? inFormat(context, 'Approved on {date}. Salaries not yet recorded as paid.', {'date': longDate(run.approvedOn)})
+                          : inFormat(context, 'Approved on {date}. Paid on {paid}.', {'date': longDate(run.approvedOn), 'paid': longDate(run.paidOn)}),
                       style: text.bodySmall,
                     ),
                     const SizedBox(height: 16),
@@ -193,8 +224,19 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
                           RowCard(
                             leading: TintTile(tint: Tint.ask, letter: row.name[0].toUpperCase()),
                             title: row.name,
-                            subtitle:
-                                'Gross ${rupees(row.gross)} · deductions ${rupees(row.deductions)} · net ${rupees(row.net)}${row.daysWorked < row.daysInMonth ? ' · ${row.daysWorked} of ${row.daysInMonth} days' : ''}',
+                            subtitle: row.daysWorked < row.daysInMonth
+                                ? inFormat(context, 'Gross {gross} · deductions {deductions} · net {net} · {worked} of {days} days', {
+                                    'gross': rupees(row.gross),
+                                    'deductions': rupees(row.deductions),
+                                    'net': rupees(row.net),
+                                    'worked': row.daysWorked,
+                                    'days': row.daysInMonth,
+                                  })
+                                : inFormat(context, 'Gross {gross} · deductions {deductions} · net {net}', {
+                                    'gross': rupees(row.gross),
+                                    'deductions': rupees(row.deductions),
+                                    'net': rupees(row.net),
+                                  }),
                           ),
                       ],
                     ),
@@ -210,23 +252,23 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
                         spacing: 8,
                         children: [
                           ActionChip(
-                            label: const Text('Save PF file'),
+                            label: Text(inText(context, 'Save PF file')),
                             onPressed: busy ? null : () => _saveFile(run, pf: true),
                           ),
                           ActionChip(
-                            label: const Text('Save ESI file'),
+                            label: Text(inText(context, 'Save ESI file')),
                             onPressed: busy ? null : () => _saveFile(run, pf: false),
                           ),
                           ActionChip(
-                            label: const Text('Save payout file'),
+                            label: Text(inText(context, 'Save payout file')),
                             onPressed: busy ? null : () => _savePayout(run),
                           ),
                           ActionChip(
-                            label: const Text('Save Annexure II'),
+                            label: Text(inText(context, 'Save Annexure II')),
                             onPressed: busy ? null : () => _saveAnnexure(run),
                           ),
                           ActionChip(
-                            label: const Text('Save Form 16 drafts'),
+                            label: Text(inText(context, 'Save Form 16 drafts')),
                             onPressed: busy ? null : () => _saveForm16(run),
                           ),
                         ],
@@ -242,19 +284,19 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
                       if (run.status != 'approved')
                         FilledButton(
                           onPressed: busy ? null : () => _approve(run),
-                          child: const Text('Approve payroll'),
+                          child: Text(inText(context, 'Approve payroll')),
                         )
                       else if (run.paidOn.isEmpty)
                         FilledButton(
                           onPressed: busy ? null : () => _paid(run),
-                          child: const Text('Salaries paid'),
+                          child: Text(inText(context, 'Salaries paid')),
                         ),
                     ],
                     if (_posted) ...[
                       const SizedBox(height: 16),
                       FilledButton(
                         onPressed: () => Navigator.of(context).pop(true),
-                        child: const Text('Done'),
+                        child: Text(inText(context, 'Done')),
                       ),
                     ],
                   ],
@@ -295,22 +337,22 @@ class _Totals extends StatelessWidget {
       ),
       child: Column(
         children: [
-          line(totals.hasOwnLines ? 'Gross wages' : 'Gross salaries', totals.gross),
+          line(totals.hasOwnLines ? inText(context, 'Gross wages') : inText(context, 'Gross salaries'), totals.gross),
           if (totals.hasOwnLines)
             for (final (name, amount) in totals.lines) line(name, amount)
           else ...[
-            line('Provident fund (employees)', totals.pfEmployee),
-            line('State insurance (employees)', totals.esiEmployee),
-            line('Professional tax', totals.pt),
-            line('Income tax (TDS)', totals.tds),
+            line(inText(context, 'Provident fund (employees)'), totals.pfEmployee),
+            line(inText(context, 'State insurance (employees)'), totals.esiEmployee),
+            line(inText(context, 'Professional tax'), totals.pt),
+            line(inText(context, 'Income tax (TDS)'), totals.tds),
           ],
-          line('Net to pay', totals.net, strong: true),
+          line(inText(context, 'Net to pay'), totals.net, strong: true),
           const Divider(height: 18),
           if (totals.hasOwnLines)
             for (final (name, amount) in totals.employerLines) line(name, amount)
           else
-            line('Employer contributions', totals.employerContributions),
-          line('Total cost', totals.employerCost, strong: true),
+            line(inText(context, 'Employer contributions'), totals.employerContributions),
+          line(inText(context, 'Total cost'), totals.employerCost, strong: true),
         ],
       ),
     );
