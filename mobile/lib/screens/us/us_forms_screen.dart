@@ -87,7 +87,7 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
     setState(() => _reading = true);
     try {
       final sha = await _api.upload(picked.name, dataUrlOf(picked));
-      final answer = await _api.query('read_us_tax_document', {'documentId': sha, 'documentSha256': sha, 'taxYear': widget.taxYear});
+      final answer = await _api.query('read_us_tax_document', {'documentId': sha, 'taxYear': widget.taxYear});
       final data = toolData(answer);
       final kinds = await _kinds!;
       final kind = formKindOf('${data['kind'] ?? ''}', kinds);
@@ -172,7 +172,7 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
                 else if (loaded.hasError)
                   UsLoadError(inline: true, message: usLoadProblem(loaded.error, 'Your forms could not be loaded.'), onRetry: _reload)
                 else if (forms.isEmpty)
-                  const EmptyNote(text: 'No forms yet. Start with your W-2 if you had a job.')
+                  const EmptyNote(text: 'No forms yet. Start with your W-2 if you had a job, then any 1099 from a bank, broker or client.')
                 else
                   Panel(
                     children: [
@@ -191,8 +191,8 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
                             tooltip: 'Edit or remove this ${f.kind}',
                             onSelected: (choice) async {
                               if (choice == 'remove') return _remove(f);
-                              final kind = formKindOf(f.kind, await _kinds!);
-                              if (kind != null && mounted) await _edit(kind, fields: f.amounts, id: f.id, owner: f.owner);
+                              final kind = formKindOf(f.kind, await _kinds!) ?? fallbackFormKind(f.kind, f.editable);
+                              if (mounted) await _edit(kind, fields: f.editable, id: f.id, owner: f.owner);
                             },
                             itemBuilder: (_) => const [
                               PopupMenuItem(value: 'edit', child: Text('Edit')),
@@ -200,12 +200,23 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
                             ],
                           ),
                           onTap: () async {
-                            final kind = formKindOf(f.kind, await _kinds!);
-                            if (kind != null && mounted) await _edit(kind, fields: f.amounts, id: f.id, owner: f.owner);
+                            final kind = formKindOf(f.kind, await _kinds!) ?? fallbackFormKind(f.kind, f.editable);
+                            if (mounted) await _edit(kind, fields: f.editable, id: f.id, owner: f.owner);
                           },
                         ),
                     ],
                   ),
+                if (loaded.connectionState == ConnectionState.done && !loaded.hasError) ...[
+                  const SizedBox(height: 18),
+                  if (forms.isNotEmpty)
+                    Text('Got another one? Add it the same way. When every form is in, go back to your return for the next step.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
+                  const SizedBox(height: 10),
+                  OutlinedButton(
+                    key: const Key('usForms.done'),
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(forms.isEmpty ? 'Back to my return' : 'Done adding forms'),
+                  ),
+                ],
               ],
             );
           },

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../api/myca_api.dart';
 import '../../app_state.dart';
@@ -113,12 +114,13 @@ class _UsPriorYearScreenState extends State<UsPriorYearScreen> {
                       key: Key('usPrior.$id'),
                       controller: _controllers[id],
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
                       decoration: InputDecoration(labelText: label, helperText: help, prefixText: '\$ '),
                     ),
                   ),
                 if (_note.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_note, key: const Key('usPrior.note'), style: text.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.error))),
                 const SizedBox(height: 16),
-                FilledButton(key: const Key('usPrior.bring'), onPressed: _busy ? null : _bring, child: Text('Bring in $last')),
+                FilledButton(key: const Key('usPrior.bring'), onPressed: _busy ? null : _bring, child: Text(_busy ? 'Bringing it in…' : 'Bring in $last')),
               ],
       ),
     );

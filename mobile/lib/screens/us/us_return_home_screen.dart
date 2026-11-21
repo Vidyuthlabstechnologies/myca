@@ -310,6 +310,49 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
     );
   }
 
+  Widget _progress(_Hub hub) {
+    final text = Theme.of(context).textTheme;
+    if (hub.efile.filed) return const SizedBox.shrink();
+    final done = [for (final (id, _, _, _) in _steps) if (hub.status.done(id)) id];
+    final next = _steps.where((s) => !hub.status.done(s.$1)).firstOrNull ?? _steps.last;
+    final finished = done.length == _steps.length;
+    final position = _steps.indexOf(next) + 1;
+    final String headline;
+    final String action;
+    if (finished) {
+      headline = 'Everything is ready. Send your return to the IRS.';
+      action = 'Go to Sign and e-file';
+    } else if (done.isEmpty) {
+      headline = 'Start with step 1: ${next.$3}';
+      action = 'Start my return';
+    } else {
+      headline = 'Next, step $position of ${_steps.length}: ${next.$3}';
+      action = 'Continue';
+    }
+    return Container(
+      key: const Key('usHub.progress'),
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(color: context.myca.accentSoft, borderRadius: BorderRadius.circular(radiusCard)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('${done.length} of ${_steps.length} steps done', key: const Key('usHub.progressCount'), style: text.bodyMedium?.copyWith(color: context.myca.ink)),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(value: done.length / _steps.length, minHeight: 6, borderRadius: BorderRadius.circular(3), semanticsLabel: '${done.length} of ${_steps.length} steps done'),
+          const SizedBox(height: 12),
+          Text(headline, key: const Key('usHub.next'), style: text.titleMedium?.copyWith(color: context.myca.ink)),
+          if (!finished) ...[
+            const SizedBox(height: 4),
+            Text(next.$4, style: text.bodySmall?.copyWith(color: context.myca.ink)),
+          ],
+          const SizedBox(height: 12),
+          FilledButton(key: const Key('usHub.continue'), onPressed: () => _open(screenFor(next.$1)), child: Text(action)),
+        ],
+      ),
+    );
+  }
+
   static const _steps = [
     ('profile', Mark.people, 'About you', 'Filing status, Social Security numbers, dependents and address'),
     ('forms', Mark.paper, 'Tax documents', 'W-2s, 1099s and 1098s: snap a photo or type them in'),
@@ -385,7 +428,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
                       ),
                     _efileCard(hub.efile),
                     _summary(hub.status),
-                    if (hub.review != null && !hub.review!.canFile) ...[UsUnsupportedNotice(forms: hub.review!.unsupported), const SizedBox(height: 14)],
+                    if (hub.review != null && !hub.review!.canFile) ...[UsUnsupportedNotice(forms: hub.review!.unsupported), const SizedBox(height: 14)] else _progress(hub),
                     _priceLine(hub),
                     Panel(
                       children: [

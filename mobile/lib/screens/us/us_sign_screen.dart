@@ -108,8 +108,31 @@ class _UsSignScreenState extends State<UsSignScreen> {
     final efile = results[2] as UsEfileStatus;
     final consents = _consents;
     final tins = efile.partner && consents != null ? await consentFor(consents, usPartnerTinsConsent) : null;
-    return _SignContext(results[0] as UsReturnStatus, results[1] as UsReview, efile, results[3] as UsFilingFee, tins: tins);
+    final status = results[0] as UsReturnStatus;
+    _prefillPriorYear(status);
+    return _SignContext(status, results[1] as UsReview, efile, results[3] as UsFilingFee, tins: tins);
   }
+
+  bool _agiImported = false;
+  bool _spouseAgiImported = false;
+
+  void _prefillPriorYear(UsReturnStatus status) {
+    final agi = status.priorYearAgi;
+    if (agi == null) return;
+    if (_agi.text.isEmpty) {
+      _agi.text = dollarsTyped(agi);
+      _agiImported = true;
+    }
+    if (status.filingStatus == 'mfj' && status.priorYearJoint && _spouseAgi.text.isEmpty) {
+      _spouseAgi.text = dollarsTyped(agi);
+      _spouseAgiImported = true;
+    }
+  }
+
+  String? _importedHelp(bool imported, TextEditingController controller, num? agi) =>
+      imported && agi != null && controller.text == dollarsTyped(agi) ? 'From your ${widget.taxYear - 1} return in MyCA. Check it against line 11.' : null;
+
+  bool get _typedSomething => [_pin, _spousePin, _ipPin, _spouseIpPin, _routing, _account, _phone, _payDate].any((c) => c.text.isNotEmpty);
 
   void _failed(MycaApiException err) {
     if (!mounted) return;
@@ -575,7 +598,10 @@ class _UsSignScreenState extends State<UsSignScreen> {
                 ],
               );
             }
-            return ListView(
+            return UsLeaveGuard(
+              dirty: () => _typedSomething && !_busy,
+              listenable: Listenable.merge([_pin, _spousePin, _ipPin, _spouseIpPin, _routing, _account, _phone, _payDate]),
+              child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
                 Text(
@@ -587,8 +613,8 @@ class _UsSignScreenState extends State<UsSignScreen> {
                 _pinField(_pin, 'pin', 'Signature PIN'),
                 if (joint) ...[const SizedBox(height: 12), _pinField(_spousePin, 'spousePin', 'Spouse\'s signature PIN')],
                 const SizedBox(height: 22),
-                const SectionLabel('Prove it is you'),
-                Text('The IRS checks last year\'s adjusted gross income (AGI) to confirm who is signing.', style: text.bodySmall),
+                const SectionLabel('Confirm it is you'),
+                Text('The IRS matches last year\'s adjusted gross income (AGI) to confirm who is signing. It is on line 11 of your ${widget.taxYear - 1} Form 1040.', style: text.bodySmall),
                 SwitchListTile(
                   key: const Key('usSign.filedLastYear'),
                   contentPadding: EdgeInsets.zero,
@@ -597,9 +623,19 @@ class _UsSignScreenState extends State<UsSignScreen> {
                   onChanged: (v) => setState(() => _filedLastYear = v),
                 ),
                 if (_filedLastYear) ...[
-                  MoneyField(key: const Key('usSign.agi'), controller: _agi, label: '${widget.taxYear - 1} AGI (Form 1040, line 11)', errorText: _errors['agi']),
-                  if (joint) ...[const SizedBox(height: 12), MoneyField(key: const Key('usSign.spouseAgi'), controller: _spouseAgi, label: 'Your spouse\'s ${widget.taxYear - 1} AGI', errorText: _errors['spouseAgi'])],
-                ],
+                  MoneyField(key: const Key('usSign.agi'), controller: _agi, label: '${widget.taxYear - 1} AGI (Form 1040, line 11)', helper: _importedHelp(_agiImported, _agi, ctx.status.priorYearAgi), errorText: _errors['agi']),
+                  if (joint) ...[
+                    const SizedBox(height: 12),
+                    MoneyField(
+                      key: const Key('usSign.spouseAgi'),
+                      controller: _spouseAgi,
+                      label: 'Your spouse\'s ${widget.taxYear - 1} AGI',
+                      helper: _importedHelp(_spouseAgiImported, _spouseAgi, ctx.status.priorYearAgi) ?? 'If you filed jointly last year, it is the same number.',
+                      errorText: _errors['spouseAgi'],
+                    ),
+                  ],
+                ] else
+                  Text('We send 0 for last year\'s AGI, which is what the IRS expects when you did not file.', key: const Key('usSign.noPriorYear'), style: text.bodySmall),
                 const SizedBox(height: 12),
                 TextField(
                   key: const Key('usSign.ipPin'),
@@ -665,6 +701,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                 const SizedBox(height: 10),
                 Text('Signing does not send anything. You get one more look before your return goes to the IRS.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
               ],
+            ),
             );
           },
         ),
