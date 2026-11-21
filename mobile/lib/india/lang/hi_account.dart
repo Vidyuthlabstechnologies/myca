@@ -3,9 +3,7 @@
 
 const hiAccount = <String, String>{
   // Welcome
-  'Log a sale the way you would send a message': 'बिक्री ऐसे दर्ज करें जैसे मैसेज भेजते हैं',
   'GST and due dates worked out for you': 'GST और आखिरी तारीख़ें, सब आपके लिए तैयार',
-  'Nothing reaches your books until you say so': 'आपके कहे बिना खाते में कुछ नहीं चढ़ता',
   'Your books,{br}kept as easily{br}as a conversation.': 'आपका हिसाब-किताब,{br}बातचीत जितना{br}आसान।',
   'Sales, purchases and GST for your business, kept right without the paperwork.': 'आपके कारोबार की बिक्री, खरीद और GST, बिना कागज़ी झंझट के सही-सही।',
   'Take a 2-minute tour first': 'पहले 2 मिनट का टूर देखें',

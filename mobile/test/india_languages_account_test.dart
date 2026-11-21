@@ -20,7 +20,7 @@ void main() {
     expect(state.language, 'hi');
     expect(find.text('आपका हिसाब-किताब,\nबातचीत जितना\nआसान।'), findsOneWidget);
     expect(find.text('शुरू करें'), findsOneWidget);
-    expect(find.text('बिक्री ऐसे दर्ज करें जैसे मैसेज भेजते हैं'), findsOneWidget);
+    expect(find.text('बिक्री वैसे ही दर्ज करें जैसे मैसेज भेजते हैं'), findsOneWidget);
     expect(find.text('Get started'), findsNothing);
     expect(tester.takeException(), isNull);
   });

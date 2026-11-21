@@ -14,7 +14,7 @@ void main() {
     await tapRow(tester, 'कर्मचारी');
     expect(find.text('1 कर्मचारी, कटौती से पहले ₹25,000.00 महीना।'), findsOneWidget);
     expect(find.text('कर्मचारी जोड़ें'), findsOneWidget);
-    await tester.tap(find.text('October 2026 की सैलरी'));
+    await tester.tap(find.text('अक्टूबर 2026 की सैलरी'));
     await tester.pumpAndSettle();
     expect(find.text('1 कर्मचारी · कुल ₹30,000.00 · हाथ में देना ₹28,000.00'), findsOneWidget);
     expect(find.text('यह ड्राफ़्ट है। आपके मंज़ूर करने तक कुछ भी दर्ज नहीं होगा।'), findsOneWidget);

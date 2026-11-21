@@ -85,7 +85,7 @@ const hiShared = <String, String>{
   'Insurance': 'बीमा',
   'Interest earned by rule {rule}': 'मिला ब्याज, नियम {rule} से',
   'Interest income': 'ब्याज की आमदनी',
-  'Invoice {id}': 'बिल {id}',
+  'Invoice {id}': 'इनवॉइस {id}',
   'Invoice {id} is in your books.': 'बिल {id} आपके खाते में दर्ज हो गया।',
   'It does not balance. Ask your accountant to look at the books.': 'बैलेंस नहीं मिल रहा। अपने अकाउंटेंट से खाते जँचवाएँ।',
   'Last year': 'पिछला साल',
