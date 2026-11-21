@@ -52,7 +52,7 @@ Not affiliated with the IRS. [link]
 >   the main family and education credits
 > • Shows your refund before you pay anything
 > • Tells you up front if your return needs something it doesn't handle yet
-> • Files through our IRS-authorized e-file partner and tells you when the IRS accepts
+> • Files through our e-file partner and tells you when the IRS accepts
 >
 > It's free to prepare. Filing is $99 through April 15, 2027, then $129. Federal returns only this
 > season.

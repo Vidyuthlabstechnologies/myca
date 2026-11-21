@@ -399,9 +399,9 @@ class _UsSignScreenState extends State<UsSignScreen> {
         const SizedBox(height: 12),
         Text(
           ctx.tins?.signed == true
-              ? 'Your return is e-filed through our IRS-authorized e-file partner. We pass on your name, address, Social Security numbers, dependents and tax forms, '
+              ? 'Your return is e-filed through our e-file partner. We pass on your name, address, Social Security numbers, dependents and tax forms, '
                   'so there you check the return and sign Form 8879. The IRS answer shows up here.'
-              : 'Your return is e-filed through our IRS-authorized e-file partner. We pass on your name, address, dependents and tax forms, '
+              : 'Your return is e-filed through our e-file partner. We pass on your name, address, dependents and tax forms, '
                   'so there you only add your SSN, check the return and sign Form 8879. The IRS answer shows up here.',
           key: const Key('usSign.partnerIntro'),
           style: text.bodyLarge,

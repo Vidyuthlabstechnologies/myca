@@ -128,7 +128,8 @@ source of truth: a value set only on someone's laptop is reverted by the next CI
 | `GCP_API_REGION` | the region `infra/cloud` was applied in, or empty until it is | hosted API deploys (`deploy-cloud`) |
 | `MYCA_MANAGE_SITE` | `true` to run the root module (site, LB, DNS), empty to leave it off | `terraform`, `deploy-site`, Windows publish |
 | `MYCA_CLOUD_URL` | the `api_url` output of `infra/cloud`, or empty for a local-mode app; a `v*` tag build refuses anything but an https address | Android release builds (`build-android`) |
-| `MYCA_GOOGLE_SERVER_CLIENT_ID` | the web OAuth client id the hosted API accepts for Google sign-in, or empty | Android release builds (`build-android`) |
+| `MYCA_GOOGLE_SERVER_CLIENT_ID` | the web OAuth client id the hosted API accepts for Google sign-in, or empty | Android and iOS release builds (`build-android`, `build-ios`) |
+| `MYCA_GOOGLE_IOS_CLIENT_ID`, `MYCA_GOOGLE_IOS_CLIENT_ID_US` | the iOS OAuth client ids for `com.mldynamic.myca` and `com.mldynamic.myca.us` (MyCA US); `build-ios` writes them into `Info.plist` and refuses a signed build without one | iOS builds (`build-ios`) |
 | `MYCA_OIDC_CLIENT_ID` | the client id of a firm's own OpenID Connect provider, or empty | Android release builds (`build-android`) |
 | `MYCA_CLOUD_URL_STAGING` | the https address of the staging API, or empty; needed only for a `test` Android build and the staging smoke | Android test builds (`build-android`, backend `test`), app smoke (`app-smoke`) |
 | `MYCA_CLOUD_URL_US` | the https address of the US API (`production-us` stack, `us-central1`), or empty; used by the MyCA US iOS build (`app: us`) | iOS US builds (`build-ios`) |

@@ -24,6 +24,12 @@ submitting.
   `GIDClientID`, and its reversed form (`com.googleusercontent.apps.…`) as the first
   `CFBundleURLSchemes` entry. The two placeholders are named
   `REPLACE_WITH_GOOGLE_IOS_CLIENT_ID` and `REPLACE_WITH_REVERSED_GOOGLE_IOS_CLIENT_ID`.
+  The `Build iOS app` workflow fills both from repository variables, so nothing is committed:
+  `MYCA_GOOGLE_IOS_CLIENT_ID` (India, bundle `com.mldynamic.myca`) and
+  `MYCA_GOOGLE_IOS_CLIENT_ID_US` (MyCA US, a second iOS client for `com.mldynamic.myca.us`).
+  A signed build stops with a clear error when the variable is missing, because Google
+  sign-in crashes on iPhone without it. The workflow also passes `MYCA_GOOGLE_SERVER_CLIENT_ID`
+  and uses the run number as the build number, so every TestFlight upload is accepted.
   The web client id still goes in as `MYCA_GOOGLE_SERVER_CLIENT_ID` (`mobile/README.md`).
 - A firm's OpenID Connect provider: the `com.mldynamic.myca` URL scheme is already
   registered; build with `MYCA_OIDC_CLIENT_ID` and register
