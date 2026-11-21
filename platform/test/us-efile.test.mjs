@@ -34,7 +34,7 @@ function computed1040(overrides = {}) {
     spouse: { firstName: 'Ravi', lastName: "O'Neil", ssn: '400025678', dob: '1987-09-12', occupation: 'Engineer' },
     address: { line1: '12 Elm St', city: 'Austin', state: 'TX', zip: '78701' },
     dependents: [{ firstName: 'Asha', lastName: "O'Neil", ssn: '400039012', relationship: 'daughter', ctcEligible: true }],
-    lines: { '1a': 85000, '1z': 85000, '9': 85000, '11': 85000, '12': 31500, '14': 31500, '15': 53500, '16': 5916, '19': 2200, '21': 2200, '22': 3716, '24': 3716, '25a': 6200, '25d': 6200, '33': 6200, '34': 2484, '35a': 2484 },
+    lines: { '1a': 85000, '1z': 85000, '9': 85000, '11a': 85000, '11b': 85000, '12e': 31500, '14': 31500, '15': 53500, '16': 5916, '19': 2200, '21': 2200, '22': 3716, '24': 3716, '25a': 6200, '25d': 6200, '33': 6200, '34': 2484, '35a': 2484 },
     schedules: {},
     w2s: [{ ein: '123456789', employerName: 'Hill Country Foods', wages: 85000, fedWithheld: 6200 }],
     ...overrides,

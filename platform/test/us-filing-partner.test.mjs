@@ -29,7 +29,7 @@ function computed1040() {
     spouse: { firstName: 'Ravi', lastName: 'Hill', ssn: '400025678', dob: '1987-09-12', occupation: 'Engineer' },
     address: { line1: '12 Elm St', city: 'Austin', state: 'TX', zip: '78701' },
     dependents: [{ firstName: 'Asha', lastName: 'Hill', ssn: '400039012', relationship: 'daughter', months: 12 }],
-    lines: { '11': 85000, '24': 3716, '35a': 2484 },
+    lines: { '11a': 85000, '11b': 85000, '24a': 3716, '24c': 3716, '35a': 2484 },
     w2s: [{ owner: 'taxpayer', ein: '123456789', employerName: 'Hill Country Foods', wages: 85000, fedWithheld: 6200 }],
     forms: [{ id: 'f1', kind: 'W-2', owner: 'taxpayer', payer: 'Hill Country Foods', fields: {} }, { id: 'f2', kind: '1099-INT', owner: 'taxpayer', payer: 'Bank', payerTin: '987654321', fields: { interest: 120 } }],
   };

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { htmlEscape } from './text-safe.mjs';
 import { canonicalJson } from './approvals.mjs';
-import { MEF_NAMESPACE, FILING_STATUS_CODES, FORM_1040_LINES, SCHEDULE_DOCUMENTS, W2_FIELDS, RELATIONSHIP_CODES } from './us-mef-map.mjs';
+import { MEF_NAMESPACE, FILING_STATUS_CODES, W2_FIELDS, RELATIONSHIP_CODES, form1040MefLines, scheduleMefDocuments, repeatedLines } from './us-mef-map.mjs';
 
 export const MEF_SCHEMA_VERSION = '2025v5.7';
 const SSN = /^\d{9}$/;
@@ -207,7 +207,8 @@ function form1040Xml(computed, problems, ssnOf) {
     bankChecks(refund, 'refund', problems);
     deposit = el('RoutingTransitNum', refund.routing) + el('BankAccountTypeCd', refund.accountType === 'savings' ? '2' : '1') + el('DepositorAccountNum', refund.account);
   }
-  const amounts = orderedAmounts(Object.fromEntries(Object.entries(lines).filter(([k]) => k !== '35a')), FORM_1040_LINES, 'Form 1040', problems);
+  const repeated = repeatedLines(computed.taxYear, '1040');
+  const amounts = orderedAmounts(Object.fromEntries(Object.entries(lines).filter(([k]) => k !== '35a' && !repeated.includes(k))), form1040MefLines(computed.taxYear), 'Form 1040', problems);
   const refundXml = Number(lines['35a'] || 0) > 0 ? el('RefundAmt', lines['35a']) + deposit : '';
   const splitAt = amounts.indexOf('<AppliedToEsTaxAmt>') >= 0 ? amounts.indexOf('<AppliedToEsTaxAmt>') : (amounts.indexOf('<OwedAmt>') >= 0 ? amounts.indexOf('<OwedAmt>') : amounts.length);
   const deps = dependentsXml(computed.dependents, problems, ssnOf);
@@ -219,11 +220,13 @@ const NOT_ATTACHED = Object.freeze({
   EIC: (value) => !(Number(value?.credit) > 0) || !(Number(value?.qualifyingChildren) > 0),
 });
 
-function schedulesXml(schedules, problems) {
+function schedulesXml(schedules, problems, taxYear) {
   const docs = [];
+  const documents = scheduleMefDocuments(taxYear);
   for (const [key, value] of Object.entries(schedules || {})) {
     if (value === null || value === undefined) continue;
-    const spec = SCHEDULE_DOCUMENTS[key];
+    const spec = documents[key];
+    const repeated = repeatedLines(taxYear, key);
     if (!spec && NOT_ATTACHED[key]?.(value)) continue;
     if (!spec) {
       problems.push(problem('UNSUPPORTED_SCHEDULE', `Schedule ${key} is on the return but MyCA cannot e-file it yet.`, 'Nothing was filed. File this return on paper or with a CPA until Schedule support is added.', 'forms'));
@@ -233,7 +236,7 @@ function schedulesXml(schedules, problems) {
     items.filter((item) => item && !item.belowMinimum).forEach((item, index) => {
       const lines = item.lines && typeof item.lines === 'object' ? item.lines : item;
       const text = spec.text ? Object.entries(spec.text).map(([field, name]) => el(name, item[field])).join('') : '';
-      const amounts = orderedAmounts(Object.fromEntries(Object.entries(lines).filter(([k]) => !(spec.text && k in spec.text) && !NON_LINE_FIELDS.has(k))), spec.lines, `Schedule ${key}`, problems);
+      const amounts = orderedAmounts(Object.fromEntries(Object.entries(lines).filter(([k]) => !(spec.text && k in spec.text) && !NON_LINE_FIELDS.has(k) && !repeated.includes(k))), spec.lines, `Schedule ${key}`, problems);
       const id = `${spec.element}${spec.repeats ? `-${index + 1}` : ''}`;
       if (amounts) docs.push(group(spec.element, text + amounts, ` documentId="${id}"`));
     });
@@ -287,7 +290,7 @@ export function buildMefSubmission(computed, options = {}) {
   const signature = signatureElements(options.signature, needsSpouse, problems);
   const security = options.device ? group('FilingSecurityInformation', deviceGroup('AtSubmissionCreationGrp', options.device) + deviceGroup('AtSubmissionFilingGrp', options.device)) : '';
   const form1040 = form1040Xml(c, problems, ssnOf);
-  const schedules = schedulesXml(c.schedules, problems);
+  const schedules = schedulesXml(c.schedules, problems, taxYear);
   const w2s = w2Xml(c.w2s, problems);
   const payment = paymentXml(options.payment, Number(c.lines?.['37'] || 0), problems);
   if (problems.length) return { ok: false, error: 'RETURN_NOT_READY', problems };

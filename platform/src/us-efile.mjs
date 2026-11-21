@@ -9,6 +9,7 @@ import { irsMefSettings, irsMefMissing } from './us-mef-settings.mjs';
 import { transmissionZip } from './us-mef-zip.mjs';
 import { importedPriorYear } from './us-return.mjs';
 import { figuresOf1040 } from './us-1040x.mjs';
+import { form1040Amount } from './us-line-map.mjs';
 import { efileRoute, partnerMode, partnerSetup, startPartnerFiling } from './us-filing-partner.mjs';
 
 const PIN = /^\d{5}$/;
@@ -161,16 +162,16 @@ function unseal(record) {
 }
 
 function summary8879(taxYear, computed, record) {
-  const lines = computed.lines || {};
+  const amount = (name) => form1040Amount({ ...computed, taxYear }, name);
   return {
     taxYear,
     form: '8879',
     filingStatus: computed.filingStatus,
-    adjustedGrossIncome: Number(lines['11'] || 0),
-    totalTax: Number(lines['24'] || 0),
-    federalWithheld: Number(lines['25d'] || 0),
-    refund: Number(lines['35a'] || 0),
-    amountOwed: Number(lines['37'] || 0),
+    adjustedGrossIncome: amount('agi'),
+    totalTax: amount('totalTax'),
+    federalWithheld: amount('withholding'),
+    refund: amount('refund'),
+    amountOwed: amount('owed'),
     refundMethod: record.refundMethod,
     paymentMethod: record.paymentMethod,
     account: record.maskedAccount,
