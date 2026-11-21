@@ -429,7 +429,7 @@ export function computeForm1040(input = {}, taxYearArg) {
   else if (loanInterest > 0 && !input.taxpayer?.canBeClaimedAsDependent) {
     const capped = Math.min(loanInterest, fromCents(studentLoan.maxCents));
     const magi = totalIncome - ssAdjustments;
-    studentLoanDeduction = Math.round(capped * phaseOutFraction(magi, jointOr(studentLoan.phaseOutCents, status)));
+    studentLoanDeduction = capped - Math.round(capped * Math.round((1 - phaseOutFraction(magi, jointOr(studentLoan.phaseOutCents, status))) * 1000) / 1000);
   }
   adjustments[21] = studentLoanDeduction;
   adjustments[26] = ssAdjustments + studentLoanDeduction;
@@ -546,12 +546,18 @@ export function computeForm1040(input = {}, taxYearArg) {
       if (qbiMinimum && !active && !answeredNo && qbiIncome >= activeFloor && beforeMinimum < minimumAmount) checks.push(check('warning', 'QBI_MINIMUM_NEEDS_ANSWER', `Your business may qualify for the minimum QBI deduction of $${minimumAmount} (IRC 199A(i)) if you materially participate in it. Answer the material participation question to claim it.`, 'Answer whether you worked in your business regularly, continuously and substantially this year.', '8995'));
     }
   }
-  const line14 = line12 + line13a + line13b;
-  const line15 = Math.max(0, agi - line14);
-
   const bands = brackets[bracketKey(status)];
   const topBandStart = bands[bands.length - 1].fromCents / 100;
-  if (taxYear >= '2026' && itemize && Math.max(0, agi - line13a - line13b) > topBandStart) needForm('Section 68 limit', 'ITEMIZED_37_LIMIT', 'From 2026, itemized deductions of a taxpayer in the 37% bracket are reduced so they save at most 35 cents a dollar (IRC section 68); MyCA does not apply that reduction.', 'Have your CPA apply the section 68 limit, or take the standard deduction.');
+  const section68Excess = taxYear >= '2026' && itemize ? Math.max(0, agi - line13a - line13b - topBandStart) : 0;
+  const section68Reduction = section68Excess > 0 ? Math.round((Math.min(scheduleA[17], section68Excess) * 2) / 37) : 0;
+  if (section68Reduction > 0) {
+    scheduleA.section68Reduction = section68Reduction;
+    scheduleA.afterSection68 = scheduleA[17] - section68Reduction;
+    checks.push(check('warning', 'ITEMIZED_37_LIMIT', `From 2026, itemized deductions in the 37% bracket are reduced by 2/37 of the smaller of the deductions or the income above ${topBandStart} (IRC section 68), here by ${section68Reduction}.`, '', 'Schedule A'));
+  }
+  const line12Allowed = line12 - section68Reduction;
+  const line14 = line12Allowed + line13a + line13b;
+  const line15 = Math.max(0, agi - line14);
   const preferential = qualifiedDividends + d.netCapitalGain;
   const worksheet = preferential > 0 ? qualifiedDividendsWorksheet({ taxable: line15, qualifiedDividends, netCapitalGain: d.netCapitalGain, status, bands, capitalGains }) : null;
   const line16 = worksheet ? worksheet.tax : regularTax(line15, bands);
@@ -710,7 +716,7 @@ export function computeForm1040(input = {}, taxYearArg) {
     '1a': wages, '1z': line1z, '2a': taxExemptInterest, '2b': taxableInterest, '3a': qualifiedDividends, '3b': ordinaryDividends,
     '4a': sum(iraForms, (form) => field(form, 'grossDistribution')), '4b': line4b, '5a': sum(pensionForms, (form) => field(form, 'grossDistribution')), '5b': line5b,
     '6a': benefits, '6b': ss.taxable, 7: capitalLine, 8: schedule1Part1[10], 9: totalIncome, 10: adjustments[26], 11: agi,
-    12: line12, '13a': line13a, '13b': line13b, 14: line14, 15: line15, 16: line16, 17: line17, 18: line18, 19: line19, 20: line20, 21: line21, 22: line22, 23: line23, 24: line24,
+    12: line12Allowed, '13a': line13a, '13b': line13b, 14: line14, 15: line15, 16: line16, 17: line17, 18: line18, 19: line19, 20: line20, 21: line21, 22: line22, 23: line23, 24: line24,
     '25a': line25a, '25b': line25b, '25c': line25c, '25d': line25d, 26: line26, 27: line27, 28: line28, 29: line29, 31: line31, 32: line32, 33: line33, 34: line34, '35a': line35a, 36: applyNext, 37: line37,
   };
   const stringKeys = (object) => Object.fromEntries(Object.entries(object).map(([key, value]) => [String(key), value]));
@@ -753,7 +759,7 @@ export function computeForm1040(input = {}, taxYearArg) {
       filingStatusLabel: STATUS_LABEL[status],
       lines: stringKeys(lines),
       schedules,
-      summary: { totalIncome, agi, deduction: line12, itemized: itemize, standardDeduction, itemizedTotal: scheduleA[17], taxableIncome: line15, tax: line16, credits: line21, otherTaxes: line23, totalTax: line24, payments: line33, refund: line35a, owed: line37, effectiveRate: totalIncome > 0 ? Math.round((line24 / totalIncome) * 10000) / 100 : 0 },
+      summary: { totalIncome, agi, deduction: line12Allowed, itemized: itemize, standardDeduction, itemizedTotal: scheduleA[17], taxableIncome: line15, tax: line16, credits: line21, otherTaxes: line23, totalTax: line24, payments: line33, refund: line35a, owed: line37, effectiveRate: totalIncome > 0 ? Math.round((line24 / totalIncome) * 10000) / 100 : 0 },
       dependents: dependents.map((item) => ({ firstName: item.firstName || '', lastName: item.lastName || '', relationship: item.relationship || '', age: item.age, ctcEligible: item.ctcEligible, odcEligible: item.odcEligible, eitcChild: item.eitcChild })),
       qualifiedDividendsWorksheet: worksheet ? worksheet.worksheet : null,
       socialSecurityWorksheet: ss.worksheet,

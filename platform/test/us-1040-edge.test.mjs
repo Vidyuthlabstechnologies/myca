@@ -452,7 +452,7 @@ test('Social Security Benefits Worksheet: single above the $34,000 adjusted base
   assert.equal(apart.data.lines['6b'], 0);
 });
 
-test('Unsupported forms land in unsupported with required true: Form 1116, Form 8283 and the 2026 section 68 limit; the Pub. 936 limit is prorated and only flagged', () => {
+test('Unsupported forms land in unsupported with required true: Form 1116 and Form 8283; the Pub. 936 limit is prorated and the 2026 section 68 limit applied, both only flagged', () => {
   const foreign = run('single', [w2(60000), { kind: '1099-DIV', payer: 'Fund', fields: { ordinaryDividends: 10000, foreignTaxPaid: 400 } }]);
   assert.ok(needs(foreign).includes('1116'));
   const allowed = run('single', [w2(60000), { kind: '1099-DIV', payer: 'Fund', fields: { ordinaryDividends: 10000, foreignTaxPaid: 300 } }]);
@@ -467,7 +467,9 @@ test('Unsupported forms land in unsupported with required true: Form 1116, Form 
   assert.ok(mortgage.data.unsupported.some((item) => item.form === 'Pub. 936 worksheet' && item.required === false));
   assert.equal(mortgage.data.schedules.A['8a'], 31250);
   const top = run('single', [w2(900000, 0, { stateWithheld: 50000 })], { answers: { itemize: 'yes', charityCash: 50000 } }, '2026');
-  assert.ok(needs(top).includes('Section 68 limit'));
+  assert.ok(!needs(top).includes('Section 68 limit'));
+  assert.ok(top.data.checks.some((item) => item.code === 'ITEMIZED_37_LIMIT'));
+  assert.ok(top.data.schedules.A.section68Reduction > 0);
   const top2025 = run('single', [w2(900000, 0, { stateWithheld: 50000 })], { answers: { itemize: 'yes', charityCash: 50000 } }, '2025');
   assert.ok(!needs(top2025).includes('Section 68 limit'));
 });

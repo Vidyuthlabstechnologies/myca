@@ -113,3 +113,23 @@ test('Schedule 3 line 11: excess Social Security tax is figured on the cents, ag
   const out = computeForm1040({ filingStatus: 'single', taxpayer: { dateOfBirth: '1980-01-01' }, forms: [job('A', 120000, 7440.4), job('B', 90000, 5580.4)] }, '2025');
   assert.equal(out.data.schedules['3']['11'], 2103);
 });
+
+test('IRC section 68 (2026): itemized deductions are cut by 2/37 of the smaller of the deductions or the income above the 37% bracket start', () => {
+  const run2026 = (filingStatus, wages, propertyTax, charityCash) => computeForm1040({ filingStatus, taxpayer: { dateOfBirth: '1980-01-01' }, ...(filingStatus === 'mfj' ? { spouse: { dateOfBirth: '1980-01-01' } } : {}), forms: [{ kind: 'W-2', payer: 'Acme', fields: { wages } }], answers: { realEstateTaxes: propertyTax, charityCash, itemize: 'yes' } }, '2026');
+  const single = run2026('single', 800000, 10000, 60000);
+  assert.equal(single.data.schedules.A['17'], 66000);
+  assert.equal(single.data.schedules.A.section68Reduction, 3568);
+  assert.equal(single.data.lines['12'], 62432);
+  assert.equal(single.data.lines['15'], 737568);
+  assert.equal(single.data.lines['16'], 228857);
+  const joint = run2026('mfj', 800000, 10000, 44000);
+  assert.equal(joint.data.schedules.A.section68Reduction, 1692);
+  assert.equal(joint.data.lines['12'], 48308);
+  assert.equal(joint.data.lines['16'], 200631);
+  assert.equal(run2026('single', 300000, 10000, 20000).data.schedules.A.section68Reduction, undefined);
+});
+
+test('Student loan interest worksheet: the reduction is rounded, then subtracted (MFJ MAGI $192,500 in 2026 gives $1,042)', () => {
+  const out = computeForm1040({ filingStatus: 'mfj', taxpayer: { dateOfBirth: '1980-01-01' }, spouse: { dateOfBirth: '1980-01-01' }, forms: [{ kind: 'W-2', payer: 'Acme', fields: { wages: 192500 } }, { kind: '1098-E', payer: 'Lender', fields: { studentLoanInterest: 2500 } }] }, '2026');
+  assert.equal(out.data.schedules['1']['21'], 1042);
+});
