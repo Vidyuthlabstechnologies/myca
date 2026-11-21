@@ -18,6 +18,7 @@ import { loadEnvFile, productionCallsEnabled } from './runtime-config.mjs';
 import { performExternalAction } from './action-gate.mjs';
 import { normalizeClientId } from './books.mjs';
 import { appendAuditEvent, stateDigest } from './ca-api.mjs';
+import { figuresOf1040 } from './us-1040x.mjs';
 
 export const PARTNERS = Object.freeze({
   'column-tax': Object.freeze({ label: 'Column Tax', site: 'https://www.columntax.com' }),
@@ -262,7 +263,7 @@ export async function startPartnerFiling(state, { taxYear, computed, scope, cont
   } else {
     session = { handoffUrl: '', sessionId: `sim-${ref.slice(0, 8)}` };
   }
-  entry.partner = { provider: settings.provider || 'simulator', ref, externalId, sessionId: session.sessionId || '', status: 'in_progress', startedAt: entry.partner?.startedAt || nowIso, lastOpenedAt: nowIso, mode };
+  entry.partner = { provider: settings.provider || 'simulator', ref, externalId, sessionId: session.sessionId || '', status: 'in_progress', startedAt: entry.partner?.startedAt || nowIso, lastOpenedAt: nowIso, mode, figures: figuresOf1040(computed) };
   entry.submissions = entry.submissions || [];
   book.returns[String(taxYear)] = entry;
   audit(state, 'us_efile.partner_start', beforeHash, { actorId: actor?.userId, taxYear, provider: entry.partner.provider, mode, sentTins: Boolean(configured && sendTins) });
