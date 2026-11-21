@@ -19,7 +19,6 @@ const hiMoney = <String, String>{
   'Result': 'नतीजा',
   'Net profit': 'शुद्ध लाभ',
   'Net loss': 'शुद्ध हानि',
-  'Total': 'कुल',
   'Assets': 'संपत्ति',
   'Liabilities': 'देनदारियाँ',
   'Equity': 'मालिक की पूँजी',
@@ -87,7 +86,6 @@ const hiMoney = <String, String>{
   'Credit against income tax once Form 26AS confirms it': 'Form 26AS में पुष्टि होने पर इनकम टैक्स में क्रेडिट मिलेगा',
   'Import TCS statement': 'TCS स्टेटमेंट लाएँ',
   'Import the TCS statement': 'TCS स्टेटमेंट लाएँ',
-  'Import 26AS': '26AS लाएँ',
   'Import Form 26AS': 'Form 26AS लाएँ',
 
   // Marketplace: margins

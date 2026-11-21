@@ -62,7 +62,6 @@ const hiEntries = <String, String>{
   'PAYMENT DUE': 'भुगतान की तारीख़',
   'PLACE OF SUPPLY': 'सप्लाई की जगह',
   'Item': 'आइटम',
-  'Taxable value': 'टैक्स लगने वाली रकम',
   'Total': 'कुल',
   'Added by debit note': 'डेबिट नोट से जोड़ा',
   'Credited back': 'क्रेडिट नोट से घटाया',
@@ -85,7 +84,6 @@ const hiEntries = <String, String>{
   'Generate e-way bill': 'ई-वे बिल बनाएँ',
   'Shared once, last on {date}. Delivery is not something MyCA can know.': 'एक बार भेजा, आखिरी बार {date} को। पहुँचा या नहीं, यह MyCA नहीं जान सकता।',
   'Shared {n} times, last on {date}. Delivery is not something MyCA can know.': '{n} बार भेजा, आखिरी बार {date} को। पहुँचा या नहीं, यह MyCA नहीं जान सकता।',
-  'Preparing…': 'तैयार हो रहा है…',
   'Send to {name}': '{name} को भेजें',
   'Print or save as PDF': 'प्रिंट करें या PDF सेव करें',
   'You choose WhatsApp, email or another app, and it goes from your own account. MyCA sends nothing by itself.':
@@ -94,7 +92,6 @@ const hiEntries = <String, String>{
   'Make invoice': 'इनवॉइस बनाएँ',
   'Goods came back': 'माल वापस आया',
   'This posts nothing to your books. Making the invoice posts it, with the same lines.': 'इससे आपके खातों में कुछ दर्ज नहीं होता। इनवॉइस बनाने पर यही लाइनें दर्ज होंगी।',
-  'Ask my CA': 'मेरे CA से पूछें',
   'Debit note': 'डेबिट नोट',
   'Cancel invoice': 'इनवॉइस रद्द करें',
   'A credit note, a debit note or a cancellation changes the amount with a new entry; the invoice itself is never changed.':
