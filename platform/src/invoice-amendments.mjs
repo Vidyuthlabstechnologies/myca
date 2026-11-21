@@ -63,6 +63,7 @@ export function planAmendment(state, args = {}) {
   const reason = String(args.reason || '').trim().slice(0, 120);
   if (!reason) return { ok: false, error: 'REASON_REQUIRED' };
   if (hasCess(invoice) && Array.isArray(args.lines) && args.lines.length) return { ok: false, error: 'CESS_AMENDMENT_BY_NOTE', hint: 'This invoice carries cess; correct its value with a credit or debit note.' };
+  if (invoice.loyaltyRedeemed && Array.isArray(args.lines) && args.lines.length) return { ok: false, error: 'LOYALTY_AMENDMENT_BY_NOTE', hint: 'Loyalty points were used on this invoice; correct its value with a credit or debit note.' };
   const before = snapshot(invoice);
   let partyGstin = before.partyGstin;
   if (args.partyGstin != null) {

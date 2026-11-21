@@ -198,6 +198,12 @@ and [`README.md`](README.md) for what is left and how it is being done.
   order and Place order, strict CSP) and `GET /v1/store/<slug>`, takes `POST /v1/store/<slug>/orders`
   (priced from the snapshot, rate-limited) into `store_orders`; the Android Online store screen publishes
   items, shares the link and turns an order into a quote
+- India loyalty points (2026-11-21): `loyalty_settings` (owner; earn rate on value before GST or total,
+  point value, minimum, most of a bill, expiry), points earned on sales to named customers, `redeemPoints`
+  on `create_invoice` as a discount before GST (CGST Act s.15(3)(a)) shown as "Loyalty points redeemed",
+  reversal on credit notes and cancellations, `loyalty_adjust` (owner, reason, audited) and `loyalty_balance`
+  with points liability and a WhatsApp balance line; Android Loyalty points screen and Use points on
+  the counter sale and the customer's sale
 - Malaysia PCB (2026-11-14): `my_payroll` works out the monthly tax deduction by LHDN's computerised
   method from `my.payroll.pcb` and the resident bands and rebate rules (categories 1 to 3, children,
   bonus, year to date, zakat, TP1 deductions; flat rate for non-residents)

@@ -258,3 +258,13 @@ test('the points book is saved with the books and read back', async () => {
   assert.equal(back.loyalty.entries.length, 1);
   assert.equal((await runTool(back, 'loyalty_balance', { partyName: 'Asha Verma', asOf: '2026-05-01' })).data.customer.balance, 20);
 });
+
+test('an invoice that used points is corrected by a note, not by amending its lines', async () => {
+  const state = await shop();
+  await sale(state, { lines: [{ description: 'Oil', hsn: '1512', qty: 10, rate: 500, gstRate: 5 }] });
+  const used = await sale(state, { date: '2026-05-01', redeemPoints: 40, lines: [{ description: 'Atta', hsn: '1101', qty: 1, rate: 1000, gstRate: 5 }] });
+  assert.equal((await runTool(state, 'record_filing', { returnType: 'GSTR-1', period: '2026-05', arn: 'AA270526123456A', filedOn: '2026-06-11' })).ok, true);
+  const refused = await runTool(state, 'amend_invoice', { invoiceId: used.invoice.id, reason: 'Rate', lines: [{ description: 'Atta', hsn: '1101', qty: 1, rate: 900, gstRate: 5 }], date: '2026-06-12' });
+  assert.equal(refused.error, 'LOYALTY_AMENDMENT_BY_NOTE');
+  assert.equal(trialBalance(state.ledger).balanced, true);
+});
