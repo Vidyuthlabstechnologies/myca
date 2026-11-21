@@ -42,7 +42,7 @@ IndiaKeys indiaKeys([String root = 'lib']) {
     collect('inText', text, 1);
     collect('inFormat', format, 1);
     collect('inCount', count, 2);
-    if (!definitions && !entity.path.endsWith('uae_strings.dart')) collect('inLine', line, 1);
+    if (!definitions && !entity.path.contains('/uae/uae_')) collect('inLine', line, 1);
   }
   final sharedSource = ['$root/uae/uae_strings.dart', '$root/uae/uae_cloud_strings.dart'].map((path) => File(path).readAsLinesSync().where((line) => !line.trimLeft().startsWith('//')).join('\n')).join('\n');
   final shared = RegExp('\\b_t?\\(\\s*$_plain').allMatches(sharedSource).map((hit) => _unescape(hit.group(1)!)).toSet();
