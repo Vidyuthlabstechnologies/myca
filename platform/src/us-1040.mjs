@@ -1,27 +1,30 @@
 import { rules } from './sprint-load.mjs';
 import { careQualifyingPersons, dependentCareBenefits, dependentCareCredit, deemedEarnedIncome } from './us-form-2441.mjs';
 import { computeForm8962 } from './us-form-8962.mjs';
+import { computeForm8880, electiveDeferrals } from './us-form-8880.mjs';
+import { energyItemsFor, homeImprovementCredit, cleanEnergyTentative, cleanEnergyCredit } from './us-form-5695.mjs';
 import { computeForm8889, hsaContributionLimit, hsaMonthsOf } from './us-form-8889.mjs';
 import { allocateQbiAdjustments, computeForm8995 } from './us-form-8995.mjs';
 import { computeScheduleE, RENTAL_ENTRY_KIND } from './us-form-schedule-e.mjs';
 
 export const FILING_STATUSES = Object.freeze(['single', 'mfj', 'mfs', 'hoh', 'qss']);
 export const SUPPORTED_YEARS = Object.freeze(['2025', '2026']);
-export const FORM_KINDS = Object.freeze(['W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T', '1095-A', '1099-SA', '5498-SA', '2441-PROVIDER']);
+export const FORM_KINDS = Object.freeze(['W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T', '1095-A', '1099-SA', '5498-SA', '2441-PROVIDER', '5695-ITEM']);
 export const US_ENTRY_KINDS = Object.freeze([RENTAL_ENTRY_KIND]);
 export const US_INPUT_KINDS = Object.freeze([...FORM_KINDS, ...US_ENTRY_KINDS]);
 const LONG_STATUS = Object.freeze({ single: 'single', mfj: 'married_joint', mfs: 'married_separate', hoh: 'head_of_household', qss: 'single' });
 const STATUS_LABEL = Object.freeze({ single: 'Single', mfj: 'Married filing jointly', mfs: 'Married filing separately', hoh: 'Head of household', qss: 'Qualifying surviving spouse' });
 const CHILD_RELATIONSHIPS = new Set(['son', 'daughter', 'stepchild', 'foster_child', 'brother', 'sister', 'half_brother', 'half_sister', 'stepbrother', 'stepsister', 'grandchild', 'niece', 'nephew', 'sibling', 'niece_nephew']);
 const FORM_REASONS = Object.freeze({ 'Schedule K-1': 'Partnership, S corporation, estate and trust income (Schedule E Parts II and III)', 'Real estate professional': 'Rental losses of a real estate professional', 'Pub 527': 'Vacation home used as a home (rental expense limit)', 'Short-term rental': 'Rental with an average stay of 7 days or less', 6198: 'At-risk limits on a rental loss', 4797: 'Sale of rental or business property', 8962: 'Marketplace health coverage (premium tax credit)', '8995-A': 'Qualified business income above the threshold', 2210: 'Possible estimated tax penalty', 1116: 'Foreign tax credit above the amount claimable without Form 1116', 5329: 'Additional tax on an early retirement distribution with an exception or a Roth or SIMPLE code, or the 6% tax on HSA excess contributions', 8283: 'Non-cash charitable gifts over $500', 8853: 'Archer MSA or Medicare Advantage MSA distributions', 'Pub. 936 worksheet': 'Mortgage interest on debt above the acquisition debt limit', 'Section 68 limit': 'Itemized deductions reduced for the 37% bracket from 2026', 'Section 1341 claim': 'Social Security repaid above the benefits by more than the claim-of-right threshold' });
-export const US_FORMS_SUPPORTED = Object.freeze(['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule E', 'Schedule SE', 'Schedule EIC', '2441', '4562', '8582', '8812', '8863', '8949', '8889', '8959', '8960', '8962', '8995']);
+export const US_FORMS_SUPPORTED = Object.freeze(['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule E', 'Schedule SE', 'Schedule EIC', '2441', '4562', '5695', '8582', '8812', '8863', '8880', '8949', '8889', '8959', '8960', '8962', '8995']);
 export const US_FORMS_COMING = Object.freeze(['8995-A', '2210', '1116', '5329', '8283']);
 const NOT_COVERED = Object.freeze([
   'Alternative minimum tax (Form 6251)',
   'Partnership, S corporation, estate and trust income (Schedule E Parts II to V, Schedule K-1), real estate professionals, the vacation home expense limit (Pub. 527) and at-risk limits (Form 6198)',
   'Sale of business or rental property (Form 4797), and depreciation other than straight-line MACRS on rental buildings entered as a rental property (Form 4562)',
   'Unrecaptured section 1250 gain and collectibles (Schedule D tax worksheet)',
-  'Retirement savings credit (Form 8880) and clean energy credits',
+  'Form 8880: AGI refigured for excluded foreign, Puerto Rico or American Samoa income, a spouse\'s distribution from a year you did not file jointly (counted in both columns), and the credit for the elderly or disabled (Schedule 3 line 6d) in the credit limit',
+  'Form 5695: joint occupants and condominium or cooperative shares (lines 7c, 32a and 32b), fuel cell property in two main homes, the panelboard safe harbor for property installed in 2024, and subsidies that reduce the cost (enter the cost after them)',
   'Form 2441: prior-year care expenses paid this year (line 9b), dependent care benefits from your own business (lines 22 and 24) and a plan limit below the legal maximum (line 21)',
   'IRA deduction worksheet: the deductible amount is taken as entered',
   'HSA: qualified HSA funding distributions from an IRA (Form 8889 lines 10 and 19), Archer and Medicare Advantage MSAs (Form 8853), the Line 3 worksheet when the coverage type changed during the year, and the Form 5329 tax on excess contributions',
@@ -387,6 +390,9 @@ export function computeForm1040(input = {}, taxYearArg) {
   const overtime = read('us.federal.individual.overtime-deduction');
   const carLoan = read('us.federal.individual.car-loan-interest');
   const qbiMinimum = read('us.federal.individual.qbi-minimum');
+  const saversRule = read('us.federal.individual.savers-credit');
+  const cleanRule = read('us.federal.individual.residential-clean-energy');
+  const homeRule = read('us.federal.individual.energy-home-improvement');
   const careCreditRule = read('us.federal.individual.dependent-care-credit');
   const careExclusionRule = read('us.federal.individual.dependent-care-exclusion');
   const passiveAllowance = read('us.federal.individual.passive-loss-special-allowance');
@@ -795,20 +801,11 @@ export function computeForm1040(input = {}, taxYearArg) {
   const educationCredit = Math.min(educationNonrefundableTentative, Math.max(0, line18 - foreignCredit - careCredit));
   const form8863 = students.length && educationRows.length ? { students: educationRows, 1: aotcTotal, 7: aotcAfter, line7Under24: aotcRefundableBlocked, 8: aotcRefundable, 9: aotcAfter - aotcRefundable, 10: llcExpenses, 12: llcTentative, 18: llcAfter + aotcAfter - aotcRefundable, 19: educationCredit, phaseOutFraction: educationFraction } : null;
 
-  const schedule3 = { 1: foreignCredit, 2: careCredit, 3: educationCredit };
-  schedule3[8] = schedule3[1] + schedule3[2] + schedule3[3];
-
   const ctcBase = ctcChildren * fromCents(ctc.perChildCents) + otherDependents * fromCents(ctc.otherDependentCents);
   const ctcStart = fromCents(jointOr({ mfj: ctc.phaseOutStartCents.mfj, other: ctc.phaseOutStartCents.other }, status));
   const ctcExcess = magi > ctcStart ? Math.ceil((magi - ctcStart) / 1000) * 1000 : 0;
   const ctcReduction = (ctcExcess / 1000) * fromCents(ctc.phaseOutPerThousandCents);
   const ctcAfter = Math.max(0, ctcBase - ctcReduction);
-  const ctcLimit = Math.max(0, line18 - schedule3[8]);
-  const line19 = Math.min(ctcAfter, ctcLimit);
-
-  const line20 = schedule3[8];
-  const line21 = line19 + line20;
-  const line22 = Math.max(0, line18 - line21);
 
   const medicareWages = sum(w2s, (form) => field(form, 'medicareWages'));
   const medicareWithheld = sum(w2s, (form) => field(form, 'medicareTax'));
@@ -829,7 +826,6 @@ export function computeForm1040(input = {}, taxYearArg) {
   const schedule2 = { '1a': ptcRepayment, '1z': ptcRepayment, 2: 0, 3: ptcRepayment, 4: seTax, 8: earlyDistributionTax, 11: additionalMedicare, 12: niitTax, '17c': hsa.distributionTax, '17d': hsa.testingPeriodTax, 18: hsa.distributionTax + hsa.testingPeriodTax };
   schedule2[21] = schedule2[4] + schedule2[8] + schedule2[11] + schedule2[12] + schedule2[18];
   const line23 = schedule2[21];
-  const line24 = line22 + line23;
 
   const withheld = (kind, name = 'federalWithheld') => sum(formsOf(input, kind), (form) => field(form, name));
   const line25a = withheld('W-2');
@@ -862,9 +858,7 @@ export function computeForm1040(input = {}, taxYearArg) {
     eic = { qualifyingChildren: eitcChildren, earnedIncome, agi, onEarnedIncome: onEarned, onAgi, credit: line27 };
   } else if (earnedIncome > 0) eic = { qualifyingChildren: eitcChildren, earnedIncome, agi, credit: 0, notAllowed: eitcReasons };
 
-  const ctcLeft = ctcAfter - line19;
   const actcCap = ctcChildren * fromCents(ctc.refundablePerChildCents);
-  const line17of8812 = Math.min(ctcLeft, actcCap);
   const line19of8812 = Math.max(0, earnedIncome - fromCents(ctc.earnedIncomeFloorCents));
   const line20of8812 = ofBasis(line19of8812, ctc.refundableBasisPoints);
   let line28 = 0;
@@ -878,13 +872,55 @@ export function computeForm1040(input = {}, taxYearArg) {
     if (forms.some((form) => field(form, 'socialSecurityTax') > maxSs)) checks.push(check('warning', 'EMPLOYER_OVERWITHHELD_SS', 'One employer withheld more Social Security tax than the yearly maximum; ask that employer to refund it (it cannot be claimed on the return).', ''));
   }
   const line11of3 = sum(excessSs);
+  const withheldFica = sum(w2s, (form) => field(form, 'socialSecurityTax') + field(form, 'medicareTax')) + wageAdditional - additionalWithheld + Math.round(seAdditional / 2);
+  const actcFicaPart = Math.max(0, withheldFica + seDeduction - (line27 + line11of3));
+
+  const schedule3 = { 1: foreignCredit, 2: careCredit, 3: educationCredit };
+  const creditsOn3 = (keys) => keys.reduce((total, key) => total + (schedule3[key] || 0), 0);
+  const saverPeople = [
+    { name: 'You', age: tpAge, dependent: Boolean(tp.canBeClaimedAsDependent), student: yes(answers.saverStudent), ira: positive(answers.saverIraContributions), able: positive(answers.saverAbleContributions), deferrals: sum(ownerWages('taxpayer'), (form) => electiveDeferrals(form.fields?.box12)), distributions: positive(answers.saverDistributions) },
+    { name: 'Your spouse', age: spAge, dependent: Boolean(sp.canBeClaimedAsDependent), student: yes(answers.spouseSaverStudent), ira: positive(answers.spouseSaverIraContributions), able: positive(answers.spouseSaverAbleContributions), deferrals: sum(ownerWages('spouse'), (form) => electiveDeferrals(form.fields?.box12)), distributions: positive(answers.spouseSaverDistributions) },
+  ].slice(0, hasSpouse ? 2 : 1);
+  const form8880 = saverPeople.some((person) => person.ira + person.able + person.deferrals > 0) ? computeForm8880({ filingStatus: status, agi, people: saverPeople, taxLimit: line18 - creditsOn3([1, 2, 3]), rule: saversRule }) : null;
+  if (form8880) for (const item of form8880.checks) checks.push(check(item.level, item.code, item.message, item.fix, '8880'));
+  schedule3[4] = form8880 ? form8880.credit : 0;
+
+  const energyChecks = [];
+  const energyItems = energyItemsFor(formsOf(input, '5695-ITEM').map((form) => ({ payer: form.payer, ...(form.fields || {}) })), taxYear, energyChecks);
+  const homeAnswers = { mainHome: answers.energyMainHome, originalUser: answers.energyOriginalUser, newConstruction: answers.energyNewConstruction };
+  if (homeRule.allowed && energyItems.some((item) => item.category !== 'battery' && !['solar-electric', 'solar-water', 'small-wind', 'geothermal'].includes(item.category)) && Object.values(homeAnswers).some((value) => value === undefined)) energyChecks.push({ level: 'warning', code: 'ENERGY_HOME_UNANSWERED', message: 'The energy credits were figured as if the improvements are on your main home in the United States, you are the original user, and they are not part of building a new home (Form 5695 lines 7a, 17a to 17e and 21b).', fix: 'Answer the home questions for Form 5695 in the interview.' });
+  const homeImprovement = homeImprovementCredit({ items: energyItems, ...homeAnswers, taxLimit: line18 - creditsOn3([1, 2, 3, 4]), rule: homeRule });
+  if (homeImprovement) energyChecks.push(...homeImprovement.checks);
+  if (homeRule.allowed) schedule3['5b'] = homeImprovement ? homeImprovement.credit : 0;
+  const ctcLimitBase = Math.max(0, line18 - creditsOn3([1, 2, 3, 4, '5b']));
+  const cleanTentative = cleanEnergyTentative({ items: energyItems, mainHome: answers.energyMainHome, carryforward: answers.energyCarryforward, rule: cleanRule });
+  if (cleanTentative) energyChecks.push(...cleanTentative.checks);
+  const worksheetB = Boolean(cleanTentative && cleanTentative.tentative > 0 && ctcChildren > 0 && !answers.foreignEarnedIncomeExclusion);
+  const worksheetB12 = ctcChildren >= 3 && line20of8812 < ctcAfter ? Math.max(line20of8812, actcFicaPart) : line20of8812;
+  const worksheetB13 = Math.min(actcCap, worksheetB12);
+  const worksheetB14 = worksheetB13 > ctcAfter ? 0 : ctcAfter - worksheetB13;
+  let cleanEnergy = worksheetB ? cleanEnergyCredit(cleanTentative, ctcLimitBase - worksheetB14) : null;
+  const ctcLimit = Math.max(0, ctcLimitBase - (cleanEnergy ? cleanEnergy.credit : 0));
+  const line19 = Math.min(ctcAfter, ctcLimit);
+  if (cleanTentative && !cleanEnergy) cleanEnergy = cleanEnergyCredit(cleanTentative, ctcLimitBase - line19);
+  if (cleanEnergy) energyChecks.push(...cleanEnergy.checks);
+  for (const item of energyChecks) checks.push(check(item.level, item.code, item.message, item.fix, '5695'));
+  schedule3['5a'] = cleanEnergy ? cleanEnergy.credit : 0;
+  const form5695 = cleanEnergy || homeImprovement ? { ...(cleanEnergy ? cleanEnergy.lines : {}), ...(homeImprovement ? homeImprovement.lines : {}), ...(worksheetB ? { creditLimitWorksheetB14: worksheetB14 } : {}) } : null;
+  schedule3[8] = creditsOn3([1, 2, 3, 4, '5a', '5b']);
+
+  const line20 = schedule3[8];
+  const line21 = line19 + line20;
+  const line22 = Math.max(0, line18 - line21);
+  const line24 = line22 + line23;
+
+  const ctcLeft = ctcAfter - line19;
+  const line17of8812 = Math.min(ctcLeft, actcCap);
   if (line17of8812 > 0 && !answers.foreignEarnedIncomeExclusion) {
     let allowed = Math.min(line17of8812, line20of8812);
     if (ctcChildren >= 3 && line20of8812 < line17of8812) {
-      const withheldFica = sum(w2s, (form) => field(form, 'socialSecurityTax') + field(form, 'medicareTax')) + wageAdditional - additionalWithheld + Math.round(seAdditional / 2);
-      const line25 = Math.max(0, withheldFica + seDeduction - (line27 + line11of3));
-      partIIB = { 21: withheldFica, 22: seDeduction, 23: withheldFica + seDeduction, 24: line27 + line11of3, 25: line25, 26: Math.max(line20of8812, line25) };
-      allowed = Math.min(line17of8812, Math.max(line20of8812, line25));
+      partIIB = { 21: withheldFica, 22: seDeduction, 23: withheldFica + seDeduction, 24: line27 + line11of3, 25: actcFicaPart, 26: Math.max(line20of8812, actcFicaPart) };
+      allowed = Math.min(line17of8812, Math.max(line20of8812, actcFicaPart));
     }
     line28 = allowed;
   }
@@ -929,14 +965,16 @@ export function computeForm1040(input = {}, taxYearArg) {
     ...(form2441 ? { 2441: stringKeys(form2441) } : {}),
     ...(hsa.forms.length ? { 8889: hsa.forms.map((item) => ({ owner: item.owner, lines: stringKeys(item.lines) })) } : {}),
     ...(form8812 ? { 8812: stringKeys(form8812) } : {}),
+    ...(form5695 ? { 5695: stringKeys(form5695) } : {}),
     ...(form8863 ? { 8863: form8863 } : {}),
+    ...(form8880 ? { 8880: form8880.lines } : {}),
     ...(form8962 ? { 8962: { ...stringKeys(form8962.lines), method: form8962.method, applicable: form8962.applicable } } : {}),
     ...(form8959 ? { 8959: stringKeys(form8959) } : {}),
     ...(form8960 ? { 8960: stringKeys(form8960) } : {}),
     ...(form8995 ? { 8995: stringKeys(form8995) } : {}),
     ...(eic ? { EIC: eic } : {}),
   };
-  if (!w2s.length && !(input.forms || []).some((form) => form.kind !== '2441-PROVIDER') && !businesses.length) checks.push(check('warning', 'NO_INCOME_DOCUMENTS', 'No W-2, 1099 or business income has been added yet.', 'Add your tax forms.'));
+  if (!w2s.length && !(input.forms || []).some((form) => !['2441-PROVIDER', '5695-ITEM'].includes(form.kind)) && !businesses.length) checks.push(check('warning', 'NO_INCOME_DOCUMENTS', 'No W-2, 1099 or business income has been added yet.', 'Add your tax forms.'));
   const penalty = read('us.federal.individual.estimated-tax-penalty');
   if (penalty) {
     const paid = line25d + line26 + line31;

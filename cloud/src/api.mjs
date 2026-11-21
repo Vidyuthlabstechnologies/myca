@@ -56,7 +56,7 @@ export const INBOUND_RELAY_HEADER = 'x-myca-relay-token';
 export const PLAY_NOTIFY_HEADER = 'x-myca-notify-token';
 export const STRIPE_SIGNATURE_HEADER = 'stripe-signature';
 export const US_SUPPORTED_FORMS = Object.freeze({
-  supported: ['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule E', 'Schedule SE', 'Form 2441', 'Form 4562', 'Form 8582', 'Form 8949', 'Form 8812', 'Form 8863', 'Form 8959', 'Form 8889', 'Form 8960', 'Form 8962', 'Form 8995', 'Form 1040-X', 'W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T', '1095-A', '1099-SA', '5498-SA'],
+  supported: ['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule E', 'Schedule SE', 'Form 2441', 'Form 4562', 'Form 5695', 'Form 8582', 'Form 8949', 'Form 8812', 'Form 8863', 'Form 8880', 'Form 8959', 'Form 8889', 'Form 8960', 'Form 8962', 'Form 8995', 'Form 1040-X', 'W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T', '1095-A', '1099-SA', '5498-SA'],
   coming: ['Form 8995-A', 'Form 2210'],
   notThisSeason: ['State returns', 'Form 1040-NR', 'Dual-status returns', 'FBAR (FinCEN 114)', 'Form 8938', 'Form 1116'],
 });
