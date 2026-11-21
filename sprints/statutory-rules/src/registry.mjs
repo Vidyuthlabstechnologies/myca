@@ -7,6 +7,10 @@ import { RULES as HOLIDAY_RULES } from './rules/holidays.mjs';
 import { RULES as PAYROLL_RULES } from './rules/payroll.mjs';
 import { RULES as US_FEDERAL_RULES } from './rules/us-federal.mjs';
 import { RULES as US_INDIVIDUAL_RULES } from './rules/us-individual.mjs';
+import { RULES as US_2441_RULES } from './rules/us-individual-2441.mjs';
+import { RULES as US_8962_RULES } from './rules/us-individual-8962.mjs';
+import { RULES as US_SCHEDULE_E_RULES } from './rules/us-individual-schedule-e.mjs';
+import { RULES as US_1040X_RULES } from './rules/us-individual-1040x.mjs';
 import { RULES as US_SALES_TAX_RULES } from './rules/us-sales-tax.mjs';
 import { RULES as US_STATES_RULES } from './rules/us-states.mjs';
 import { RULES as MALAYSIA_RULES } from './rules/malaysia.mjs';
@@ -25,7 +29,7 @@ export const RULE_MODULES = Object.freeze({
   'holidays': HOLIDAY_RULES,
   'payroll': PAYROLL_RULES,
   'us-federal': US_FEDERAL_RULES,
-  'us-individual': US_INDIVIDUAL_RULES,
+  'us-individual': [...US_INDIVIDUAL_RULES, ...US_2441_RULES, ...US_8962_RULES, ...US_SCHEDULE_E_RULES, ...US_1040X_RULES],
   'us-sales-tax': US_SALES_TAX_RULES,
   'us-states': US_STATES_RULES,
   'malaysia': MALAYSIA_RULES,

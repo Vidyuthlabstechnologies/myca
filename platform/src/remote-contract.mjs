@@ -64,6 +64,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'us_supported_forms',
   'us_brokerage_csv',
   'us_refund_boost',
+  'us_amended_return',
   'us_state_tax',
   'us_withholding_check',
   'us_estimated_payments',

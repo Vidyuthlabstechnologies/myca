@@ -254,17 +254,19 @@ test('a return lists each form it needs but cannot prepare in unsupported, with 
   assert.equal(owed.data.checks.find((item) => item.code === 'FORM_2210_MAY_APPLY').level, 'warning');
   assert.deepEqual(single([w2(50000, 0)], { answers: { priorYearTax: 0 } }).data.unsupported, []);
   assert.equal(single([w2(50000, 0)], { answers: { priorYearTax: 3000, priorYearAgi: 160000 } }).data.unsupported.length, 1);
-  const out = single([w2(50000, 5000)], { dependents: [{ firstName: 'Leo', lastName: 'Diaz', relationship: 'son', dateOfBirth: '2020-01-01', ssn: true, monthsLived: 12 }], answers: { childCareExpenses: 3000, marketplaceCoverage: true, rentalIncome: true } });
-  assert.deepEqual(out.data.unsupported.map((item) => [item.form, item.required]), [['Schedule E', true], ['2441', true], ['8962', true]]);
+  const out = single([w2(50000, 5000)], { dependents: [{ firstName: 'Leo', lastName: 'Diaz', relationship: 'son', dateOfBirth: '2020-01-01', ssn: true, monthsLived: 12 }], answers: { childCareExpenses: 3000, marketplaceCoverage: true, rentalIncome: true, scheduleK1Income: true } });
+  assert.deepEqual(out.data.unsupported.map((item) => [item.form, item.required]), [['Schedule K-1', true]]);
+  assert.equal(out.data.checks.find((item) => item.code === 'RENTAL_PROPERTY_NEEDED').level, 'error');
+  assert.equal(out.data.checks.find((item) => item.code === 'CARE_PROVIDERS_NEEDED').form, '2441');
   for (const need of out.data.unsupported) assert.equal(out.data.checks.find((item) => item.code === need.code).form, need.form);
-  assert.equal(out.data.checks.find((item) => item.code === 'FORM_8962_NOT_COVERED').level, 'error');
+  assert.equal(out.data.checks.find((item) => item.code === 'FORM_1095A_MISSING').level, 'error');
 });
 
 test('the US planning tools project withholding, plan estimated payments and list the supported forms', async () => {
   const state = createState();
   state.company = { ...(state.company || {}), country: 'US' };
   const forms = await runTool(state, 'us_supported_forms', {});
-  assert.ok(forms.data.supported.includes('Schedule C') && forms.data.coming.includes('2441'));
+  assert.ok(forms.data.supported.includes('Schedule C') && forms.data.supported.includes('2441') && forms.data.supported.includes('8962') && forms.data.supported.includes('Schedule E') && forms.data.coming.includes('8995-A'));
   assert.equal((await runTool(state, 'us_withholding_check', { taxYear: '2026', ytdWages: 40000 })).error, 'US_RETURN_NOT_STARTED');
   const check = await runTool(state, 'us_withholding_check', { taxYear: '2026', filingStatus: 'single', payPerPeriod: 2000, withheldPerPeriod: 100, periodsLeft: 5, ytdWages: 50000, ytdWithheld: 2500 });
   assert.equal(check.ok, true);

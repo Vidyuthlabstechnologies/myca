@@ -201,6 +201,10 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - US start from last year (2026-11-14): `import_us_prior_year` copies the profile, sealed SSNs and
   dependents from last year's MyCA return, fills last year's AGI, tax and capital loss carryovers (or
   takes them typed), and lists the forms to expect; the US app has a Start from last year screen
+- US amended return (2026-11-21): `start_us_amended_return` keeps the original 1040 (the accepted MyCA
+  filing, or typed figures from a return filed elsewhere) as column A, `us_amended_return` computes Form 1040-X
+  (Rev. December 2025) lines 1 to 23, Part I dependents and Part II, with the refund-claim deadline, the
+  joint-to-separate rule and IRS e-file eligibility; `us_return_review` links it. MyCA does not transmit 1040-X yet
 - UK payroll calculation (2026-11-15): `gb_payroll_run` works out a weekly or monthly pay run for 2026-27 by the
   HMRC computerised PAYE method (cumulative, week 1/month 1, K, BR, D and NT codes, Scottish and Welsh
   prefixes, the 50% limit), Class 1 National Insurance by category letter, student and postgraduate loans
