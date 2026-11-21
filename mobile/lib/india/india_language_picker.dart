@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import 'india_strings.dart';
 
-/// The language list for the India app. The title is in both the current language and English so an owner
-/// who landed in the wrong language can still find their way back.
 Future<void> showIndiaLanguageSheet(BuildContext context) async {
   final state = AppScope.of(context);
   final current = state.language;

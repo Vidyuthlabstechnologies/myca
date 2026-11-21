@@ -12,7 +12,6 @@ import 'privacy_notice_screen.dart';
 
 const privacyRequestKinds = ['access', 'correction', 'erasure', 'withdraw', 'nominate', 'grievance'];
 
-/// The title and help line of a privacy request, or null for a kind this app does not know.
 (String, String)? privacyRequestWords(BuildContext context, String kind) => switch (kind) {
   'access' => (inText(context, 'See what MyCA holds about me'), inText(context, 'A summary of your personal data and who it was shared with')),
   'correction' => (inText(context, 'Correct or complete my information'), inText(context, 'Tell us what is wrong')),

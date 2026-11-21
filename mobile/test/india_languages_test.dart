@@ -127,4 +127,22 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  for (final language in indiaOfferedLanguages.where((language) => language.code != 'en')) {
+    testWidgets('on a ${language.englishName} phone the India home and the new entry sheet open in ${language.englishName} without overflowing', (tester) async {
+      tester.platformDispatcher.localesTestValue = [language.locale];
+      addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+      await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true))));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip(language.table['New entry']!), findsOneWidget);
+      await tester.tap(find.byTooltip(language.table['New entry']!));
+      await tester.pumpAndSettle();
+      expect(find.text(language.table['What happened?']!), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  test('every regional language is offered once its table is filled', () {
+    expect([for (final language in indiaOfferedLanguages) language.code], ['en', 'hi', 'mr', 'gu', 'ta', 'te', 'kn', 'bn']);
+  });
 }

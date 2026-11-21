@@ -7,7 +7,8 @@ import { listAccounts, trialBalance } from '../src/ledger.mjs';
 
 const acc = (state, code) => listAccounts(state.ledger).find((a) => a.code === code);
 
-test('closing a year moves income and expenses to capital, locks the books, and refuses a year not ended or already closed', async () => {
+test('closing a year moves income and expenses to capital, locks the books, and refuses a year not ended or already closed', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 15, 12).getTime() });
   const state = createState();
   state.company = { ...state.company, name: 'Asha Traders', gstin: '27AABCU9603R1ZN', state: '27' };
   await runTool(state, 'create_invoice', { partyName: 'Kiran Stores', lines: [{ description: 'Consulting', hsn: '9983', qty: 1, rate: 100000, gstRate: 18 }], date: '2025-06-05' });

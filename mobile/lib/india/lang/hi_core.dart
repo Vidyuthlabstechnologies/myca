@@ -1,6 +1,3 @@
-// Hindi wording for the India app, keyed by the English line. Natural shopkeeper Hindi, not literal.
-// Needs a native speaker's review before launch: see docs/product/INDIA-LANGUAGES.md.
-
 const hiCore = <String, String>{
   'Not posted yet': 'अभी दर्ज नहीं हुआ',
   'Posted': 'दर्ज हो गया',

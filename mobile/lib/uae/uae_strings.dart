@@ -15,15 +15,12 @@ class UaeStrings {
 
   final bool ar;
 
-  /// The India language code ('en' outside India). Lines fall back to the India tables keyed by the English line.
   final String india;
 
   bool get hi => india == 'hi';
 
   String _(String en, String arabic) => ar ? arabic : inLine(india, en);
 
-  /// A line with names or amounts in it: [template] names each part in braces so an Indian language can
-  /// reorder them, for example `_t('Move {what} to', {'what': what}, 'انقل $what إلى')`.
   String _t(String template, Map<String, Object?> parts, String arabic) => ar ? arabic : inFill(inLine(india, template), parts);
 
   String get taxesTitle => _('UAE taxes', 'الضرائب في الإمارات');

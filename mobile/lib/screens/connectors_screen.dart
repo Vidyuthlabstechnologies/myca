@@ -7,7 +7,6 @@ import '../india/india_strings.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
-/// Set-up help for the US services, in English: the US app is English only.
 const connectorHelp = {
   'plaid': 'Sign up at dashboard.plaid.com; the Sandbox is free. Open Developers → Keys and copy the client_id and the Sandbox secret. Save them with environment sandbox, then connect your bank. Pulled transactions land as a bank statement file with a reminder; import it from Documents.',
   'taxjar': 'Sign up at app.taxjar.com and open Account → API Access. Generate a Sandbox token, or use the live token with environment production. Save it, then look up a rate below; MyCA records the combined rate for that jurisdiction from today.',
@@ -15,7 +14,6 @@ const connectorHelp = {
   'track1099': 'Sign up at track1099.com; test mode needs no payment. Turn on two-factor sign-in, then open the Account page, API tab: copy the API token and the Team API ID shown beneath it. Until the Track1099 API routes are confirmed, MyCA files nothing through it; the 1099-NEC figures come from the 1099 screen as a file you upload to Track1099.',
 };
 
-/// Set-up help for a service. The menu names stay as the service shows them.
 String connectorHelpLine(BuildContext context, String channel) => switch (channel) {
   'amazon' => inText(context, 'Seller Central → Apps and Services → Develop apps: create a private SP-API app, note the LWA client id and secret, and authorise it to get the refresh token. Marketplace id is A21TJRUUN4KGV for India; region IN.'),
   'shopify' => inText(context, 'Shopify admin → Settings → Apps and sales channels → Develop apps: create an app with read_orders and read_shopify_payments_payouts, install it, and copy the Admin API access token. Shop domain is the myshopify.com host.'),

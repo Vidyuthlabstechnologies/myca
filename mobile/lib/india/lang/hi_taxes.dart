@@ -1,6 +1,3 @@
-// Hindi wording for the taxes screens of the India app, keyed by the English line (or template with {names}).
-// Needs a native speaker's review before launch: see docs/product/INDIA-LANGUAGES.md.
-
 const hiTaxes = <String, String>{
   'Save': 'सेव करें',
   '{number} is left out: the buyer GSTIN is not valid.': '{number} छोड़ दिया गया: खरीदार का GSTIN सही नहीं है।',

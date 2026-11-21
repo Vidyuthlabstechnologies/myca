@@ -1,8 +1,4 @@
-// Hindi wording for the shared cloud lines (people, invites, sync, sharing with the CA) in lib/uae/uae_cloud_strings.dart.
-// Needs a native speaker's review before launch: see docs/product/INDIA-LANGUAGES.md.
-
 const hiCloud = <String, String>{
-  // Buttons
   'Keep': 'रहने दें',
   'Delete': 'मिटाएँ',
   'Copy': 'कॉपी करें',
@@ -12,7 +8,6 @@ const hiCloud = <String, String>{
   'Turn off': 'बंद करें',
   'Code': 'कोड',
 
-  // Roles and invitations
   'owner': 'मालिक',
   'staff': 'स्टाफ़',
   'accountant': 'अकाउंटेंट',
@@ -22,7 +17,6 @@ const hiCloud = <String, String>{
   'Join': 'जुड़ें',
   'Invitations': 'न्योते',
 
-  // Invite a business owner
   'Know a business owner who still keeps books by hand?': 'कोई कारोबारी जानते हैं जो अब भी हाथ से हिसाब रखते हैं?',
   'Send them your code. When they join with it, you see it here.': 'उन्हें अपना कोड भेजें। वे इससे जुड़ेंगे तो आपको यहाँ दिखेगा।',
   '{invited} joined with your code, {converted} of them on a paid plan.': 'आपके कोड से {invited} लोग जुड़े, उनमें से {converted} पेड प्लान पर हैं।',
@@ -34,7 +28,6 @@ const hiCloud = <String, String>{
   'Thank you. The person who invited you will see that you joined.': 'धन्यवाद। जिन्होंने आपको बुलाया, उन्हें दिख जाएगा कि आप जुड़ गए।',
   'Code copied': 'कोड कॉपी हो गया',
 
-  // Sign-in sessions and two-step sign-in
   'Unlock to continue.': 'आगे बढ़ने के लिए अनलॉक करें।',
   'Sign out that device?': 'उस डिवाइस से साइन आउट करें?',
   'Sign out that device': 'उस डिवाइस से साइन आउट करें',
@@ -73,7 +66,6 @@ const hiCloud = <String, String>{
       'ऑथेंटिकेटर खो जाए तो हर कोड से एक बार साइन इन कर सकते हैं। इन्हें सुरक्षित जगह रखें; MyCA इन्हें दोबारा नहीं दिखा सकता।',
   'Copy all': 'सब कॉपी करें',
 
-  // Connections
   'Sales from a POS': 'POS से बिक्री',
   'Documents in': 'आने वाले कागज़ात',
   'A billing counter or POS posts each sale straight into the books. No confirmation per sale; you see the day\'s total here.':
@@ -101,7 +93,6 @@ const hiCloud = <String, String>{
       'यह की सिस्टम को एक बार दें। यह सिर्फ़ अभी दिख रही है; खो जाए तो यह कनेक्शन बंद करके नया बनाएँ।',
   'Or forward bills by mail to this address; it stays on the Connections list.': 'या बिल इस पते पर मेल से फ़ॉरवर्ड करें; यह कनेक्शन की लिस्ट में रहता है।',
 
-  // Businesses, export and restore
   'server not reached': 'सर्वर तक नहीं पहुँच सके',
   'test environment ({detail})': 'टेस्ट एनवायरनमेंट ({detail})',
   'sandbox mode ({detail})': 'सैंडबॉक्स मोड ({detail})',
@@ -137,7 +128,6 @@ const hiCloud = <String, String>{
   'Your privacy rights': 'आपके प्राइवेसी अधिकार',
   'About this app': 'इस ऐप के बारे में',
 
-  // Privacy requests and notice
   'Read the privacy notice': 'प्राइवेसी नोटिस पढ़ें',
   'Opens in the browser': 'ब्राउज़र में खुलता है',
   'Ask us': 'हमसे कहें',
@@ -154,7 +144,6 @@ const hiCloud = <String, String>{
   'I agree': 'मैं सहमत हूँ',
   'Not now, sign me out': 'अभी नहीं, साइन आउट करें',
 
-  // Sign in
   'Use your Apple or Google account. No new password to remember.': 'अपना Apple या Google अकाउंट इस्तेमाल करें। कोई नया पासवर्ड याद नहीं रखना।',
   'Use your Apple account. No new password to remember.': 'अपना Apple अकाउंट इस्तेमाल करें। कोई नया पासवर्ड याद नहीं रखना।',
   'Use your Google account. No new password to remember.': 'अपना Google अकाउंट इस्तेमाल करें। कोई नया पासवर्ड याद नहीं रखना।',
@@ -182,7 +171,6 @@ const hiCloud = <String, String>{
   'PIN': 'पिन',
   'Signing in…': 'साइन इन हो रहा है…',
 
-  // Server and lock
   'MyCA is locked': 'MyCA लॉक है',
   'That did not work. Try again.': 'यह नहीं हुआ। फिर से कोशिश करें।',
   'Use your fingerprint, face or screen lock to open your books.': 'अपने खाते खोलने के लिए फ़िंगरप्रिंट, चेहरा या स्क्रीन लॉक इस्तेमाल करें।',
@@ -190,13 +178,11 @@ const hiCloud = <String, String>{
   'Unlock': 'अनलॉक करें',
   'Sign out instead': 'इसकी जगह साइन आउट करें',
 
-  // Your name
   'What should we call you?': 'हम आपको किस नाम से बुलाएँ?',
   'People you work with will see this name next to what you record.': 'आपके साथ काम करने वालों को आपकी हर एंट्री के साथ यह नाम दिखेगा।',
   'Your name': 'आपका नाम',
   'Enter your name.': 'अपना नाम लिखें।',
 
-  // Bringing books across
   'Where is it coming from?': 'यह कहाँ से आ रहा है?',
   'Where are your books today?': 'आज आपके खाते कहाँ हैं?',
   'Everything is previewed before it is added, and rows already in your books are skipped.': 'जोड़ने से पहले सब कुछ दिखाया जाता है, और जो लाइनें पहले से आपके खाते में हैं, वे छोड़ दी जाती हैं।',

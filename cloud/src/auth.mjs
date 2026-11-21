@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
+import { hostedCountries } from './residency.mjs';
 import {
   ACCESS_TTL_SECONDS,
   REFRESH_TTL_SECONDS,
@@ -26,10 +27,13 @@ export function isUuid(value) {
   return typeof value === 'string' && UUID.test(value);
 }
 
-export function normalizePhone(input) {
+export function normalizePhone(input, countries = hostedCountries()) {
   const digits = plainText(input).replace(/[\s()-]/g, '');
-  const match = /^(?:\+?91|0)?([6-9]\d{9})$/.exec(digits);
+  const bareIsIndian = countries.includes('IN');
+  const match = (bareIsIndian ? /^(?:\+?91|0)?([6-9]\d{9})$/ : /^(?:\+91|91)([6-9]\d{9})$/).exec(digits);
   if (match) return `+91${match[1]}`;
+  const bareNorthAmerica = !bareIsIndian && countries.includes('US') ? /^1?([2-9]\d{2}[2-9]\d{6})$/.exec(digits) : null;
+  if (bareNorthAmerica) return `+1${bareNorthAmerica[1]}`;
   const northAmerica = /^\+1([2-9]\d{2}[2-9]\d{6})$/.exec(digits);
   if (northAmerica) return `+1${northAmerica[1]}`;
   const malaysia = /^\+60(1\d{8,9})$/.exec(digits);

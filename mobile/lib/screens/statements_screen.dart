@@ -35,7 +35,6 @@ const periodLabels = {
   StatementPeriod.lastMonth: 'Last month',
 };
 
-/// A statement heading in the India language [lang] ('en' elsewhere). Arabic headings come from UaeStrings.
 String statementWords(String lang, String en) => switch (en) {
   'Profit and loss' => inLine(lang, 'Profit and loss'),
   'Balance sheet' => inLine(lang, 'Balance sheet'),

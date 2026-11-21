@@ -1,10 +1,5 @@
 import 'dart:io';
 
-/// The English lines the India app shows, found in the source.
-///
-/// [used] are lines given to inText, inFormat or inCount; [shared] are lines of the shared screen wording
-/// (lib/uae/uae_strings.dart) that an India table may translate. A call must get its English as one plain
-/// single-quoted text so it can be found here.
 class IndiaKeys {
   IndiaKeys(this.used, this.shared, this.badCalls);
 

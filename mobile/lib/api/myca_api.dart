@@ -14,8 +14,6 @@ abstract class MycaApi {
   Future<Snapshot> snapshot();
   Future<SignInResult> signIn(String userId, String pin);
   Future<void> signOut();
-  /// [lang] is the app's language code (e.g. 'mr'); the assistant replies in it
-  /// when the server supports it. 'en' sends nothing extra.
   Future<ChatReply> chat(String message, {String lang = 'en'});
   Future<ChatReply> propose(String name, Map<String, Object?> args);
   Future<ChatReply> confirm(String token);

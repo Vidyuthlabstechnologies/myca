@@ -31,7 +31,7 @@ and tells you up front if your return needs something we don't handle yet."
   investment sales, and the Child Tax Credit, Earned Income Tax Credit and education credits.
 - Reads W-2, 1099 and 1098 forms from a photo or PDF, and asks the filer to check each box.
 - Shows the refund or amount owed as the return is built, free, before any payment.
-- Hands the finished return to an IRS-authorized e-file partner, prefilled, for signing and
+- Hands the finished return to our e-file partner, prefilled, for signing and
   filing, and shows when the IRS accepts it. If the IRS rejects a return, MyCA explains why and
   links to the fix.
 - Keeps returns encrypted on US servers and never sells tax information or uses it for ads.
