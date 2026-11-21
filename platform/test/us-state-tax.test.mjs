@@ -187,7 +187,7 @@ test('other states and years are refused plainly, and the tool is read-only', as
   assert.equal(viaTool.ok, true, JSON.stringify(viaTool));
 });
 
-test('a state with a full return answers from that return, and a state without one keeps the estimate', async () => {
+test('every state with an income tax answers from its full return, and a state with none needs no return', async () => {
   const state = await household('IL', { stateWithheld: 2900 });
   const result = usStateTax(state, { taxYear: '2025' });
   assert.equal(result.ok, true, JSON.stringify(result));
@@ -201,6 +201,7 @@ test('a state with a full return answers from that return, and a state without o
   assert.match(usStateTaxWords(result.data), /From the full state return, Form IL-1040/);
   const louisiana = usStateTax(await household('LA'), { taxYear: '2025' });
   assert.equal(louisiana.ok, true, JSON.stringify(louisiana));
-  assert.equal(louisiana.data.kind, 'estimate');
+  assert.equal(louisiana.data.kind, 'return');
+  assert.equal(louisiana.data.form, 'IT-540');
   assert.equal(usStateTax(await household('TX'), { taxYear: '2025' }).data.kind, 'no-income-tax');
 });

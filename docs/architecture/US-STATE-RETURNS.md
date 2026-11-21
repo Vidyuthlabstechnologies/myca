@@ -2,7 +2,7 @@
 
 MyCA prepares each US state individual income tax return from the federal Form 1040. The code is
 in `platform/src/countries/united-states/` and follows `COUNTRY-ENGINES.md` (manifest, engine,
-dated rules). The older `us_state_tax` estimate stays for states not built yet.
+dated rules). Every state with an individual income tax, and DC, is built. `us_state_tax` answers from the full return and falls back to its older estimate only when a full return cannot be worked out.
 
 ## Tools
 
