@@ -4,6 +4,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../registers.dart';
 import '../theme.dart';
 import '../uae/uae_strings.dart';
@@ -229,7 +230,7 @@ class _CashScreenState extends State<CashScreen> {
                       builder: (_) => const PayBillsScreen(),
                     ),
                   ),
-                  label: const Text('Who to pay'),
+                  label: Text(inText(context, 'Who to pay')),
                 ),
               ),
               ],
