@@ -1,6 +1,7 @@
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../india/india_strings.dart';
 import 'escpos.dart';
 
 class PrinterChoice {
@@ -8,6 +9,17 @@ class PrinterChoice {
 
   final String name;
   final String address;
+}
+
+/// A problem [BluetoothReceiptPrinter.print] returned, in the India language [lang]. Anything else stays as it is.
+String printerProblemIn(String lang, String problem, String printerName) {
+  if (problem == 'Allow Nearby devices for MyCA in Android settings, then print again.') return inLine(lang, 'Allow Nearby devices for MyCA in Android settings, then print again.');
+  if (problem == 'Turn on Bluetooth, then print again.') return inLine(lang, 'Turn on Bluetooth, then print again.');
+  if (problem == 'The printer did not take the receipt. Try again.') return inLine(lang, 'The printer did not take the receipt. Try again.');
+  if (problem == 'Could not connect to $printerName. Check it is on and paired.') {
+    return inFill(inLine(lang, 'Could not connect to {printer}. Check it is on and paired.'), {'printer': printerName});
+  }
+  return problem;
 }
 
 abstract class ReceiptPrinter {

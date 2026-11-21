@@ -246,12 +246,14 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
     }
     if (!mounted) return;
     if (document.isEmpty) {
-      setState(() => _message = 'Could not load bill ${invoice['id']} to print. Try again.');
+      setState(() => _message = inFormat(context, 'Could not load bill {id} to print. Try again.', {'id': '${invoice['id']}'}));
       return;
     }
     final bytes = receiptBytes(invoice: document, businessName: company?.name ?? '', gstin: company?.gstin ?? '', paper: await widget.printer.paper());
     final problem = await widget.printer.print(printer, bytes);
-    if (mounted) setState(() => _message = problem ?? 'Receipt sent to ${printer!.name}.');
+    if (mounted) {
+      setState(() => _message = problem == null ? inFormat(context, 'Receipt sent to {printer}.', {'printer': printer!.name}) : printerProblemIn(indiaLang(context), problem, printer!.name));
+    }
   }
 
   @override
@@ -305,7 +307,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
             ),
           if (cart.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text('Before GST: ${rupees(subtotal)}', style: text.titleMedium, key: const Key('counter-subtotal')),
+            Text(inFormat(context, 'Before GST: {amount}', {'amount': rupees(subtotal)}), style: text.titleMedium, key: const Key('counter-subtotal')),
             const SizedBox(height: 8),
             TextField(key: const Key('counter-customer'), controller: _customer, decoration: InputDecoration(labelText: needsBuyerDetails(cart) ? inText(context, 'Customer name') : inText(context, 'Customer (optional)'), hintText: needsBuyerDetails(cart) ? null : inText(context, 'Walk-in customer'))),
             if (needsBuyerDetails(cart)) ...[
@@ -337,7 +339,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
               onPressed: () async {
                 final next = await widget.printer.paper() == PaperWidth.mm58 ? PaperWidth.mm80 : PaperWidth.mm58;
                 await widget.printer.setPaper(next);
-                if (mounted) setState(() => _message = 'Receipts now print on ${next == PaperWidth.mm58 ? '58' : '80'} mm paper.');
+                if (mounted) setState(() => _message = inFormat(context, 'Receipts now print on {width} mm paper.', {'width': next == PaperWidth.mm58 ? '58' : '80'}));
               },
               child: Text(inText(context, 'Change paper width')),
             ),
@@ -394,7 +396,7 @@ class _NewItemSheetState extends State<_NewItemSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('New item ${widget.code}', style: Theme.of(context).textTheme.titleLarge),
+          Text(inFormat(context, 'New item {code}', {'code': widget.code}), style: Theme.of(context).textTheme.titleLarge),
           Text(inText(context, 'Saved once; the next scan fills the bill.')),
           TextField(key: const Key('item-name'), controller: _name, decoration: InputDecoration(labelText: inText(context, 'Name'))),
           TextField(key: const Key('item-price'), controller: _price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: inText(context, 'Selling price before GST'))),
