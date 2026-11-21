@@ -144,7 +144,6 @@ const hiAccount = <String, String>{
   'Not connected': 'जुड़ा नहीं',
   'Connected': 'जुड़ा हुआ',
   'Saved, paused': 'सेव है, रुका हुआ',
-  'Refresh': 'रिफ़्रेश करें',
   'Marketplaces, payment gateways and Zoho Books. Keys stay on the MyCA server, encrypted; nothing posts to the books without you.':
       'मार्केटप्लेस, पेमेंट गेटवे और Zoho Books। Keys MyCA के सर्वर पर ताले में (encrypted) रहती हैं; आपके बिना खाते में कुछ दर्ज नहीं होता।',
   'Pulls are switched off on the service, so Pull now runs as a dry run.': 'सर्विस पर लाना बंद है, इसलिए "अभी लाएँ" सिर्फ़ आज़माइश के तौर पर चलेगा।',
@@ -157,7 +156,6 @@ const hiAccount = <String, String>{
   'Mode': 'मोड',
   '(saved)': '(सेव है)',
   'Optional': 'ज़रूरी नहीं',
-  'Save': 'सेव करें',
   'Pause': 'रोकें',
   'Resume': 'फिर से चालू करें',
   'Nothing was pulled for {name}.': '{name} से कुछ नहीं आया।',

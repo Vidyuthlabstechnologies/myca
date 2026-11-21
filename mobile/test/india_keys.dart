@@ -13,7 +13,7 @@ class IndiaKeys {
   final List<String> badCalls;
 }
 
-String _unescape(String text) => text.replaceAll(r"\'", "'").replaceAll(r'\\', r'\');
+String _unescape(String text) => text.replaceAll(r"\'", "'").replaceAll(r'\n', '\n').replaceAll(r'\\', r'\');
 
 final _plain = r"'((?:[^'\\]|\\.)*)'";
 
