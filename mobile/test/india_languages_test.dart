@@ -44,9 +44,11 @@ void main() {
       }
     });
     if (language.code != 'hi') {
-      test('${language.englishName} is either not started or covers every Hindi line', () {
+      test('${language.englishName} is either not started or keeps up with Hindi, and has no line Hindi lacks', () {
         if (language.table.isEmpty) return;
-        expect(hindi.keys.toSet().difference(language.table.keys.toSet()), isEmpty, reason: '${language.englishName} is missing these lines');
+        final missing = hindi.keys.toSet().difference(language.table.keys.toSet());
+        if (missing.isNotEmpty) printOnFailure('${language.englishName} shows English for ${missing.length} new lines until they are translated');
+        expect(missing.length, lessThanOrEqualTo(hindi.length ~/ 10), reason: '${language.englishName} has fallen more than a tenth behind Hindi: ${missing.take(20)}');
         expect(language.table.keys.toSet().difference(hindi.keys.toSet()), isEmpty, reason: '${language.englishName} has lines Hindi does not');
       });
     }

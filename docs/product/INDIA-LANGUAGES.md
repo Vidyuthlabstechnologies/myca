@@ -41,7 +41,10 @@ this table.
 - Tables live in `mobile/lib/india/lang/`: Hindi is split by area (`hi_core.dart`, `hi_taxes.dart`, ...) and joined in
   `hi.dart`; every other language is one file keyed by exactly the same English lines.
 - `mobile/test/india_languages_test.dart` fails if a line on screen has no Hindi, if a Hindi line is unused, if a
-  language is in the wrong script, drops a `{part}`, or (once started) misses any Hindi line.
+  language is in the wrong script, drops a `{part}`, has a line Hindi lacks, or falls more than a tenth behind Hindi.
+  A new line needs Hindi straight away; until the other languages get it they show the English line.
+- `flutter test tool/india_export_test.dart` writes `build/india_keys.json` with each language's missing lines, for
+  the translators.
 
 ## Adding a language
 
