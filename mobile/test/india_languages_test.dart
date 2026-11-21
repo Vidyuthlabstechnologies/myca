@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/india/india_strings.dart';
 import 'package:myca/india/lang/hi.dart';
 import 'package:myca/india/lang/hi_account.dart';
+import 'package:myca/india/lang/hi_cloud.dart';
 import 'package:myca/india/lang/hi_core.dart';
 import 'package:myca/india/lang/hi_entries.dart';
 import 'package:myca/india/lang/hi_money.dart';
@@ -27,7 +28,7 @@ void main() {
 
   test('the Hindi area files never give one English line two different Hindi lines', () {
     final seen = <String, String>{};
-    for (final part in [hiCore, hiShared, hiTaxes, hiPeople, hiEntries, hiMoney, hiAccount]) {
+    for (final part in [hiCore, hiShared, hiTaxes, hiPeople, hiEntries, hiMoney, hiAccount, hiCloud]) {
       for (final entry in part.entries) {
         expect(seen[entry.key] ?? entry.value, entry.value, reason: entry.key);
         seen[entry.key] = entry.value;

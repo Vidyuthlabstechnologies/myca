@@ -44,7 +44,7 @@ IndiaKeys indiaKeys([String root = 'lib']) {
     collect('inCount', count, 2);
     if (!definitions && !entity.path.endsWith('uae_strings.dart')) collect('inLine', line, 1);
   }
-  final sharedSource = File('$root/uae/uae_strings.dart').readAsLinesSync().where((line) => !line.trimLeft().startsWith('//')).join('\n');
+  final sharedSource = ['$root/uae/uae_strings.dart', '$root/uae/uae_cloud_strings.dart'].map((path) => File(path).readAsLinesSync().where((line) => !line.trimLeft().startsWith('//')).join('\n')).join('\n');
   final shared = RegExp('\\b_t?\\(\\s*$_plain').allMatches(sharedSource).map((hit) => _unescape(hit.group(1)!)).toSet();
   return IndiaKeys(used, shared, bad);
 }

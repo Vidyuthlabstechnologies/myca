@@ -1,8 +1,9 @@
 import '../format.dart' as format;
+import '../india/india_strings.dart';
 import 'uae_strings.dart';
 
 extension UaeCloudStrings on UaeStrings {
-  String _t(String en, String arabic) => ar ? arabic : en;
+  String _t(String en, String arabic) => ar ? arabic : inLine(india, en);
 
   String _plural(int n, String one, String many, {required String arOne, required String arTwo, required String arFew, required String arMany}) {
     if (!ar) return n == 1 ? '1 $one' : '$n $many';
