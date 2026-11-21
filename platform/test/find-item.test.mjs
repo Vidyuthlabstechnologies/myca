@@ -11,7 +11,7 @@ test('a saved barcode finds the item with its price, GST rate and stock', async 
   assert.equal(saved.ok, true, JSON.stringify(saved));
   await runTool(state, 'record_stock', { sku: 'TEA-250', qty: 24 });
   const byBarcode = await runTool(state, 'find_item', { code: ' 8901234567890 ' });
-  assert.deepEqual(byBarcode.data, { found: true, code: '8901234567890', sku: 'TEA-250', name: 'Assam tea 250 g', barcode: '8901234567890', hsn: '0902', gstRate: 5, price: 140, cost: 90, onHand: 24, tracked: true });
+  assert.deepEqual(byBarcode.data, { found: true, code: '8901234567890', sku: 'TEA-250', name: 'Assam tea 250 g', barcode: '8901234567890', hsn: '0902', gstRate: 5, price: 140, cost: 90, unit: '', reorderLevel: null, onHand: 24, lowStock: false, batches: [], tracked: true });
   const bySku = await runTool(state, 'find_item', { code: 'tea-250' });
   assert.equal(bySku.data.sku, 'TEA-250');
   const unknown = await runTool(state, 'find_item', { code: '123456' });

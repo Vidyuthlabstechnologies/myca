@@ -17,7 +17,8 @@ import { postingDate, localToday } from './dates.mjs';
 import { cessLineNotInForce, chargesCess } from './compensation-cess.mjs';
 import { engineBooks } from './countries/engines.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
-import { lastGstRateFor, lastHsnFor, planPayment } from './invoice.mjs';
+import { lastGstRateFor, lastHsnFor, planPayment, allocateDiscount } from './invoice.mjs';
+import { redemptionPreviewWords, earnPreview, loyaltySettings, STORE_NO_POINTS } from './loyalty.mjs';
 import { planSupplierReminder } from './supplier-reminders.mjs';
 import { planTds, tdsWords, wantsTds } from './tds-deduction.mjs';
 import { reverseChargeOf } from './reverse-charge.mjs';
@@ -68,7 +69,7 @@ function plusYear(iso) {
   return `${Number(iso.slice(0, 4)) + 1}${iso.slice(4)}`;
 }
 
-export function documentPreview(state, args, kind) {
+export function documentPreview(state, args, kind, { earnsPoints = true } = {}) {
   const own = engineBooks(countryOf(state), kind === 'sale' ? 'create_invoice' : 'create_purchase', 'preview');
   if (own) return own(state, args, kind);
   if (countryOf(state) === 'US') return usDocumentPreview(state, args, kind);
@@ -119,11 +120,17 @@ export function documentPreview(state, args, kind) {
     const line = (args.lines || []).length > 1 ? `Line ${unrated + 1} has` : 'This has';
     blockers.push(`${line} no GST rate, and I will not guess one.${last ? ` ${last.from} on ${last.date} was at ${last.gstRate}%.` : ''} Say the rate, or 0% if none applies.`);
   }
-  const lines = (args.lines || []).map((l) => {
+  const wantsPoints = sale && args.redeemPoints != null && args.redeemPoints !== '';
+  const redeeming = wantsPoints ? redemptionPreviewWords(state, args, date || undefined) : null;
+  if (redeeming?.blocker) blockers.push(redeeming.blocker);
+  const redemption = redeeming?.redemption || null;
+  const grossOf = (l) => Math.round(Number(l.qty == null || l.qty === '' ? 1 : l.qty) * (exportSale ? Math.round(Number(l.rate) * (fx > 0 ? fx : 0) * 100) / 100 : Number(l.rate)) * 100);
+  const pointsOff = redemption ? allocateDiscount((args.lines || []).map(grossOf), redemption.valuePaise) : [];
+  const lines = (args.lines || []).map((l, i) => {
     const qty = Number(l.qty == null || l.qty === '' ? 1 : l.qty);
     const rate = exportSale ? Math.round(Number(l.rate) * (fx > 0 ? fx : 0) * 100) / 100 : Number(l.rate);
     const gstRate = Number(l.gstRate == null || l.gstRate === '' ? 0 : l.gstRate);
-    const taxable = Math.round(qty * rate * 100) / 100;
+    const taxable = Math.round((qty * rate - (pointsOff[i] || 0) / 100) * 100) / 100;
     const untaxed = (exportSale && !exportSale.withTax) || supplyType === 'SEZWOP';
     const split = untaxed ? { cgst: 0, sgst: 0, igst: 0 } : gstSplit({ taxable, rate: gstRate, supplierState: supplier, partyState: pos, interState: supplyType === 'SEZWP' });
     const cess = !untaxed && hasCessInput(l) && !badCessInput(l) ? cessOf(l, taxable, qty).cess : 0;
@@ -151,10 +158,13 @@ export function documentPreview(state, args, kind) {
     if (planned.ok) tds = planned.tds;
     else blockers.push((TDS_REASONS[planned.error] || (() => planned.error))(planned));
   }
+  const earning = sale && earnsPoints && !blockers.length ? earnPreview(state, args, { taxable, total: Math.round((taxable + tax) * 100) / 100 }) : 0;
+  const pointsWords = redemption ? ` Loyalty points redeemed: ${redemption.points} points, ${money(redemption.value)} off before GST (GST is on the lower value, CGST Act s.15(3)(a)); ${party} has ${redemption.balanceAfter} left.` : '';
+  const earnWords = earning > 0 ? ` ${party} earns ${earning} loyalty ${earning === 1 ? 'point' : 'points'}.` : '';
   return {
     blockers,
     summary: sale
-      ? `${exportWords} ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Place of supply ${exportSale ? 'outside India (96)' : gstinRules.STATE_CODES?.[pos] || pos || '?'}.${due}`
+      ? `${exportWords} ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Place of supply ${exportSale ? 'outside India (96)' : gstinRules.STATE_CODES?.[pos] || pos || '?'}.${due}${pointsWords}${earnWords}`
       : rcm
         ? `${rcm.kind === 'import' ? `Import of services from ${party} (${rcm.originCountry})` : `Reverse charge purchase from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''}`} dated ${date || '?'}: taxable ${money(taxable)}, ${heads} payable by you under reverse charge. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`
         : `Purchase bill from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`,
@@ -163,7 +173,7 @@ export function documentPreview(state, args, kind) {
       : rcm
         ? [`You owe ${party} ${money(taxable - (tds?.tds || 0))} more; the GST of ${money(tax)} is yours to pay in cash with this month's GSTR-3B.`, ...(rcm.kind === 'notified' ? [] : ['MyCA numbers a self-invoice for it, which can get an IRN when e-invoicing applies to you.']), ...(tds ? [tdsWords(tds, taxable - tds.tds, `you owe ${party}`)] : [])]
         : [`You owe ${party} ${money(taxable + tax - (tds?.tds || 0))} more.`, args.itcEligible === false ? 'The GST on it cannot be claimed, so it is part of the cost.' : 'It is checked against your GSTR-2B when you add one.', ...(tds ? [tdsWords(tds, taxable + tax - tds.tds, `you owe ${party}`)] : [])],
-    figures: { date, taxable, tax, total: Math.round((rcm ? taxable : taxable + tax) * 100) / 100, placeOfSupply: pos, ...(rcm ? { reverseCharge: rcm.kind } : {}), ...(tds ? { tds: tds.tds, tdsSection: tds.section, tdsRate: tds.rate } : {}) },
+    figures: { date, taxable, tax, total: Math.round((rcm ? taxable : taxable + tax) * 100) / 100, placeOfSupply: pos, ...(redemption ? { redeemPoints: redemption.points, pointsDiscount: redemption.value } : {}), ...(earning > 0 ? { pointsEarned: earning } : {}), ...(rcm ? { reverseCharge: rcm.kind } : {}), ...(tds ? { tds: tds.tds, tdsSection: tds.section, tdsRate: tds.rate } : {}) },
   };
 }
 
@@ -711,7 +721,9 @@ export function markQuotePreview(state, args) {
 export function convertPreview(state, args) {
   const checked = checkConvert(state, args);
   if (!checked.ok) return { blockers: [QUOTE_REASONS[checked.error] || checked.error], summary: '', effects: [], figures: {} };
-  const invoice = documentPreview(state, invoiceArgsFromQuote(checked.quote, args), 'sale');
+  const fromStore = checked.quote.source === 'store';
+  const invoice = documentPreview(state, invoiceArgsFromQuote(checked.quote, args), 'sale', { earnsPoints: !fromStore });
   const note = checked.expired ? ` The quote expired on ${checked.quote.validUntil}.` : '';
-  return { ...invoice, summary: `From ${kindTitle(checked.quote).toLowerCase()} ${checked.quote.id}: ${invoice.summary}${note}` };
+  const effects = fromStore && loyaltySettings(state).enabled ? [...invoice.effects, STORE_NO_POINTS] : invoice.effects;
+  return { ...invoice, effects, summary: `From ${kindTitle(checked.quote).toLowerCase()} ${checked.quote.id}: ${invoice.summary}${note}` };
 }

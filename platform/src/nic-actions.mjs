@@ -1,6 +1,6 @@
 import { performExternalAction } from './action-gate.mjs';
 import { normalizeClientId } from './books.mjs';
-import { generateMockIrnPayload, invoiceToNicPayload, nicCancelProblem, nicDocumentById, nicPartyFor, nicPayloadRefusal } from './nic-config.mjs';
+import { generateMockIrnPayload, invoiceToNicPayload, irnWarnings, nicCancelProblem, nicDocumentById, nicPartyFor, nicPayloadRefusal } from './nic-config.mjs';
 import { mockModeEnabled } from './runtime-config.mjs';
 
 function clientOf(state) {
@@ -56,7 +56,8 @@ export async function generateIrn(state, invoiceId, actor) {
     metadata: { invoiceId },
     fixture: (copy) => stampMockIrn(copy, inv.id),
   }, (t) => t.nic.generateIrn(state, inv.id));
-  return { payload, ...out };
+  const warnings = irnWarnings(state, inv);
+  return { payload, ...out, ...(warnings.length ? { warnings } : {}) };
 }
 
 export async function simulateIrn(state, invoiceId, actor) {
