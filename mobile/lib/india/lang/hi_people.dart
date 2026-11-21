@@ -72,8 +72,6 @@ const hiPeople = <String, String>{
   'Enter the IFSC (11 characters, like HDFC0001234) or a 9-digit US routing number.': 'IFSC डालें (11 अक्षर, जैसे HDFC0001234) या 9 अंकों का US रूटिंग नंबर।',
   'Pay {name} into account ending {last}': '{name} की सैलरी उस खाते में दें जिसके आख़िरी अंक {last} हैं',
   'Used only for the salary payout file you upload to the bank. Kept with the employee, never shown in full again.': 'सिर्फ़ बैंक में अपलोड होने वाली सैलरी फ़ाइल के लिए। कर्मचारी के साथ रखा जाता है, पूरा नंबर दोबारा कभी नहीं दिखाया जाता।',
-  'Account number': 'खाता नंबर',
-  'Save': 'सेव करें',
   'Not now': 'अभी नहीं',
   'Last day {date}': 'आख़िरी दिन {date}',
   'Enter the monthly salary: at least the basic pay.': 'महीने की सैलरी डालें: कम से कम बेसिक।',

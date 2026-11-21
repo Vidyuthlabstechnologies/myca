@@ -5,17 +5,11 @@ const hiEntries = <String, String>{
   // Invoice screen
   'Invoice': 'इनवॉइस',
   'Quotation': 'कोटेशन',
-  'Quote': 'कोटेशन',
-  'Proforma invoice': 'प्रोफ़ॉर्मा इनवॉइस',
-  'Sales order': 'सेल्स ऑर्डर',
-  'Delivery challan': 'डिलीवरी चालान',
   'Invoice {id}': 'इनवॉइस {id}',
   'Proforma invoice {id}': 'प्रोफ़ॉर्मा इनवॉइस {id}',
   'Sales order {id}': 'सेल्स ऑर्डर {id}',
   'Delivery challan {id}': 'डिलीवरी चालान {id}',
   'Quote {id}': 'कोटेशन {id}',
-  'Due on receipt': 'मिलते ही देय',
-  'Net {days}': '{days} दिन में',
   'Overdue by 1 day': '1 दिन से बकाया',
   'Overdue by {n} days': '{n} दिन से बकाया',
   'your GSTIN': 'आपका GSTIN',
@@ -92,7 +86,6 @@ const hiEntries = <String, String>{
   'Make invoice': 'इनवॉइस बनाएँ',
   'Goods came back': 'माल वापस आया',
   'This posts nothing to your books. Making the invoice posts it, with the same lines.': 'इससे आपके खातों में कुछ दर्ज नहीं होता। इनवॉइस बनाने पर यही लाइनें दर्ज होंगी।',
-  'Debit note': 'डेबिट नोट',
   'Cancel invoice': 'इनवॉइस रद्द करें',
   'A credit note, a debit note or a cancellation changes the amount with a new entry; the invoice itself is never changed.':
       'क्रेडिट नोट, डेबिट नोट या रद्द करने से रकम नई एंट्री से बदलती है; इनवॉइस खुद कभी नहीं बदलता।',
@@ -116,7 +109,6 @@ const hiEntries = <String, String>{
   'Buyer GSTIN': 'खरीदार का GSTIN',
   'Qty': 'मात्रा',
   'Rate': 'रेट',
-  'Reason': 'वजह',
   'Reason (optional)': 'वजह (ज़रूरी नहीं)',
   'Preview the amendment': 'सुधार पहले देखें',
   'Debit note against {id}': '{id} पर डेबिट नोट',
@@ -195,7 +187,6 @@ const hiEntries = <String, String>{
   'Add': 'जोड़ें',
   'Added. Your bills are checked against it below.': 'जुड़ गया। नीचे आपके बिल इससे मिलाए गए हैं।',
   'Not added.': 'नहीं जोड़ा।',
-  'Remind supplier': 'सप्लायर को याद दिलाएँ',
 
   // Counter sale and receipt printer
   'Before GST: {amount}': 'GST से पहले: {amount}',

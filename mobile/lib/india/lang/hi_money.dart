@@ -4,7 +4,6 @@
 const hiMoney = <String, String>{
   // Bank and cash
   'IFSC (optional)': 'IFSC (ज़रूरी नहीं)',
-  'Who to pay': 'किसे भुगतान करें',
 
   // Audit trail
   'The record of entries fails its integrity check. Ask your CA before recording more.': 'एंट्री का रिकॉर्ड जाँच में सही नहीं निकला। आगे कुछ भी दर्ज करने से पहले अपने CA से पूछें।',
@@ -26,7 +25,6 @@ const hiMoney = <String, String>{
   'Cash and bank': 'नकदी और बैंक',
   'From running the business': 'कारोबार चलाने से',
   'Assets and deposits': 'संपत्ति और जमा',
-  'Owner': 'मालिक',
   'At the end': 'आख़िर में',
   'Opening': 'शुरुआती बैलेंस',
   'Balance at the start': 'शुरू का बैलेंस',
