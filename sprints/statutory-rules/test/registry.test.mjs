@@ -5,7 +5,7 @@ import { RULE_MODULES, registeredRecords } from '../src/registry.mjs';
 import { RULES, registryIntegrity, rule, validateRules, isIsoDate } from '../src/index.mjs';
 
 const rulesDirectory = new URL('../src/rules/', import.meta.url);
-const EXPECTED_MODULES = ['audit-thresholds', 'due-dates', 'gst', 'holidays', 'income-tax', 'malaysia', 'malaysia-payroll', 'msme', 'payroll', 'presumptive', 'tds', 'uae', 'united-kingdom', 'us-federal', 'us-individual', 'us-sales-tax', 'us-states'];
+const EXPECTED_MODULES = ['audit-thresholds', 'due-dates', 'gst', 'holidays', 'income-tax', 'malaysia', 'malaysia-payroll', 'msme', 'payroll', 'presumptive', 'tds', 'uae', 'united-kingdom', 'us-federal', 'us-individual', 'us-sales-tax', 'us-state-returns', 'us-states'];
 
 test('every rule module file is wired into the registry and exports a RULES array', async () => {
   const files = readdirSync(rulesDirectory).filter((file) => file.endsWith('.mjs')).map((file) => file.slice(0, -'.mjs'.length)).sort();

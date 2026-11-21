@@ -9,6 +9,7 @@ import { RULES as US_FEDERAL_RULES } from './rules/us-federal.mjs';
 import { RULES as US_INDIVIDUAL_RULES } from './rules/us-individual.mjs';
 import { RULES as US_SALES_TAX_RULES } from './rules/us-sales-tax.mjs';
 import { RULES as US_STATES_RULES } from './rules/us-states.mjs';
+import { RULES as US_STATE_RETURNS_RULES } from './rules/us-state-returns.mjs';
 import { RULES as MALAYSIA_RULES } from './rules/malaysia.mjs';
 import { RULES as MALAYSIA_PAYROLL_RULES } from './rules/malaysia-payroll.mjs';
 import { RULES as UNITED_KINGDOM_RULES } from './rules/united-kingdom.mjs';
@@ -28,6 +29,7 @@ export const RULE_MODULES = Object.freeze({
   'us-individual': US_INDIVIDUAL_RULES,
   'us-sales-tax': US_SALES_TAX_RULES,
   'us-states': US_STATES_RULES,
+  'us-state-returns': US_STATE_RETURNS_RULES,
   'malaysia': MALAYSIA_RULES,
   'malaysia-payroll': MALAYSIA_PAYROLL_RULES,
   'msme': MSME_RULES,
