@@ -65,7 +65,7 @@ void main() {
     await scrollTap(tester, find.byKey(const Key('usHub.priorYear')));
     expect(find.text('Start from last year'), findsOneWidget);
 
-    await tester.enterText(find.byKey(const Key('usPrior.agi')), 'lots');
+    await tester.enterText(find.byKey(const Key('usPrior.agi')), '85.000.1');
     await tester.ensureVisible(find.byKey(const Key('usPrior.bring')));
     await tester.tap(find.byKey(const Key('usPrior.bring')));
     await tester.pumpAndSettle();

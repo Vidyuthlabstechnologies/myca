@@ -48,9 +48,9 @@ class _UsReviewScreenState extends State<UsReviewScreen> {
     }
   }
 
-  Widget? _fixScreen(String step) => switch (step) {
+  Widget? _fixScreen(String step, {bool joint = false}) => switch (step) {
     'profile' => UsProfileScreen(taxYear: widget.taxYear),
-    'forms' => UsFormsScreen(taxYear: widget.taxYear),
+    'forms' => UsFormsScreen(taxYear: widget.taxYear, joint: joint),
     'interview' => UsInterviewScreen(taxYear: widget.taxYear),
     _ => null,
   };
@@ -110,13 +110,19 @@ class _UsReviewScreenState extends State<UsReviewScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(review.owed > 0 ? 'You owe the IRS' : 'Your federal refund', style: text.bodyLarge),
-                      const SizedBox(height: 4),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(dollars(review.owed > 0 ? review.owed : review.refund), maxLines: 1, style: text.displaySmall?.copyWith(fontFeatures: moneyFigures)),
-                      ),
+                      if (!review.computed) ...[
+                        Text('Not worked out yet', key: const Key('usReview.resultLabel'), style: text.titleMedium?.copyWith(color: context.myca.ink)),
+                        const SizedBox(height: 4),
+                        Text('Fix what is listed below. Your refund or the amount you owe shows here as soon as MyCA can work out your return.', style: text.bodyMedium?.copyWith(color: context.myca.ink)),
+                      ] else ...[
+                        Text(review.owed > 0 ? 'You owe the IRS' : review.refund > 0 ? 'Your federal refund' : 'You break even with the IRS', key: const Key('usReview.resultLabel'), style: text.bodyLarge),
+                        const SizedBox(height: 4),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(dollars(review.owed > 0 ? review.owed : review.refund), maxLines: 1, style: text.displaySmall?.copyWith(fontFeatures: moneyFigures)),
+                        ),
+                      ],
                       if (review.owed > 0) ...[
                         const SizedBox(height: 6),
                         Text('Due by ${longDate('${widget.taxYear + 1}-04-15')}. You can pay from your bank when you file.', style: text.bodySmall),
@@ -141,10 +147,10 @@ class _UsReviewScreenState extends State<UsReviewScreen> {
                         children: [
                           Text(c.message, style: text.titleSmall),
                           if (c.fix.isNotEmpty) ...[const SizedBox(height: 4), Text(c.fix, style: text.bodySmall)],
-                          if (_fixScreen(c.step) != null)
+                          if (_fixScreen(c.step, joint: review.filingStatus == 'mfj') != null)
                             Align(
                               alignment: Alignment.centerLeft,
-                              child: TextButton(onPressed: () => _open(_fixScreen(c.step)!), child: const Text('Fix this')),
+                              child: TextButton(onPressed: () => _open(_fixScreen(c.step, joint: review.filingStatus == 'mfj')!), child: const Text('Fix this')),
                             ),
                         ],
                       ),

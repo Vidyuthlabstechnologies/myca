@@ -159,6 +159,7 @@ const QUESTIONS = Object.freeze([
   { id: 'spouseItemizes', text: 'Is your spouse itemizing on their separate return?', help: 'If so, you must itemize too.', kind: 'yesno', when: (ctx) => ctx.status === 'mfs' },
   { id: 'separatedFromSpouse', text: 'Did you live apart from your spouse for the last six months of the year?', help: 'Needed for the earned income credit on a separate return.', kind: 'yesno', when: (ctx) => ctx.status === 'mfs' },
   { id: 'applyToNextYear', text: 'Refund to apply to next year\'s estimated tax', help: 'Leave empty to get it all back.', kind: 'amount' },
+  { id: 'noTaxForms', text: 'I have no W-2, 1099 or 1098 for this year', help: 'Asked on the tax documents step, not in the interview.', kind: 'yesno', when: () => false },
 ]);
 
 const LINE_LABELS = Object.freeze({
@@ -618,12 +619,12 @@ export function usReturnStatus(state, args = {}) {
   const questions = visibleQuestions(state, ret);
   const done = {
     profile: !errors.some((item) => item.step === 'profile'),
-    forms: ret.forms.length > 0 || context(state, ret).hasBusiness,
+    forms: ret.forms.length > 0 || context(state, ret).hasBusiness || ret.answers.noTaxForms === true,
     interview: questions.every((question) => Object.hasOwn(ret.answers, question.id)),
     review: review.computed && errors.length === 0,
     sign: Boolean(state.usEfile?.returns?.[String(taxYear)]?.signature?.signedAt),
   };
-  return { ok: true, data: { taxYear, started: true, filingStatus: ret.filingStatus, taxpayerName: ret.taxpayer ? `${ret.taxpayer.firstName} ${ret.taxpayer.lastName}`.trim() : '', steps: STEPS.map(([id, label]) => ({ id, label, done: done[id] })), refund: review.refund, owed: review.owed, readyToSign: done.profile && done.forms && done.review, errors: errors.length, warnings: review.checks.length - errors.length, unsupported: review.unsupported || [] } };
+  return { ok: true, data: { taxYear, started: true, filingStatus: ret.filingStatus, taxpayerName: ret.taxpayer ? `${ret.taxpayer.firstName} ${ret.taxpayer.lastName}`.trim() : '', steps: STEPS.map(([id, label]) => ({ id, label, done: done[id] })), refund: review.refund, owed: review.owed, readyToSign: done.profile && done.forms && done.review, errors: errors.length, warnings: review.checks.length - errors.length, unsupported: review.unsupported || [], ...(importedPriorYear(state, taxYear) ? { priorYear: importedPriorYear(state, taxYear) } : {}) } };
 }
 
 function efileShape(ret, data, input) {
@@ -730,6 +731,14 @@ export function usInterviewPreview(state, args) {
   if (!plan.ok) return { blockers: plan.problems || [plan.error], summary: '', effects: [], figures: {} };
   const shown = plan.answer === null ? 'cleared' : plan.question.kind === 'amount' ? `$${Number(plan.answer).toLocaleString('en-US')}` : plan.question.kind === 'yesno' ? (plan.answer ? 'yes' : 'no') : String(plan.answer);
   return { blockers: [], summary: `${plan.question.text}: ${shown}.`, effects: [`Saved on the ${plan.taxYear} return.`], figures: { taxYear: plan.taxYear, id: plan.id } };
+}
+
+export function importedPriorYear(state, taxYear) {
+  const ret = returnOf(state, String(taxYear));
+  const value = ret?.answers?.priorYearAgi;
+  if (value === undefined || value === null || value === '' || !Number.isFinite(Number(value)) || Number(value) < 0) return null;
+  const prior = returnOf(state, String(Number(taxYear) - 1));
+  return { agi: Math.round(Number(value)), joint: prior?.filingStatus === 'mfj' };
 }
 
 export function usReturnRecord(state, taxYear, { create = false, scopeId = '' } = {}) {
