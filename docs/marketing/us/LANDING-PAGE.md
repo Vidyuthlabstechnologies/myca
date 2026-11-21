@@ -29,7 +29,7 @@ produced each number, and tells you plainly what it can't handle before you pay.
    before it's saved.
 2. **Answer a few questions.** One at a time, in plain English. Your refund updates as you go.
 3. **Review, sign, file.** Every line shows where it came from. When it's right, you sign and
-   e-file through our IRS-authorized partner.
+   e-file through our e-file partner.
 
 ## Why MyCA
 
@@ -47,7 +47,7 @@ produced each number, and tells you plainly what it can't handle before you pay.
 | | Price | What you get |
 |---|---|---|
 | **Prepare** | Free | Your whole federal return, refund estimate, every line explained, PDF download |
-| **File** | ~~$129~~ **$99** through April 15, 2027 | E-file through our IRS-authorized partner, IRS status, rejection fixes, accuracy promise |
+| **File** | ~~$129~~ **$99** through April 15, 2027 | E-file through our e-file partner, IRS status, rejection fixes, accuracy promise |
 | **MyCA Plus** | $249 a year | Quarterly estimated payments, a withholding check, help with IRS letters. Renews yearly until canceled |
 | **Expert Review** | Coming soon | A credentialed tax pro reviews your return before you file. Join the waitlist |
 
@@ -84,7 +84,7 @@ The chip list already on the page (`US_FORMS` in `deploy/seo/pages.mjs`).
   filing site asks for.
 - Is it really free to prepare? — Yes. You see your full return and refund estimate free. You pay
   only when you file.
-- Who files my return? — Our IRS-authorized e-file partner, with your details prefilled. You sign
+- Who files my return? — Our e-file partner, with your details prefilled. You sign
   and file in the app's filing step.
 
 ## Final call to action

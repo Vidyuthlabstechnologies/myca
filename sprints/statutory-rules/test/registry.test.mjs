@@ -8,13 +8,17 @@ const rulesDirectory = new URL('../src/rules/', import.meta.url);
 const EXPECTED_MODULES = ['audit-thresholds', 'due-dates', 'gst', 'holidays', 'income-tax', 'malaysia', 'malaysia-payroll', 'msme', 'payroll', 'presumptive', 'tds', 'uae', 'united-kingdom', 'us-federal', 'us-individual', 'us-sales-tax', 'us-states'];
 
 test('every rule module file is wired into the registry and exports a RULES array', async () => {
-  const files = readdirSync(rulesDirectory).filter((file) => file.endsWith('.mjs')).map((file) => file.slice(0, -'.mjs'.length)).sort();
+  const all = readdirSync(rulesDirectory).filter((file) => file.endsWith('.mjs')).map((file) => file.slice(0, -'.mjs'.length)).sort();
+  const isFormPart = (name) => name.startsWith('us-individual-');
+  const files = all.filter((name) => !isFormPart(name));
   assert.deepEqual(files, EXPECTED_MODULES);
   assert.deepEqual(Object.keys(RULE_MODULES).sort(), EXPECTED_MODULES);
-  for (const name of files) {
+  for (const name of all) {
     const module = await import(new URL(`${name}.mjs`, rulesDirectory));
     assert.ok(Array.isArray(module.RULES), `${name}.mjs must export a RULES array`);
-    assert.equal(RULE_MODULES[name], module.RULES, `${name}.mjs RULES must be the registered array`);
+    if (isFormPart(name)) for (const record of module.RULES) assert.ok(RULE_MODULES['us-individual'].includes(record), `${name}.mjs RULES must be registered under us-individual`);
+    else if (name === 'us-individual') for (const record of module.RULES) assert.ok(RULE_MODULES[name].includes(record), `${name}.mjs RULES must be registered`);
+    else assert.equal(RULE_MODULES[name], module.RULES, `${name}.mjs RULES must be the registered array`);
   }
 });
 

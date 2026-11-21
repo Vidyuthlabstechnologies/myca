@@ -8,6 +8,7 @@ import { simulateAcknowledgement } from './us-mef-sim.mjs';
 import { irsMefSettings, irsMefMissing } from './us-mef-settings.mjs';
 import { transmissionZip } from './us-mef-zip.mjs';
 import { usReturnRecord } from './us-return.mjs';
+import { figuresOf1040 } from './us-1040x.mjs';
 import { efileRoute, partnerMode, partnerSetup, startPartnerFiling } from './us-filing-partner.mjs';
 
 const PIN = /^\d{5}$/;
@@ -278,7 +279,7 @@ export async function fileUsReturn(state, args = {}, actor, options = {}) {
     ack = simulateAcknowledgement(built, { acceptedSsns, receivedAt: nowIso });
   }
   book.submissionSeq = sequence;
-  const submission = { submissionId, taxYear, mode, transport, submittedAt: nowIso, xmlSha256: built.xmlSha256, returnHash: entry.signature.returnHash, documentCount: built.documentCount, status: 'submitted', ack: null };
+  const submission = { submissionId, taxYear, mode, transport, submittedAt: nowIso, xmlSha256: built.xmlSha256, returnHash: entry.signature.returnHash, documentCount: built.documentCount, status: 'submitted', ack: null, figures: figuresOf1040(computed) };
   if (ack) applyAck(submission, ack);
   const stored = book.returns[String(taxYear)];
   stored.submissions = [...(stored.submissions || []), submission];

@@ -554,9 +554,9 @@ test('S4: the preview never shows the text of a JavaScript error, and a plain Er
   assert.doesNotMatch(nothing.blockers[0], JS_TEXT);
 });
 
-test('S4: a form that asks a US book to preview an India-only action gets the neutral sentence, not a JavaScript message', () => {
+test('S4: a form that asks a US book to preview an India-only action is told it is for another edition, not a JavaScript message', () => {
   const preview = previewOf(usBooks(), 'record_gst_payment', { mode: 'bank' });
-  assert.deepEqual(preview.blockers, [NEUTRAL_PREVIEW]);
+  assert.deepEqual(preview.blockers, ['That is for a different country edition, so nothing was posted.']);
   const held = propose(usBooks(), 'record_gst_payment', { mode: 'bank' });
   assert.match(held.reply, /I did not post anything, because:/);
   assert.doesNotMatch(held.reply, JS_TEXT);
