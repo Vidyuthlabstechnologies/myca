@@ -204,6 +204,15 @@ and [`README.md`](README.md) for what is left and how it is being done.
   reversal on credit notes and cancellations, `loyalty_adjust` (owner, reason, audited) and `loyalty_balance`
   with points liability and a WhatsApp balance line; Android Loyalty points screen and Use points on
   the counter sale and the customer's sale
+- India inventory depth (2026-11-21): `set_costing_method` chooses FIFO or weighted average once
+  (AS 2 para 16 / Ind AS 2 para 25; LIFO refused; a change needs a reason and is audited); stock-in
+  carries a cost per lot, batch and expiry; stock out, `stock_position`, valuations, `sku_margins` and
+  `inventory_costing` (lots and cost of goods out) use the method, with existing stock as the opening lot
+  at the recorded cost and no change until a method is chosen. Items carry a GST UQC and a reorder level;
+  invoice and bill lines with a SKU carry the unit (GSTR-1 HSN, e-invoice and e-way bill use it) and move
+  tracked stock, cancellation puts it back. `stock_alerts` lists expired, expiring in 30 days and low
+  stock, and the reorder level feeds `restock_plan`. The counter sale item form takes the unit, the
+  low-stock level and opening stock with batch and expiry; "Expiring soon and low stock" list, in Hindi
 - Malaysia PCB (2026-11-14): `my_payroll` works out the monthly tax deduction by LHDN's computerised
   method from `my.payroll.pcb` and the resident bands and rebate rules (categories 1 to 3, children,
   bonus, year to date, zakat, TP1 deductions; flat rate for non-residents)

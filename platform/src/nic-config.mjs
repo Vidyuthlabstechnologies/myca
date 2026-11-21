@@ -6,6 +6,7 @@ import { providerContext } from './provider-context.mjs';
 import { rcmSupplyType, selfInvoiceById } from './reverse-charge.mjs';
 import { localToday } from './dates.mjs';
 import { aatoFor, aatoWords, hsnDigitsNeeded, irnReportingWindow } from './aato.mjs';
+import { uqcOf } from './gstr1-tables.mjs';
 
 export const GOVT_SITES = {
   gstHome: 'https://www.gst.gov.in/',
@@ -311,7 +312,7 @@ function selfInvoiceToNicPayload(company, bill) {
     IsServc: hsnOf(l).startsWith('99') ? 'Y' : 'N',
     HsnCd: hsnOf(l),
     Qty: Number(l.qty || 1),
-    Unit: hsnOf(l).startsWith('99') ? 'OTH' : 'NOS',
+    Unit: hsnOf(l).startsWith('99') ? 'OTH' : String(l.unit ?? '').trim() ? uqcOf(l.unit) : 'NOS',
     UnitPrice: Number(l.rate || 0),
     TotAmt: Number(l.taxable || 0),
     Discount: 0,
@@ -379,7 +380,7 @@ export function invoiceToNicPayload(company, inv, party = null) {
     IsServc: hsnOf(l).startsWith('99') ? 'Y' : 'N',
     HsnCd: hsnOf(l),
     Qty: Number(l.qty || 1),
-    Unit: hsnOf(l).startsWith('99') ? 'OTH' : 'NOS',
+    Unit: hsnOf(l).startsWith('99') ? 'OTH' : String(l.unit ?? '').trim() ? uqcOf(l.unit) : 'NOS',
     UnitPrice: Number(l.rate || 0),
     TotAmt: Number(l.grossTaxable ?? l.taxable ?? 0),
     Discount: Number(l.loyaltyDiscount || 0),

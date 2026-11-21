@@ -102,6 +102,7 @@ export function newBook(company = {}) {
     stockMoves: [],
     inventoryValuations: [],
     loyalty: { settings: null, entries: [], seq: 0 },
+    inventoryCosting: null,
     portalSaves: {},
     gstr3bPortal: {},
     tdsFvuJobs: [],
@@ -200,6 +201,7 @@ export function serializeBook(book) {
     stockMoves: book.stockMoves || [],
     inventoryValuations: book.inventoryValuations || [],
     loyalty: book.loyalty || { settings: null, entries: [], seq: 0 },
+    inventoryCosting: book.inventoryCosting || null,
     portalSaves: book.portalSaves || {},
     gstr3bPortal: book.gstr3bPortal || {},
     tdsFvuJobs: book.tdsFvuJobs || [],
@@ -295,6 +297,7 @@ export function deserializeBook(raw) {
   book.stockMoves = Array.isArray(raw.stockMoves) ? raw.stockMoves : [];
   book.inventoryValuations = Array.isArray(raw.inventoryValuations) ? raw.inventoryValuations : [];
   book.loyalty = raw.loyalty && typeof raw.loyalty === 'object' && Array.isArray(raw.loyalty.entries) ? { settings: raw.loyalty.settings && typeof raw.loyalty.settings === 'object' ? raw.loyalty.settings : null, entries: raw.loyalty.entries, seq: Number(raw.loyalty.seq || 0) } : { settings: null, entries: [], seq: 0 };
+  book.inventoryCosting = raw.inventoryCosting && typeof raw.inventoryCosting === 'object' ? raw.inventoryCosting : null;
   book.portalSaves = raw.portalSaves && typeof raw.portalSaves === 'object' ? raw.portalSaves : {};
   book.gstr3bPortal = raw.gstr3bPortal && typeof raw.gstr3bPortal === 'object' ? raw.gstr3bPortal : {};
   book.tdsFvuJobs = Array.isArray(raw.tdsFvuJobs) ? raw.tdsFvuJobs : [];

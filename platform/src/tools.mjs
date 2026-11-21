@@ -13,6 +13,8 @@ import { loyaltyInvoice, loyaltyAfterInvoice, loyaltyAfterCreditNote, setLoyalty
 import { findItem, setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins, stockMoves } from './sku-margins.mjs';
 import { dailyClose } from './daily-close.mjs';
 import { setCatalogueSettings, setCatalogueItems, catalogueView, storeOrders, storeOrderAction } from './catalogue.mjs';
+import { setCostingMethod, inventoryCosting, stockAlerts } from './inventory-costing.mjs';
+import { withItemUnits, moveDocumentStock, returnDocumentStock } from './document-stock.mjs';
 import { regArg, companyAs, forRegistration, setRegistration, retireRegistration, listRegistrations } from './registrations.mjs';
 import { recordStockTransfer } from './stock-transfers.mjs';
 import { valueInventory, listInventoryValuations } from './inventory.mjs';
@@ -626,14 +628,31 @@ export const TOOLS = [
     title: 'Create invoice',
     description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the UAE 5% VAT by emirate; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here. In India set supplyType SEZWP (supply to an SEZ unit or developer with IGST), SEZWOP (to an SEZ under LUT or bond, no tax) or DEXP (deemed export, taxed as usual; buyer GSTIN required); SEZ supplies are always IGST. A line may carry compensation cess as cessRate (percent of the taxable value) and/or cessPerUnit (rupees per unit). In India, when loyalty points are on, a sale to a named customer earns points; redeemPoints uses that customer\'s points as a discount on the bill, which lowers the value GST is charged on.',
     args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'partyAddress', 'exportSale', 'supplyType', 'redeemPoints'],
-    run: (state, args) => (engineBooks(countryOf(state), 'create_invoice')?.(state, args) ?? (countryOf(state) === 'US' ? createUsInvoice(state, args) : loyaltyInvoice(state, args))),
+    run: (state, args) => {
+      const own = engineBooks(countryOf(state), 'create_invoice')?.(state, args);
+      if (own != null) return own;
+      if (countryOf(state) === 'US') return createUsInvoice(state, args);
+      const result = loyaltyInvoice(state, withItemUnits(state, args));
+      if (result.ok && countryOf(state) === 'IN') {
+        const stockWarnings = moveDocumentStock(state, result.invoice, args, 'sale');
+        if (stockWarnings.length) result.stockWarnings = stockWarnings;
+      }
+      return result;
+    },
   },
   {
     name: 'create_purchase',
     title: 'Record purchase bill',
     description: 'Book a supplier invoice: purchases + AP (with GST input credit in India; in the US any sales tax paid is part of the cost). In India set reverseCharge for a purchase where you pay the GST (an unregistered supplier or a notified service), or originCountry for an import of services; MyCA then books the tax as payable by you and numbers a self-invoice (SI-nnnn) that can get an IRN as RCMDOM or RCMIMP.',
     args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo', 'salesTaxPaid', 'documentSha256', 'reverseCharge', 'originCountry', 'partyAddress'],
-    run: (state, args) => (engineBooks(countryOf(state), 'create_purchase')?.(state, args) ?? (countryOf(state) === 'US' ? createUsPurchase(state, args) : createPurchase(state, args))),
+    run: (state, args) => {
+      const own = engineBooks(countryOf(state), 'create_purchase')?.(state, args);
+      if (own != null) return own;
+      if (countryOf(state) === 'US') return createUsPurchase(state, args);
+      const result = createPurchase(state, withItemUnits(state, args));
+      if (result.ok && countryOf(state) === 'IN') moveDocumentStock(state, result.invoice, args, 'purchase');
+      return result;
+    },
   },
   {
     name: 'print_invoice',
@@ -661,7 +680,17 @@ export const TOOLS = [
     title: 'Cancel invoice',
     description: 'Cancel a posted sales invoice by a credit note for its full value; the invoice stays in the journal and the return of its period.',
     args: ['invoiceId', 'date', 'reason'],
-    run: (state, args) => (engineBooks(countryOf(state), 'cancel_invoice')?.(state, args) ?? loyaltyAfterCreditNote(state, cancelInvoice(state, args))),
+    run: (state, args) => {
+      const own = engineBooks(countryOf(state), 'cancel_invoice')?.(state, args);
+      if (own != null) return own;
+      const result = loyaltyAfterCreditNote(state, cancelInvoice(state, args));
+      if (result.ok && countryOf(state) === 'IN') {
+        const note = result.creditNote || result.note || {};
+        const back = returnDocumentStock(state, String(args.invoiceId || '').trim().toUpperCase(), note.date || args.date, note.id || '');
+        if (back.length) result.stockReturned = back.length;
+      }
+      return result;
+    },
   },
   {
     name: 'create_debit_note',
@@ -2258,8 +2287,8 @@ export const TOOLS = [
   {
     name: 'set_sku_cost',
     title: 'SKU cost',
-    description: 'Record a product\'s unit cost (and name, HSN, GST rate, barcode and selling price) so margins by SKU and channel can be computed and a scanned barcode fills a bill. The cost is what you paid per unit, landed. Owner only.',
-    args: ['sku', 'cost', 'name', 'hsn', 'gstRate', 'barcode', 'price', 'on'],
+    description: 'Record a product\'s unit cost (and name, HSN, GST rate, barcode, selling price, GST unit of quantity and reorder level) so margins by SKU and channel can be computed, a scanned barcode fills a bill, bills and GSTR-1 carry the unit, and low stock is flagged. The cost is what you paid per unit, landed. Owner only.',
+    args: ['sku', 'cost', 'name', 'hsn', 'gstRate', 'barcode', 'price', 'unit', 'reorderLevel', 'reorderQty', 'on'],
     run: (state, args = {}) => setSkuCost(state, args),
   },
   {
@@ -2340,8 +2369,8 @@ export const TOOLS = [
   {
     name: 'record_stock',
     title: 'Stock in or out',
-    description: 'Record stock received, sent to a warehouse or counted: a positive quantity adds, a negative removes, at a location (own, amazon, flipkart, a warehouse name). Marketplace orders move stock out of the channel\'s location on import; returns move it back.',
-    args: ['sku', 'qty', 'location', 'date', 'note', 'kind'],
+    description: 'Record stock received, sent to a warehouse or counted: a positive quantity adds, a negative removes, at a location (own, amazon, flipkart, a warehouse name); toLocation moves stock between two locations of the business. Stock in may carry its cost per unit (a lot) and a batch number with its expiry; stock out may name the batch, and warns when the batch has expired. Marketplace orders move stock out of the channel\'s location on import; returns move it back.',
+    args: ['sku', 'qty', 'location', 'toLocation', 'date', 'note', 'kind', 'unitCost', 'batch', 'expiry'],
     run: (state, args = {}) => recordStock(state, args),
   },
   {
@@ -2371,6 +2400,27 @@ export const TOOLS = [
     description: 'The valuations posted so far, the latest, and what stock on hand is worth now against what is posted. Read-only.',
     args: [],
     run: (state) => listInventoryValuations(state),
+  },
+  {
+    name: 'set_costing_method',
+    title: 'Inventory costing method',
+    description: 'Choose how stock is costed: FIFO or weighted average (AS 2 allows these two; LIFO is not allowed). Stock already on hand becomes the opening lot at its recorded cost; stock values, cost of goods, margins and valuations use the method from then. A later change needs a reason and is kept in the audit trail. Owner only.',
+    args: ['method', 'reason'],
+    run: (state, args = {}) => setCostingMethod(state, args),
+  },
+  {
+    name: 'inventory_costing',
+    title: 'Inventory costing',
+    description: 'The costing method and its history, the lots on hand per SKU with their cost, the value of stock, and the cost of goods out between two dates by the chosen method. Read-only.',
+    args: ['asOf', 'from', 'to'],
+    run: (state, args = {}) => inventoryCosting(state, args),
+  },
+  {
+    name: 'stock_alerts',
+    title: 'Expiring soon and low stock',
+    description: 'Batches that expire within a number of days (30 by default), batches already expired and still on hand, and items at or below their reorder level. Read-only.',
+    args: ['days', 'asOf'],
+    run: (state, args = {}) => stockAlerts(state, args),
   },
   {
     name: 'sku_margins',
