@@ -192,6 +192,12 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - India counter billing (2026-11-14): `find_item` looks up a SKU by code or barcode, `set_sku_cost`
   stores barcode and selling price; the Android Counter sale screen scans with the camera, bills through
   `create_invoice` and prints the engine's figures on a 58/80 mm Bluetooth ESC/POS printer
+- India online store (2026-11-21): `catalogue_settings`, `catalogue_items`, `catalogue_view`, `store_orders`
+  and `store_order_action` (`catalogue.mjs`); the hosted API keeps a public snapshot per business in
+  `store_links` (refreshed in the same transaction as any write), serves `GET /s/<slug>` (cart, WhatsApp
+  order and Place order, strict CSP) and `GET /v1/store/<slug>`, takes `POST /v1/store/<slug>/orders`
+  (priced from the snapshot, rate-limited) into `store_orders`; the Android Online store screen publishes
+  items, shares the link and turns an order into a quote
 - Malaysia PCB (2026-11-14): `my_payroll` works out the monthly tax deduction by LHDN's computerised
   method from `my.payroll.pcb` and the resident bands and rebate rules (categories 1 to 3, children,
   bonus, year to date, zakat, TP1 deductions; flat rate for non-residents)

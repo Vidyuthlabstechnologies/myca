@@ -86,6 +86,7 @@ export function createState() {
     channels: {},
     tcsStatements: [],
     tdsCreditStatements: [],
+    catalogue: {},
     skus: {},
     stockMoves: [],
     inventoryValuations: [],
@@ -201,6 +202,7 @@ export function serialize(state) {
     channels: state.channels || {},
     tcsStatements: state.tcsStatements || [],
     tdsCreditStatements: state.tdsCreditStatements || [],
+    catalogue: state.catalogue || {},
     skus: state.skus || {},
     stockMoves: state.stockMoves || [],
     inventoryValuations: state.inventoryValuations || [],
@@ -397,6 +399,7 @@ export function deserialize(raw) {
   state.channels = raw.channels && typeof raw.channels === 'object' ? raw.channels : {};
   state.tcsStatements = Array.isArray(raw.tcsStatements) ? raw.tcsStatements : [];
   state.tdsCreditStatements = Array.isArray(raw.tdsCreditStatements) ? raw.tdsCreditStatements : [];
+  state.catalogue = raw.catalogue && typeof raw.catalogue === 'object' && !Array.isArray(raw.catalogue) ? raw.catalogue : {};
   state.skus = raw.skus && typeof raw.skus === 'object' ? raw.skus : {};
   state.stockMoves = Array.isArray(raw.stockMoves) ? raw.stockMoves : [];
   state.inventoryValuations = Array.isArray(raw.inventoryValuations) ? raw.inventoryValuations : [];

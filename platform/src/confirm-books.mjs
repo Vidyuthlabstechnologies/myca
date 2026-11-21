@@ -12,6 +12,7 @@ import { planSettlement, settlementWords } from './settlements.mjs';
 import { planOrderImport, settlementInvoices } from './marketplace-orders.mjs';
 import { planChannelIdentity } from './marketplace-credits.mjs';
 import { planSkuCost, parseSkuCostsCsv } from './sku-margins.mjs';
+import { planCatalogueSettings, planCatalogueItems, planStoreOrderAction } from './catalogue.mjs';
 import { planInventoryValuation } from './inventory.mjs';
 import { planStockTransfer } from './stock-transfers.mjs';
 import { tally, bank } from './sprint-load.mjs';
@@ -522,4 +523,70 @@ export function exceptionPreview(state, args) {
       : ['The queue is updated and the decision is written to the audit trail.'],
     figures: { severity: entry.severity, moneyAtRisk: entry.moneyAtRisk },
   };
+}
+
+const STORE_REASONS = {
+  INDIA_ONLY: 'The online store is for businesses in India.',
+  BAD_FLAG: 'Say yes or no.',
+  BAD_WHATSAPP: 'The WhatsApp number must be a 10-digit Indian mobile number.',
+  BAD_SLUG: 'A store link name is 3 to 40 lowercase letters, digits and single hyphens, starting and ending with a letter or digit.',
+  SLUG_RESERVED: 'That link name is kept for MyCA. Choose another.',
+  STORE_NAME_REQUIRED: 'Give the store a name.',
+  WHATSAPP_REQUIRED: 'Give the WhatsApp number orders should go to before switching the store on.',
+  NOTHING_TO_CHANGE: 'Nothing would change.',
+  NO_ITEMS: 'Say which items to publish or hide.',
+  TOO_MANY_ITEMS: 'Change at most 200 items at a time.',
+  SKU_REQUIRED: 'Say which item.',
+  SKU_NOT_FOUND: 'That item is not saved yet. Save it with its name, price and GST rate first.',
+  DUPLICATE_SKU: 'An item is listed twice.',
+  ORDER_NOT_FOUND: 'There is no store order with that number.',
+  BAD_ACTION: 'Accept, decline or mark the order fulfilled.',
+  ORDER_CLOSED: 'That order is already closed.',
+  ORDER_ALREADY_ANSWERED: 'That order was already answered.',
+  PRICE_REQUIRED: 'An item in the order has no selling price or GST rate. Set it first.',
+};
+
+function storeBlocked(planned) {
+  return { blockers: [planned.hint || STORE_REASONS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+}
+
+export function catalogueSettingsPreview(state, args) {
+  const planned = planCatalogueSettings(state, args);
+  if (!planned.ok) return storeBlocked(planned);
+  const { next, slug } = planned.plan;
+  const shows = [next.showPrices ? 'prices with GST' : 'no prices', next.showStock ? 'in stock or out of stock' : 'no stock', next.showGstin ? 'your GSTIN' : 'no GSTIN'].join(', ');
+  return {
+    blockers: [],
+    summary: `Online store ${next.enabled ? 'on' : 'off'}: ${next.storeName}, link /s/${slug}, orders to WhatsApp ${next.whatsapp || 'not set'}; shows ${shows}.`,
+    effects: [next.enabled ? 'Anyone with the link sees the published items. Costs, quantities and your books are never shown.' : 'The link stops working until you switch the store on again.', 'Nothing posts to your books.'],
+    figures: {},
+  };
+}
+
+export function catalogueItemsPreview(state, args) {
+  const planned = planCatalogueItems(state, args);
+  if (!planned.ok) return storeBlocked(planned);
+  const { changes, published, hidden } = planned.plan;
+  const names = changes.slice(0, 5).map((c) => `${c.name}${c.next.published ? '' : ' (hidden)'}`).join(', ');
+  return {
+    blockers: [],
+    summary: `Online store: ${published} item${published === 1 ? '' : 's'} published, ${hidden} hidden: ${names}${changes.length > 5 ? ` and ${changes.length - 5} more` : ''}.`,
+    effects: ['Buyers see the name, price with GST, category and description. Nothing posts to your books.'],
+    figures: { published, hidden },
+  };
+}
+
+export function storeOrderActionPreview(state, args) {
+  const planned = planStoreOrderAction(state, args);
+  if (!planned.ok) return storeBlocked(planned);
+  const { order, action, quote } = planned.plan;
+  if (action === 'accept') {
+    return {
+      blockers: [],
+      summary: `Accept ${order.id} from ${order.buyerName}: quote of ${money(quote.total)} (taxable ${money(quote.taxable)}) at today's saved prices.`,
+      effects: ['A quote is made for the buyer; it posts nothing until it becomes an invoice.', 'GST is worked out as a sale within your state; change the quote if the buyer is in another state.'],
+      figures: { total: quote.total },
+    };
+  }
+  return { blockers: [], summary: `${order.id} from ${order.buyerName}: ${action === 'decline' ? 'declined' : 'fulfilled'}.`, effects: ['Nothing posts to your books.'], figures: {} };
 }

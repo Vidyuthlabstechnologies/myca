@@ -4,7 +4,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   ...ENGINE_READ_TOOLS,
   'company_profile',
   'list_invoices',
-  'invoice_document', 'invoice_template', 'settlement_status', 'marketplace_credits', 'tds_credit_check', 'stock_position', 'find_item', 'stock_moves', 'inventory_valuations', 'sku_margins', 'daily_close', 'registrations',
+  'invoice_document', 'invoice_template', 'settlement_status', 'marketplace_credits', 'tds_credit_check', 'stock_position', 'find_item', 'catalogue_view', 'store_orders', 'stock_moves', 'inventory_valuations', 'sku_margins', 'daily_close', 'registrations',
   'record_share',
   'eway_bill_status',
   'list_expenses',

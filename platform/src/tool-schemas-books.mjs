@@ -340,6 +340,60 @@ export const BOOKS_TOOL_SCHEMAS = {
       on: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
     },
   },
+  catalogue_settings: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      enabled: { type: 'boolean' },
+      storeName: { type: 'string', maxLength: 80 },
+      description: { type: 'string', maxLength: 300 },
+      whatsapp: { type: 'string', maxLength: 20 },
+      address: { type: 'string', maxLength: 200 },
+      city: { type: 'string', maxLength: 60 },
+      showPrices: { type: 'boolean' },
+      showStock: { type: 'boolean' },
+      showGstin: { type: 'boolean' },
+      slug: { type: 'string', maxLength: 40 },
+    },
+  },
+  catalogue_items: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['items'],
+    properties: {
+      items: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 200,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['sku'],
+          properties: {
+            sku: { type: 'string', minLength: 1, maxLength: 64 },
+            published: { type: 'boolean' },
+            description: { type: 'string', maxLength: 200 },
+            category: { type: 'string', maxLength: 40 },
+          },
+        },
+      },
+    },
+  },
+  catalogue_view: { type: 'object', additionalProperties: false, properties: {} },
+  store_orders: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { status: { type: 'string', enum: ['all', 'new', 'accepted', 'declined', 'fulfilled'] } },
+  },
+  store_order_action: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'action'],
+    properties: {
+      id: { type: 'string', pattern: '^ORD-[0-9]{4,}$' },
+      action: { type: 'string', enum: ['accept', 'decline', 'fulfil'] },
+    },
+  },
   find_item: {
     type: 'object',
     additionalProperties: false,

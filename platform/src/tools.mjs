@@ -11,6 +11,7 @@ import { setChannelIdentity, importTcsStatement, import26asCredits, marketplaceC
 import { recordTdsWithheld, tdsCreditCheck } from './tds-credits.mjs';
 import { findItem, setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins, stockMoves } from './sku-margins.mjs';
 import { dailyClose } from './daily-close.mjs';
+import { setCatalogueSettings, setCatalogueItems, catalogueView, storeOrders, storeOrderAction } from './catalogue.mjs';
 import { regArg, companyAs, forRegistration, setRegistration, retireRegistration, listRegistrations } from './registrations.mjs';
 import { recordStockTransfer } from './stock-transfers.mjs';
 import { valueInventory, listInventoryValuations } from './inventory.mjs';
@@ -2266,6 +2267,41 @@ export const TOOLS = [
     description: 'Look up a product by its scanned barcode or its SKU: name, selling price, HSN, GST rate and stock on hand, for counter billing. Read-only.',
     args: ['code'],
     run: (state, args = {}) => findItem(state, args),
+  },
+  {
+    name: 'catalogue_settings',
+    title: 'Online store settings',
+    description: 'Switch the online store on or off and set what buyers see on its shareable link: the store name, a short description, the WhatsApp number orders go to, an optional address and city, whether prices (with GST) and in-stock or out-of-stock show, whether the GSTIN shows, and the link name (3 to 40 lowercase letters, digits and hyphens). Costs, quantities and the books are never shown. India only. Owner only.',
+    args: ['enabled', 'storeName', 'description', 'whatsapp', 'address', 'city', 'showPrices', 'showStock', 'showGstin', 'slug'],
+    run: (state, args = {}) => setCatalogueSettings(state, args),
+  },
+  {
+    name: 'catalogue_items',
+    title: 'Items in the online store',
+    description: 'Publish or hide saved items (SKUs) in the online store, each with an optional short description and category. Name, price, HSN and GST rate come from the saved item. India only. Owner only.',
+    args: ['items'],
+    run: (state, args = {}) => setCatalogueItems(state, args),
+  },
+  {
+    name: 'catalogue_view',
+    title: 'Online store',
+    description: 'The online store: its settings and link, every saved item with whether it is published, and exactly what the public page shows. Read-only.',
+    args: [],
+    run: (state) => catalogueView(state),
+  },
+  {
+    name: 'store_orders',
+    title: 'Online store orders',
+    description: 'Order requests buyers sent from the online store, newest first, optionally only new, accepted, declined or fulfilled ones. Read-only.',
+    args: ['status'],
+    run: (state, args = {}) => storeOrders(state, args),
+  },
+  {
+    name: 'store_order_action',
+    title: 'Answer an online store order',
+    description: 'Answer an order request from the online store: accept it, which makes a quote for the buyer at the items\' saved prices and GST rates, decline it, or mark it fulfilled. Owner only.',
+    args: ['id', 'action'],
+    run: (state, args = {}) => storeOrderAction(state, args),
   },
   {
     name: 'import_sku_costs',
