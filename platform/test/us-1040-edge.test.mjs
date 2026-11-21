@@ -422,15 +422,20 @@ test('1099-R: IRA and pension lines 4 and 5, blank taxable amount taken as gross
   assert.equal(out.data.lines['25b'], 2000);
 });
 
-test('Schedule 2 line 8: 10% additional tax on a code 1 early distribution (IRC 72(t)); an exception or code J/S needs Form 5329', () => {
+test('Schedule 2 line 8: 10% additional tax on a code 1 early distribution (IRC 72(t)); an exception is its number on the 1099-R (Form 5329 line 2)', () => {
   const early = run('single', [w2(40000), { kind: '1099-R', payer: 'IRA', fields: { grossDistribution: 10000, taxableAmount: 10000, iraSepSimple: true, distributionCode: '1' } }]);
   assert.equal(early.data.schedules['2']['8'], 1000);
   assert.deepEqual(needs(early), []);
-  const exception = run('single', [w2(40000), { kind: '1099-R', payer: 'IRA', fields: { grossDistribution: 10000, taxableAmount: 10000, iraSepSimple: true, distributionCode: '1' } }], { answers: { earlyDistributionException: true } });
+  const noNumber = run('single', [w2(40000), { kind: '1099-R', payer: 'IRA', fields: { grossDistribution: 10000, taxableAmount: 10000, iraSepSimple: true, distributionCode: '1' } }], { answers: { earlyDistributionException: true } });
+  assert.equal(noNumber.data.schedules['2']['8'], 1000);
+  assert.ok(noNumber.data.checks.some((item) => item.code === 'EARLY_DISTRIBUTION_EXCEPTION_CODE' && item.level === 'error'));
+  const exception = run('single', [w2(40000), { kind: '1099-R', payer: 'IRA', fields: { grossDistribution: 10000, taxableAmount: 10000, iraSepSimple: true, distributionCode: '1', exceptionCode: '08' } }]);
   assert.equal(exception.data.lines['23'], 0);
-  assert.deepEqual(needs(exception), ['5329']);
-  const roth = run('single', [w2(40000), { kind: '1099-R', payer: 'Roth', fields: { grossDistribution: 3000, taxableAmount: 0, iraSepSimple: true, distributionCode: 'J' } }]);
-  assert.deepEqual(needs(roth), ['5329']);
+  assert.deepEqual(needs(exception), []);
+  const roth = run('single', [w2(40000), { kind: '1099-R', payer: 'Roth', fields: { grossDistribution: 3000, distributionCode: 'J' } }], { answers: { rothContributionBasis: 5000 } });
+  assert.equal(roth.data.lines['4b'], 0);
+  assert.equal(roth.data.lines['23'], 0);
+  assert.deepEqual(needs(roth), []);
 });
 
 test('1099-G: unemployment on Schedule 1 line 7 and its withholding on line 25b; a state refund is taxable only as answered', () => {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import '../india/india_strings.dart';
 import '../migration.dart';
 import '../proposal_flow.dart';
 import '../marks.dart';
@@ -223,7 +224,7 @@ class _BusinessStepState extends State<_BusinessStep> {
       if (outcome.ok) return widget.onDone();
       setState(
         () => _error =
-            uk ? s.notAccepted(outcome.error) : 'MyCA did not accept that (${outcome.error}). Check the GSTIN.',
+            uk ? s.notAccepted(outcome.error) : inFormat(context, 'MyCA did not accept that ({error}). Check the GSTIN.', {'error': outcome.error}),
       );
     } on MycaApiException catch (err) {
       if (mounted) setState(() => _error = err.message);
@@ -253,9 +254,9 @@ class _BusinessStepState extends State<_BusinessStep> {
         TextField(
           controller: _gstin,
           textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'GSTIN',
-            helperText: 'Leave empty if you are not registered for GST',
+            helperText: inText(context, 'Leave empty if you are not registered for GST'),
           ),
         ),
         if (_error.isNotEmpty) ...[

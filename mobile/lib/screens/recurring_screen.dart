@@ -5,6 +5,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../uae/uae_strings.dart';
 import '../registers.dart';
 import '../marks.dart';
@@ -72,7 +73,7 @@ class _RecurringScreenState extends State<RecurringScreen> with ProposalFlow {
     if (what.isEmpty) return setState(() => _error = s.sayWhatItIsFor);
     final rateText = _rate.text.trim();
     final rate = rateText.isEmpty ? null : parseRate(rateText);
-    if (rateText.isNotEmpty && rate == null) return setState(() => _error = 'Enter the $salesTaxName rate as a number, or leave it blank.');
+    if (rateText.isNotEmpty && rate == null) return setState(() => _error = inFormat(context, 'Enter the {tax} rate as a number, or leave it blank.', {'tax': salesTaxName}));
     setState(() => _error = '');
     await propose(
       s.recurringExpenseSaid(rupees(amount), what, s.repeatEvery(_every)),
@@ -154,7 +155,7 @@ class _RecurringScreenState extends State<RecurringScreen> with ProposalFlow {
                       TextField(
                         controller: _amount,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: InputDecoration(labelText: s.amountEachTime, prefixText: moneyPrefix, helperText: moneyCountry == 'AE' ? UaeStrings.of(context).includingVat : 'Including any $salesTaxName'),
+                        decoration: InputDecoration(labelText: s.amountEachTime, prefixText: moneyPrefix, helperText: moneyCountry == 'AE' ? UaeStrings.of(context).includingVat : inFormat(context, 'Including any {tax}', {'tax': salesTaxName})),
                       ),
                       const SizedBox(height: 10),
                       TextField(
@@ -167,7 +168,7 @@ class _RecurringScreenState extends State<RecurringScreen> with ProposalFlow {
                       TextField(
                         controller: _rate,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: InputDecoration(labelText: '$salesTaxName rate inside the amount (optional)', suffixText: '%'),
+                        decoration: InputDecoration(labelText: inFormat(context, '{tax} rate inside the amount (optional)', {'tax': salesTaxName}), suffixText: '%'),
                       ),
                       ],
                       const SizedBox(height: 10),

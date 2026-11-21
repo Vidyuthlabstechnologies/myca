@@ -4,6 +4,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../proposal_flow.dart';
 import '../registers.dart';
 import '../theme.dart';
@@ -164,12 +165,12 @@ class _ExpenseHeadScreenState extends State<ExpenseHeadScreen>
                     text: expense.title,
                     amount: rupees(expense.amount),
                     label: s.longDate(expense.date),
-                    stamp: expense.mode == 'cash' ? 'Cash' : null,
+                    stamp: expense.mode == 'cash' ? inText(context, 'Cash') : null,
                     footnotes: [
                       if (expense.tagSource == 'default')
                         s.tapToMoveHead,
                       if (expense.gstRate > 0 && !expense.inputCredit && moneyCountry != 'AE')
-                        '$salesTaxName ${plainNumber(expense.gstRate)}% inside, no credit taken',
+                        inFormat(context, '{tax} {rate}% inside, no credit taken', {'tax': salesTaxName, 'rate': plainNumber(expense.gstRate)}),
                     ],
                     onTap: busy ? null : () => _move(expense),
                   ),

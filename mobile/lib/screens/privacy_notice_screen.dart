@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../cloud/cloud_session.dart';
+import '../india/india_strings.dart';
 import '../my/my_strings.dart';
 import '../theme.dart';
 import '../uae/uae_cloud_strings.dart';
@@ -152,7 +153,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                         ? 'Off unless you check it. Only what went wrong in the app, with names, amounts, Social Security numbers and phone numbers removed. You can change this later under Your account.'
                         : state.edition == 'GB'
                         ? 'Off unless you tick it. Only what went wrong in the app, with names, amounts, tax references and phone numbers removed. You can change this later under Your business.'
-                        : 'Off unless you tick it. Only what went wrong in the app, with names, amounts, GSTINs and phone numbers removed. You can change this later under Your business.',
+                        : inText(context, 'Off unless you tick it. Only what went wrong in the app, with names, amounts, GSTINs and phone numbers removed. You can change this later under Your business.'),
                   ),
                 ),
               ),

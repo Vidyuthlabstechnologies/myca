@@ -130,7 +130,7 @@ class UsFakeApi implements MycaApi {
   Future<void> signOut() async {}
 
   @override
-  Future<ChatReply> chat(String message) async => ChatReply.fromJson({'reply': 'ok'});
+  Future<ChatReply> chat(String message, {String lang = 'en'}) async => ChatReply.fromJson({'reply': 'ok'});
 
   @override
   Future<ChatReply> propose(String name, Map<String, Object?> args) async {

@@ -211,7 +211,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
         const beforeHash = stateDigest(state);
         const view = toolState(state, actorOf(options));
         const clockBefore = clockOf(view);
-        const out = await chat(view, message);
+        const out = await chat(view, message, { lang: options?.lang });
         const posted = out.posted === true;
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',

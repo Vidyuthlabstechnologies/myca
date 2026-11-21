@@ -120,7 +120,7 @@ function person(item, sendTins) {
  * the separate IRC 7216 consent (cloud/src/us-7216.mjs); otherwise the filer types them once
  * in the partner's own flow.
  */
-export function partnerPrefill(computed, { sendTins = false, contact = {} } = {}) {
+export function partnerPrefill(computed, { sendTins = false, contact = {}, priorYear = null } = {}) {
   const lines = computed.lines || {};
   const forms = Array.isArray(computed.forms) ? computed.forms : [];
   return {
@@ -150,6 +150,7 @@ export function partnerPrefill(computed, { sendTins = false, contact = {} } = {}
     answers: computed.answers && typeof computed.answers === 'object' ? { ...computed.answers } : {},
     estimated_tax_paid: money(lines['26']),
     myca_estimate: { adjusted_gross_income: money(lines['11']), total_tax: money(lines['24']), refund: money(lines['35a']), amount_owed: money(lines['37']) },
+    ...(priorYear && Number.isFinite(Number(priorYear.agi)) ? { prior_year: { adjusted_gross_income: money(priorYear.agi), filed_jointly: priorYear.joint === true } } : {}),
   };
 }
 
@@ -235,7 +236,7 @@ async function createSession(settings, payload, { fetchImpl, signal }) {
  * engine's filing shape (computedForm1040ForFiling). In the simulator the partner's answer is
  * immediate: the return is submitted and accepted, the way the MeF simulator behaves.
  */
-export async function startPartnerFiling(state, { taxYear, computed, scope, contact, shareTins = false } = {}, actor, options = {}) {
+export async function startPartnerFiling(state, { taxYear, computed, scope, contact, shareTins = false, priorYear = null } = {}, actor, options = {}) {
   const settings = options.settings || partnerSettings();
   const missing = partnerMissing(settings);
   const book = bookOf(state);
@@ -252,7 +253,7 @@ export async function startPartnerFiling(state, { taxYear, computed, scope, cont
   const mode = productionCallsEnabled() && configured ? 'live' : 'sandbox';
   let session;
   if (configured) {
-    const payload = { external_id: externalId, tax_year: taxYear, prefill: partnerPrefill(computed, { sendTins, contact }) };
+    const payload = { external_id: externalId, tax_year: taxYear, prefill: partnerPrefill(computed, { sendTins, contact, priorYear }) };
     const got = await performExternalAction(state, {
       actionId: 'us_filer_session',
       actor,
