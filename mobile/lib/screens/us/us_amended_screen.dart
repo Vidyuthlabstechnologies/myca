@@ -85,7 +85,7 @@ class _UsAmendedScreenState extends State<UsAmendedScreen> {
         if (required) _errors['original.$id'] = 'Copy this from the return you filed.';
         continue;
       }
-      final amount = parseDollars(typed);
+      final amount = id == 'agi' ? parseSignedDollars(typed) : parseDollars(typed);
       if (amount == null) {
         _errors['original.$id'] = '$label is an amount, like 1234.56.';
       } else {
@@ -380,7 +380,7 @@ class _UsAmendedScreenState extends State<UsAmendedScreen> {
       for (final (id, label, required) in amendedOriginalFields)
         Padding(
           padding: const EdgeInsets.only(top: 8),
-          child: MoneyField(key: Key('usAmend.original.$id'), controller: _original[id]!, label: label, helper: required ? 'Required' : null, errorText: _errors['original.$id']),
+          child: MoneyField(key: Key('usAmend.original.$id'), controller: _original[id]!, label: label, helper: required ? 'Required' : null, errorText: _errors['original.$id'], signed: id == 'agi'),
         ),
       for (final (key, controller, label) in [('children', _children, 'Dependent children on that return'), ('other', _other, 'Other dependents on that return')])
         Padding(

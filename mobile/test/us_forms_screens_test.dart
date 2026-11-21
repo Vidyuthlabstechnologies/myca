@@ -8,6 +8,7 @@ import 'package:myca/app_state.dart';
 import 'package:myca/format.dart';
 import 'package:myca/main.dart';
 import 'package:myca/screens/us/us_amended_screen.dart';
+import 'package:myca/screens/us/us_fields.dart';
 import 'package:myca/screens/us/us_form_editor_screen.dart';
 import 'package:myca/screens/us/us_interview_screen.dart';
 import 'package:myca/screens/us/us_prior_year_screen.dart';
@@ -165,6 +166,18 @@ void main() {
       'originalFilingStatus': 'single',
       'originalDependents': {'children': 1, 'other': 0},
     });
+  });
+
+  test('a negative prior-year AGI is typed with a minus sign and sent as a negative number', () {
+    expect(parseSignedDollars('-12,500'), -12500);
+    expect(parseSignedDollars('4200.5'), 4200.5);
+    expect(parseSignedDollars('-'), isNull);
+    expect(parseDollars('-12500'), isNull);
+    expect(priorYearArgs(2025, {'agi': '-4,200', 'totalTax': '-5'}), {
+      'taxYear': '2025',
+      'figures': {'agi': -4200},
+    });
+    expect(UsQuestion.fromJson({'id': 'priorYearAgi', 'kind': 'amount', 'negative': true}).negative, isTrue);
   });
 
   test('interview choices read as words, not codes', () {

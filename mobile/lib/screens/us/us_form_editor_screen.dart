@@ -51,7 +51,7 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
   bool _busy = false;
   bool _done = false;
 
-  bool get _various => widget.kind.kind == '1099-B';
+  bool get _various => !widget.kind.ownRecords;
 
   static bool _isCodeList(UsFieldSpec f, Object? value) => f.key == 'box12' || (f.type == 'code' && value is List);
 

@@ -105,7 +105,7 @@ function signer(args, who, problems, importedAgi) {
   const givenAgi = prior.agi == null || prior.agi === '' ? importedAgi : prior.agi;
   const priorAgi = givenAgi == null || givenAgi === '' ? null : Number(givenAgi);
   if (priorPin && !PIN.test(priorPin)) problems.push({ code: 'PRIOR_YEAR_PIN_INVALID', message: `The ${who}'s prior-year PIN must be five digits.`, fix: "Enter last year's five-digit self-select PIN, or use last year's AGI instead.", step: 'sign' });
-  if (!priorPin && !(Number.isInteger(priorAgi) && priorAgi >= 0)) problems.push({ code: 'PRIOR_YEAR_VERIFICATION_MISSING', message: `The ${who}'s prior-year AGI or prior-year PIN is needed.`, fix: "Enter last year's AGI in whole dollars (0 if you didn't file last year).", step: 'sign' });
+  if (!priorPin && !Number.isInteger(priorAgi)) problems.push({ code: 'PRIOR_YEAR_VERIFICATION_MISSING', message: `The ${who}'s prior-year AGI or prior-year PIN is needed.`, fix: "Enter last year's AGI in whole dollars (0 if you didn't file last year).", step: 'sign' });
   const ipPin = ipPinOf(args, who);
   if (ipPin != null && ipPin !== '' && !IP_PIN.test(String(ipPin))) problems.push({ code: 'IP_PIN_INVALID', message: `The ${who}'s Identity Protection PIN must be six digits.`, fix: 'Copy the six-digit IP PIN from the IRS letter or your IRS online account.', step: 'sign' });
   return { pin, priorYearPin: priorPin || undefined, priorYearAgi: priorPin ? undefined : priorAgi, ipPin: ipPin ? String(ipPin) : undefined };

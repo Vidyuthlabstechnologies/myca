@@ -321,7 +321,7 @@ String optionLabel(String question, String value) {
 }
 
 class UsQuestion {
-  const UsQuestion({required this.id, required this.text, required this.help, required this.kind, required this.options, required this.answer});
+  const UsQuestion({required this.id, required this.text, required this.help, required this.kind, required this.options, required this.answer, this.negative = false});
 
   factory UsQuestion.fromJson(Object? json) {
     final map = _map(json);
@@ -336,7 +336,7 @@ class UsQuestion {
         }
       }
     }
-    return UsQuestion(id: _text(map['id']), text: _text(map['text']), help: _text(map['help']), kind: _text(map['kind']).isEmpty ? 'yesno' : _text(map['kind']), options: options, answer: map['answer']);
+    return UsQuestion(id: _text(map['id']), text: _text(map['text']), help: _text(map['help']), kind: _text(map['kind']).isEmpty ? 'yesno' : _text(map['kind']), options: options, answer: map['answer'], negative: map['negative'] == true);
   }
 
   final String id;
@@ -345,6 +345,7 @@ class UsQuestion {
   final String kind;
   final List<(String, String)> options;
   final Object? answer;
+  final bool negative;
 
   bool get answered => answer != null && '$answer'.isNotEmpty;
 

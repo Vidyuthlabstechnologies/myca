@@ -11,6 +11,10 @@ import 'package:myca/format.dart';
 import 'package:myca/main.dart';
 import 'package:myca/screens/us/us_prior_year_screen.dart';
 
+import 'package:myca/screens/us/us_amended_screen.dart';
+import 'package:myca/screens/us/us_form_editor_screen.dart';
+
+import 'us_forms_screens_test.dart' show AmendApi, rentalKind, show;
 import 'us_return_test.dart' show UsFakeApi, scrollTap, usState;
 
 const fixturePath = '../platform/test/fixtures/us-app-tool-calls.json';
@@ -30,6 +34,14 @@ class ContractApi extends UsFakeApi {
       if ('${f['id']}'.startsWith('F')) f['id'] = 'usf-2025-${forms.indexOf(f) + 10}';
     }
     return reply;
+  }
+}
+
+class ContractAmendApi extends AmendApi {
+  @override
+  Future<String> upload(String name, String content) async {
+    uploads[documentSha] = content;
+    return documentSha;
   }
 }
 
@@ -207,6 +219,42 @@ void main() {
     record(prior);
   });
 
+  testWidgets('the amended return, a rental property and last year\'s PDF', (tester) async {
+    final amend = AmendApi()..accepted = false;
+    await show(tester, amend, const UsAmendedScreen(taxYear: 2025));
+    await tester.enterText(find.byKey(const Key('usAmend.original.agi')), '-1200');
+    await tester.enterText(find.byKey(const Key('usAmend.original.deduction')), '15000');
+    await tester.enterText(find.byKey(const Key('usAmend.original.tax')), '0');
+    await tester.enterText(find.byKey(const Key('usAmend.filedOn')), '04/01/2026');
+    await scrollTap(tester, find.byKey(const Key('usAmend.original.status')));
+    await tester.tap(find.text('Single').last);
+    await tester.pumpAndSettle();
+    await scrollTap(tester, find.byKey(const Key('usAmend.start')));
+    await tester.enterText(find.byKey(const Key('usAmend.explanation')), 'Added a 1099-NEC that came after I filed.');
+    await scrollTap(tester, find.byKey(const Key('usAmend.save')));
+    expect(amend.confirmed, ['start_us_amended_return', 'set_us_amended_return']);
+    record(amend);
+
+    final rental = AmendApi();
+    await show(tester, rental, const UsFormEditorScreen(taxYear: 2025, kind: rentalKind));
+    await tester.enterText(find.byKey(const Key('usForm.payer')), '12 Oak St, Austin, TX 78701');
+    await scrollTap(tester, find.byKey(const Key('usForm.propertyType')));
+    await tester.tap(find.text('Single family residence').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('usForm.fairRentalDays')), '300');
+    await tester.enterText(find.byKey(const Key('usForm.rents')), '18000');
+    await scrollTap(tester, find.byKey(const Key('usForm.save')));
+    expect(rental.confirmed, ['add_us_tax_form']);
+    record(rental);
+
+    final prior = ContractAmendApi();
+    await show(tester, prior, const UsPriorYearScreen(taxYear: 2025), pickAny: () async => PickedFile(name: 'last-year.pdf', mime: 'application/pdf', bytes: Uint8List.fromList('%PDF-1.4'.codeUnits)));
+    await scrollTap(tester, find.byKey(const Key('usPrior.pdf')));
+    await tester.tap(find.byKey(const Key('usPrior.confirmPdf')));
+    await tester.pumpAndSettle();
+    record(prior);
+  });
+
   test('the recorded calls match the fixture the server suite checks against its schemas', () {
     final recorded = const JsonEncoder.withIndent('  ').convert(calls.values.toList()..sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b))));
     final file = File(fixturePath);
@@ -216,6 +264,6 @@ void main() {
     }
     expect(file.readAsStringSync().trim(), recorded, reason: 'The app now sends different US tool arguments. Run UPDATE_US_TOOL_CALLS=1 flutter test test/us_tool_contract_test.dart, then cd platform && node --test test/us-app-tool-calls.test.mjs.');
     final tools = {for (final c in calls.values) c['tool']};
-    expect(tools, containsAll(['set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'sign_us_return', 'file_us_return', 'import_us_prior_year', 'us_return_status', 'us_efile_status', 'read_us_tax_document']));
+    expect(tools, containsAll(['set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'sign_us_return', 'file_us_return', 'import_us_prior_year', 'us_return_status', 'us_efile_status', 'read_us_tax_document', 'start_us_amended_return', 'set_us_amended_return', 'us_amended_return']));
   });
 }

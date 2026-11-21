@@ -159,7 +159,7 @@ function signatureElements(signature, needsSpouse, problems) {
     }
     out += el(`${prefix}SignaturePIN`, p.pin);
     if (p.priorYearPin && SIGNATURE_PIN.test(String(p.priorYearPin))) out += el(`${prefix}PriorYearPIN`, p.priorYearPin);
-    else if (Number.isInteger(p.priorYearAgi) && p.priorYearAgi >= 0) out += el(`${prefix}PriorYearAGIAmt`, p.priorYearAgi);
+    else if (Number.isInteger(p.priorYearAgi)) out += el(`${prefix}PriorYearAGIAmt`, p.priorYearAgi);
     else problems.push(problem('PRIOR_YEAR_VERIFICATION_MISSING', `The ${who}'s prior-year AGI (or prior-year PIN) is needed to sign.`, 'Enter last year\'s adjusted gross income from last year\'s return, or 0 if you did not file.', 'sign'));
     if (p.ipPin) {
       if (IP_PIN.test(String(p.ipPin))) out += el(`${prefix}IPPIN`, p.ipPin);

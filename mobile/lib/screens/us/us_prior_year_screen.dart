@@ -10,9 +10,10 @@ import '../../app_state.dart';
 import '../../format.dart';
 import '../../registers.dart';
 import '../../us/us_return.dart';
+import 'us_fields.dart';
 
 const _fields = <(String, String, String)>[
-  ('agi', 'Adjusted gross income', 'Form 1040 line 11'),
+  ('agi', 'Adjusted gross income', 'Form 1040 line 11. Put a minus sign in front of a loss'),
   ('totalTax', 'Total tax', 'Form 1040 line 24'),
   ('overpaymentApplied', 'Refund applied to this year', 'Form 1040 line 36'),
   ('shortTermLossCarryover', 'Short-term capital loss carried over', 'Capital loss carryover worksheet'),
@@ -24,11 +25,13 @@ const _fields = <(String, String, String)>[
 Map<String, Object?> priorYearArgs(int taxYear, Map<String, String> typed, {String documentSha = ''}) {
   final figures = <String, Object?>{};
   for (final (id, _, _) in _fields) {
-    final amount = parseAmount(typed[id] ?? '');
+    final amount = _amountOf(id, typed[id] ?? '');
     if (amount != null) figures[id] = amount;
   }
   return {'taxYear': '$taxYear', if (documentSha.isNotEmpty) 'documentSha256': documentSha, if (figures.isNotEmpty) 'figures': figures};
 }
+
+num? _amountOf(String id, String typed) => id == 'agi' ? parseSignedDollars(typed) : parseAmount(typed);
 
 String priorYearFieldLabel(String id) => _fields.firstWhere((f) => f.$1 == id, orElse: () => (id, id, '')).$2;
 
@@ -61,7 +64,7 @@ class _UsPriorYearScreenState extends State<UsPriorYearScreen> {
   String? _typedProblem() {
     for (final (id, label, _) in _fields) {
       final typed = _controllers[id]!.text.trim();
-      if (typed.isNotEmpty && parseAmount(typed) == null) return '$label is an amount, for example 85000.';
+      if (typed.isNotEmpty && _amountOf(id, typed) == null) return '$label is an amount, for example 85000.';
     }
     return null;
   }
@@ -228,8 +231,8 @@ class _UsPriorYearScreenState extends State<UsPriorYearScreen> {
                     child: TextField(
                       key: Key('usPrior.$id'),
                       controller: _controllers[id],
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                      keyboardType: TextInputType.numberWithOptions(decimal: true, signed: id == 'agi'),
+                      inputFormatters: [FilteringTextInputFormatter.allow(id == 'agi' ? RegExp(r'[-0-9.,]') : RegExp(r'[0-9.,]'))],
                       decoration: InputDecoration(labelText: label, helperText: help, prefixText: '\$ '),
                     ),
                   ),
