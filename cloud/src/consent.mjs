@@ -64,7 +64,7 @@ export const PRIVACY_NOTICE = {
 
 export const PRIVACY_NOTICE_US = {
   document: 'privacy',
-  version: 'us-draft-2026-11-14.2',
+  version: 'us-draft-2026-11-21',
   region: 'US',
   requiresAdult: true,
   title: 'How MyCA uses your information (United States)',
@@ -73,7 +73,7 @@ export const PRIVACY_NOTICE_US = {
   sections: [
     {
       heading: 'Who we are',
-      body: 'MyCA US is provided by [the US company, to be confirmed before release]. When you prepare a US tax return in MyCA we act as your tax return preparer. When you file, our IRS-authorized e-file partner, [Column Tax or April, to be confirmed], signs Form 8879 with you and sends your return to the IRS. MyCA US is for adults 18 and over.',
+      body: 'MyCA US is provided by [the US company, to be confirmed before release]. When you prepare a US tax return in MyCA we act as your tax return preparer. When you file, our e-file partner, [Column Tax or April, to be confirmed], signs Form 8879 with you and sends your return to the IRS. MyCA US is for adults 18 and over.',
     },
     {
       heading: 'What we collect',
@@ -85,7 +85,7 @@ export const PRIVACY_NOTICE_US = {
     },
     {
       heading: 'Who it is shared with',
-      body: 'Our IRS-authorized e-file partner, when you choose to file: we pass on your names, dates of birth, address, dependents, tax forms and our estimate so you do not type them again; the partner may use them only to file your return. Your Social Security numbers are passed on only if you sign a separate consent, which you can withdraw in the app at any time. The IRS, through that partner. Google Cloud, which hosts MyCA. Anthropic, whose AI model reads the forms you photograph and answers your questions; Social Security numbers and ITINs are removed before anything is sent to it, and it may not keep or train on what it receives. Stripe, Google Play or Apple when you pay, which receive payment details but not your return. People you invite to your return, such as your spouse or your tax professional, who see Social Security numbers only as the last four digits. Nobody else, unless the law requires it.',
+      body: 'Our e-file partner, when you choose to file: we pass on your names, dates of birth, address, dependents, tax forms and our estimate so you do not type them again; the partner may use them only to file your return. Your Social Security numbers are passed on only if you sign a separate consent, which you can withdraw in the app at any time. The IRS, through that partner. Google Cloud, which hosts MyCA. Anthropic, whose AI model reads the forms you photograph and answers your questions; Social Security numbers and ITINs are removed before anything is sent to it, and it may not keep or train on what it receives. Stripe, Google Play or Apple when you pay, which receive payment details but not your return. People you invite to your return, such as your spouse or your tax professional, who see Social Security numbers only as the last four digits. Nobody else, unless the law requires it.',
     },
     {
       heading: 'How it is protected',

@@ -44,7 +44,7 @@ preparation advertising, which it enforced against a large tax software maker in
 |---|---|
 | "Every line explained" | "IRS-approved", "IRS-certified", "endorsed by the IRS" |
 | "Checked before you sign" | "#1", "best", "most accurate", "fastest" |
-| "E-filed through our IRS-authorized e-file partner" | "MyCA is an IRS e-file provider" (not until MyCA's own EFIN) |
+| "E-filed through our e-file partner" | "MyCA is an IRS e-file provider" (not until MyCA's own EFIN); "IRS-authorized partner" (not until the partner signs and approves the wording) |
 | "If our error means your return needs fixing, we fix it and you refile free" | "Maximum refund guaranteed", "100% accuracy guarantee", "we pay penalties" |
 | "Tells you before you pay if your return needs something it can't handle" | "Handles every tax situation" |
 | "Encrypted, kept on US servers, never sold" | "Bank-level security", "unhackable" |
@@ -232,7 +232,7 @@ Use the footer that fits the space. Brackets are blanks only the owner can fill.
 **Full footer (website, email, press release):**
 
 > MyCA US is made by [US company name], [postal address]. MyCA prepares federal individual income
-> tax returns (Form 1040); returns are e-filed through our IRS-authorized e-file partner. MyCA is not
+> tax returns (Form 1040); returns are e-filed through our e-file partner. MyCA is not
 > affiliated with or endorsed by the Internal Revenue Service or any government agency. State
 > returns are not offered. Preparing your return and seeing your refund estimate are free; filing
 > costs $129 ($99 launch price through April 15, 2027). MyCA Plus is $249 a year and renews until

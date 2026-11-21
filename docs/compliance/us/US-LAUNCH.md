@@ -61,9 +61,10 @@ What must be true by about 20 January 2027:
 - [ ] The US Play app created and the US listing done (owner, see below).
 - [ ] A US CPA or EA attests the tax year 2026 rule records (owner signs the partner; Column Tax's own
       return engine is the one the IRS receives, so this mainly protects MyCA's estimate).
-- [ ] Fill the bracketed blanks in `deploy/public/us/terms.html` and `us/refunds.html` and in the US notice, then remove their `noindex` line (and `renderUsPrivacy`'s in `deploy/seo/build.mjs`) and add `us/privacy`, `us/terms`, `us/refunds` back to `renderSitemap`.
+- [ ] Fill the bracketed blanks in `deploy/public/us/terms.html` and `us/refunds.html` and in the US notice, then remove their `noindex` line (and `renderUsPrivacy`'s in `deploy/seo/build.mjs`) and add `us/privacy`, `us/terms`, `us/refunds` back to `renderSitemap`. The footer links to these pages come back by themselves once no blank is left (`usLegalReady` in `deploy/seo/build.mjs`); add them back by hand to the static footers of `us.html`, `us/terms.html` and `us/refunds.html`.
+- [ ] Once Column Tax or April signs and approves the wording, live copy may say "our IRS-authorized e-file partner"; until then it says "our e-file partner" (site, app sign screen, US notice, store listing).
 - [ ] Privacy notice names the US company as controller, with a real contact. The US notice
-      (`us-draft-2026-11-14.2`) already describes the partner route and US hosting; three bracketed
+      (`us-draft-2026-11-21`) already describes the partner route and US hosting; three bracketed
       blanks remain: the US company, the partner's name, and the privacy contact. The IRC 7216 consent
       forms (`cloud/src/us-7216.mjs`) use the same company blank and cannot be signed in production
       until it is filled. Full checklist: [`COMPLIANCE-REVIEW.md`](COMPLIANCE-REVIEW.md).

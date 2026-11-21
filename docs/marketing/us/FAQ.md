@@ -7,7 +7,7 @@ not sure of is not promised. Bracketed items are owner blanks.
 
 **What is MyCA US?**
 An app that prepares your federal income tax return (Form 1040) on your phone, explains every line,
-and gets it e-filed through our IRS-authorized e-file partner.
+and gets it e-filed through our e-file partner.
 
 **When can I use it?**
 MyCA US opens in January 2027 for your 2026 return. You can prepare your return as soon as the app is
@@ -18,8 +18,7 @@ Android phones from the Google Play Store [and iPhone from the App Store, once t
 
 **Is MyCA US connected to the IRS?**
 No. MyCA is a private company's app and is not affiliated with or endorsed by the IRS or any
-government agency. Your return is e-filed through an IRS-authorized e-file provider that we partner
-with.
+government agency. Your return is e-filed through our e-file partner.
 
 ## Price
 
