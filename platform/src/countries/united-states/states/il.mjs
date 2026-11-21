@@ -2,11 +2,12 @@ import { whole, positive, rateOf, ratio, check, otherStateCreditLimit, lineTable
 
 const RETIREMENT_KEYS = ['iraTaxable', 'pensionTaxable', 'socialSecurityTaxable'];
 
-function exemptionAllowance(ctx, rule) {
+function exemptionAllowance(ctx, rule, baseIncome) {
   const limit = ctx.filingStatus === 'mfj' ? rule.exemptionAgiLimit.joint : rule.exemptionAgiLimit.other;
   if (ctx.income.agi > limit) return { a: 0, b: 0, c: 0, d: 0, total: 0, overLimit: true };
   const per = rule.personalExemption;
-  const people = ctx.filers.filter((item) => !item.canBeClaimedAsDependent).length;
+  const claimed = ctx.filers.filter((item) => item.canBeClaimedAsDependent).length;
+  const people = ctx.filers.length - (claimed && baseIncome > per * claimed ? claimed : 0);
   const a = per * people;
   const b = ctx.filers.filter((item) => item.age !== null && item.age >= 65).length * rule.seniorOrBlindExtra;
   const c = ctx.filers.filter((item) => item.blind).length * rule.seniorOrBlindExtra;
@@ -30,11 +31,11 @@ function compute(ctx, filing, reader) {
   const line7 = income.usObligationInterest;
   const line8 = line5 + line6 + line7;
   const line9 = line4 - line8;
-  const exemption = exemptionAllowance(ctx, rule);
+  const exemption = exemptionAllowance(ctx, rule, line9);
   const line10 = exemption.total;
   const checks = [];
   if (exemption.overLimit) checks.push(check('info', 'IL_NO_EXEMPTION_ABOVE_LIMIT', 'Federal AGI is above the Illinois limit, so no exemption allowance is allowed.'));
-  if (ctx.filers.some((item) => item.canBeClaimedAsDependent)) checks.push(check('warning', 'IL_DEPENDENT_FILER', 'Someone can claim you as a dependent: the Illinois exemption is $0 when base income is above the exemption amount, which MyCA applies as no exemption for you.'));
+  if (ctx.filers.some((item) => item.canBeClaimedAsDependent)) checks.push(check('info', 'IL_DEPENDENT_FILER', 'Someone can claim you as a dependent, so your Illinois exemption is $0 when your base income is above the exemption amount (IL-1040 Line 10a chart).'));
   let line11;
   let line12;
   let scheduleNR = null;

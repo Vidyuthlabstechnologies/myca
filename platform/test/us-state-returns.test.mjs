@@ -135,3 +135,16 @@ test('the words read like a reply', async () => {
   const result = await runTool(state, 'us_state_coverage', {});
   assert.ok(result.data.built.some((item) => item.state === 'IL'));
 });
+
+test('Illinois: a filer someone else can claim keeps the exemption only while base income is at or below it', async () => {
+  const { createState } = await import('../src/store.mjs');
+  const make = async (wages) => {
+    const state = createState();
+    state.company = { name: 'Student', country: 'US', entityType: 'household' };
+    await runTool(state, 'set_us_taxpayer', { taxYear: '2025', filingStatus: 'single', taxpayer: { firstName: 'Mia', lastName: 'Diaz', ssn: '400-12-3458', dateOfBirth: '2006-03-03', canBeClaimedAsDependent: true }, address: { line1: '1 Main St', city: 'Urbana', state: 'IL', zip: '61801' } });
+    await runTool(state, 'add_us_tax_form', { taxYear: '2025', kind: 'W-2', payer: 'Cafe', fields: w2(wages, { state: 'IL' }).fields });
+    return stateReturn(state, '2025', 'IL');
+  };
+  assert.equal((await make(2800)).lines['10a'], 2850);
+  assert.equal((await make(9000)).lines['10a'], 0);
+});
