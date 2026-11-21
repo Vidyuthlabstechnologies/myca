@@ -1,4 +1,4 @@
-import { test, before, after } from 'node:test';
+import { test, before, after, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { startApi } from './helpers.mjs';
 import { testSignInFromEnv } from '../src/test-sign-in.mjs';
@@ -360,11 +360,19 @@ test('6. the GST review is answered through propose and confirm, and filing in m
 });
 
 test('7. the daily job runs the checks for the business and leaves dated reminders with their source', async () => {
-  const daily = await call('POST', '/v1/jobs/daily', { headers: { [JOB_HEADER]: JOB_TOKEN } });
+  const [year, month] = indiaMonth().split('-').map(Number);
+  mock.timers.enable({ apis: ['Date'], now: Date.UTC(year, month, 1, 3, 30) });
+  let daily;
+  let again;
+  try {
+    daily = await call('POST', '/v1/jobs/daily', { headers: { [JOB_HEADER]: JOB_TOKEN } });
+    again = await call('POST', '/v1/jobs/daily', { headers: { [JOB_HEADER]: JOB_TOKEN } });
+  } finally {
+    mock.timers.reset();
+  }
   assert.equal(daily.status, 200, daily.text);
   assert.equal(daily.body.ran, 1);
   assert.deepEqual(daily.body.failed, []);
-  const again = await call('POST', '/v1/jobs/daily', { headers: { [JOB_HEADER]: JOB_TOKEN } });
   assert.equal(again.body.reminders, 0, 'a second run adds no duplicate reminders');
   const reminders = await as(owner).query('list_reminders', { status: 'all' });
   assert.ok(reminders.reminders.length > 0);
