@@ -262,7 +262,8 @@ test('a return lists each form it needs but cannot prepare in unsupported, with 
   assert.equal(out.data.checks.find((item) => item.code === 'FORM_1095A_MISSING').level, 'error');
 });
 
-test('the US planning tools project withholding, plan estimated payments and list the supported forms', async () => {
+test('the US planning tools project withholding, plan estimated payments and list the supported forms', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 15, 12).getTime() });
   const state = createState();
   state.company = { ...(state.company || {}), country: 'US' };
   const forms = await runTool(state, 'us_supported_forms', {});
