@@ -452,7 +452,7 @@ test('Social Security Benefits Worksheet: single above the $34,000 adjusted base
   assert.equal(apart.data.lines['6b'], 0);
 });
 
-test('Unsupported forms land in unsupported with required true: Form 1116, Form 8283, the Pub. 936 limit and the 2026 section 68 limit', () => {
+test('Unsupported forms land in unsupported with required true: Form 1116, Form 8283 and the 2026 section 68 limit; the Pub. 936 limit is prorated and only flagged', () => {
   const foreign = run('single', [w2(60000), { kind: '1099-DIV', payer: 'Fund', fields: { ordinaryDividends: 10000, foreignTaxPaid: 400 } }]);
   assert.ok(needs(foreign).includes('1116'));
   const allowed = run('single', [w2(60000), { kind: '1099-DIV', payer: 'Fund', fields: { ordinaryDividends: 10000, foreignTaxPaid: 300 } }]);
@@ -463,7 +463,9 @@ test('Unsupported forms land in unsupported with required true: Form 1116, Form 
   const giftsStandard = run('single', [w2(100000)], { answers: { itemize: 'no', charityNonCash: 2000 } });
   assert.deepEqual(needs(giftsStandard), []);
   const mortgage = run('single', [w2(300000), { kind: '1098', payer: 'Bank', fields: { mortgageInterest: 50000, outstandingPrincipal: 1200000 } }]);
-  assert.ok(needs(mortgage).includes('Pub. 936 worksheet'));
+  assert.ok(!needs(mortgage).includes('Pub. 936 worksheet'));
+  assert.ok(mortgage.data.unsupported.some((item) => item.form === 'Pub. 936 worksheet' && item.required === false));
+  assert.equal(mortgage.data.schedules.A['8a'], 31250);
   const top = run('single', [w2(900000, 0, { stateWithheld: 50000 })], { answers: { itemize: 'yes', charityCash: 50000 } }, '2026');
   assert.ok(needs(top).includes('Section 68 limit'));
   const top2025 = run('single', [w2(900000, 0, { stateWithheld: 50000 })], { answers: { itemize: 'yes', charityCash: 50000 } }, '2025');

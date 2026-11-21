@@ -400,7 +400,7 @@ export const RULES = [
   },
   {
     id: 'us.federal.individual.qbi',
-    value: { basisPoints: 2000, thresholdCents: { mfj: 394600 * D, qss: 394600 * D, mfs: 197300 * D, single: 197300 * D, hoh: 197300 * D } },
+    value: { basisPoints: 2000, thresholdCents: { mfj: 394600 * D, qss: 197300 * D, mfs: 197300 * D, single: 197300 * D, hoh: 197300 * D } },
     basis: 'qualified_business_income_deduction_simplified_computation_available_at_or_below_the_taxable_income_threshold',
     ...year(2025),
     act: 'IRC',
@@ -410,7 +410,7 @@ export const RULES = [
   },
   {
     id: 'us.federal.individual.qbi',
-    value: { basisPoints: 2000, thresholdCents: { mfj: 403500 * D, qss: 403500 * D, mfs: 201775 * D, single: 201750 * D, hoh: 201750 * D } },
+    value: { basisPoints: 2000, thresholdCents: { mfj: 403500 * D, qss: 201750 * D, mfs: 201775 * D, single: 201750 * D, hoh: 201750 * D } },
     basis: 'qualified_business_income_deduction_simplified_computation_available_at_or_below_the_taxable_income_threshold',
     ...year(2026),
     act: 'IRC',
@@ -420,7 +420,7 @@ export const RULES = [
   },
   {
     id: 'us.federal.individual.qbi',
-    value: { basisPoints: 2000, thresholdCents: { mfj: 416600 * D, qss: 416600 * D, mfs: 208325 * D, single: 208300 * D, hoh: 208300 * D } },
+    value: { basisPoints: 2000, thresholdCents: { mfj: 416600 * D, qss: 208300 * D, mfs: 208325 * D, single: 208300 * D, hoh: 208300 * D } },
     basis: 'qualified_business_income_deduction_simplified_computation_available_at_or_below_the_taxable_income_threshold',
     ...year(2027),
     act: 'IRC',

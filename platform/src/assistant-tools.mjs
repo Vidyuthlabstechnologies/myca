@@ -249,8 +249,19 @@ function valueType(value) {
   return typeof value;
 }
 
+function typeMatches(type, value) {
+  if (type === 'integer') return Number.isInteger(value);
+  if (type === 'null') return value === null;
+  return valueType(value) === type;
+}
+
 function checkScalar(schema, value, path) {
   if (!schema) return null;
+  if (Array.isArray(schema.type)) {
+    const type = schema.type.find((item) => typeMatches(item, value));
+    if (!type) return `${path} must be ${schema.type.join(',')}`;
+    return checkScalar({ ...schema, type }, value, path);
+  }
   if (schema.type === 'integer') {
     if (!Number.isInteger(value)) return `${path} must be integer`;
   } else if (schema.type && valueType(value) !== schema.type) return `${path} must be ${schema.type}`;
