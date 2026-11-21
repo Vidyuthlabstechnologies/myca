@@ -2076,7 +2076,7 @@ export const TOOLS = [
       }
       let result;
       try {
-        result = filingPrep({ paymentsText: payments, fy: state.company.fy });
+        result = filingPrep(payments ? { paymentsText: payments, fy: state.company.fy } : {});
       } catch {
         return fail('NO_RULES_FOR_FY', { fy: state.company.fy, hint: 'No TDS rules are recorded for this financial year yet; nothing was computed.' });
       }
