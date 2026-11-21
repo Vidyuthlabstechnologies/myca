@@ -9,7 +9,9 @@ import 'package:myca/app_state.dart';
 import 'package:myca/cloud/token_store.dart';
 import 'package:myca/format.dart';
 import 'package:myca/main.dart';
+import 'package:myca/screens/us/us_amended_screen.dart';
 import 'package:myca/screens/us/us_consent_screen.dart';
+import 'package:myca/screens/us/us_prior_year_screen.dart';
 import 'package:myca/screens/us/us_form_editor_screen.dart';
 import 'package:myca/screens/us/us_forms_screen.dart';
 import 'package:myca/screens/us/us_interview_screen.dart';
@@ -67,11 +69,13 @@ class WalkApi extends UsFakeApi {
     return super.propose(name, args);
   }
   List<Map<String, Object?>> questions = [];
+  Map<String, Object?> amended = const {'taxYear': '2025', 'started': false, 'acceptedInMyca': true};
 
   @override
   Future<Object?> query(String name, [Map<String, Object?> args = const {}]) async {
     if (failing.contains(name)) throw const MycaApiException(offline);
     if (name == 'us_interview' && questions.isNotEmpty) return {'ok': true, 'data': {'questions': questions}};
+    if (name == 'us_amended_return') return {'ok': true, 'data': amended};
     return super.query(name, args);
   }
 }
@@ -484,6 +488,45 @@ class UsWalk {
     await open(UsConsentScreen(consents: FakeConsents()..ready = false, document: usPartnerTinsConsent), '61_consent_not_ready');
     await popAll();
     await open(UsConsentScreen(consents: FakeConsents()..signedAt = '2026-03-02T10:00:00.000Z', document: usPartnerTinsConsent), '62_consent_signed');
+    await popAll();
+
+    final amending = filledApi()..efile = 'accepted';
+    await app(usState(amending));
+    await open(const UsAmendedScreen(taxYear: walkYear, joint: true), '63_amend_start');
+    await popAll();
+    amending.amended = {
+      'started': true,
+      'taxYear': '2025',
+      'source': 'myca',
+      'lines': {
+        '1': {'A': 159242.17, 'B': 8400, 'C': 167642.17},
+        '5': {'A': 129242.17, 'B': 8400, 'C': 137642.17},
+        '11': {'A': 19866.38, 'B': 1848, 'C': 21714.38},
+      },
+      'lineText': {'1': 'Adjusted gross income', '5': 'Taxable income', '11': 'Total tax'},
+      'refund': 0,
+      'owed': 1848,
+      'appliedToNextYear': 0,
+      'partII': '',
+      'deadline': {'refundClaimBy': '2029-04-15'},
+      'efile': {'allowedByIrs': true, 'reason': 'The IRS takes Form 1040-X electronically for 2025, up to 3 amended returns a year; MyCA does not transmit it yet, so print it or file it through a tax professional.'},
+      'checks': [
+        {'level': 'error', 'code': 'AMENDED_EXPLANATION_REQUIRED', 'message': 'Part II of Form 1040-X must say why you are amending each change.', 'fix': 'Write the explanation of changes.'},
+        {'level': 'warning', 'code': 'AMENDED_TAX_DUE', 'message': 'The amended return shows \$1848 more to pay. Interest runs from the original due date, so pay with the amended return.', 'fix': ''},
+      ],
+      'corrected1040': {'errors': 0},
+    };
+    await open(const UsAmendedScreen(taxYear: walkYear, joint: true), '64_amended');
+    await popAll();
+    await open(UsFormEditorScreen(taxYear: walkYear, kind: UsFormKind('Rental property', 'Rental Property or Royalty (Schedule E)', 'One rental property or royalty source: rents, royalties, expenses, depreciation and passive loss details.', [
+      const UsFieldSpec('payer', 'Property address (street, city, state, ZIP) or royalty source', box: '1a', type: 'text', required: true),
+      const UsFieldSpec('propertyType', 'Type: 1 single family, 2 multi-family, 3 vacation/short-term, 4 commercial, 5 land, 6 royalties, 7 self-rental, 8 other', box: '1b', type: 'code'),
+      const UsFieldSpec('fairRentalDays', 'Days rented at a fair rental price', box: '2', type: 'days'),
+      const UsFieldSpec('recoveryClass', 'Building class: residential (27.5 years) or nonresidential (39 years)', type: 'code'),
+      const UsFieldSpec('activeParticipation', 'You actively participated (own 10% or more and make the management decisions)', type: 'yesno'),
+    ]), joint: true), '65_rental_property');
+    await popAll();
+    await open(const UsPriorYearScreen(taxYear: walkYear), '66_prior_year');
     await popAll();
 
     moneyCountry = 'IN';
