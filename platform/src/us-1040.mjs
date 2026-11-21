@@ -1,20 +1,23 @@
 import { rules } from './sprint-load.mjs';
 import { careQualifyingPersons, dependentCareBenefits, dependentCareCredit, deemedEarnedIncome } from './us-form-2441.mjs';
 import { computeForm8962 } from './us-form-8962.mjs';
+import { computeScheduleE, RENTAL_ENTRY_KIND } from './us-form-schedule-e.mjs';
 
 export const FILING_STATUSES = Object.freeze(['single', 'mfj', 'mfs', 'hoh', 'qss']);
 export const SUPPORTED_YEARS = Object.freeze(['2025', '2026']);
 export const FORM_KINDS = Object.freeze(['W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T', '1095-A', '2441-PROVIDER']);
+export const US_ENTRY_KINDS = Object.freeze([RENTAL_ENTRY_KIND]);
+export const US_INPUT_KINDS = Object.freeze([...FORM_KINDS, ...US_ENTRY_KINDS]);
 const LONG_STATUS = Object.freeze({ single: 'single', mfj: 'married_joint', mfs: 'married_separate', hoh: 'head_of_household', qss: 'single' });
 const STATUS_LABEL = Object.freeze({ single: 'Single', mfj: 'Married filing jointly', mfs: 'Married filing separately', hoh: 'Head of household', qss: 'Qualifying surviving spouse' });
 const CHILD_RELATIONSHIPS = new Set(['son', 'daughter', 'stepchild', 'foster_child', 'brother', 'sister', 'half_brother', 'half_sister', 'stepbrother', 'stepsister', 'grandchild', 'niece', 'nephew', 'sibling', 'niece_nephew']);
-const FORM_REASONS = Object.freeze({ 'Schedule E': 'Rental and royalty income', 8962: 'Marketplace health coverage (premium tax credit)', '8995-A': 'Qualified business income above the threshold', 2210: 'Possible estimated tax penalty', 1116: 'Foreign tax credit above the amount claimable without Form 1116', 5329: 'Additional tax on an early retirement distribution with an exception or a Roth or SIMPLE code', 8283: 'Non-cash charitable gifts over $500', 'Pub. 936 worksheet': 'Mortgage interest on debt above the acquisition debt limit', 'Section 68 limit': 'Itemized deductions reduced for the 37% bracket from 2026' });
-export const US_FORMS_SUPPORTED = Object.freeze(['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule SE', 'Schedule EIC', '2441', '8812', '8863', '8949', '8959', '8960', '8962', '8995']);
-export const US_FORMS_COMING = Object.freeze(['8995-A', '2210', 'Schedule E', '1116', '5329', '8283']);
+const FORM_REASONS = Object.freeze({ 'Schedule K-1': 'Partnership, S corporation, estate and trust income (Schedule E Parts II and III)', 'Real estate professional': 'Rental losses of a real estate professional', 'Pub 527': 'Vacation home used as a home (rental expense limit)', 'Short-term rental': 'Rental with an average stay of 7 days or less', 6198: 'At-risk limits on a rental loss', 4797: 'Sale of rental or business property', 8962: 'Marketplace health coverage (premium tax credit)', '8995-A': 'Qualified business income above the threshold', 2210: 'Possible estimated tax penalty', 1116: 'Foreign tax credit above the amount claimable without Form 1116', 5329: 'Additional tax on an early retirement distribution with an exception or a Roth or SIMPLE code', 8283: 'Non-cash charitable gifts over $500', 'Pub. 936 worksheet': 'Mortgage interest on debt above the acquisition debt limit', 'Section 68 limit': 'Itemized deductions reduced for the 37% bracket from 2026' });
+export const US_FORMS_SUPPORTED = Object.freeze(['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule E', 'Schedule SE', 'Schedule EIC', '2441', '4562', '8582', '8812', '8863', '8949', '8959', '8960', '8962', '8995']);
+export const US_FORMS_COMING = Object.freeze(['8995-A', '2210', '1116', '5329', '8283']);
 const NOT_COVERED = Object.freeze([
   'Alternative minimum tax (Form 6251)',
-  'Rental, royalty, partnership, S corporation and trust income (Schedule E, Schedule K-1)',
-  'Sale of business property (Form 4797) and depreciation (Form 4562)',
+  'Partnership, S corporation, estate and trust income (Schedule E Parts II to V, Schedule K-1), real estate professionals, the vacation home expense limit (Pub. 527) and at-risk limits (Form 6198)',
+  'Sale of business or rental property (Form 4797), and depreciation other than straight-line MACRS on rental buildings entered as a rental property (Form 4562)',
   'Unrecaptured section 1250 gain and collectibles (Schedule D tax worksheet)',
   'Retirement savings credit (Form 8880) and clean energy credits',
   'Form 2441: prior-year care expenses paid this year (line 9b), dependent care benefits from your own business (lines 22 and 24) and a plan limit below the legal maximum (line 21)',
@@ -317,6 +320,9 @@ export function computeForm1040(input = {}, taxYearArg) {
   const qbiMinimum = read('us.federal.individual.qbi-minimum');
   const careCreditRule = read('us.federal.individual.dependent-care-credit');
   const careExclusionRule = read('us.federal.individual.dependent-care-exclusion');
+  const passiveAllowance = read('us.federal.individual.passive-loss-special-allowance');
+  const dwellingUse = read('us.federal.individual.dwelling-unit-personal-use');
+  const macrsRealProperty = read('us.federal.individual.macrs-real-property');
   if (missing.some((id) => !['us.federal.individual.senior-deduction', 'us.federal.individual.tips-deduction', 'us.federal.individual.overtime-deduction', 'us.federal.individual.car-loan-interest', 'us.federal.individual.qbi-minimum'].includes(id))) return { ok: false, error: 'RULE_NOT_IN_FORCE', taxYear, missing };
 
   const answers = input.answers || {};
@@ -379,8 +385,11 @@ export function computeForm1040(input = {}, taxYearArg) {
   if (stateRefunds > 0 && answers.stateRefundTaxable === undefined) checks.push(check('warning', 'STATE_REFUND_TAXABILITY', 'A state or local tax refund is taxable only to the extent it reduced last year\'s itemized deduction.', 'Answer the state refund question in the interview.'));
   const miscForms = formsOf(input, '1099-MISC');
   const miscOther = sum(miscForms, (form) => field(form, 'otherIncome'));
-  if (miscForms.some((form) => field(form, 'rents') || field(form, 'royalties'))) needForm('Schedule E', 'SCHEDULE_E_NOT_COVERED', 'Rents or royalties on a 1099-MISC go on Schedule E, which MyCA does not prepare yet.', 'Have your CPA prepare Schedule E.');
-  else if (answers.rentalIncome === true || answers.rentalIncome === 'yes') needForm('Schedule E', 'SCHEDULE_E_NOT_COVERED', 'Rental or royalty income goes on Schedule E, which MyCA does not prepare yet.', 'Have your CPA prepare Schedule E.');
+  const rentalEntries = formsOf(input, RENTAL_ENTRY_KIND);
+  const yesAnswer = (value) => value === true || value === 'yes';
+  if (yesAnswer(answers.rentalIncome) && !rentalEntries.length) checks.push(check('error', 'RENTAL_PROPERTY_NEEDED', 'You said you had rental or royalty income: add each property or royalty source as a rental property so it goes on Schedule E.', 'Add a rental property on the Tax forms step.'));
+  if (yesAnswer(answers.scheduleK1Income)) needForm('Schedule K-1', 'SCHEDULE_K1_NOT_COVERED', 'Income from a partnership, S corporation, estate or trust (Schedule K-1) goes on Schedule E Parts II and III, which MyCA does not prepare.', 'Have your CPA prepare Schedule E Parts II and III.');
+  if (yesAnswer(answers.realEstateProfessional) && (rentalEntries.length || miscForms.some((form) => field(form, 'rents')))) needForm('Real estate professional', 'REAL_ESTATE_PROFESSIONAL_NOT_COVERED', 'As a real estate professional your rentals can be nonpassive (section 469(c)(7)), which MyCA does not apply; the passive loss limits are used instead.', 'Have your CPA prepare the rental schedule.');
   if (positive(answers.childCareExpenses) > 0 && !formsOf(input, '2441-PROVIDER').length) checks.push(check('warning', 'CARE_PROVIDERS_NEEDED', 'Child and dependent care costs are claimed on Form 2441 from each care provider\'s name, identifying number and amount paid; none has been added, so no credit is included.', 'Add each care provider on the Tax forms step.', '2441'));
   const otherIncome = dollars(answers.otherIncome) + miscOther;
 
@@ -438,6 +447,12 @@ export function computeForm1040(input = {}, taxYearArg) {
   const line1z = wages + line1e;
   const line4b = sum(iraForms, taxableOf);
   const line5b = sum(pensionForms, taxableOf);
+  const magiBeforeScheduleE = line1z + taxableInterest + ordinaryDividends + line4b + line5b + capitalLine + schedule1Part1[10] - (adjustments[11] + adjustments[13] + adjustments[16] + adjustments[17] + adjustments[18]);
+  const scheduleE = computeScheduleE({ taxYear, status, livedWithSpouse: answers.livedWithSpouse === false ? false : answers.livedWithSpouse === true ? true : undefined, entries: rentalEntries, miscForms, magiBeforeScheduleE, qbiSafeHarbor: yesAnswer(answers.rentalQbiSafeHarbor), rules: { allowance: passiveAllowance, personalUse: dwellingUse, macrs: macrsRealProperty } });
+  checks.push(...scheduleE.checks);
+  for (const need of scheduleE.needs) needForm(need.form, need.code, need.message, need.fix);
+  schedule1Part1[5] = scheduleE.line26;
+  schedule1Part1[10] += scheduleE.line26;
   const incomeBeforeSs = line1z + taxableInterest + ordinaryDividends + line4b + line5b + capitalLine + schedule1Part1[10];
   const ssAdjustments = adjustments[11] + adjustments[13] + adjustments[15] + adjustments[16] + adjustments[17] + adjustments[18] + adjustments[20];
   const ss = socialSecurityTaxable({ benefits, otherIncome: incomeBeforeSs, taxExemptInterest, adjustments: ssAdjustments, status, livedWithSpouse: answers.livedWithSpouse !== false, ss: ssBenefits });
@@ -564,7 +579,7 @@ export function computeForm1040(input = {}, taxYearArg) {
 
   const beforeQbi = Math.max(0, agi - line12 - line13b);
   const reitDividends = sum(divs, (form) => field(form, 'section199aDividends'));
-  const qbiIncome = businessIncome - seDeduction - adjustments[16] - adjustments[17];
+  const qbiIncome = businessIncome - seDeduction - adjustments[16] - adjustments[17] + scheduleE.qbiRental;
   const qbiThreshold = fromCents(qbi.thresholdCents[status]);
   let line13a = 0;
   let form8995 = null;
@@ -685,10 +700,10 @@ export function computeForm1040(input = {}, taxYearArg) {
   const additionalWithheld = Math.max(0, medicareWithheld - ofBasis(medicareWages, medicare.employeeBasisPoints));
   const form8959 = additionalMedicare > 0 || additionalWithheld > 0 ? { 1: medicareWages, 5: amtThreshold, 6: Math.max(0, medicareWages - amtThreshold), 7: wageAdditional, 8: seEarnings, 13: seAdditional, 18: additionalMedicare, 19: medicareWithheld, 20: medicareWages, 21: ofBasis(medicareWages, medicare.employeeBasisPoints), 22: additionalWithheld, 24: additionalWithheld } : null;
 
-  const netInvestmentIncome = Math.max(0, taxableInterest + ordinaryDividends + Math.max(capitalLine, d.has ? d.allowedLoss : 0) + positive(answers.otherNetInvestmentIncome));
+  const netInvestmentIncome = Math.max(0, taxableInterest + ordinaryDividends + scheduleE.line26 + Math.max(capitalLine, d.has ? d.allowedLoss : 0) + positive(answers.otherNetInvestmentIncome));
   const niitThreshold = fromCents(niit.thresholdCents[status]);
   const niitTax = ofBasis(Math.min(netInvestmentIncome, Math.max(0, magi - niitThreshold)), niit.basisPoints);
-  const form8960 = niitTax > 0 ? { 1: taxableInterest, 2: ordinaryDividends, '5a': capitalLine, 8: netInvestmentIncome, 12: netInvestmentIncome, 13: magi, 14: niitThreshold, 15: Math.max(0, magi - niitThreshold), 16: Math.min(netInvestmentIncome, Math.max(0, magi - niitThreshold)), 17: niitTax } : null;
+  const form8960 = niitTax > 0 ? { 1: taxableInterest, 2: ordinaryDividends, ...(scheduleE.has ? { '4a': scheduleE.line26, '4c': scheduleE.line26 } : {}), '5a': capitalLine, 8: netInvestmentIncome, 12: netInvestmentIncome, 13: magi, 14: niitThreshold, 15: Math.max(0, magi - niitThreshold), 16: Math.min(netInvestmentIncome, Math.max(0, magi - niitThreshold)), 17: niitTax } : null;
 
   const schedule2 = { '1a': ptcRepayment, '1z': ptcRepayment, 2: 0, 3: ptcRepayment, 4: seTax, 8: earlyDistributionTax, 11: additionalMedicare, 12: niitTax };
   schedule2[21] = schedule2[4] + schedule2[8] + schedule2[11] + schedule2[12];
@@ -784,6 +799,9 @@ export function computeForm1040(input = {}, taxYearArg) {
     ...(taxableInterest > 1500 || ordinaryDividends > 1500 ? { B: { interest: ints.map((form) => ({ payer: form.payer || '', amount: field(form, 'interest') + field(form, 'treasuryInterest') })), dividends: divs.map((form) => ({ payer: form.payer || '', amount: field(form, 'ordinaryDividends') })), 4: taxableInterest, 6: ordinaryDividends } } : {}),
     ...(businesses.length ? { C: businesses.map((item) => ({ id: item.id, name: item.name, owner: item.owner, source: item.source, lines: stringKeys(item.lines), expenses: item.expenses })) } : {}),
     ...(d.has ? { D: { ...stringKeys(d.lines), carryoverToNextYear: carryover }, 8949: d.transactions.map(({ formId, ...row }) => row) } : {}),
+    ...(scheduleE.has ? { E: { properties: scheduleE.properties.map((item) => ({ ...item, lines: stringKeys(item.lines) })), lines: stringKeys(scheduleE.lines), depreciation: scheduleE.properties.filter((item) => item.depreciation).map((item) => ({ property: item.name, ...item.depreciation })), unallowedLossCarryforward: scheduleE.carryforward, magiForPassiveLoss: scheduleE.magi } } : {}),
+    ...(scheduleE.form8582 ? { 8582: { ...scheduleE.form8582, lines: stringKeys(scheduleE.form8582.lines) } } : {}),
+    ...(scheduleE.form4562?.length ? { 4562: scheduleE.form4562 } : {}),
     ...(seByOwner.length ? { SE: seByOwner.map((item) => ({ owner: item.owner, belowMinimum: item.below, lines: stringKeys(item.lines) })) } : {}),
     ...(form2441 ? { 2441: stringKeys(form2441) } : {}),
     ...(form8812 ? { 8812: stringKeys(form8812) } : {}),
@@ -821,6 +839,7 @@ export function computeForm1040(input = {}, taxYearArg) {
       qualifiedDividendsWorksheet: worksheet ? worksheet.worksheet : null,
       socialSecurityWorksheet: ss.worksheet,
       capitalLossCarryover: carryover,
+      passiveLossCarryover: scheduleE.has ? scheduleE.carryforward : [],
       checks,
       rulesUsed,
       unreviewed,

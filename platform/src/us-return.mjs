@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
-import { computeForm1040, FILING_STATUSES, SUPPORTED_YEARS, FORM_KINDS } from './us-1040.mjs';
+import { computeForm1040, FILING_STATUSES, SUPPORTED_YEARS, US_INPUT_KINDS } from './us-1040.mjs';
+import { RENTAL_ENTRY_KIND } from './us-form-schedule-e.mjs';
 import { scheduleCSummary } from './us-owner-tax.mjs';
 import { sealTin, openTin, maskTin, tinShapeError, isSealedTin } from './us-identity.mjs';
 import { localToday } from './dates.mjs';
@@ -34,6 +35,26 @@ export const FORM_SPECS = Object.freeze({
   1098: { title: 'Mortgage Interest Statement', description: 'Home mortgage interest and property tax.', fields: [...PAYER, money('mortgageInterest', 'Mortgage interest received', '1', { required: true }), money('outstandingPrincipal', 'Outstanding mortgage principal', '2'), money('pointsPaid', 'Points paid on purchase', '6'), money('propertyTax', 'Property tax paid from escrow', '10')] },
   '1098-E': { title: 'Student Loan Interest Statement', description: 'Interest paid on a student loan.', fields: [...PAYER, money('studentLoanInterest', 'Student loan interest received', '1', { required: true })] },
   '1095-A': { title: 'Health Insurance Marketplace Statement', description: 'Coverage bought on HealthCare.gov or a state Marketplace, for the premium tax credit (Form 8962). Enter the monthly amounts, or only the line 33 totals if nothing changed all year.', fields: [{ key: 'payer', label: 'Marketplace identifier', box: '1', type: 'text', required: true }, { key: 'policyNumber', label: 'Marketplace-assigned policy number', box: '2', type: 'text', required: false }, { key: 'issuer', label: 'Policy issuer\'s name', box: '3', type: 'text', required: false }, { key: 'recipientName', label: 'Recipient\'s name', box: '4', type: 'text', required: false }, ...MARKETPLACE_MONTHS, money('enrollmentPremiumAnnual', 'Annual total: enrollment premiums', '33A'), money('slcspPremiumAnnual', 'Annual total: SLCSP premiums', '33B'), money('advancePaymentAnnual', 'Annual total: advance payments of the premium tax credit', '33C')] },
+  [RENTAL_ENTRY_KIND]: { title: 'Rental Property or Royalty (Schedule E)', description: 'One rental property or royalty source: rents, royalties, expenses, depreciation and passive loss details.', fields: [
+    { key: 'payer', label: 'Property address (street, city, state, ZIP) or royalty source', box: '1a', type: 'text', required: true },
+    { key: 'propertyType', label: 'Type: 1 single family, 2 multi-family, 3 vacation/short-term, 4 commercial, 5 land, 6 royalties, 7 self-rental, 8 other', box: '1b', type: 'code', required: true },
+    { key: 'otherDescription', label: 'Description of the property (type 8)', box: '1b', type: 'text', required: false },
+    { key: 'fairRentalDays', label: 'Days rented at a fair rental price', box: '2', type: 'days', required: false },
+    { key: 'personalUseDays', label: 'Days of personal use', box: '2', type: 'days', required: false },
+    { key: 'qjv', label: 'Qualified joint venture with your spouse', box: '2', type: 'yesno', required: false },
+    { key: 'rentPayer', label: 'Payer named on a 1099-MISC for these rents or royalties', box: '', type: 'text', required: false },
+    money('rents', 'Rents received (including any on a 1099-MISC)', '3'), money('royalties', 'Royalties received (including any on a 1099-MISC)', '4'),
+    money('advertising', 'Advertising', '5'), money('autoTravel', 'Auto and travel', '6'), money('cleaningMaintenance', 'Cleaning and maintenance', '7'), money('commissions', 'Commissions', '8'), money('insurance', 'Insurance', '9'), money('legalProfessional', 'Legal and other professional fees', '10'), money('managementFees', 'Management fees', '11'), money('mortgageInterest', 'Mortgage interest paid to banks', '12'), money('otherInterest', 'Other interest', '13'), money('repairs', 'Repairs', '14'), money('supplies', 'Supplies', '15'), money('taxes', 'Taxes', '16'), money('utilities', 'Utilities', '17'),
+    money('depreciation', 'Depreciation or depletion (leave empty to figure it from the cost)', '18'), money('otherExpenses', 'Other expenses', '19'),
+    money('costBasis', 'Cost or other basis of the property, land included', ''), money('landValue', 'Part of the cost that is land', ''),
+    { key: 'placedInService', label: 'Date placed in service', box: '', type: 'date', required: false },
+    { key: 'recoveryClass', label: 'Building class: residential (27.5 years) or nonresidential (39 years)', box: '', type: 'code', required: false },
+    { key: 'activeParticipation', label: 'You actively participated (own 10% or more and make the management decisions)', box: '', type: 'yesno', required: false },
+    money('priorYearUnallowedLoss', 'Unallowed passive loss carried from last year (Form 8582)', ''),
+    { key: 'shortStays', label: 'Average rental stay of 7 days or less', box: '', type: 'yesno', required: false },
+    { key: 'notAtRisk', label: 'Part of the investment is not at risk (Form 6198)', box: '', type: 'yesno', required: false },
+    { key: 'soldInYear', label: 'Sold or disposed of during the year', box: '', type: 'yesno', required: false },
+  ] },
   '1098-T': { title: 'Tuition Statement', description: 'College tuition for an education credit.', fields: [...PAYER, { key: 'studentName', label: 'Student name', box: '', type: 'text', required: false }, money('tuitionPaid', 'Payments received for qualified tuition', '1', { required: true }), money('scholarships', 'Scholarships or grants', '5'), { key: 'atLeastHalfTime', label: 'At least half-time student', box: '8', type: 'yesno', required: false }, { key: 'graduate', label: 'Graduate student', box: '9', type: 'yesno', required: false }] },
   '2441-PROVIDER': { title: 'Child and dependent care provider', description: 'A daycare, after-school program, sitter or other person you paid for care so you could work (Form 2441). Add one for each provider.', fields: [{ key: 'payer', label: 'Care provider name', box: '1a', type: 'text', required: true }, { key: 'payerTin', label: 'Provider EIN', box: '1c', type: 'ein', required: false }, { key: 'providerAddress', label: 'Provider address', box: '1b', type: 'text', required: false }, money('amountPaid', 'Amount you paid for care this year', '1e', { required: true }), { key: 'qualifyingPerson', label: 'Who was cared for (first name, or spouse)', box: '2a', type: 'text', required: false }, { key: 'householdEmployee', label: 'Household employee, such as a nanny', box: '1d', type: 'yesno', required: false }] },
 });
@@ -52,7 +73,10 @@ const QUESTIONS = Object.freeze([
   { id: 'stateRefundTaxable', text: 'How much of the state refund on your 1099-G is taxable?', help: 'Zero if you took the standard deduction last year. If you itemized, the part that lowered your federal tax.', kind: 'amount', when: (ctx) => ctx.hasStateRefund },
   { id: 'earlyDistributionException', text: 'Does an exception to the 10% early distribution tax apply to your 1099-R with code 1?', help: 'For example a first home (IRA, up to $10,000), higher education costs, disability or certain medical costs. An exception is claimed on Form 5329.', kind: 'yesno', when: (ctx) => ctx.hasEarlyDistribution },
   { id: 'qbiMaterialParticipation', text: 'Did you work in your business regularly, continuously and substantially this year?', help: 'This is material participation, for example more than 500 hours, or most of the work in the business. From 2026 it can give you a minimum business income deduction of $400 (IRC 199A(i)).', kind: 'yesno', when: (ctx) => ctx.hasBusiness && Number(ctx.taxYear) >= 2026 },
-  { id: 'rentalIncome', text: 'Did you have rental or royalty income not on a 1099-MISC?', help: 'Renting out a home, room or vacation property, or royalties. These go on Schedule E.', kind: 'yesno' },
+  { id: 'rentalIncome', text: 'Did you have rental or royalty income not on a 1099-MISC?', help: 'Renting out a home, room or vacation property, or royalties. Add each one as a rental property; they go on Schedule E.', kind: 'yesno' },
+  { id: 'rentalQbiSafeHarbor', text: 'Do your rentals meet the 250-hour safe harbor of Rev. Proc. 2019-38, and do you want them treated as a business for the QBI deduction?', help: 'Separate books for each enterprise, 250 or more hours of rental services a year and contemporaneous records of them. Not for a home you used personally or a triple net lease.', kind: 'yesno', when: (ctx) => ctx.hasRental },
+  { id: 'realEstateProfessional', text: 'Were you a real estate professional (more than half your working time and over 750 hours in real property businesses)?', help: 'Real estate professionals can treat rentals as nonpassive (section 469(c)(7)).', kind: 'yesno', when: (ctx) => ctx.hasRental },
+  { id: 'scheduleK1Income', text: 'Did you receive a Schedule K-1 from a partnership, S corporation, estate or trust?', help: 'Those amounts go on Schedule E Parts II and III.', kind: 'yesno' },
   { id: 'careMfsUnmarried', text: 'For the care credit: did you live apart from your spouse for the last 6 months of the year, in a home that was the cared-for person\'s main home for more than half the year, and pay more than half its upkeep?', help: 'Only then can a married person filing separately claim the child and dependent care credit (Form 2441 line A).', kind: 'yesno', when: (ctx) => ctx.status === 'mfs' && ctx.hasCare },
   { id: 'careStudentOrDisabled', text: 'Was either of you a full-time student or unable to care for yourself during the year?', help: 'A student (some part of 5 months) or disabled spouse is treated as earning $250 a month ($500 with two or more qualifying persons) for Form 2441, for only one of you in any month.', kind: 'choice', options: ['none', 'taxpayer', 'spouse'], when: (ctx) => ctx.joint && ctx.hasCare },
   { id: 'careStudentOrDisabledMonths', text: 'For how many months was that spouse a full-time student or unable to care for themself?', help: 'Count each month with any part as a student or disabled. MyCA uses the larger of the deemed amount for these months and the actual earnings for the year.', kind: 'choice', options: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'], when: (ctx) => ctx.joint && ctx.hasCare && ['taxpayer', 'spouse'].includes(ctx.answers?.careStudentOrDisabled) },
@@ -96,12 +120,13 @@ const QUESTIONS = Object.freeze([
 
 const LINE_LABELS = Object.freeze({
   '1040': { '1a': 'Wages (W-2 box 1)', '1e': 'Taxable dependent care benefits (Form 2441)', '1z': 'Total wages', '2a': 'Tax-exempt interest', '2b': 'Taxable interest', '3a': 'Qualified dividends', '3b': 'Ordinary dividends', '4a': 'IRA distributions', '4b': 'IRA distributions, taxable', '5a': 'Pensions and annuities', '5b': 'Pensions and annuities, taxable', '6a': 'Social security benefits', '6b': 'Social security benefits, taxable', 7: 'Capital gain or loss', 8: 'Additional income (Schedule 1)', 9: 'Total income', 10: 'Adjustments to income (Schedule 1)', 11: 'Adjusted gross income', 12: 'Standard or itemized deduction', '13a': 'Qualified business income deduction', '13b': 'Additional deductions (Schedule 1-A)', 14: 'Total deductions', 15: 'Taxable income', 16: 'Tax', 17: 'Schedule 2, line 3', 18: 'Tax before credits', 19: 'Child tax credit and credit for other dependents', 20: 'Other credits (Schedule 3)', 21: 'Total credits', 22: 'Tax after credits', 23: 'Other taxes (Schedule 2)', 24: 'Total tax', '25a': 'Federal tax withheld, W-2', '25b': 'Federal tax withheld, 1099', '25c': 'Federal tax withheld, other', '25d': 'Total withholding', 26: 'Estimated tax payments', 27: 'Earned income credit', 28: 'Additional child tax credit', 29: 'American opportunity credit, refundable', 31: 'Other payments (Schedule 3)', 32: 'Total other payments and refundable credits', 33: 'Total payments', 34: 'Overpaid', '35a': 'Refund', 36: 'Applied to next year\'s estimated tax', 37: 'Amount you owe' },
-  'Schedule 1': { 1: 'Taxable state and local refunds', 3: 'Business income (Schedule C)', 7: 'Unemployment compensation', '8z': 'Other income', 10: 'Total additional income', 11: 'Educator expenses', 13: 'HSA deduction', 15: 'Deductible part of self-employment tax', 16: 'SEP, SIMPLE and qualified plans', 17: 'Self-employed health insurance', 18: 'Penalty on early withdrawal of savings', 20: 'IRA deduction', 21: 'Student loan interest deduction', 26: 'Total adjustments' },
+  'Schedule 1': { 1: 'Taxable state and local refunds', 3: 'Business income (Schedule C)', 5: 'Rental real estate and royalties (Schedule E)', 7: 'Unemployment compensation', '8z': 'Other income', 10: 'Total additional income', 11: 'Educator expenses', 13: 'HSA deduction', 15: 'Deductible part of self-employment tax', 16: 'SEP, SIMPLE and qualified plans', 17: 'Self-employed health insurance', 18: 'Penalty on early withdrawal of savings', 20: 'IRA deduction', 21: 'Student loan interest deduction', 26: 'Total adjustments' },
   'Schedule 1-A': { 13: 'No tax on tips', 21: 'No tax on overtime', 30: 'Car loan interest', 37: 'Enhanced deduction for seniors', charity: 'Charitable gifts (non-itemizer)', 38: 'Total additional deductions' },
   'Schedule 2': { '1a': 'Excess advance premium tax credit repayment (Form 8962)', 3: 'Total additions to tax (to Form 1040 line 17)', 4: 'Self-employment tax', 8: 'Additional tax on early retirement distributions', 11: 'Additional Medicare tax', 12: 'Net investment income tax', 21: 'Total other taxes' },
   'Schedule 3': { 1: 'Foreign tax credit', 2: 'Child and dependent care credit (Form 2441)', 3: 'Education credits', 8: 'Total nonrefundable credits', 9: 'Net premium tax credit (Form 8962)', 11: 'Excess social security tax withheld', 15: 'Total other payments' },
   'Schedule A': { 4: 'Medical and dental above 7.5% of AGI', '5d': 'State and local taxes before the cap', '5e': 'State and local taxes after the cap', 10: 'Home mortgage interest', 14: 'Gifts to charity', 16: 'Other itemized deductions', 17: 'Total itemized deductions' },
   'Form 2441': { 3: 'Care expenses within the dollar limit', 4: 'Your earned income', 5: 'Spouse\'s earned income', 6: 'Smallest of expenses and earned incomes', '9a': 'Credit before the tax limit', 10: 'Tax liability limit', 11: 'Child and dependent care credit', 12: 'Dependent care benefits received', 25: 'Excluded dependent care benefits', 26: 'Taxable dependent care benefits' },
+  'Schedule E': { '23a': 'Total rents received', '23b': 'Total royalties received', '23c': 'Total mortgage interest', '23d': 'Total depreciation and depletion', '23e': 'Total expenses', 24: 'Income', 25: 'Losses allowed', 26: 'Total rental real estate and royalty income or loss' },
   'Schedule D': { 7: 'Net short-term gain or loss', 13: 'Capital gain distributions', 15: 'Net long-term gain or loss', 16: 'Net gain or loss', 21: 'Loss allowed this year' },
 });
 
@@ -231,6 +256,11 @@ export function coerceFields(kind, fields, problems) {
       else if (number < 0 && !['proceeds'].includes(item.key) && kind !== '1099-B') problems.push(`${item.label} cannot be negative.`);
       else out[item.key] = Math.round(number * 100) / 100;
     } else if (item.type === 'yesno') out[item.key] = value === true || ['yes', 'y', 'true', '1'].includes(String(value).trim().toLowerCase());
+    else if (item.type === 'days') {
+      const days = Number(value);
+      if (!Number.isInteger(days) || days < 0 || days > 366) problems.push(`${item.label} is a whole number of days from 0 to 366.`);
+      else out[item.key] = days;
+    }
     else if (item.type === 'term') {
       if (value !== 'short' && value !== 'long') problems.push('Term is short or long.');
       else out[item.key] = value;
@@ -247,6 +277,7 @@ export function coerceFields(kind, fields, problems) {
       out.box12 = list.slice(0, 8).map((row) => ({ code: text(row?.code, 2).toUpperCase(), amount: Math.round(Number(row?.amount || 0) * 100) / 100 })).filter((row) => /^[A-Z]{1,2}$/.test(row.code));
     } else out[item.key] = text(value, 60);
   }
+  if (kind === RENTAL_ENTRY_KIND) rentalEntryProblems(out, problems);
   if (kind === '1099-B' && Array.isArray(source.transactions)) {
     out.transactions = source.transactions.slice(0, 500).map((row, index) => {
       const local = [];
@@ -276,11 +307,31 @@ function marketplaceProblems(fields) {
   return problems;
 }
 
+function rentalEntryProblems(out, problems) {
+  const type = Number(out.propertyType);
+  if (out.propertyType !== undefined) {
+    if (!Number.isInteger(type) || type < 1 || type > 8) problems.push('The type of property is a code from 1 to 8.');
+    else out.propertyType = type;
+  }
+  if (out.recoveryClass !== undefined) {
+    const value = String(out.recoveryClass).toLowerCase();
+    const recoveryClass = value.startsWith('non') || value === '39' ? 'nonresidential' : value.startsWith('res') || value === '27.5' ? 'residential' : '';
+    if (!recoveryClass) problems.push('The building class is residential or nonresidential.');
+    else out.recoveryClass = recoveryClass;
+  }
+  if (out.placedInService === 'VARIOUS') problems.push('Date placed in service must be YYYY-MM-DD.');
+  if ((out.fairRentalDays || 0) + (out.personalUseDays || 0) > 366) problems.push('Fair rental days and personal use days together cannot be more than the days in the year.');
+  if (out.landValue > 0 && !(out.costBasis > 0)) problems.push('Enter the cost of the property with the land value.');
+  if (out.landValue > out.costBasis) problems.push('The land value cannot be more than the cost.');
+  if (type === 8 && !out.otherDescription) problems.push('Describe the property when its type is 8 (other).');
+}
+
 export function planUsTaxForm(state, args = {}) {
   const taxYear = yearArg(args.taxYear);
   if (!taxYear) return fail('TAX_YEAR_NOT_SUPPORTED', { supported: SUPPORTED_YEARS });
-  const kind = String(args.kind || '').toUpperCase().replace(/^FORM\s*/, '');
-  if (!FORM_KINDS.includes(kind)) return fail('FORM_KIND_UNKNOWN', { kinds: FORM_KINDS });
+  const asked = String(args.kind || '').trim().toUpperCase().replace(/^FORM\s*/, '');
+  const kind = US_INPUT_KINDS.find((item) => item.toUpperCase() === asked);
+  if (!kind) return fail('FORM_KIND_UNKNOWN', { kinds: US_INPUT_KINDS });
   const owner = args.owner === 'spouse' ? 'spouse' : 'taxpayer';
   const problems = [];
   const payer = text(args.payer ?? args.fields?.payer, 80);
@@ -341,7 +392,7 @@ export function listUsTaxForms(state, args = {}) {
 }
 
 export function usFormKinds() {
-  return { ok: true, data: { kinds: FORM_KINDS.map((kind) => ({ kind, title: FORM_SPECS[kind].title, description: FORM_SPECS[kind].description, fields: FORM_SPECS[kind].fields })), owners: ['taxpayer', 'spouse'], years: SUPPORTED_YEARS } };
+  return { ok: true, data: { kinds: US_INPUT_KINDS.map((kind) => ({ kind, title: FORM_SPECS[kind].title, description: FORM_SPECS[kind].description, fields: FORM_SPECS[kind].fields })), owners: ['taxpayer', 'spouse'], years: SUPPORTED_YEARS } };
 }
 
 function booksScheduleC(state, taxYear) {
@@ -356,7 +407,7 @@ function context(state, ret) {
   const books = ret ? booksScheduleC(state, ret.taxYear) : null;
   const usesBooks = Boolean(books) && answers.useBooksForScheduleC !== false;
   const manualBusiness = Number(answers.businessGrossReceipts || 0) > 0;
-  return { taxYear: ret?.taxYear || '', status: ret?.filingStatus || '', hasMarketplace: (ret?.forms || []).some((form) => form.kind === '1095-A') || answers.marketplaceCoverage === true, answers: ret?.answers || {}, hasDependents: (ret?.dependents || []).length > 0, joint: ret?.filingStatus === 'mfj', booksHaveIncome: Boolean(books), usesBooks, books, manualBusiness, hasBusiness: usesBooks || manualBusiness || (ret?.forms || []).some((form) => form.kind === '1099-NEC'), hasStateRefund: (ret?.forms || []).some((form) => form.kind === '1099-G' && Number(form.fields.stateRefund || 0) > 0), hasEarlyDistribution: (ret?.forms || []).some((form) => form.kind === '1099-R' && String(form.fields.distributionCode || '').includes('1')), hasCareBenefits: (ret?.forms || []).some((form) => form.kind === 'W-2' && Number(form.fields.dependentCareBenefits || 0) > 0), hasCare: (ret?.forms || []).some((form) => form.kind === '2441-PROVIDER' || (form.kind === 'W-2' && Number(form.fields.dependentCareBenefits || 0) > 0)) };
+  return { taxYear: ret?.taxYear || '', status: ret?.filingStatus || '', hasMarketplace: (ret?.forms || []).some((form) => form.kind === '1095-A') || answers.marketplaceCoverage === true, answers: ret?.answers || {}, hasDependents: (ret?.dependents || []).length > 0, joint: ret?.filingStatus === 'mfj', booksHaveIncome: Boolean(books), usesBooks, books, manualBusiness, hasBusiness: usesBooks || manualBusiness || (ret?.forms || []).some((form) => form.kind === '1099-NEC'), hasStateRefund: (ret?.forms || []).some((form) => form.kind === '1099-G' && Number(form.fields.stateRefund || 0) > 0), hasEarlyDistribution: (ret?.forms || []).some((form) => form.kind === '1099-R' && String(form.fields.distributionCode || '').includes('1')), hasCareBenefits: (ret?.forms || []).some((form) => form.kind === 'W-2' && Number(form.fields.dependentCareBenefits || 0) > 0), hasCare: (ret?.forms || []).some((form) => form.kind === '2441-PROVIDER' || (form.kind === 'W-2' && Number(form.fields.dependentCareBenefits || 0) > 0)), hasRental: (ret?.forms || []).some((form) => form.kind === RENTAL_ENTRY_KIND || (form.kind === '1099-MISC' && Number(form.fields.rents || 0) + Number(form.fields.royalties || 0) > 0)) || answers.rentalIncome === true };
 }
 
 function visibleQuestions(state, ret) {
@@ -432,7 +483,7 @@ export function engineInput(state, ret, { forFiling = false } = {}) {
   };
 }
 
-const STEP_OF_CODE = { SPOUSE_REQUIRED: 'profile', SPOUSE_NAME_FOR_MFS: 'profile', HOH_NEEDS_QUALIFYING_PERSON: 'profile', QSS_NEEDS_CHILD: 'profile', DEPENDENT_DOB_INVALID: 'profile', CHILD_WITHOUT_SSN: 'profile', TAXPAYER_DOB_MISSING: 'profile', SPOUSE_FORM_ON_NON_JOINT: 'forms', NEC_ABOVE_RECEIPTS: 'forms', SCHEDULE_E_NOT_COVERED: 'forms', CARE_PROVIDERS_NEEDED: 'forms', CARE_PERSON_UNKNOWN: 'forms', CARE_PERSON_NOT_NAMED: 'forms', CARE_PERSON_NOT_QUALIFYING: 'forms', CARE_PROVIDER_TIN_MISSING: 'forms', CARE_HOUSEHOLD_EMPLOYEE: 'forms', CARE_CREDIT_MFS: 'interview', CARE_NO_QUALIFYING_PERSON: 'profile', CARE_SPOUSE_EARNED_INCOME: 'interview', FORM_8962_NOT_COVERED: 'interview', FORM_2210_MAY_APPLY: 'interview', QBI_ABOVE_THRESHOLD: 'review', NO_INCOME_DOCUMENTS: 'forms', EARLY_DISTRIBUTION: 'forms', FORM_AMOUNT_NEGATIVE: 'forms', DEPENDENT_FILER_WITH_DEPENDENTS: 'profile', DEPENDENT_BORN_AFTER_YEAR: 'profile', TAXPAYER_DOB_INVALID: 'profile', CTC_NEEDS_FILER_SSN: 'profile', FORM_1116_NEEDED: 'forms', ITEMIZED_37_LIMIT: 'interview', STATE_REFUND_TAXABILITY: 'interview', SE_HEALTH_ABOVE_PROFIT: 'interview', MORTGAGE_DEBT_LIMIT: 'forms', FORM_8283: 'interview', EMPLOYER_OVERWITHHELD_SS: 'forms', FORM_1095A_MISSING: 'forms', FORM_1095A_MONTHLY_NEEDED: 'forms', FORM_1095A_ANNUAL_ONLY: 'forms', FORM_1095A_SLCSP_DIFFERS: 'forms', FORM_8962_ALLOCATION_NOT_COVERED: 'interview', FORM_8962_MARRIAGE_ALTERNATIVE_NOT_COVERED: 'interview', PTC_MFS_NOT_ALLOWED: 'interview', PTC_BELOW_POVERTY_LINE: 'interview', PTC_ABOVE_400_PERCENT: 'review', PTC_CLAIMED_AS_DEPENDENT: 'profile', PTC_SE_HEALTH_INSURANCE: 'interview', PTC_RULES_MISSING: 'review' };
+const STEP_OF_CODE = { SPOUSE_REQUIRED: 'profile', SPOUSE_NAME_FOR_MFS: 'profile', HOH_NEEDS_QUALIFYING_PERSON: 'profile', QSS_NEEDS_CHILD: 'profile', DEPENDENT_DOB_INVALID: 'profile', CHILD_WITHOUT_SSN: 'profile', TAXPAYER_DOB_MISSING: 'profile', SPOUSE_FORM_ON_NON_JOINT: 'forms', NEC_ABOVE_RECEIPTS: 'forms', RENTAL_PROPERTY_NEEDED: 'forms', SCHEDULE_K1_NOT_COVERED: 'interview', REAL_ESTATE_PROFESSIONAL_NOT_COVERED: 'interview', VACATION_HOME_LIMIT: 'forms', SHORT_TERM_RENTAL_NOT_COVERED: 'forms', FORM_6198_NOT_COVERED: 'forms', FORM_4797_NOT_COVERED: 'forms', RENTAL_FROM_1099_ONLY: 'forms', RENTS_BELOW_1099: 'forms', ROYALTIES_BELOW_1099: 'forms', RENTAL_TYPE_INVALID: 'forms', RENTAL_DAYS_REQUIRED: 'forms', RENTAL_UNDER_15_DAYS: 'forms', RENTAL_PERSONAL_SHARE: 'forms', RENTAL_NOT_DEPRECIABLE: 'forms', RENTAL_RECOVERY_CLASS_REQUIRED: 'forms', RENTAL_DEPRECIATION_INVALID: 'forms', ROYALTY_NOT_PASSIVE: 'forms', ACTIVE_PARTICIPATION_UNANSWERED: 'forms', PASSIVE_LOSS_CARRYFORWARD: 'review', CARE_PROVIDERS_NEEDED: 'forms', CARE_PERSON_UNKNOWN: 'forms', CARE_PERSON_NOT_NAMED: 'forms', CARE_PERSON_NOT_QUALIFYING: 'forms', CARE_PROVIDER_TIN_MISSING: 'forms', CARE_HOUSEHOLD_EMPLOYEE: 'forms', CARE_CREDIT_MFS: 'interview', CARE_NO_QUALIFYING_PERSON: 'profile', CARE_SPOUSE_EARNED_INCOME: 'interview', FORM_8962_NOT_COVERED: 'interview', FORM_2210_MAY_APPLY: 'interview', QBI_ABOVE_THRESHOLD: 'review', NO_INCOME_DOCUMENTS: 'forms', EARLY_DISTRIBUTION: 'forms', FORM_AMOUNT_NEGATIVE: 'forms', DEPENDENT_FILER_WITH_DEPENDENTS: 'profile', DEPENDENT_BORN_AFTER_YEAR: 'profile', TAXPAYER_DOB_INVALID: 'profile', CTC_NEEDS_FILER_SSN: 'profile', FORM_1116_NEEDED: 'forms', ITEMIZED_37_LIMIT: 'interview', STATE_REFUND_TAXABILITY: 'interview', SE_HEALTH_ABOVE_PROFIT: 'interview', MORTGAGE_DEBT_LIMIT: 'forms', FORM_8283: 'interview', EMPLOYER_OVERWITHHELD_SS: 'forms', FORM_1095A_MISSING: 'forms', FORM_1095A_MONTHLY_NEEDED: 'forms', FORM_1095A_ANNUAL_ONLY: 'forms', FORM_1095A_SLCSP_DIFFERS: 'forms', FORM_8962_ALLOCATION_NOT_COVERED: 'interview', FORM_8962_MARRIAGE_ALTERNATIVE_NOT_COVERED: 'interview', PTC_MFS_NOT_ALLOWED: 'interview', PTC_BELOW_POVERTY_LINE: 'interview', PTC_ABOVE_400_PERCENT: 'review', PTC_CLAIMED_AS_DEPENDENT: 'profile', PTC_SE_HEALTH_INSURANCE: 'interview', PTC_RULES_MISSING: 'review' };
 
 function profileChecks(ret) {
   const checks = [];
@@ -467,6 +518,7 @@ function reviewLines(data) {
   const fromForms = new Set(['1a', '1z', '2a', '2b', '3a', '3b', '4a', '5a', '6a', '25a', '25b']);
   push('1040', data.lines, (line) => (fromForms.has(line) ? 'forms' : line === '26' ? 'interview' : 'computed'));
   for (const [key, form] of [['1', 'Schedule 1'], ['1-A', 'Schedule 1-A'], ['2', 'Schedule 2'], ['3', 'Schedule 3'], ['2441', 'Form 2441'], ['A', 'Schedule A'], ['D', 'Schedule D']]) if (data.schedules[key]) push(form, data.schedules[key]);
+  if (data.schedules.E) push('Schedule E', data.schedules.E.lines);
   return rows;
 }
 
@@ -586,7 +638,7 @@ export function usTaxpayerPreview(state, args) {
 
 export function usTaxFormPreview(state, args) {
   const plan = planUsTaxForm(state, args);
-  if (!plan.ok) return { blockers: plan.problems || [plan.error === 'FORM_KIND_UNKNOWN' ? `The form is one of ${FORM_KINDS.join(', ')}.` : plan.error], summary: '', effects: [], figures: {} };
+  if (!plan.ok) return { blockers: plan.problems || [plan.error === 'FORM_KIND_UNKNOWN' ? `The form is one of ${US_INPUT_KINDS.join(', ')}.` : plan.error], summary: '', effects: [], figures: {} };
   const f = plan.form;
   const main = FORM_SPECS[f.kind].fields.find((item) => item.required && item.type === 'money');
   const amount = main && f.fields[main.key] !== undefined ? ` ${main.label.toLowerCase()} $${Number(f.fields[main.key]).toLocaleString('en-US')}` : '';
