@@ -139,7 +139,8 @@ class TourApi implements MycaApi {
   @override
   Future<void> signOut() async {}
   @override
-  Future<ChatReply> chat(String message) => books.chat(message);
+  Future<ChatReply> chat(String message, {String lang = 'en'}) =>
+      books.chat(message, lang: lang);
   @override
   Future<ChatReply> propose(String name, Map<String, Object?> args) async {
     final reply = await books.propose(name, args);
