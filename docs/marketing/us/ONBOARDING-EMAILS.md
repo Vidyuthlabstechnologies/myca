@@ -80,7 +80,7 @@ read inbox `[support email]`.
 >   to the step that fixes it.
 > - **Pay.** $99 through April 15, 2027 ($129 after). You see the price before you start, and
 >   nothing is charged until you choose to file.
-> - **Sign and file.** Your return goes to our IRS-authorized e-file partner with your details
+> - **Sign and file.** Your return goes to our e-file partner with your details
 >   filled in. You sign and send.
 > - **Hear back.** MyCA shows when the IRS accepts it. If it's sent back, we tell you why and how to
 >   fix it.

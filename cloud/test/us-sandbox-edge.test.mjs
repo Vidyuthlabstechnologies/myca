@@ -24,6 +24,8 @@ const checkouts = new Map();
 const partnerCalls = [];
 const realFetch = globalThis.fetch;
 let partnerMode = 'up';
+let refundMode = 'ok';
+const refunds = [];
 let nextId = 1;
 let api;
 let year;
@@ -38,6 +40,11 @@ async function fakeStripe(url, init = {}) {
     const session = { id, url: `https://checkout.stripe.com/c/pay/${id}`, status: 'open', payment_status: 'unpaid', mode: form.mode, metadata, client_reference_id: form.client_reference_id, amount_total: Number(form['line_items[0][price_data][unit_amount]'] || 0), payment_intent: `pi_test_edge_${id.slice(-4)}`, livemode: false };
     checkouts.set(id, session);
     return json(200, session);
+  }
+  if (text === 'https://api.stripe.com/v1/refunds' && init.method === 'POST') {
+    refunds.push({ form, idempotencyKey: init.headers?.['idempotency-key'] || '' });
+    if (refundMode === 'fail') return json(400, { error: { code: 'charge_already_refunded' } });
+    return json(200, { id: `re_test_${refunds.length}`, payment_intent: form.payment_intent, status: 'succeeded' });
   }
   const got = text.match(/^https:\/\/api\.stripe\.com\/v1\/checkout\/sessions\/([^/?]+)$/);
   if (got && checkouts.has(got[1])) return json(200, checkouts.get(got[1]));
@@ -206,7 +213,9 @@ test('paying twice for the same return through two open checkouts is flagged for
   assert.equal(dup.body.duplicate, true, dup.text);
   await stripeHook({ type: 'checkout.session.completed', data: { object: second } });
   assert.deepEqual((await purchases(who.businessId)).map((row) => row.token), [first.id], 'the first payment stays the one that counts');
-  assert.equal(await auditCount(who.businessId, 'billing.us_return_duplicate_payment'), 1, 'the second charge is audited once so it can be refunded');
+  assert.equal(await auditCount(who.businessId, 'billing.us_return_duplicate_payment'), 1, 'the second charge is audited once');
+  assert.deepEqual(refunds.map((r) => [r.form.payment_intent, r.form.reason, r.idempotencyKey]), [[second.payment_intent, 'duplicate', `myca-duplicate-${second.payment_intent}`]], 'the second charge is refunded automatically, once');
+  assert.equal(await auditCount(who.businessId, 'billing.us_return_duplicate_refunded'), 1);
   const confirmed = await post(who, 'us-checkout-confirm', { sessionId: second.id });
   assert.equal(confirmed.body.paid, true, 'the app still sees the return as paid');
 });
