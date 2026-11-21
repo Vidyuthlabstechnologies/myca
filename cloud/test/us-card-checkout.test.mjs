@@ -100,7 +100,7 @@ test('plans offer $129 by card, Plus at $249 a year, and no price on waitlist pr
   assert.deepEqual({ price: out.body.usPlus.priceUsd, per: out.body.usPlus.per, buyable: out.body.usPlus.buyable }, { price: 249, per: 'year', buyable: true });
   const forms = await api.call('GET', '/v1/us/supported-forms');
   assert.ok(forms.body.supported.includes('W-2'));
-  assert.ok(forms.body.coming.includes('Form 2441'));
+  assert.ok(forms.body.supported.includes('Form 2441') && !forms.body.coming.includes('Form 2441'));
 });
 
 test('a card payment for a return goes through Stripe Checkout and is recorded once by the webhook', async () => {
