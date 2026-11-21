@@ -2,6 +2,7 @@ import { usBrokerageCsv } from './us-brokerage-import.mjs';
 import { usRefundBoost } from './us-refund-boost.mjs';
 import { usStateTax } from './us-state-tax.mjs';
 import { importUsPriorYear } from './us-prior-year.mjs';
+import { usAmendedReturn, startUsAmendedReturn, setUsAmendedReturn } from './us-amended.mjs';
 import { tally, bank, gstin, filing, audit } from './sprint-load.mjs';
 import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
 import { importSettlement, settlementStatus } from './settlements.mjs';
@@ -849,6 +850,27 @@ export const TOOLS = [
     description: 'Starts a personal Form 1040 from last year: from the MyCA return of the year before it copies the filing status, people, sealed SSNs, dependents and address, and fills last year\'s AGI, total tax, the refund applied to this year and capital loss carryovers; or reads them from last year\'s Form 1040 PDF made by other tax software or a preparer (documentSha256 from /api/upload: the IRS form fields, or the printed lines, with Schedule D and the Capital Loss Carryover Worksheet when included; each figure says where it was found and how sure the reading is, and the PDF\'s tax year, name and SSN last four are checked against this return), or takes those figures as typed from a return prepared elsewhere (agi, totalTax, overpaymentApplied, shortTermLossCarryover, longTermLossCarryover), typed figures winning over the PDF. Lists the forms to expect again from last year\'s payers. Answers already given are kept unless overwrite is true. US only.',
     args: ['taxYear', 'documentSha256', 'figures', 'copyProfile', 'overwrite'],
     run: (state, args = {}) => importUsPriorYear(state, args),
+  },
+  {
+    name: 'us_amended_return',
+    title: 'See the US amended return (Form 1040-X)',
+    description: 'The Form 1040-X for a started amendment: lines 1 to 23 with column A (the original return), B (the net change) and C (the corrected return computed as usual), the refund or amount owed after the original refund and payments, Part I dependents when they changed, the Part II explanation, the refund-claim deadline (3 years from filing or 2 years from paying) and whether the IRS takes it electronically. Says when no amendment is started. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usAmendedReturn(state, args),
+  },
+  {
+    name: 'start_us_amended_return',
+    title: 'Start a US amended return (Form 1040-X)',
+    description: 'Starts amending a filed personal Form 1040: keeps the original figures as column A, from the return MyCA filed and the IRS accepted, or as typed from a return filed elsewhere (original: agi, deduction, qbiDeduction, schedule1ADeduction, taxableIncome, tax, credits, otherTaxes, totalTax, withholding, estimatedPayments, eic, refundableCredits, refund, appliedToNextYear, amountOwed; originalFilingStatus; originalDependents). Then the return is changed as usual and us_amended_return shows the 1040-X. Also takes the explanation, original filing date, last payment date, amount paid with the original and the part of a new refund to apply to next year. restart starts over. US only.',
+    args: ['taxYear', 'original', 'originalFilingStatus', 'originalDependents', 'explanation', 'originalFiledOn', 'lastPaymentOn', 'paidWithReturn', 'applyToNextYear', 'originalPaper', 'restart'],
+    run: (state, args = {}) => startUsAmendedReturn(state, args),
+  },
+  {
+    name: 'set_us_amended_return',
+    title: 'Update the US amended return (Form 1040-X)',
+    description: 'Changes a started Form 1040-X: the Part II explanation of changes, the date the original was filed, the date tax was last paid, the amount paid with or after the original return (line 16), the part of a new refund applied to next year (line 23), whether the original was filed on paper, and for a return filed outside MyCA the original figures, filing status and dependents. null clears a setting. US only.',
+    args: ['taxYear', 'original', 'originalFilingStatus', 'originalDependents', 'explanation', 'originalFiledOn', 'lastPaymentOn', 'paidWithReturn', 'applyToNextYear', 'originalPaper'],
+    run: (state, args = {}) => setUsAmendedReturn(state, args),
   },
   {
     name: 'us_refund_boost',
