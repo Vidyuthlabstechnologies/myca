@@ -1,460 +1,127 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:myca_design/myca_design.dart';
 
 import '../app_state.dart';
+import 'lang/bn.dart';
+import 'lang/gu.dart';
+import 'lang/hi.dart';
+import 'lang/kn.dart';
+import 'lang/mr.dart';
+import 'lang/ta.dart';
+import 'lang/te.dart';
 
-const indiaLocales = [Locale('en', 'US'), Locale('hi', 'IN')];
+/// One language the India app can be shown in.
+///
+/// Adding a language is three steps: a table file in lib/india/lang keyed by the same English lines as Hindi,
+/// one entry here, and a script range in test/india_languages_test.dart. Nothing on any screen changes.
+class IndiaLanguage {
+  const IndiaLanguage(this.code, this.nativeName, this.englishName, this.table, {required this.reviewed, this.script});
 
-Locale indiaResolveLocale(Locale? device, Iterable<Locale> supported) => device?.languageCode == 'hi' ? indiaLocales.last : indiaLocales.first;
+  final String code;
 
-bool indiaHindi(BuildContext context) {
-  if (Localizations.maybeLocaleOf(context)?.languageCode != 'hi') return false;
-  final state = AppScope.of(context);
-  return state.edition == 'IN' && (state.snapshot?.company.country ?? 'IN') == 'IN';
+  /// The name as a speaker writes it, shown in the language picker.
+  final String nativeName;
+  final String englishName;
+  final Map<String, String> table;
+
+  /// True only once a native speaker has read every line. Unreviewed languages are labelled in the picker.
+  final bool reviewed;
+
+  /// The Unicode block every line must use, checked by the tests.
+  final RegExp? script;
+
+  Locale get locale => code == 'en' ? const Locale('en', 'US') : Locale(code, 'IN');
 }
 
-String inText(BuildContext context, String english) => indiaHindi(context) ? (indiaHindiText[english] ?? english) : english;
+/// In order of business-owner reach. Hindi first; English always stays available.
+final indiaLanguages = <IndiaLanguage>[
+  const IndiaLanguage('en', 'English', 'English', <String, String>{}, reviewed: true),
+  IndiaLanguage('hi', 'हिन्दी', 'Hindi', hindi, reviewed: false, script: RegExp(r'[ऀ-ॿ]')),
+  IndiaLanguage('mr', 'मराठी', 'Marathi', marathi, reviewed: false, script: RegExp(r'[ऀ-ॿ]')),
+  IndiaLanguage('gu', 'ગુજરાતી', 'Gujarati', gujarati, reviewed: false, script: RegExp(r'[઀-૿]')),
+  IndiaLanguage('ta', 'தமிழ்', 'Tamil', tamil, reviewed: false, script: RegExp(r'[஀-௿]')),
+  IndiaLanguage('te', 'తెలుగు', 'Telugu', telugu, reviewed: false, script: RegExp(r'[ఀ-౿]')),
+  IndiaLanguage('kn', 'ಕನ್ನಡ', 'Kannada', kannada, reviewed: false, script: RegExp(r'[ಀ-೿]')),
+  IndiaLanguage('bn', 'বাংলা', 'Bengali', bengali, reviewed: false, script: RegExp(r'[ঀ-৿]')),
+];
 
-String inThingsNeedYou(BuildContext context, int count) {
-  if (!indiaHindi(context)) return count == 1 ? '1 thing needs you' : '$count things need you';
-  return count == 1 ? '1 काम आपका इंतज़ार कर रहा है' : '$count काम आपका इंतज़ार कर रहे हैं';
+/// Languages offered to the owner: English, Hindi, and every other language whose table is filled in.
+List<IndiaLanguage> get indiaOfferedLanguages => [for (final language in indiaLanguages) if (language.code == 'en' || language.table.isNotEmpty) language];
+
+IndiaLanguage indiaLanguage(String code) => indiaLanguages.firstWhere((language) => language.code == code, orElse: () => indiaLanguages.first);
+
+List<Locale> get indiaLocales => [for (final language in indiaOfferedLanguages) language.locale];
+
+/// The phone's language when MyCA has it, otherwise English.
+Locale indiaResolveLocale(Locale? device, Iterable<Locale> supported) {
+  for (final locale in supported) {
+    if (locale.languageCode == device?.languageCode) return locale;
+  }
+  return const Locale('en', 'US');
 }
 
-const indiaHindiText = <String, String>{
-  'Your business': 'आपका कारोबार',
-  'New entry': 'नई एंट्री',
-  'Your books': 'आपके बही-खाते',
-  'Sales': 'बिक्री',
-  'Purchases': 'खरीद',
-  'Expenses': 'खर्चे',
-  'Employees': 'कर्मचारी',
-  'Who works for you and what they are paid': 'आपके यहाँ कौन काम करता है और उन्हें कितना वेतन मिलता है',
-  'Money and follow-up': 'पैसा और फ़ॉलो-अप',
-  'Cash': 'नकदी',
-  'Bank and cash, the next 30 days, and can I afford it': 'बैंक और नकदी, अगले 30 दिन, और क्या मैं यह खर्च उठा सकता हूँ',
-  'Marketplace': 'मार्केटप्लेस',
-  'Payouts, TCS and TDS, margins by SKU, stock, GST registrations': 'भुगतान, TCS और TDS, हर SKU का मार्जिन, स्टॉक, GST पंजीकरण',
-  'Bank': 'बैंक',
-  'Your statement next to your books, matched and not matched': 'आपका बैंक स्टेटमेंट और आपके खाते साथ-साथ, क्या मिला और क्या नहीं',
-  'Repeating entries': 'दोहराई जाने वाली एंट्री',
-  'Invoices, bills and expenses posted on their dates': 'बिक्री बिल, खरीद बिल और खर्चे जो अपनी तारीख़ पर दर्ज होते हैं',
-  'Reports': 'रिपोर्ट',
-  'Saved reports run by name, compared with the period before': 'सहेजी गई रिपोर्ट नाम से चलाएँ, पिछली अवधि से तुलना के साथ',
-  'Statements': 'वित्तीय विवरण',
-  'Profit and loss, balance sheet, cash flow, customer statements': 'लाभ-हानि, बैलेंस शीट, कैश फ़्लो, ग्राहकों के खाते',
-  'Your CA': 'आपके CA',
-  'Questions you asked and their answers': 'आपके पूछे सवाल और उनके जवाब',
-  'Reminders': 'रिमाइंडर',
-  'Anything you asked to be reminded of': 'जो भी आपने याद दिलाने को कहा',
-  'Books check': 'खातों की जाँच',
-  'What needs you, worked out from your books': 'आपके खातों से निकाला गया: किस काम में आपकी ज़रूरत है',
-  'Got it': 'ठीक है',
-  'Could not check your taxes': 'आपके टैक्स की जाँच नहीं हो सकी',
-  'Checking your books…': 'आपके खाते जाँचे जा रहे हैं…',
-  'You are all caught up': 'आपका सारा काम पूरा है',
-  'Pull down to try again.': 'दोबारा कोशिश के लिए नीचे खींचें।',
-  'No returns overdue and nothing waiting on you.': 'कोई रिटर्न बकाया नहीं है और कुछ भी आपके लिए रुका नहीं है।',
-  'TAXES AND FILINGS': 'टैक्स और रिटर्न',
-  'Overdue': 'समय निकल गया',
-  'Due soon': 'जल्द देय',
-  'Log your first sale': 'अपनी पहली बिक्री दर्ज करें',
-  'Name the customer, enter the amount, confirm.': 'ग्राहक का नाम लिखें, रकम डालें, पुष्टि करें।',
-  'Sold': 'बेचा',
-  'Bought': 'खरीदा',
-  'Spent': 'खर्च किया',
-  'Paid staff': 'वेतन दिया',
-  'Owed to you': 'आपको मिलना है',
-  'No invoice is waiting for payment.': 'किसी बिल का भुगतान बाकी नहीं है।',
-  'You owe suppliers': 'आपको सप्लायर को देना है',
-  'No bill is waiting to be paid.': 'कोई खरीद बिल चुकाना बाकी नहीं है।',
-  'Tell or ask MyCA anything': 'MyCA को कुछ भी बताएँ या पूछें',
-  'Send': 'भेजें',
-  'This week': 'इस हफ़्ते',
-  'Due today': 'आज देय',
-  'What happened?': 'क्या हुआ?',
-  'I sold something': 'मैंने कुछ बेचा',
-  'Raise an invoice for a customer': 'ग्राहक के लिए बिल बनाएँ',
-  'Counter sale': 'काउंटर बिक्री',
-  'Scan barcodes, bill at the counter and print a receipt': 'बारकोड स्कैन करें, काउंटर पर बिल बनाएँ और रसीद छापें',
-  'I bought something': 'मैंने कुछ खरीदा',
-  'Add a supplier bill': 'सप्लायर का बिल जोड़ें',
-  'Read a bill from a photo': 'फ़ोटो से बिल पढ़ें',
-  'A photo, PDF or text of a supplier bill, previewed before it posts': 'सप्लायर के बिल की फ़ोटो, PDF या टेक्स्ट, दर्ज होने से पहले आपको दिखाया जाता है',
-  'I paid an expense': 'मैंने खर्च चुकाया',
-  'Rent, fuel, anything without a supplier bill': 'किराया, ईंधन, जो भी बिना सप्लायर बिल के हो',
-  'Just ask': 'बस पूछें',
-  'Type anything, MyCA will sort it': 'कुछ भी लिखें, MyCA सँभाल लेगा',
-  'Barcode or item code': 'बारकोड या आइटम कोड',
-  'Scan': 'स्कैन करें',
-  'Scan or type an item to start the bill.': 'बिल शुरू करने के लिए आइटम स्कैन करें या लिखें।',
-  'One less': 'एक कम',
-  'One more': 'एक और',
-  'Customer name': 'ग्राहक का नाम',
-  'Customer (optional)': 'ग्राहक (ज़रूरी नहीं)',
-  'Walk-in customer': 'काउंटर ग्राहक',
-  'Customer address with state': 'ग्राहक का पता, राज्य के साथ',
-  'Needed on bills of ₹50,000 or more before GST': 'GST से पहले ₹50,000 या उससे ज़्यादा के बिल पर ज़रूरी',
-  'Make bill': 'बिल बनाएँ',
-  'Post bill': 'बिल दर्ज करें',
-  'Print receipt': 'रसीद छापें',
-  'Change paper width': 'कागज़ की चौड़ाई बदलें',
-  'Choose the receipt printer': 'रसीद प्रिंटर चुनें',
-  'Saved once; the next scan fills the bill.': 'एक बार सहेजें; अगली बार स्कैन करते ही बिल में आ जाएगा।',
-  'Name': 'नाम',
-  'Selling price before GST': 'GST से पहले बिक्री मूल्य',
-  'GST %': 'GST दर %',
-  'HSN (optional)': 'HSN (ज़रूरी नहीं)',
-  'Save and add': 'सहेजें और जोड़ें',
-  'Give the item a name.': 'आइटम का नाम लिखें।',
-  'Enter the selling price before GST.': 'GST से पहले का बिक्री मूल्य डालें।',
-  'Enter the GST rate, for example 5 or 18. Use 0 if there is none.': 'GST दर डालें, जैसे 5 या 18। GST न हो तो 0 लिखें।',
-  'A bill of ₹50,000 or more before GST must carry the customer\'s name and address with the state. Add both, then make the bill.': 'GST से पहले ₹50,000 या उससे ज़्यादा के बिल पर ग्राहक का नाम और राज्य सहित पता होना ज़रूरी है। दोनों जोड़ें, फिर बिल बनाएँ।',
-  'Allow Nearby devices for MyCA and pair the receipt printer in Android Bluetooth settings, then print again.': 'MyCA को आस-पास के डिवाइस की अनुमति दें और Android की Bluetooth सेटिंग में रसीद प्रिंटर जोड़ें, फिर दोबारा छापें।',
-  'Coming up': 'आने वाली तारीख़ें',
-  'The date has passed': 'तारीख़ निकल चुकी है',
-  'Amount': 'रकम',
-  'Adjustment': 'समायोजन',
-  'Totals': 'कुल',
-  'Check before you file': 'दाखिल करने से पहले जाँच लें',
-  'Could not work this out.': 'यह हिसाब नहीं लग सका।',
-  'Try again': 'फिर कोशिश करें',
-  'Revenue': 'आमदनी',
-  'Work it out': 'हिसाब लगाएँ',
-  'None': 'कोई नहीं',
-  'Preview': 'पहले देखें',
-  'Saved.': 'सेव हो गया।',
-  'Invoice number': 'बिल नंबर',
-  'Issue date': 'बिल की तारीख़',
-  'What was supplied': 'क्या दिया गया',
-  'Quantity': 'मात्रा',
-  'Check': 'जाँचें',
-  'Fix these before it can be issued': 'जारी करने से पहले इन्हें ठीक करें',
-  'Start from a sale': 'किसी बिक्री से शुरू करें',
-  'Not saved yet': 'अभी सेव नहीं हुआ',
-  'Done': 'हो गया',
-  'Not done': 'नहीं हुआ',
-  'Discard': 'छोड़ दें',
-  'Confirm': 'पक्का करें',
-  'New sale': 'नई बिक्री',
-  'New purchase bill': 'नया खरीद बिल',
-  'Customer\'s name': 'ग्राहक का नाम',
-  'Supplier\'s name': 'सप्लायर का नाम',
-  'Supplier\'s invoice number': 'सप्लायर का बिल नंबर',
-  'Date': 'तारीख़',
-  'Currency': 'मुद्रा',
-  'Payment terms in days (optional)': 'भुगतान की मोहलत, दिनों में (ज़रूरी नहीं)',
-  'What was bought': 'क्या खरीदा गया',
-  'Add a line': 'एक लाइन जोड़ें',
-  'Remove this line': 'यह लाइन हटाएँ',
-  'Out of scope': 'दायरे से बाहर',
-  'Enter the customer\'s name.': 'ग्राहक का नाम लिखें।',
-  'Enter the supplier\'s name.': 'सप्लायर का नाम लिखें।',
-  'Enter the date as YYYY-MM-DD, for example 2026-11-14.': 'तारीख़ YYYY-MM-DD रूप में लिखें, जैसे 2026-11-14।',
-  'Payment terms are whole days from 0 to 365.': 'भुगतान की मोहलत 0 से 365 तक पूरे दिनों में होती है।',
-  'Nothing was saved': 'कुछ भी सेव नहीं हुआ',
-  'Worth checking': 'एक बार देख लें',
-  'Open the invoice': 'बिल खोलें',
-  'Start another': 'एक और शुरू करें',
-  'description': 'विवरण',
-  'quantity': 'मात्रा',
-  'price': 'कीमत',
-  'Add at least one line.': 'कम से कम एक लाइन जोड़ें।',
-  'Some lines need fixing.': 'कुछ लाइनें ठीक करनी हैं।',
-  'The amount is zero. Enter a price on at least one line.': 'रकम शून्य है। कम से कम एक लाइन में कीमत लिखें।',
-  'That number is already used in your books.': 'यह नंबर आपके खातों में पहले से इस्तेमाल हो चुका है।',
-  'The books are closed for this date. Use a date after the closed period.': 'इस तारीख़ के खाते बंद हो चुके हैं। बंद अवधि के बाद की तारीख़ चुनें।',
-  'That invoice is not in your books.': 'यह बिल आपके खातों में नहीं है।',
-  'The credit note is more than what is left on the invoice.': 'क्रेडिट नोट बिल की बाकी रकम से ज़्यादा है।',
-  'Say why the invoice is reduced, for example goods returned.': 'बताएँ कि बिल क्यों घटाया जा रहा है, जैसे माल वापस आया।',
-  'This invoice is already fully credited.': 'इस बिल का पूरा क्रेडिट पहले ही दिया जा चुका है।',
-  'Write the currency as three letters, for example USD.': 'मुद्रा तीन अक्षरों में लिखें, जैसे USD।',
-  'Enter the amount as a number above zero.': 'रकम शून्य से बड़ी संख्या में लिखें।',
-  'Due date': 'भुगतान की आख़िरी तारीख़',
-  'Tax invoice': 'टैक्स इनवॉइस',
-  'Paid': 'चुकाया गया',
-  'Part paid': 'कुछ चुकाया गया',
-  'Cancelled': 'रद्द',
-  'Unpaid': 'बकाया',
-  'Credit note': 'क्रेडिट नोट',
-  'Credit notes': 'क्रेडिट नोट',
-  'Issue a credit note': 'क्रेडिट नोट जारी करें',
-  'Why it is reduced': 'क्यों घटाया जा रहा है',
-  'For example goods returned or a price agreed lower': 'जैसे माल वापस आया या कम कीमत तय हुई',
-  'Left on the invoice': 'बिल पर बाकी',
-  'Received': 'मिला',
-  'This invoice is not in your books yet.': 'यह बिल अभी आपके खातों में नहीं है।',
-  'Lines': 'लाइनें',
-  'Who did you sell to?': 'आपने किसे बेचा?',
-  'Who did you buy from?': 'आपने किससे खरीदा?',
-  'Search or type a new name': 'खोजें या नया नाम लिखें',
-  'Type the customer\'s name': 'ग्राहक का नाम लिखें',
-  'Type the supplier\'s name': 'सप्लायर का नाम लिखें',
-  'New customer': 'नया ग्राहक',
-  'New supplier': 'नया सप्लायर',
-  'No customers yet. Type a name to add the first one.': 'अभी कोई ग्राहक नहीं है। पहला जोड़ने के लिए नाम लिखें।',
-  'No suppliers yet. Type a name to add the first one.': 'अभी कोई सप्लायर नहीं है। पहला जोड़ने के लिए नाम लिखें।',
-  'Enter a name.': 'नाम लिखें।',
-  'Continue': 'आगे बढ़ें',
-  'Customer': 'ग्राहक',
-  'Supplier': 'सप्लायर',
-  'Add a purchase bill': 'खरीद बिल जोड़ें',
-  'Get started': 'शुरू करें',
-  'About two minutes to set up': 'सेट अप में करीब दो मिनट',
-  'Tell us about the business': 'अपने कारोबार के बारे में बताएँ',
-  'Business name': 'कारोबार का नाम',
-  'Enter your business name.': 'अपने कारोबार का नाम लिखें।',
-  'Setting up…': 'सेट अप हो रहा है…',
-  'Sign out': 'साइन आउट',
-  'Fill from my books': 'मेरे खातों से भरें',
-  'Enter the figures by hand': 'आँकड़े खुद भरें',
-  'Books today · closed': 'आज के खाते · बंद',
-  'As recorded; give today\'s bank balance for the real figure': 'जैसा दर्ज है; असली आँकड़े के लिए आज का बैंक बैलेंस बताएँ',
-  'Search customers': 'ग्राहक खोजें',
-  'Search suppliers': 'सप्लायर खोजें',
-  'No customers yet. Add one to record your first sale.': 'अभी कोई ग्राहक नहीं है। पहली बिक्री दर्ज करने के लिए एक जोड़ें।',
-  'No suppliers yet. Add one to record your first bill.': 'अभी कोई सप्लायर नहीं है। पहला बिल दर्ज करने के लिए एक जोड़ें।',
-  'No one by that name.': 'इस नाम का कोई नहीं मिला।',
-  'Accepted': 'मंज़ूर',
-  'Declined': 'नामंज़ूर',
-  'Invoiced': 'बिल बन गया',
-  'Expired': 'समय निकल गया',
-  'Came back': 'वापस आया',
-  'Open': 'खुला',
-  'Post it': 'दर्ज करें',
-  'Yes': 'हाँ',
-  'Expense': 'खर्च',
-  'Expense head': 'खर्च का मद',
-  'No expenses yet. Add one and MyCA will put it under the right head: rent, salaries, travel and so on.': 'अभी कोई खर्च नहीं है। एक जोड़ें और MyCA उसे सही मद में रखेगा: किराया, वेतन, यात्रा वगैरह।',
-  'Tap to move it to the right head': 'सही मद में ले जाने के लिए दबाएँ',
-  'What was it for': 'किस काम का खर्च था',
-  'Paid to (optional)': 'किसे दिया (ज़रूरी नहीं)',
-  'From bank': 'बैंक से',
-  'From cash': 'नकद से',
-  'Head: automatic': 'मद: अपने आप',
-  'Say what the expense was for.': 'बताएँ कि खर्च किस काम का था।',
-  'Enter the amount.': 'रकम लिखें।',
-  'Which head?': 'कौन सा मद?',
-  'The heads could not be loaded.': 'मद नहीं खुल सके।',
-  'MyCA remembers your choice for the same payee or wording.': 'उसी पाने वाले या उन्हीं शब्दों के लिए MyCA आपकी पसंद याद रखता है।',
-  'Yesterday': 'बीता कल',
-  'Today': 'आज',
-  'Tomorrow': 'आने वाला कल',
-  'In a week': 'एक हफ़्ते में',
-  'Pick a day': 'दिन चुनें',
-  'Remind me': 'मुझे याद दिलाएँ',
-  'What about': 'किस बारे में',
-  'Say what to remind you about.': 'बताएँ कि किस बारे में याद दिलाना है।',
-  'Choose a day.': 'दिन चुनें।',
-  'Open the bill': 'बिल खोलें',
-  'Mark done': 'हो गया मानें',
-  'No reminders. Add one here, or say "remind me to call Rajesh tomorrow" in Ask.': 'कोई रिमाइंडर नहीं है। यहाँ जोड़ें, या पूछें में लिखें "कल राजेश को फ़ोन करने की याद दिलाना"।',
-  'Reminder': 'रिमाइंडर',
-  'Statement of account': 'खाते का विवरण',
-  'Tap to view or send': 'देखने या भेजने के लिए दबाएँ',
-  'Another sale': 'एक और बिक्री',
-  'Sale': 'बिक्री',
-  'Another bill': 'एक और बिल',
-  'Bill': 'बिल',
-  'Payment received': 'भुगतान मिला',
-  'Set terms': 'मोहलत तय करें',
-  'Payment made': 'भुगतान किया',
-  'Against invoice': 'किस बिक्री बिल के लिए',
-  'Against bill': 'किस खरीद बिल के लिए',
-  'Amount received': 'मिली रकम',
-  'Amount paid': 'चुकाई रकम',
-  'Enter the amount received.': 'मिली रकम लिखें।',
-  'Enter the amount paid.': 'चुकाई रकम लिखें।',
-  'Cancel': 'रहने दें',
-  'New invoices get a due date. Invoices already raised keep theirs.': 'नए बिलों पर भुगतान की आख़िरी तारीख़ लगेगी। पहले बने बिलों की तारीख़ वही रहेगी।',
-  'Posted.': 'दर्ज हो गया।',
-  'Answered': 'जवाब मिला',
-  'Closed': 'बंद',
-  'Your question': 'आपका सवाल',
-  'Attaching…': 'जोड़ा जा रहा है…',
-  'Attach a file': 'फ़ाइल जोड़ें',
-  'At most five files on one question.': 'एक सवाल पर ज़्यादा से ज़्यादा पाँच फ़ाइलें।',
-  'Write what you want to ask.': 'जो पूछना है वह लिखें।',
-  'Not sent.': 'नहीं भेजा गया।',
-  'Copy to send': 'भेजने के लिए कॉपी करें',
-  'Close': 'बंद करें',
-  'Reply': 'जवाब',
-  'Ask MyCA': 'MyCA से पूछें',
-  'Message MyCA': 'MyCA को लिखें',
-  'People': 'लोग',
-  'Who can work in these books': 'इन खातों में कौन काम कर सकता है',
-  'Invite a business owner': 'किसी कारोबारी को बुलाएँ',
-  'Share your invite code, or use one you were sent': 'अपना इनवाइट कोड भेजें, या जो आपको मिला है वह डालें',
-  'Security': 'सुरक्षा',
-  'Two-step sign-in and where you are signed in': 'दो चरणों वाला साइन-इन और आप कहाँ-कहाँ साइन इन हैं',
-  'Connections': 'कनेक्शन',
-  'A POS or an inbox that feeds these books': 'POS या इनबॉक्स जिससे इन खातों में एंट्री आती है',
-  'Your businesses': 'आपके कारोबार',
-  'Switch business or answer an invitation': 'कारोबार बदलें या किसी न्योते का जवाब दें',
-  'Set a screen lock on this phone to protect MyCA with it.': 'MyCA को सुरक्षित रखने के लिए इस फ़ोन पर स्क्रीन लॉक लगाएँ।',
-  'Bring in more books': 'और खाते लाएँ',
-  'Tally, Zoho or a bank statement': 'Tally, Zoho या बैंक स्टेटमेंट',
-  'Could not change the Monday brief setting.': 'सोमवार की जानकारी की सेटिंग नहीं बदल सकी।',
-  'Monday brief on WhatsApp': 'WhatsApp पर सोमवार की जानकारी',
-  'Every Monday at 7 am: cash and runway, sales against last week, who owes you and for how long, what is due, and the one thing to do.': 'हर सोमवार सुबह 7 बजे: नकदी और वह कितने दिन चलेगी, पिछले हफ़्ते के मुकाबले बिक्री, किस पर कितने समय से बकाया है, क्या भरना है, और एक ज़रूरी काम।',
-  'Send crash reports': 'क्रैश रिपोर्ट भेजें',
-  'App lock': 'ऐप लॉक',
-  'Ask for your fingerprint, face or screen lock to open MyCA': 'MyCA खोलने के लिए फ़िंगरप्रिंट, चेहरा या स्क्रीन लॉक माँगें',
-  'Enter an amount.': 'रकम लिखें।',
-  'That could not be worked out.': 'यह हिसाब नहीं लग सका।',
-  'Use these balances?': 'ये बैलेंस इस्तेमाल करें?',
-  'Use them': 'इस्तेमाल करें',
-  'The forecast could not be worked out.': 'आगे का अंदाज़ा नहीं लग सका।',
-  'BANK AND CASH NOW': 'अभी बैंक और नकदी',
-  'Update balance': 'बैलेंस अपडेट करें',
-  'Tell MyCA your balance today': 'MyCA को आज का बैलेंस बताएँ',
-  'Coming in': 'आने वाला पैसा',
-  'Going out': 'जाने वाला पैसा',
-  'CAN I AFFORD IT?': 'क्या मैं यह खर्च उठा सकता हूँ?',
-  'Amount to spend': 'खर्च की रकम',
-  'Next month': 'अगले महीने',
-  'In 3 months': '3 महीने में',
-  'Enter the bank balance, the cash in hand, or both.': 'बैंक बैलेंस, हाथ की नकदी, या दोनों लिखें।',
-  'Your balance today': 'आज आपका बैलेंस',
-  'As your bank app or passbook shows it. This posts nothing to your books.': 'जैसा आपके बैंक ऐप या पासबुक में दिखता है। इससे आपके खातों में कुछ दर्ज नहीं होता।',
-  'Bank balance': 'बैंक बैलेंस',
-  'Cash in hand': 'हाथ की नकदी',
-  'All': 'सभी',
-  'Not matched yet': 'अभी नहीं मिला',
-  'Matched': 'मिल गया',
-  'Booked': 'दर्ज',
-  'Ignored': 'छोड़ा गया',
-  'No statement lines yet.': 'अभी स्टेटमेंट की कोई लाइन नहीं है।',
-  'Nothing waiting to be matched.': 'मिलाने के लिए कुछ बाकी नहीं है।',
-  'No matched lines yet.': 'अभी कोई मिली हुई लाइन नहीं है।',
-  'No booked lines yet.': 'अभी कोई दर्ज लाइन नहीं है।',
-  'No ignored lines.': 'कोई छोड़ी हुई लाइन नहीं है।',
-  'Bank account': 'बैंक खाता',
-  'Wallet': 'वॉलेट',
-  'Showing two years': 'दो साल दिख रहे हैं',
-  'Showing the last 90 days': 'पिछले 90 दिन दिख रहे हैं',
-  'Bring in a statement': 'स्टेटमेंट लाएँ',
-  'Record a transfer': 'ट्रांसफ़र दर्ज करें',
-  'Book bank charges': 'बैंक शुल्क दर्ज करें',
-  'Rules': 'नियम',
-  'Add an account': 'खाता जोड़ें',
-  'Save as Excel': 'Excel में सेव करें',
-  'Save as CSV': 'CSV में सेव करें',
-  'Bring in a bank statement and MyCA shows it next to your books.': 'बैंक स्टेटमेंट लाएँ और MyCA उसे आपके खातों के साथ दिखाएगा।',
-  'Show recent': 'हाल के दिखाएँ',
-  'Show older': 'पुराने दिखाएँ',
-  'In the books, not on a statement yet': 'खातों में है, अभी किसी स्टेटमेंट में नहीं',
-  'In the books, not on the statement': 'खातों में है, स्टेटमेंट में नहीं',
-  'Statement balance': 'स्टेटमेंट का बैलेंस',
-  'In the books': 'खातों में',
-  'Difference': 'अंतर',
-  'The running balance does not tie at this line. Check the statement.': 'इस लाइन पर चलता बैलेंस नहीं मिल रहा। स्टेटमेंट जाँच लें।',
-  'Unlink': 'जोड़ हटाएँ',
-  'It was posted to your books from this line. To change it, reverse that entry the normal way.': 'यह इसी लाइन से आपके खातों में दर्ज हुआ था। बदलने के लिए उस एंट्री को सामान्य तरीके से उलट दें।',
-  'Likely matches': 'मिलते-जुलते',
-  'Or record it as': 'या इसे ऐसे दर्ज करें',
-  'Receipt from a customer…': 'ग्राहक से मिला पैसा…',
-  'Payment to a supplier…': 'सप्लायर को भुगतान…',
-  'Expense…': 'खर्च…',
-  'Bank charge': 'बैंक शुल्क',
-  'Interest earned': 'मिला ब्याज',
-  'Transfer…': 'ट्रांसफ़र…',
-  'Ignore': 'छोड़ दें',
-  'Remember this for similar lines': 'ऐसी लाइनों के लिए यह याद रखें',
-  'Leave this line out of the books': 'यह लाइन खातों में न लें',
-  'It stays on the statement as ignored, so the difference still ties.': 'यह स्टेटमेंट में छोड़ी हुई दिखेगी, इसलिए अंतर फिर भी मिलेगा।',
-  'Why (optional)': 'क्यों (ज़रूरी नहीं)',
-  'For example a personal payment, or already in the books by hand': 'जैसे निजी भुगतान, या हाथ से पहले ही खातों में दर्ज',
-  'Ignore this line': 'यह लाइन छोड़ दें',
-  'Enter the amount moved.': 'कितनी रकम भेजी गई, लिखें।',
-  'Pick the account it came from and the account it went to.': 'जिस खाते से पैसा गया और जिस खाते में आया, दोनों चुनें।',
-  'Pick two different accounts.': 'दो अलग-अलग खाते चुनें।',
-  'That is not a date I can read. Use the form 2026-11-03.': 'यह तारीख़ समझ नहीं आई। 2026-11-03 जैसा रूप इस्तेमाल करें।',
-  'Money moved between your own accounts is recorded once, not as a sale or an expense.': 'अपने ही खातों के बीच भेजा पैसा एक बार दर्ज होता है, बिक्री या खर्च के रूप में नहीं।',
-  'From': 'से',
-  'To': 'को',
-  'Year, month and day, like 2026-11-03': 'साल, महीना और दिन, जैसे 2026-11-03',
-  'Reference (optional)': 'रेफ़रेंस (ज़रूरी नहीं)',
-  'The UTR or cheque number, if you have it': 'UTR या चेक नंबर, अगर आपके पास हो',
-  'Book the bank charges and interest': 'बैंक शुल्क और ब्याज दर्ज करें',
-  'Which head is it?': 'यह किस मद का है?',
-  'Which account did it come from?': 'यह किस खाते से आया?',
-  'Which account did it go to?': 'यह किस खाते में गया?',
-  'Which head is the expense under?': 'खर्च किस मद में है?',
-  'Enter the words that appear in the narration.': 'विवरण में आने वाले शब्द लिखें।',
-  'Say which customer the money is from.': 'बताएँ कि पैसा किस ग्राहक से आया।',
-  'Say which supplier the money goes to.': 'बताएँ कि पैसा किस सप्लायर को जाता है।',
-  'Pick the head for the expense.': 'खर्च का मद चुनें।',
-  'Pick the other account.': 'दूसरा खाता चुनें।',
-  'A rule books a statement line on its own when the words match. Rules run on every statement you bring in and in the daily run.': 'शब्द मिलने पर नियम स्टेटमेंट की लाइन अपने आप दर्ज कर देता है। नियम हर लाए गए स्टेटमेंट पर और रोज़ की जाँच में चलते हैं।',
-  'No rules yet.': 'अभी कोई नियम नहीं है।',
-  'Remove': 'हटाएँ',
-  'Add a rule': 'नियम जोड़ें',
-  'When': 'जब',
-  'Then': 'तब',
-  'Words in the narration': 'विवरण के शब्द',
-  'For example SHARMA TRADERS or SMS CHARGES': 'जैसे SHARMA TRADERS या SMS CHARGES',
-  'Record it as': 'इसे ऐसे दर्ज करें',
-  'Money in or out': 'पैसा आया या गया',
-  'Money in': 'पैसा आया',
-  'Money out': 'पैसा गया',
-  'Receipt from a customer': 'ग्राहक से मिला पैसा',
-  'Payment to a supplier': 'सप्लायर को भुगतान',
-  'Transfer to another account': 'दूसरे खाते में ट्रांसफ़र',
-  'Why it is left out (optional)': 'क्यों छोड़ा गया (ज़रूरी नहीं)',
-  'Give the account a name, for example HDFC current.': 'खाते को एक नाम दें, जैसे HDFC करंट।',
-  'Another bank account, a cash box or a wallet. Money moved between your accounts is then recorded once.': 'दूसरा बैंक खाता, गल्ला या वॉलेट। फिर आपके खातों के बीच भेजा पैसा एक ही बार दर्ज होता है।',
-  'For example HDFC current or Paytm wallet': 'जैसे HDFC करंट या Paytm वॉलेट',
-  'Last 4 digits of the account number (optional)': 'खाता नंबर के आख़िरी 4 अंक (ज़रूरी नहीं)',
-  'The Excel file could not be prepared.': 'Excel फ़ाइल तैयार नहीं हो सकी।',
-  'The Excel file could not be read.': 'Excel फ़ाइल पढ़ी नहीं जा सकी।',
-  'Not saved.': 'सेव नहीं हुआ।',
-  'The report could not be run.': 'रिपोर्ट नहीं चल सकी।',
-  'Save as Excel for the full list': 'पूरी सूची के लिए Excel में सेव करें',
-  'Save a report': 'रिपोर्ट सेव करें',
-  'Built-in': 'पहले से मौजूद',
-  'Audit trail': 'ऑडिट ट्रेल',
-  'Who changed what and when, with a check for edits to the log': 'किसने क्या और कब बदला, और लॉग में छेड़छाड़ की जाँच',
-  'No saved reports yet. Tap + to save one: sales by customer this month, expenses by head this quarter, and so on.': 'अभी कोई सेव की हुई रिपोर्ट नहीं है। सेव करने के लिए + दबाएँ: इस महीने ग्राहक के हिसाब से बिक्री, इस तिमाही मद के हिसाब से खर्चे, वगैरह।',
-  'Your reports': 'आपकी रिपोर्ट',
-  'What': 'क्या',
-  'Grouped by': 'किसके हिसाब से',
-  'Period': 'अवधि',
-  'Compare with the period before': 'पिछली अवधि से तुलना करें',
-  'This month': 'इस महीने',
-  'Last month': 'पिछले महीने',
-  'This quarter': 'इस तिमाही',
-  'This year': 'इस साल',
-  'Changes': 'बदलाव',
-  'Everything': 'सब कुछ',
-  'Nothing changed in this period.': 'इस अवधि में कुछ नहीं बदला।',
-  'Show more': 'और दिखाएँ',
-  'Who changed what and when. Every change made through MyCA is listed, and the log is checked for edits.': 'किसने क्या और कब बदला। MyCA से हुआ हर बदलाव यहाँ दर्ज है, और लॉग में छेड़छाड़ की जाँच होती है।',
-  'The audit trail could not be loaded.': 'ऑडिट ट्रेल नहीं खुल सका।',
-  'Some entries have no date and are left out of this period.': 'कुछ एंट्री पर तारीख़ नहीं है, इसलिए वे इस अवधि में नहीं हैं।',
-  'This statement could not be prepared.': 'यह विवरण तैयार नहीं हो सका।',
-  'As at the end of': 'किस तारीख़ के अंत तक',
-  'Type the customer\'s name to see their statement.': 'ग्राहक का विवरण देखने के लिए उनका नाम लिखें।',
-  'Nothing in this period': 'इस अवधि में कुछ नहीं',
-  'Every week': 'हर हफ़्ते',
-  'Every month': 'हर महीने',
-  'Every quarter': 'हर तिमाही',
-  'Every six months': 'हर छह महीने',
-  'Every year': 'हर साल',
-  'Invoice to': 'किसे बिल',
-  'Bill from': 'किसका बिल',
-  'Enter the amount paid each time.': 'हर बार चुकाई जाने वाली रकम लिखें।',
-  'Say what it is for, for example broadband or rent.': 'बताएँ कि यह किसके लिए है, जैसे ब्रॉडबैंड या किराया।',
-  'ended': 'खत्म',
-  'stopped': 'रोका गया',
-  'Invoices, bills and expenses that repeat are posted on their dates by the daily run, exactly as if you entered them. Set a repeating invoice or bill from the customer or supplier page.': 'दोहराए जाने वाले बिक्री बिल, खरीद बिल और खर्चे रोज़ की जाँच में अपनी तारीख़ पर दर्ज होते हैं, ठीक वैसे जैसे आपने खुद डाले हों। दोहराने वाला बिल ग्राहक या सप्लायर के पन्ने से लगाएँ।',
-  'Nothing repeats yet.': 'अभी कुछ भी दोहराया नहीं जाता।',
-  'Stop': 'रोकें',
-  'Add a repeating expense': 'दोहराने वाला खर्च जोड़ें',
-  'What it is for': 'किसके लिए है',
-  'For example broadband, shop rent or software': 'जैसे ब्रॉडबैंड, दुकान का किराया या सॉफ़्टवेयर',
-  'Amount paid each time': 'हर बार चुकाई जाने वाली रकम',
-  'Repeat': 'दोहराएँ',
-  'From today, paid from the bank': 'आज से, बैंक से भुगतान',
-  'Your books check': 'आपके खातों की जाँच',
-  'The check could not be run.': 'जाँच नहीं चल सकी।',
-  'Everything below is worked out from your books. Nothing has been changed or filed.': 'नीचे सब कुछ आपके खातों से निकाला गया है। कुछ भी बदला या दाखिल नहीं किया गया है।',
-};
+/// The language the owner picked inside the app, or null to follow the phone.
+Locale? indiaChosenLocale(String choice) {
+  for (final language in indiaOfferedLanguages) {
+    if (language.code == choice) return language.locale;
+  }
+  return null;
+}
+
+/// Material, Cupertino and the design system for every India language. The design system has no Marathi,
+/// Gujarati, Tamil, Telugu, Kannada or Bengali, so its few fixed lines fall back to English there.
+const indiaLocalizationsDelegates = <LocalizationsDelegate<dynamic>>[
+  _IndiaDesignDelegate(),
+  GlobalMaterialLocalizations.delegate,
+  GlobalWidgetsLocalizations.delegate,
+  GlobalCupertinoLocalizations.delegate,
+];
+
+class _IndiaDesignDelegate extends LocalizationsDelegate<MycaLocalizations> {
+  const _IndiaDesignDelegate();
+
+  @override
+  bool isSupported(Locale locale) => true;
+
+  @override
+  Future<MycaLocalizations> load(Locale locale) {
+    final known = MycaLocalizations.supportedLocales.any((supported) => supported.languageCode == locale.languageCode);
+    return MycaLocalizations.delegate.load(known ? locale : const Locale('en'));
+  }
+
+  @override
+  bool shouldReload(_IndiaDesignDelegate old) => false;
+}
+
+/// The India language code in use here: 'en' outside the India edition or for an Indian company abroad.
+String indiaLang(BuildContext context) {
+  final code = Localizations.maybeLocaleOf(context)?.languageCode;
+  if (code == null || code == 'en') return 'en';
+  final state = AppScope.maybeOf(context);
+  if (state == null || state.edition != 'IN' || (state.snapshot?.company.country ?? 'IN') != 'IN') return 'en';
+  return indiaLanguage(code).code;
+}
+
+bool indiaHindi(BuildContext context) => indiaLang(context) == 'hi';
+
+/// The line in [lang], or the English line when that language has no line for it yet.
+String inLine(String lang, String english) => lang == 'en' ? english : (indiaLanguage(lang).table[english] ?? english);
+
+/// A fixed line in the owner's language. Give it the English line as plain text so the tests can find it.
+String inText(BuildContext context, String english) => inLine(indiaLang(context), english);
+
+/// A line with names or amounts in it. The template names each part in braces, for example
+/// `inFormat(context, 'Paid {amount} to {name}', {'amount': rupees(x), 'name': party})`, so a language
+/// can put the parts in its own order.
+String inFormat(BuildContext context, String template, Map<String, Object?> parts) => inFill(inLine(indiaLang(context), template), parts);
+
+/// Fills `{name}` parts into a line. Parts the line does not name are ignored.
+String inFill(String line, Map<String, Object?> parts) =>
+    line.replaceAllMapped(RegExp(r'\{(\w+)\}'), (hit) => parts.containsKey(hit.group(1)) ? '${parts[hit.group(1)] ?? ''}' : hit.group(0)!);
+
+/// One or many: picks the English template by count, then translates it.
+String inCount(BuildContext context, int count, String one, String many, [Map<String, Object?> parts = const {}]) =>
+    inFormat(context, count == 1 ? one : many, {'n': count, ...parts});
+
+String inThingsNeedYou(BuildContext context, int count) => inCount(context, count, '1 thing needs you', '{n} things need you');

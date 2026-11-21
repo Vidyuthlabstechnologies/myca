@@ -6,6 +6,7 @@ import '../api/models.dart';
 import '../notifications.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import '../india/india_language_picker.dart';
 import '../india/india_strings.dart';
 import '../attention.dart';
 import '../brand.dart';
@@ -145,6 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Wordmark(size: 18),
         actions: [
+          if (state.edition == 'IN') const IndiaLanguageButton(),
           Padding(
             padding: const EdgeInsets.only(right: 9),
             child: Tooltip(

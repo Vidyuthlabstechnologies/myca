@@ -215,9 +215,9 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
             theme: widget.state.edition == 'MY' ? _myDesign.light : widget.state.edition == 'AE' ? uaeDesign.light : widget.state.edition == 'US' ? usAppTheme() : widget.state.edition == 'GB' ? MycaDesign.forFlavor('uk').light : mycaTheme(),
             darkTheme: widget.state.edition == 'MY' ? _myDesign.dark : widget.state.edition == 'AE' ? uaeDesign.dark : widget.state.edition == 'US' ? usAppTheme(brightness: Brightness.dark) : widget.state.edition == 'GB' ? MycaDesign.forFlavor('uk').dark : mycaTheme(Brightness.dark),
             themeMode: ThemeMode.system,
-            localizationsDelegates: widget.state.edition == 'MY' ? _myDelegates : widget.state.edition == 'AE' || widget.state.edition == 'IN' ? MycaDesign.localizationsDelegates : null,
+            localizationsDelegates: widget.state.edition == 'MY' ? _myDelegates : widget.state.edition == 'AE' ? MycaDesign.localizationsDelegates : widget.state.edition == 'IN' ? indiaLocalizationsDelegates : null,
             supportedLocales: widget.state.edition == 'MY' ? const [Locale('en', 'MY'), Locale('ms', 'MY')] : widget.state.edition == 'AE' ? uaeDesign.supportedLocales : widget.state.edition == 'IN' ? indiaLocales : const [Locale('en', 'US')],
-            locale: widget.state.edition == 'MY' ? _myLocale(widget.state.language) : null,
+            locale: widget.state.edition == 'MY' ? _myLocale(widget.state.language) : widget.state.edition == 'IN' ? indiaChosenLocale(widget.state.language) : null,
             localeResolutionCallback: widget.state.edition == 'MY' ? (device, supported) => device?.languageCode == 'ms' ? const Locale('ms', 'MY') : const Locale('en', 'MY') : widget.state.edition == 'AE' ? uaeResolveLocale : widget.state.edition == 'IN' ? indiaResolveLocale : null,
             builder: (context, child) => PaletteSync(
               brightness: Theme.of(context).brightness,

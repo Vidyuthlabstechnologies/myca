@@ -8,15 +8,23 @@ import '../registers.dart' as registers;
 import '../registers.dart' show RegisterKind;
 
 class UaeStrings {
-  const UaeStrings(this.ar, {this.hi = false});
+  const UaeStrings(this.ar, {this.india = 'en'});
 
   factory UaeStrings.of(BuildContext context) =>
-      UaeStrings(Localizations.maybeLocaleOf(context)?.languageCode == 'ar', hi: indiaHindi(context));
+      UaeStrings(Localizations.maybeLocaleOf(context)?.languageCode == 'ar', india: indiaLang(context));
 
   final bool ar;
-  final bool hi;
 
-  String _(String en, String arabic) => ar ? arabic : hi ? (indiaHindiText[en] ?? en) : en;
+  /// The India language code ('en' outside India). Lines fall back to the India tables keyed by the English line.
+  final String india;
+
+  bool get hi => india == 'hi';
+
+  String _(String en, String arabic) => ar ? arabic : inLine(india, en);
+
+  /// A line with names or amounts in it: [template] names each part in braces so an Indian language can
+  /// reorder them, for example `_t('Move {what} to', {'what': what}, 'انقل $what إلى')`.
+  String _t(String template, Map<String, Object?> parts, String arabic) => ar ? arabic : inFill(inLine(india, template), parts);
 
   String get taxesTitle => _('UAE taxes', 'الضرائب في الإمارات');
   String get taxesKicker => _('UAE TAXES', 'الضرائب في الإمارات');
@@ -60,7 +68,7 @@ class UaeStrings {
   String get vat => _('VAT', 'الضريبة');
   String get adjustment => _('Adjustment', 'التعديل');
 
-  String standardRated(String emirate) => _('Standard rated supplies in $emirate', 'التوريدات الخاضعة للنسبة الأساسية في $emirate');
+  String standardRated(String emirate) => _t('Standard rated supplies in {emirate}', {'emirate': emirate}, 'التوريدات الخاضعة للنسبة الأساسية في $emirate');
 
   String box(String key) => switch (key) {
     '2' => _('Tax refunds provided to tourists under the Tax Refunds for Tourists Scheme', 'المبالغ المستردة للسياح وفقًا لنظام استرداد الضريبة للسياح'),
@@ -80,9 +88,9 @@ class UaeStrings {
 
   String get payable => _('Payable tax for the period', 'الضريبة المستحقة الدفع عن الفترة');
   String get refundable => _('Refundable tax for the period', 'الضريبة القابلة للاسترداد عن الفترة');
-  String boxLabel(String key) => _('Box $key', 'البند $key');
-  String dueOn(String date) => _('Due $date', 'تاريخ الاستحقاق $date');
-  String periodRange(String from, String to) => _('$from to $to', 'من $from إلى $to');
+  String boxLabel(String key) => _t('Box {key}', {'key': key}, 'البند $key');
+  String dueOn(String date) => _t('Due {date}', {'date': date}, 'تاريخ الاستحقاق $date');
+  String periodRange(String from, String to) => _t('{from} to {to}', {'from': from, 'to': to}, 'من $from إلى $to');
   String get filedOnEmaraTax => _(
     'The business, or its registered tax agent, files this return on EmaraTax and pays by the due date. MyCA prepares it and does not submit it.',
     'تقدّم المنشأة أو وكيلها الضريبي المسجّل هذا الإقرار عبر منصة إمارات تاكس وتسدّد الضريبة قبل تاريخ الاستحقاق. يُعِدّ MyCA الإقرار ولا يقدّمه.',
@@ -181,17 +189,17 @@ class UaeStrings {
   String get supplierTrn => _('Supplier\'s TRN', 'الرقم الضريبي للمورّد');
   String get supplierTrnHint => _('15 digits from the bill; needed to recover the VAT on it', '15 رقمًا من الفاتورة؛ مطلوب لاسترداد الضريبة المدرجة فيها');
   String get trnDigitsOnly => _('A TRN has digits only.', 'يتكوّن الرقم الضريبي من أرقام فقط.');
-  String trnLength(int n) => _('A TRN has 15 digits; this one has $n.', 'يتكوّن الرقم الضريبي من 15 رقمًا، والمُدخل $n.');
+  String trnLength(int n) => _t('A TRN has 15 digits; this one has {n}.', {'n': n}, 'يتكوّن الرقم الضريبي من 15 رقمًا، والمُدخل $n.');
   String get trnFifteen => _('15 digits', '15 رقمًا');
   String get supplierInvoiceNo => _('Supplier\'s invoice number', 'رقم فاتورة المورّد');
   String get saleEmirate => _('Emirate the sale is made from', 'الإمارة التي تمّ منها البيع');
   String get chooseEmirate => _('Choose the emirate', 'اختر الإمارة');
   String get date => _('Date', 'التاريخ');
   String get currency => _('Currency', 'العملة');
-  String exchangeRate(String currency) => _('AED for 1 $currency', 'الدرهم مقابل 1 $currency');
+  String exchangeRate(String currency) => _t('AED for 1 {currency}', {'currency': currency}, 'الدرهم مقابل 1 $currency');
   String get paymentTerms => _('Payment terms in days (optional)', 'مدة السداد بالأيام (اختياري)');
   String get boughtDescription => _('What was bought', 'وصف المشتريات');
-  String lineTitle(int n) => _('Line $n', 'السطر $n');
+  String lineTitle(int n) => _t('Line {n}', {'n': n}, 'السطر $n');
   String get addLine => _('Add a line', 'أضف سطرًا');
   String get removeLine => _('Remove this line', 'احذف هذا السطر');
   String get treatment => _('VAT treatment', 'المعاملة الضريبية');
@@ -217,19 +225,19 @@ class UaeStrings {
   String get payableToSupplier => _('Payable to the supplier in AED', 'المستحق للمورّد بالدرهم');
   String get needCustomer => _('Enter the customer\'s name.', 'أدخل اسم العميل.');
   String get needSupplier => _('Enter the supplier\'s name.', 'أدخل اسم المورّد.');
-  String badQuantity(int n) => _('Line $n: enter a quantity above zero.', 'السطر $n: أدخل كمية أكبر من صفر.');
-  String badPrice(int n) => _('Line $n: enter the price in numbers, for example 1250.50.', 'السطر $n: أدخل السعر بالأرقام، مثل 1250.50.');
+  String badQuantity(int n) => _t('Line {n}: enter a quantity above zero.', {'n': n}, 'السطر $n: أدخل كمية أكبر من صفر.');
+  String badPrice(int n) => _t('Line {n}: enter the price in numbers, for example 1250.50.', {'n': n}, 'السطر $n: أدخل السعر بالأرقام، مثل 1250.50.');
   String get badDate => _('Enter the date as YYYY-MM-DD, for example 2026-11-14.', 'أدخل التاريخ بصيغة YYYY-MM-DD، مثل 2026-11-14.');
   String get badRate => _('Enter the exchange rate as a number above zero, for example 3.6725.', 'أدخل سعر الصرف رقمًا أكبر من صفر، مثل 3.6725.');
   String get badTerms => _('Payment terms are whole days from 0 to 365.', 'مدة السداد أيام كاملة من 0 إلى 365.');
   String get nothingSaved => _('Nothing was saved', 'لم يُحفظ شيء');
   String get worthChecking => _('Worth checking', 'يستحق المراجعة');
-  String saleRecorded(String id) => _('Invoice $id is in your books.', 'أُضيفت الفاتورة $id إلى دفاترك.');
-  String billRecorded(String id) => _('Bill $id is in your books.', 'أُضيفت فاتورة المشتريات $id إلى دفاترك.');
-  String creditRecorded(String id) => _('Credit note $id is in your books.', 'أُضيف الإشعار الدائن $id إلى دفاترك.');
+  String saleRecorded(String id) => _t('Invoice {id} is in your books.', {'id': id}, 'أُضيفت الفاتورة $id إلى دفاترك.');
+  String billRecorded(String id) => _t('Bill {id} is in your books.', {'id': id}, 'أُضيفت فاتورة المشتريات $id إلى دفاترك.');
+  String creditRecorded(String id) => _t('Credit note {id} is in your books.', {'id': id}, 'أُضيف الإشعار الدائن $id إلى دفاترك.');
   String get openInvoice => _('Open the invoice', 'افتح الفاتورة');
   String get another => _('Start another', 'ابدأ من جديد');
-  String lineProblem(int n, String field, String why) => _('Line $n, $field: $why', 'السطر $n، $field: $why');
+  String lineProblem(int n, String field, String why) => _t('Line {n}, {field}: {why}', {'n': n, 'field': field, 'why': why}, 'السطر $n، $field: $why');
 
   String fieldName(String field) => switch (field) {
     'description' => _('description', 'الوصف'),
@@ -261,7 +269,7 @@ class UaeStrings {
     _ => '',
   };
 
-  String invoiceTitle(String id) => _('Invoice $id', 'الفاتورة $id');
+  String invoiceTitle(String id) => _t('Invoice {id}', {'id': id}, 'الفاتورة $id');
   String get dueDateLabel => _('Due date', 'تاريخ الاستحقاق');
   String get taxInvoice => _('Tax invoice', 'فاتورة ضريبية');
   String status(String code) => switch (code) {
@@ -271,21 +279,21 @@ class UaeStrings {
     'settled' => _('Settled', 'مسوّاة'),
     _ => _('Unpaid', 'غير مدفوعة'),
   };
-  String trnOf(String trn) => _('TRN $trn', 'الرقم الضريبي $trn');
+  String trnOf(String trn) => _t('TRN {trn}', {'trn': trn}, 'الرقم الضريبي $trn');
   String get noTrn => _('No TRN', 'بدون رقم ضريبي');
   String get creditNote => _('Credit note', 'إشعار دائن');
   String get creditNotes => _('Credit notes', 'الإشعارات الدائنة');
   String get issueCreditNote => _('Issue a credit note', 'أصدر إشعارًا دائنًا');
   String get creditAmount => _('Amount with VAT (optional)', 'المبلغ شاملًا الضريبة (اختياري)');
-  String creditAmountHint(String left) => _('Up to $left. Leave blank to credit all that is left.', 'بحد أقصى $left. اتركه فارغًا لإصدار إشعار بكامل المتبقي.');
+  String creditAmountHint(String left) => _t('Up to {left}. Leave blank to credit all that is left.', {'left': left}, 'بحد أقصى $left. اتركه فارغًا لإصدار إشعار بكامل المتبقي.');
   String get creditReason => _('Why it is reduced', 'سبب التخفيض');
   String get creditReasonHint => _('For example goods returned or a price agreed lower', 'مثل إرجاع بضائع أو الاتفاق على سعر أقل');
   String get leftOnInvoice => _('Left on the invoice', 'المتبقي من الفاتورة');
   String get received => _('Received', 'المحصّل');
   String get notInBooks => _('This invoice is not in your books yet.', 'هذه الفاتورة ليست في دفاترك بعد.');
   String get lines => _('Lines', 'الأسطر');
-  String inCurrency(String currency, String rate) => _('$currency at $rate AED', '$currency بسعر $rate درهم');
-  String creditNoteTitle(String id) => _('Credit note $id', 'الإشعار الدائن $id');
+  String inCurrency(String currency, String rate) => _t('{currency} at {rate} AED', {'currency': currency, 'rate': rate}, '$currency بسعر $rate درهم');
+  String creditNoteTitle(String id) => _t('Credit note {id}', {'id': id}, 'الإشعار الدائن $id');
   String get creditNoteNotInBooks => _('This credit note is not in your books.', 'هذا الإشعار الدائن ليس في دفاترك.');
   String get documentNumber => _('Number', 'الرقم');
   String get dateOfSupply => _('Date of supply', 'تاريخ التوريد');
@@ -302,9 +310,9 @@ class UaeStrings {
   String get vatAed => _('VAT in AED', 'الضريبة بالدرهم');
   String get creditedLabel => _('Credited', 'المخفَّض بإشعارات دائنة');
   String get balanceDue => _('Balance due in AED', 'الرصيد المستحق بالدرهم');
-  String quantityTimes(String qty, String price) => _('Qty $qty × $price', 'الكمية $qty × $price');
-  String unitPriceAed(String price) => _('$price a unit', '$price للوحدة');
-  String vatRateOf(String rate) => _('VAT $rate%', 'الضريبة $rate%');
+  String quantityTimes(String qty, String price) => _t('Qty {qty} × {price}', {'qty': qty, 'price': price}, 'الكمية $qty × $price');
+  String unitPriceAed(String price) => _t('{price} a unit', {'price': price}, '$price للوحدة');
+  String vatRateOf(String rate) => _t('VAT {rate}%', {'rate': rate}, 'الضريبة $rate%');
   String get openCreditNote => _('Open the credit note', 'افتح الإشعار الدائن');
   String get missingTitle => _('Missing from this document', 'بيانات ناقصة في هذا المستند');
   String missingItem(String code, {bool creditNote = false}) => switch (code) {
@@ -322,7 +330,7 @@ class UaeStrings {
   String get whoBoughtFrom => _('Who did you buy from?', 'ممّن اشتريت؟');
   String get searchOrType => _('Search or type a new name', 'ابحث أو اكتب اسمًا جديدًا');
   String typeName(bool sales) => sales ? _('Type the customer\'s name', 'اكتب اسم العميل') : _('Type the supplier\'s name', 'اكتب اسم المورّد');
-  String addNamed(String name) => _('Add “$name”', 'أضف «$name»');
+  String addNamed(String name) => _t('Add “{name}”', {'name': name}, 'أضف «$name»');
   String newParty(bool sales) => sales ? _('New customer', 'عميل جديد') : _('New supplier', 'مورّد جديد');
   String noPartiesYet(bool sales) => sales ? _('No customers yet. Type a name to add the first one.', 'لا يوجد عملاء بعد. اكتب اسمًا لإضافة أول عميل.') : _('No suppliers yet. Type a name to add the first one.', 'لا يوجد مورّدون بعد. اكتب اسمًا لإضافة أول مورّد.');
   String get name => _('Name', 'الاسم');
@@ -409,7 +417,7 @@ class UaeStrings {
   String get bought => _('Bought', 'اشتريت');
   String get spent => _('Spent', 'أنفقت');
   String get paidStaff => _('Paid staff', 'رواتب الموظفين');
-  String lastFigure(String amount) => _('last $amount', 'السابق $amount');
+  String lastFigure(String amount) => _t('last {amount}', {'amount': amount}, 'السابق $amount');
   String get owedToYou => _('Owed to you', 'المستحق لك');
   String get noInvoiceWaiting => _('No invoice is waiting for payment.', 'لا توجد فاتورة بانتظار السداد.');
   String get youOweSuppliers => _('You owe suppliers', 'المستحق للمورّدين');
@@ -435,15 +443,15 @@ class UaeStrings {
   String get booksCheck => _('Books check', 'فحص الدفاتر');
   String get booksCheckSubtitle => _('What needs you, worked out from your books', 'ما يحتاج إلى اهتمامك، مستخلصًا من دفاترك');
   String get dueTodayTitle => _('Due today', 'مستحق اليوم');
-  String thisWeek(int overdue) => overdue > 0 ? _('This week · $overdue overdue', 'هذا الأسبوع · متأخر: $overdue') : _('This week', 'هذا الأسبوع');
+  String thisWeek(int overdue) => overdue > 0 ? _t('This week · {overdue} overdue', {'overdue': overdue}, 'هذا الأسبوع · متأخر: $overdue') : _('This week', 'هذا الأسبوع');
   String booksToday(bool closed, int needs) => closed
       ? _('Books today · closed', 'دفاتر اليوم · مقفلة')
       : _('Books today · $needs ${needs == 1 ? 'needs' : 'need'} you', 'دفاتر اليوم · تحتاج إليك: $needs');
-  String closeCash(String bank, String owed) => _('Bank $bank · customers owe $owed', 'البنك $bank · مستحق على العملاء $owed');
+  String closeCash(String bank, String owed) => _t('Bank {bank} · customers owe {owed}', {'bank': bank, 'owed': owed}, 'البنك $bank · مستحق على العملاء $owed');
   String closeSource(bool recorded, String on) => recorded
       ? _('As recorded; give today\'s bank balance for the real figure', 'كما هو مسجّل؛ أدخل رصيد البنك اليوم للحصول على الرقم الفعلي')
-      : _('From the balance on $on plus what was recorded since', 'من الرصيد في $on مضافًا إليه ما سُجّل بعده');
-  String owesOn(String who, String amount, String id) => _('$who owes $amount on $id', 'على $who مبلغ $amount عن $id');
+      : _t('From the balance on {on} plus what was recorded since', {'on': on}, 'من الرصيد في $on مضافًا إليه ما سُجّل بعده');
+  String owesOn(String who, String amount, String id) => _t('{who} owes {amount} on {id}', {'who': who, 'amount': amount, 'id': id}, 'على $who مبلغ $amount عن $id');
 
   String registerSubtitle(List<Invoice> documents, RegisterKind kind) {
     if (!ar) return registers.registerSubtitle(documents, kind);
@@ -474,7 +482,7 @@ class UaeStrings {
     return '$what ${doc.id}، ${format.rupees(doc.total)}، ${status(state)}';
   }
 
-  String unpaidCount(int n) => _('$n unpaid', 'غير مدفوعة: $n');
+  String unpaidCount(int n) => _t('{n} unpaid', {'n': n}, 'غير مدفوعة: $n');
   String searchParties(bool sales) => sales ? _('Search customers', 'ابحث في العملاء') : _('Search suppliers', 'ابحث في المورّدين');
   String noPartiesRegister(bool sales) => sales
       ? _('No customers yet. Add one to record your first sale.', 'لا يوجد عملاء بعد. أضف عميلًا لتسجيل أول عملية بيع.')
@@ -511,26 +519,26 @@ class UaeStrings {
   String get expense => _('Expense', 'مصروف');
   String get expenseHead => _('Expense head', 'بند المصروف');
   String get noExpensesYet => _('No expenses yet. Add one and MyCA will put it under the right head: rent, salaries, travel and so on.', 'لا مصروفات بعد. أضف مصروفًا وسيضعه MyCA تحت البند الصحيح: الإيجار والرواتب والسفر وغيرها.');
-  String nothingUnder(String head) => _('Nothing under $head yet.', 'لا شيء تحت $head بعد.');
+  String nothingUnder(String head) => _t('Nothing under {head} yet.', {'head': head}, 'لا شيء تحت $head بعد.');
   String get tapToMoveHead => _('Tap to move it to the right head', 'اضغط لنقله إلى البند الصحيح');
-  String moveTo(String what) => _('Move $what to', 'انقل $what إلى');
-  String moveSaid(String what, String head) => _('Move $what to $head', 'انقل $what إلى $head');
+  String moveTo(String what) => _t('Move {what} to', {'what': what}, 'انقل $what إلى');
+  String moveSaid(String what, String head) => _t('Move {what} to {head}', {'what': what, 'head': head}, 'انقل $what إلى $head');
   String get whatFor => _('What was it for', 'ما الغرض منه');
   String get paidTo => _('Paid to (optional)', 'المدفوع له (اختياري)');
   String get fromBank => _('From bank', 'من البنك');
   String get fromCash => _('From cash', 'من النقد');
-  String headChip(String? head) => head == null ? _('Head: automatic', 'البند: تلقائي') : _('Head: $head', 'البند: $head');
-  String underHead(String head) => _('Under $head · change', 'تحت $head · تغيير');
+  String headChip(String? head) => head == null ? _('Head: automatic', 'البند: تلقائي') : _t('Head: {head}', {'head': head}, 'البند: $head');
+  String underHead(String head) => _t('Under {head} · change', {'head': head}, 'تحت $head · تغيير');
   String get sayWhatFor => _('Say what the expense was for.', 'اذكر الغرض من المصروف.');
   String get enterAmount => _('Enter the amount.', 'أدخل المبلغ.');
   String expenseSaid(String what, String amount, bool bank) => _('$what: $amount from ${bank ? 'bank' : 'cash'}', '$what: $amount ${bank ? 'من البنك' : 'من النقد'}');
-  String putUnder(String head) => _('Put it under $head', 'ضعه تحت $head');
+  String putUnder(String head) => _t('Put it under {head}', {'head': head}, 'ضعه تحت $head');
   String get whichHead => _('Which head?', 'أي بند؟');
   String get headsNotLoaded => _('The heads could not be loaded.', 'تعذّر تحميل البنود.');
   String get headsRemembered => _('MyCA remembers your choice for the same payee or wording.', 'يتذكّر MyCA اختيارك للمستفيد نفسه أو الوصف نفسه.');
 
   String get yesterday => _('Yesterday', 'أمس');
-  String daysAgo(int days) => _('$days days ago', 'قبل $days أيام');
+  String daysAgo(int days) => _t('{days} days ago', {'days': days}, 'قبل $days أيام');
   String get today => _('Today', 'اليوم');
   String get tomorrow => _('Tomorrow', 'غدًا');
   String get inAWeek => _('In a week', 'بعد أسبوع');
@@ -543,29 +551,29 @@ class UaeStrings {
   String get markDone => _('Mark done', 'تم');
   String get noReminders => _('No reminders. Add one here, or say "remind me to call Rajesh tomorrow" in Ask.', 'لا توجد تذكيرات. أضف تذكيرًا هنا، أو قل «ذكّرني بالاتصال بأحمد غدًا» في خانة السؤال.');
   String get reminder => _('Reminder', 'تذكير');
-  String remindSaid(String text) => _('Remind me: $text', 'ذكّرني: $text');
+  String remindSaid(String text) => _t('Remind me: {text}', {'text': text}, 'ذكّرني: $text');
 
   String bubbleLabel(String? label) => ar ? threadLabel(label) : (label ?? '');
 
   String get statementOfAccount => _('Statement of account', 'كشف الحساب');
-  String billTitle(String id) => _('Bill $id', 'فاتورة المشتريات $id');
+  String billTitle(String id) => _t('Bill {id}', {'id': id}, 'فاتورة المشتريات $id');
   String get tapToView => _('Tap to view or send', 'اضغط للعرض أو الإرسال');
   String get tapToOpen => _('Tap to open', 'اضغط للفتح');
-  String stillOwed(String amount) => _('$amount still owed', 'المتبقي $amount');
-  String creditNoteAgainst(String id, String doc, String reason) => _('Credit note $id against $doc: $reason', 'إشعار دائن $id على $doc: $reason');
-  String cancelledDoc(String doc, String reason) => _('Cancelled $doc: $reason', 'أُلغيت $doc: $reason');
+  String stillOwed(String amount) => _t('{amount} still owed', {'amount': amount}, 'المتبقي $amount');
+  String creditNoteAgainst(String id, String doc, String reason) => _t('Credit note {id} against {doc}: {reason}', {'id': id, 'doc': doc, 'reason': reason}, 'إشعار دائن $id على $doc: $reason');
+  String cancelledDoc(String doc, String reason) => _t('Cancelled {doc}: {reason}', {'doc': doc, 'reason': reason}, 'أُلغيت $doc: $reason');
   String _mode(String mode) => switch (mode) {
     'bank' => 'عبر البنك',
     'cash' => 'نقدًا',
     _ => mode,
   };
-  String receivedAgainst(String mode, String doc) => _('Received by $mode against $doc', 'مُحصّل ${_mode(mode)} عن $doc');
-  String paidAgainst(String mode, String doc) => _('Paid by $mode against $doc', 'مدفوع ${_mode(mode)} عن $doc');
-  String receivedSaid(String amount, String mode, String doc) => _('Received $amount by $mode against $doc', 'استلمت $amount ${_mode(mode)} عن $doc');
-  String paidSaid(String amount, String mode, String doc) => _('Paid $amount by $mode against $doc', 'دفعت $amount ${_mode(mode)} عن $doc');
+  String receivedAgainst(String mode, String doc) => _t('Received by {mode} against {doc}', {'mode': mode, 'doc': doc}, 'مُحصّل ${_mode(mode)} عن $doc');
+  String paidAgainst(String mode, String doc) => _t('Paid by {mode} against {doc}', {'mode': mode, 'doc': doc}, 'مدفوع ${_mode(mode)} عن $doc');
+  String receivedSaid(String amount, String mode, String doc) => _t('Received {amount} by {mode} against {doc}', {'amount': amount, 'mode': mode, 'doc': doc}, 'استلمت $amount ${_mode(mode)} عن $doc');
+  String paidSaid(String amount, String mode, String doc) => _t('Paid {amount} by {mode} against {doc}', {'amount': amount, 'mode': mode, 'doc': doc}, 'دفعت $amount ${_mode(mode)} عن $doc');
   String nothingLogged(bool sales, String name) => sales
-      ? _('Nothing logged for $name yet. Enter the sale below and you will see it before it is posted.', 'لم يُسجَّل شيء لـ$name بعد. أدخل عملية البيع أدناه وستراها قبل تسجيلها.')
-      : _('Nothing logged for $name yet. Enter the bill below and you will see it before it is posted.', 'لم يُسجَّل شيء لـ$name بعد. أدخل فاتورة المشتريات أدناه وستراها قبل تسجيلها.');
+      ? _t('Nothing logged for {name} yet. Enter the sale below and you will see it before it is posted.', {'name': name}, 'لم يُسجَّل شيء لـ$name بعد. أدخل عملية البيع أدناه وستراها قبل تسجيلها.')
+      : _t('Nothing logged for {name} yet. Enter the bill below and you will see it before it is posted.', {'name': name}, 'لم يُسجَّل شيء لـ$name بعد. أدخل فاتورة المشتريات أدناه وستراها قبل تسجيلها.');
   String documentChip(bool sales, bool again) => sales
       ? (again ? _('Another sale', 'بيع آخر') : _('Sale', 'بيع'))
       : (again ? _('Another bill', 'فاتورة مشتريات أخرى') : _('Bill', 'فاتورة مشتريات'));
@@ -574,11 +582,11 @@ class UaeStrings {
   String termsLabel(int? days) => !ar ? format.termsLabel(days) : days == null ? '' : days == 0 ? 'مستحق عند الاستلام' : 'خلال $days يومًا';
   String paymentTitle(bool sales) => sales ? _('Payment received', 'دفعة مستلمة') : _('Payment made', 'دفعة مسدّدة');
   String againstDocument(bool sales) => sales ? _('Against invoice', 'مقابل الفاتورة') : _('Against bill', 'مقابل فاتورة المشتريات');
-  String owedOn(String id, String amount) => _('$id · $amount owed', '$id · المتبقي $amount');
+  String owedOn(String id, String amount) => _t('{id} · {amount} owed', {'id': id, 'amount': amount}, '$id · المتبقي $amount');
   String amountReceivedOrPaid(bool sales) => sales ? _('Amount received', 'المبلغ المحصّل') : _('Amount paid', 'المبلغ المدفوع');
   String enterAmountReceivedOrPaid(bool sales) => sales ? _('Enter the amount received.', 'أدخل المبلغ المحصّل.') : _('Enter the amount paid.', 'أدخل المبلغ المدفوع.');
   String get cancel => _('Cancel', 'إلغاء');
-  String howLongToPay(String name) => _('How long does $name have to pay?', 'ما المهلة الممنوحة لـ$name للسداد؟');
+  String howLongToPay(String name) => _t('How long does {name} have to pay?', {'name': name}, 'ما المهلة الممنوحة لـ$name للسداد؟');
   String get termsNote => _('New invoices get a due date. Invoices already raised keep theirs.', 'تحصل الفواتير الجديدة على تاريخ استحقاق، وتحتفظ الفواتير الصادرة بتواريخها.');
   String get postedDot => _('Posted.', 'تم التسجيل.');
   String dueWords(String dueDate, DateTime today, {required bool open}) {
@@ -599,7 +607,7 @@ class UaeStrings {
     _ => _('Waiting for your accountant', 'بانتظار محاسبك'),
   };
   String get askYourAccountant => _('Ask your accountant', 'اسأل محاسبك');
-  String askAbout(String about) => _('About $about. MyCA attaches the details.', 'بخصوص $about. يرفق MyCA التفاصيل.');
+  String askAbout(String about) => _t('About {about}. MyCA attaches the details.', {'about': about}, 'بخصوص $about. يرفق MyCA التفاصيل.');
   String get yourQuestion => _('Your question', 'سؤالك');
   String get attaching => _('Attaching…', 'جارٍ الإرفاق…');
   String get attachFile => _('Attach a file', 'أرفق ملفًا');
@@ -607,8 +615,8 @@ class UaeStrings {
   String get writeQuestion => _('Write what you want to ask.', 'اكتب ما تريد أن تسأل عنه.');
   String get sendToAccountant => _('Send to your accountant?', 'أترسله إلى محاسبك؟');
   String get notSent => _('Not sent.', 'لم يُرسل.');
-  String attached(String names) => _('Attached: $names', 'المرفقات: $names');
-  String replyOn(String date) => _('Reply · $date', 'رد · $date');
+  String attached(String names) => _t('Attached: {names}', {'names': names}, 'المرفقات: $names');
+  String replyOn(String date) => _t('Reply · {date}', {'date': date}, 'رد · $date');
   String get copyToSend => _('Copy to send', 'انسخ للإرسال');
   String get close => _('Close', 'إغلاق');
   String get reply => _('Reply', 'رد');
@@ -631,7 +639,7 @@ class UaeStrings {
   String get askMyCa => _('Ask MyCA', 'اسأل MyCA');
   String get messageMyCa => _('Message MyCA', 'راسل MyCA');
 
-  String signedInAs(String name) => _('Signed in as $name', 'تم تسجيل الدخول باسم $name');
+  String signedInAs(String name) => _t('Signed in as {name}', {'name': name}, 'تم تسجيل الدخول باسم $name');
   String get people => _('People', 'الأشخاص');
   String get peopleSubtitle => _('Who can work in these books', 'من يمكنه العمل في هذه الدفاتر');
   String get inviteOwner => _('Invite a business owner', 'ادعُ صاحب منشأة');
@@ -662,16 +670,16 @@ class UaeStrings {
   String get useThem => _('Use them', 'استخدمها');
   String get forecastFailed => _('The forecast could not be worked out.', 'تعذّر احتساب التوقعات.');
   String get bankAndCashNow => _('BANK AND CASH NOW', 'البنك والنقد الآن');
-  String bankAndCash(String bank, String cash) => _('Bank $bank · cash in hand $cash', 'البنك $bank · النقد في الصندوق $cash');
-  String fromBalanceOn(String date) => _('From the balance you gave on $date, with what was recorded since.', 'من الرصيد الذي أدخلته في $date، مع ما سُجّل بعده.');
+  String bankAndCash(String bank, String cash) => _t('Bank {bank} · cash in hand {cash}', {'bank': bank, 'cash': cash}, 'البنك $bank · النقد في الصندوق $cash');
+  String fromBalanceOn(String date) => _t('From the balance you gave on {date}, with what was recorded since.', {'date': date}, 'من الرصيد الذي أدخلته في $date، مع ما سُجّل بعده.');
   String get updateBalance => _('Update balance', 'حدّث الرصيد');
   String get tellBalance => _('Tell MyCA your balance today', 'أخبر MyCA برصيدك اليوم');
-  String nextDays(int days) => _('NEXT $days DAYS', 'الأيام الـ$days القادمة');
+  String nextDays(int days) => _t('NEXT {days} DAYS', {'days': days}, 'الأيام الـ$days القادمة');
   String get comingIn => _('Coming in', 'الوارد');
   String get goingOut => _('Going out', 'الصادر');
-  String onDate(String date) => _('On $date', 'في $date');
-  String lowestOn(String date) => _('Lowest, on $date', 'الأدنى، في $date');
-  String overdueNotCounted(String amount) => _('Overdue and not counted: $amount. MyCA cannot tell when it will be paid.', 'متأخر وغير محتسب: $amount. لا يستطيع MyCA معرفة موعد سداده.');
+  String onDate(String date) => _t('On {date}', {'date': date}, 'في $date');
+  String lowestOn(String date) => _t('Lowest, on {date}', {'date': date}, 'الأدنى، في $date');
+  String overdueNotCounted(String amount) => _t('Overdue and not counted: {amount}. MyCA cannot tell when it will be paid.', {'amount': amount}, 'متأخر وغير محتسب: $amount. لا يستطيع MyCA معرفة موعد سداده.');
   String get canIAfford => _('CAN I AFFORD IT?', 'هل أستطيع تحمّل التكلفة؟');
   String get amountToSpend => _('Amount to spend', 'المبلغ المراد إنفاقه');
   String cashWhen(String key) => switch (key) {
@@ -792,7 +800,7 @@ class UaeStrings {
   String get interestEarned => _('Interest earned', 'فائدة مكتسبة');
   String get transferEllipsis => _('Transfer…', 'تحويل…');
   String get ignore => _('Ignore', 'استبعد');
-  String rememberFor(String hint) => hint.isEmpty ? _('Remember this for similar lines', 'تذكّر هذا للأسطر المشابهة') : _('Remember this for $hint', 'تذكّر هذا لـ$hint');
+  String rememberFor(String hint) => hint.isEmpty ? _('Remember this for similar lines', 'تذكّر هذا للأسطر المشابهة') : _t('Remember this for {hint}', {'hint': hint}, 'تذكّر هذا لـ$hint');
   String get leaveLineOut => _('Leave this line out of the books', 'استبعد هذا السطر من الدفاتر');
   String get staysIgnored => _('It stays on the statement as ignored, so the difference still ties.', 'يبقى في الكشف مستبعدًا، فيظل الفرق متطابقًا.');
   String get whyOptional => _('Why (optional)', 'السبب (اختياري)');
@@ -808,20 +816,20 @@ class UaeStrings {
   String get dateHint => _('Year, month and day, like 2026-11-03', 'السنة والشهر واليوم، مثل 2026-11-03');
   String get referenceOptional => _('Reference (optional)', 'المرجع (اختياري)');
   String get referenceHint => _('The UTR or cheque number, if you have it', 'رقم المرجع أو الشيك إن وُجد');
-  String transferSaid(String amount, String from, String to) => _('Transfer $amount from $from to $to', 'تحويل $amount من $from إلى $to');
+  String transferSaid(String amount, String from, String to) => _t('Transfer {amount} from {from} to {to}', {'amount': amount, 'from': from, 'to': to}, 'تحويل $amount من $from إلى $to');
   String get bookChargesSaid => _('Book the bank charges and interest', 'سجّل الرسوم البنكية والفوائد');
-  String removeRuleSaid(String id) => _('Remove the rule $id', 'احذف القاعدة $id');
-  String ruleSaid(String words) => _('Rule: $words', 'قاعدة: $words');
-  String addAccountSaid(String label) => _('Add the account $label', 'أضف الحساب $label');
-  String unlinkSaid(String id) => _('Unlink $id', 'ألغِ ربط $id');
+  String removeRuleSaid(String id) => _t('Remove the rule {id}', {'id': id}, 'احذف القاعدة $id');
+  String ruleSaid(String words) => _t('Rule: {words}', {'words': words}, 'قاعدة: $words');
+  String addAccountSaid(String label) => _t('Add the account {label}', {'label': label}, 'أضف الحساب $label');
+  String unlinkSaid(String id) => _t('Unlink {id}', {'id': id}, 'ألغِ ربط $id');
   String bankMatchSaid(String kind, {String party = '', String head = '', String account = '', bool isIn = true, String note = ''}) => switch (kind) {
-    'receipt' => _('Receipt from $party', 'تحصيل من $party'),
-    'payment' => _('Payment to $party', 'دفعة إلى $party'),
-    'expense' => _('Expense under $head', 'مصروف تحت $head'),
+    'receipt' => _t('Receipt from {party}', {'party': party}, 'تحصيل من $party'),
+    'payment' => _t('Payment to {party}', {'party': party}, 'دفعة إلى $party'),
+    'expense' => _t('Expense under {head}', {'head': head}, 'مصروف تحت $head'),
     'charge' => bankCharge,
     'interest' => interestEarned,
     'transfer' => _('Transfer ${isIn ? 'from' : 'to'} $account', 'تحويل ${isIn ? 'من' : 'إلى'} $account'),
-    'ignore' => note.isEmpty ? ignore : _('Ignore: $note', 'استبعد: $note'),
+    'ignore' => note.isEmpty ? ignore : _t('Ignore: {note}', {'note': note}, 'استبعد: $note'),
     _ => kind,
   };
   String get whichHeadIsIt => _('Which head is it?', 'تحت أي بند هو؟');
@@ -887,14 +895,14 @@ class UaeStrings {
 
   String get excelNotPrepared => _('The Excel file could not be prepared.', 'تعذّر إعداد ملف Excel.');
   String get excelNotRead => _('The Excel file could not be read.', 'تعذّرت قراءة ملف Excel.');
-  String excelSaved(String name) => _('Saved $name. Open it in Excel or send it to your accountant.', 'تم حفظ $name. افتحه في Excel أو أرسله إلى محاسبك.');
+  String excelSaved(String name) => _t('Saved {name}. Open it in Excel or send it to your accountant.', {'name': name}, 'تم حفظ $name. افتحه في Excel أو أرسله إلى محاسبك.');
   String get notSaved => _('Not saved.', 'لم يُحفظ.');
 
   String get reportFailed => _('The report could not be run.', 'تعذّر تشغيل التقرير.');
-  String deleteReportSaid(String name) => _('Delete the report $name', 'احذف التقرير $name');
-  String saveReportSaid(String name) => _('Save the report $name', 'احفظ التقرير $name');
-  String wasAmount(String amount) => _('was $amount', 'كان $amount');
-  String moreRows(int n) => _('$n more', 'المزيد: $n');
+  String deleteReportSaid(String name) => _t('Delete the report {name}', {'name': name}, 'احذف التقرير $name');
+  String saveReportSaid(String name) => _t('Save the report {name}', {'name': name}, 'احفظ التقرير $name');
+  String wasAmount(String amount) => _t('was {amount}', {'amount': amount}, 'كان $amount');
+  String moreRows(int n) => _t('{n} more', {'n': n}, 'المزيد: $n');
   String get excelForFullList => _('Save as Excel for the full list', 'احفظ بصيغة Excel للقائمة الكاملة');
   String get saveAReport => _('Save a report', 'احفظ تقريرًا');
   String get builtIn => _('Built-in', 'مدمجة');
@@ -902,7 +910,7 @@ class UaeStrings {
   String get auditTrailSubtitle => _('Who changed what and when, with a check for edits to the log', 'من غيّر ماذا ومتى، مع فحص لأي تعديل على السجل');
   String get noSavedReports => _('No saved reports yet. Tap + to save one: sales by customer this month, expenses by head this quarter, and so on.', 'لا توجد تقارير محفوظة بعد. اضغط + لحفظ تقرير: المبيعات حسب العميل هذا الشهر، أو المصروفات حسب البند هذا الربع، وهكذا.');
   String get yourReports => _('Your reports', 'تقاريرك');
-  String deleteNamed(String name) => _('Delete $name', 'احذف $name');
+  String deleteNamed(String name) => _t('Delete {name}', {'name': name}, 'احذف $name');
   String get what => _('What', 'ماذا');
   String get groupedBy => _('Grouped by', 'مجمّعة حسب');
   String get period => _('Period', 'الفترة');
@@ -960,7 +968,7 @@ class UaeStrings {
   String get ledgerFailsAccountant => _('The record of entries fails its integrity check. Ask your accountant before recording more.', 'سجل القيود لا يجتاز فحص السلامة. استشر محاسبك قبل تسجيل المزيد.');
   String get nothingChanged => _('Nothing changed in this period.', 'لم يتغيّر شيء في هذه الفترة.');
   String get showMore => _('Show more', 'اعرض المزيد');
-  String latestShown(int n) => _('The latest $n are shown. Save as Excel for the full list.', 'يُعرض أحدث $n. احفظ بصيغة Excel للقائمة الكاملة.');
+  String latestShown(int n) => _t('The latest {n} are shown. Save as Excel for the full list.', {'n': n}, 'يُعرض أحدث $n. احفظ بصيغة Excel للقائمة الكاملة.');
   String get auditIntro => _('Who changed what and when. Every change made through MyCA is listed, and the log is checked for edits.', 'من غيّر ماذا ومتى. يُدرج كل تغيير أُجري عبر MyCA، ويُفحص السجل بحثًا عن أي تعديل.');
   String get auditNotLoaded => _('The audit trail could not be loaded.', 'تعذّر تحميل سجل التدقيق.');
 
@@ -998,10 +1006,10 @@ class UaeStrings {
   String get undatedLeftOut => _('Some entries have no date and are left out of this period.', 'بعض القيود بلا تاريخ ومستبعدة من هذه الفترة.');
   String get doesNotBalance => _('It does not balance. Ask your accountant to look at the books.', 'الميزانية غير متوازنة. اطلب من محاسبك مراجعة الدفاتر.');
   String get doesNotTie => _('The movements do not add up to the closing balance. Ask your accountant to look.', 'الحركات لا تساوي الرصيد الختامي. اطلب من محاسبك المراجعة.');
-  String inOut(String moneyIn, String moneyOut) => _('In $moneyIn · out $moneyOut', 'وارد $moneyIn · صادر $moneyOut');
-  String chargedOrPaid(bool charged, String amount) => charged ? _('charged $amount', 'مستحق $amount') : _('paid $amount', 'مدفوع $amount');
+  String inOut(String moneyIn, String moneyOut) => _t('In {moneyIn} · out {moneyOut}', {'moneyIn': moneyIn, 'moneyOut': moneyOut}, 'وارد $moneyIn · صادر $moneyOut');
+  String chargedOrPaid(bool charged, String amount) => charged ? _t('charged {amount}', {'amount': amount}, 'مستحق $amount') : _t('paid {amount}', {'amount': amount}, 'مدفوع $amount');
   String get statementFailed => _('This statement could not be prepared.', 'تعذّر إعداد هذه القائمة.');
-  String statementSaved(String name) => _('Saved $name. Send it to your accountant or the customer.', 'تم حفظ $name. أرسله إلى محاسبك أو إلى العميل.');
+  String statementSaved(String name) => _t('Saved {name}. Send it to your accountant or the customer.', {'name': name}, 'تم حفظ $name. أرسله إلى محاسبك أو إلى العميل.');
   String get asAtEndOf => _('As at the end of', 'كما في نهاية');
   String get typeCustomerName => _('Type the customer\'s name to see their statement.', 'اكتب اسم العميل لعرض كشف حسابه.');
   String get nothingInPeriod => _('Nothing in this period', 'لا شيء في هذه الفترة');
@@ -1024,13 +1032,13 @@ class UaeStrings {
   String recurringExpenseSaid(String amount, String what, String every) => _('Expense: $amount for $what, ${every.toLowerCase()}', 'مصروف: $amount لـ$what، $every');
   String recurringSubtitle(String every, {required bool active, required String status, required String next, required int count, required String lastError}) => [
     every,
-    if (active) _('next $next', 'التالي $next') else if (status == 'ended') _('ended', 'انتهى') else _('stopped', 'متوقف'),
-    if (count > 0) _('$count made', 'المُنشأ: $count'),
-    if (lastError.isNotEmpty) _('last try failed: $lastError', 'فشلت المحاولة الأخيرة: $lastError'),
+    if (active) _t('next {next}', {'next': next}, 'التالي $next') else if (status == 'ended') _('ended', 'انتهى') else _('stopped', 'متوقف'),
+    if (count > 0) _t('{count} made', {'count': count}, 'المُنشأ: $count'),
+    if (lastError.isNotEmpty) _t('last try failed: {lastError}', {'lastError': lastError}, 'فشلت المحاولة الأخيرة: $lastError'),
   ].join(' · ');
   String get recurringIntro => _('Invoices, bills and expenses that repeat are posted on their dates by the daily run, exactly as if you entered them. Set a repeating invoice or bill from the customer or supplier page.', 'تُسجَّل الفواتير والمصروفات المتكررة في مواعيدها عبر التشغيل اليومي، كما لو أدخلتها بنفسك. اضبط فاتورة متكررة من صفحة العميل أو المورّد.');
   String get nothingRepeats => _('Nothing repeats yet.', 'لا شيء يتكرر بعد.');
-  String stopSaid(String id) => _('Stop $id', 'أوقف $id');
+  String stopSaid(String id) => _t('Stop {id}', {'id': id}, 'أوقف $id');
   String get stop => _('Stop', 'أوقف');
   String get addRepeatingExpense => _('Add a repeating expense', 'أضف مصروفًا متكررًا');
   String get whatItIsFor => _('What it is for', 'الغرض منه');
@@ -1040,7 +1048,7 @@ class UaeStrings {
   String get repeatHint => _('From today, paid from the bank', 'من اليوم، يُدفع من البنك');
   String get booksCheckTitle => _('Your books check', 'فحص دفاترك');
   String get checkFailed => _('The check could not be run.', 'تعذّر إجراء الفحص.');
-  String asOf(String date) => _('AS OF $date', 'حتى $date');
+  String asOf(String date) => _t('AS OF {date}', {'date': date}, 'حتى $date');
   String get workedOutNothingChanged => _('Everything below is worked out from your books. Nothing has been changed or filed.', 'كل ما يلي مستخلص من دفاترك. لم يُغيَّر أو يُقدَّم أي شيء.');
 
   String accountName(String name) => !ar ? name : switch (name) {
