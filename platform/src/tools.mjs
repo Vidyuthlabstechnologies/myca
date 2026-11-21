@@ -916,7 +916,7 @@ export const TOOLS = [
   {
     name: 'add_us_tax_form',
     title: 'Add a US tax form',
-    description: 'Add a W-2, 1099, SSA-1099 or 1098 to a personal Form 1040, with the payer, whose form it is (taxpayer or spouse) and the box amounts keyed as us_form_kinds lists them. US only.',
+    description: 'Add a W-2, 1099, SSA-1099, 1098 or a child and dependent care provider (kind 2441-PROVIDER, for Form 2441) to a personal Form 1040, with the payer, whose form it is (taxpayer or spouse) and the box amounts keyed as us_form_kinds lists them. US only.',
     args: ['taxYear', 'kind', 'owner', 'payer', 'payerTin', 'fields', 'source', 'documentId'],
     run: (state, args = {}) => addUsTaxForm(state, args),
   },
