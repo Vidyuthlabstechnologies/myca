@@ -2303,6 +2303,8 @@ export const TOOLS = [
     description: 'Answer an order request from the online store: accept it, which makes a quote for the buyer at the items\' saved prices and GST rates, decline it, or mark it fulfilled. Owner only.',
     args: ['id', 'action'],
     run: (state, args = {}) => storeOrderAction(state, args),
+  },
+  {
     name: 'loyalty_settings',
     title: 'Loyalty points settings',
     description: 'Turn customer loyalty points on or off and set the rules: points earned per rupees of the bill (on the value before GST or the total), the value of one point, the fewest points used at a time, the most of a bill points can pay (percent of the value before GST) and the months until points expire (0 never). Owner only. Indian shops.',
