@@ -1,5 +1,6 @@
 import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../api/models.dart';
 import '../../api/myca_api.dart';
@@ -138,8 +139,24 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
       _city.text = _text(address['city']);
       _zip.text = _text(address['zip']);
       _state = _text(address['state']).isEmpty ? null : _text(address['state']);
+      _saved = _snapshot();
     });
   }
+
+  String? _saved;
+  bool _leaving = false;
+
+  List<TextEditingController> get _typedControllers => [
+        for (final p in [_you, _spouse, ..._dependents]) ...[p.first, p.last, p.ssn, p.birth, p.occupation, p.months],
+        _line1,
+        _line2,
+        _city,
+        _zip,
+      ];
+
+  String _snapshot() => typedSnapshot(_typedControllers, [_status, _state, _dependents.length, for (final d in _dependents) d.relationship]);
+
+  bool get _dirty => !_leaving && _saved != null && _snapshot() != _saved;
 
   @override
   void dispose() {
@@ -197,6 +214,7 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
         for (final p in [_you, _spouse, ..._dependents]) {
           p.ssn.clear();
         }
+        _leaving = true;
         Navigator.of(context).pop();
         return;
       }
@@ -248,6 +266,7 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
         key: Key('usProfile.$who.months'),
         controller: p.months,
         keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(2)],
         decoration: InputDecoration(labelText: 'Months they lived with you in ${widget.taxYear}', errorText: p.errors['months']),
       ),
     ],
@@ -256,7 +275,10 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return Scaffold(
+    return UsLeaveGuard(
+      dirty: () => _dirty,
+      listenable: Listenable.merge(_typedControllers),
+      child: Scaffold(
       appBar: AppBar(title: const Text('About you')),
       body: SafeArea(
         child: FutureBuilder<void>(
@@ -310,7 +332,7 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
                     child: Text(stateReturnNote, key: const Key('usProfile.stateNote'), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: context.myca.muted)),
                   ),
                 const SizedBox(height: 12),
-                TextField(key: const Key('usProfile.zip'), controller: _zip, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'ZIP code', errorText: _errors['zip'])),
+                TextField(key: const Key('usProfile.zip'), controller: _zip, keyboardType: TextInputType.number, inputFormatters: [ZipInputFormatter()], autofillHints: const [AutofillHints.postalCode], decoration: InputDecoration(labelText: 'ZIP code', errorText: _errors['zip'])),
                 const SizedBox(height: 22),
                 const SectionLabel('Dependents'),
                 Text('Children or relatives you support. Each needs a Social Security number.', style: text.bodySmall),
@@ -351,6 +373,7 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
             );
           },
         ),
+      ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import { usBrokerageCsv } from './us-brokerage-import.mjs';
 import { usRefundBoost } from './us-refund-boost.mjs';
 import { usStateTax } from './us-state-tax.mjs';
 import { importUsPriorYear } from './us-prior-year.mjs';
+import { usAmendedReturn, startUsAmendedReturn, setUsAmendedReturn } from './us-amended.mjs';
 import { tally, bank, gstin, filing, audit } from './sprint-load.mjs';
 import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
 import { importSettlement, settlementStatus } from './settlements.mjs';
@@ -847,9 +848,30 @@ export const TOOLS = [
   {
     name: 'import_us_prior_year',
     title: 'Bring last year into this US return',
-    description: 'Starts a personal Form 1040 from last year: from the MyCA return of the year before it copies the filing status, people, sealed SSNs, dependents and address, and fills last year\'s AGI, total tax, the refund applied to this year and capital loss carryovers; or takes those figures as typed from a return prepared elsewhere (agi, totalTax, overpaymentApplied, shortTermLossCarryover, longTermLossCarryover). Lists the forms to expect again from last year\'s payers. Answers already given are kept unless overwrite is true. US only.',
-    args: ['taxYear', 'figures', 'copyProfile', 'overwrite'],
+    description: 'Starts a personal Form 1040 from last year: from the MyCA return of the year before it copies the filing status, people, sealed SSNs, dependents and address, and fills last year\'s AGI, total tax, the refund applied to this year, capital loss carryovers the Form 8995 qualified business and REIT/PTP loss carryforwards and the traditional IRA basis (Form 8606 line 14); or reads them from last year\'s Form 1040 PDF made by other tax software or a preparer (documentSha256 from /api/upload: the IRS form fields, or the printed lines, with Schedule D and the Capital Loss Carryover Worksheet when included; each figure says where it was found and how sure the reading is, and the PDF\'s tax year, name and SSN last four are checked against this return), or takes those figures as typed from a return prepared elsewhere (agi, totalTax, overpaymentApplied, shortTermLossCarryover, longTermLossCarryover, qbiLossCarryforward, qbiReitPtpLossCarryforward, iraBasis), typed figures winning over the PDF. Lists the forms to expect again from last year\'s payers. Answers already given are kept unless overwrite is true. US only.',
+    args: ['taxYear', 'documentSha256', 'figures', 'copyProfile', 'overwrite'],
     run: (state, args = {}) => importUsPriorYear(state, args),
+  },
+  {
+    name: 'us_amended_return',
+    title: 'See the US amended return (Form 1040-X)',
+    description: 'The Form 1040-X for a started amendment: lines 1 to 23 with column A (the original return), B (the net change) and C (the corrected return computed as usual), the refund or amount owed after the original refund and payments, Part I dependents when they changed, the Part II explanation, the refund-claim deadline (3 years from filing or 2 years from paying) and whether the IRS takes it electronically. Says when no amendment is started. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usAmendedReturn(state, args),
+  },
+  {
+    name: 'start_us_amended_return',
+    title: 'Start a US amended return (Form 1040-X)',
+    description: 'Starts amending a filed personal Form 1040: keeps the original figures as column A, from the return MyCA filed and the IRS accepted, or as typed from a return filed elsewhere (original: agi, deduction, qbiDeduction, schedule1ADeduction, taxableIncome, tax, credits, otherTaxes, totalTax, withholding, estimatedPayments, eic, refundableCredits, refund, appliedToNextYear, amountOwed; originalFilingStatus; originalDependents). Then the return is changed as usual and us_amended_return shows the 1040-X. Also takes the explanation, original filing date, last payment date, amount paid with the original and the part of a new refund to apply to next year. restart starts over. US only.',
+    args: ['taxYear', 'original', 'originalFilingStatus', 'originalDependents', 'explanation', 'originalFiledOn', 'lastPaymentOn', 'paidWithReturn', 'applyToNextYear', 'originalPaper', 'restart'],
+    run: (state, args = {}) => startUsAmendedReturn(state, args),
+  },
+  {
+    name: 'set_us_amended_return',
+    title: 'Update the US amended return (Form 1040-X)',
+    description: 'Changes a started Form 1040-X: the Part II explanation of changes, the date the original was filed, the date tax was last paid, the amount paid with or after the original return (line 16), the part of a new refund applied to next year (line 23), whether the original was filed on paper, and for a return filed outside MyCA the original figures, filing status and dependents. null clears a setting. US only.',
+    args: ['taxYear', 'original', 'originalFilingStatus', 'originalDependents', 'explanation', 'originalFiledOn', 'lastPaymentOn', 'paidWithReturn', 'applyToNextYear', 'originalPaper'],
+    run: (state, args = {}) => setUsAmendedReturn(state, args),
   },
   {
     name: 'us_refund_boost',
@@ -882,7 +904,7 @@ export const TOOLS = [
   {
     name: 'us_form_kinds',
     title: 'US tax form kinds',
-    description: 'The tax forms a personal return accepts (W-2, 1099-INT, 1099-DIV, 1099-B, 1099-NEC, 1099-MISC, 1099-G, 1099-R, SSA-1099, 1098, 1098-E, 1098-T), each with its boxes as field keys, labels and types. US only. Read-only.',
+    description: 'The tax forms a personal return accepts (W-2, 1099-INT, 1099-DIV, 1099-B, 1099-NEC, 1099-MISC, 1099-G, 1099-R, SSA-1099, 1098, 1098-E, 1098-T, 1095-A, 1099-SA, 5498-SA), each with its boxes as field keys, labels and types. US only. Read-only.',
     args: [],
     run: () => usFormKinds(),
   },
@@ -917,7 +939,7 @@ export const TOOLS = [
   {
     name: 'add_us_tax_form',
     title: 'Add a US tax form',
-    description: 'Add a W-2, 1099, SSA-1099 or 1098 to a personal Form 1040, with the payer, whose form it is (taxpayer or spouse) and the box amounts keyed as us_form_kinds lists them. US only.',
+    description: 'Add a W-2, 1099, SSA-1099, 1098 or a child and dependent care provider (kind 2441-PROVIDER, for Form 2441), an energy improvement or clean energy item installed on the home in 2025 (kind 5695-ITEM, for Form 5695) or a rental property or royalty source (kind Rental property, its address as the payer, for Schedule E) to a personal Form 1040, with the payer, whose form it is (taxpayer or spouse) and the box amounts keyed as us_form_kinds lists them. US only.',
     args: ['taxYear', 'kind', 'owner', 'payer', 'payerTin', 'fields', 'source', 'documentId'],
     run: (state, args = {}) => addUsTaxForm(state, args),
   },
@@ -1196,7 +1218,7 @@ export const TOOLS = [
       const docs = documentsForPeriod(state, args.period, '', regd.gstin);
       if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
       const salesText = invoicesToSalesCsv(docs.invoices);
-      const result = filingPrep({ salesText, supplierState: regd.registration.state, fy: state.company.fy });
+      const result = filingPrep({ salesText, supplierState: regd.registration.state });
       return ok({ period: docs.period, periods: docs.periods, gstin: regd.gstin, salesText, gstr1: result.gstr1, eInvoice: result.summary });
     },
   },
@@ -1651,7 +1673,7 @@ export const TOOLS = [
       if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
       const salesText = invoicesToSalesCsv(docs.invoices);
       const inwardText = purchasesToInwardCsv(docs.purchases);
-      const filed = filingPrep({ salesText, inwardText, supplierState: regd.registration.state, fy: state.company.fy });
+      const filed = filingPrep({ salesText, inwardText, supplierState: regd.registration.state });
       const payment = paymentFor(state, docs.period, { gstin: regd.gstin });
       if (!payment.ok) return fail(payment.error, payment);
       return ok({
@@ -2028,12 +2050,12 @@ export const TOOLS = [
           }
         }
       }
-      const result = filingPrep({
-        aisText: ais,
-        tds26Text: tds26,
-        incomeText: income,
-        fy: state.company.fy,
-      });
+      let result;
+      try {
+        result = filingPrep({ aisText: ais, tds26Text: tds26, incomeText: income, fy: state.company.fy });
+      } catch {
+        return fail('NO_RULES_FOR_FY', { fy: state.company.fy, hint: 'No income-tax rules are recorded for this financial year yet; nothing was computed.' });
+      }
       return ok(result.itr);
     },
   },
@@ -2053,7 +2075,12 @@ export const TOOLS = [
           }
         }
       }
-      const result = filingPrep({ paymentsText: payments, fy: state.company.fy });
+      let result;
+      try {
+        result = filingPrep(payments ? { paymentsText: payments, fy: state.company.fy } : {});
+      } catch {
+        return fail('NO_RULES_FOR_FY', { fy: state.company.fy, hint: 'No TDS rules are recorded for this financial year yet; nothing was computed.' });
+      }
       return ok(result.tds);
     },
   },

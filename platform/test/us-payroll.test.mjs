@@ -1,10 +1,12 @@
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createState } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
 import { chat } from '../src/router.mjs';
 import { listAccounts, trialBalance } from '../src/ledger.mjs';
 import { planUsFromChat } from '../src/us-intent.mjs';
+
+mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 15, 12).getTime() });
 
 const acc = (state, code) => listAccounts(state.ledger).find((a) => a.code === code);
 

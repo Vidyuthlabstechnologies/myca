@@ -1564,7 +1564,7 @@ class SampleBooksApi implements MycaApi {
   }
 
   @override
-  Future<ChatReply> chat(String message) async {
+  Future<ChatReply> chat(String message, {String lang = 'en'}) async {
     sent.add(message);
     return ChatReply.fromJson({
       'reply': 'Customers owe you ₹3,77,600.00 in all: Gujarat Weaves ₹3,77,600.00. Nothing was recorded.',

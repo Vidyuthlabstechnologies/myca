@@ -4,6 +4,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../theme.dart';
 import '../uae/uae_edition.dart';
 import '../uae/uae_strings.dart';
@@ -32,6 +33,38 @@ const periodLabels = {
   StatementPeriod.lastYear: 'Last year',
   StatementPeriod.thisMonth: 'This month',
   StatementPeriod.lastMonth: 'Last month',
+};
+
+String statementWords(String lang, String en) => switch (en) {
+  'Profit and loss' => inLine(lang, 'Profit and loss'),
+  'Balance sheet' => inLine(lang, 'Balance sheet'),
+  'Cash flow' => inLine(lang, 'Cash flow'),
+  'Customer statement' => inLine(lang, 'Customer statement'),
+  'This year' => inLine(lang, 'This year'),
+  'Last year' => inLine(lang, 'Last year'),
+  'This month' => inLine(lang, 'This month'),
+  'Last month' => inLine(lang, 'Last month'),
+  'Income' => inLine(lang, 'Income'),
+  'Expenses' => inLine(lang, 'Expenses'),
+  'Result' => inLine(lang, 'Result'),
+  'Net profit' => inLine(lang, 'Net profit'),
+  'Net loss' => inLine(lang, 'Net loss'),
+  'Total' => inLine(lang, 'Total'),
+  'Assets' => inLine(lang, 'Assets'),
+  'Liabilities' => inLine(lang, 'Liabilities'),
+  'Equity' => inLine(lang, 'Equity'),
+  'At the start' => inLine(lang, 'At the start'),
+  'Cash and bank' => inLine(lang, 'Cash and bank'),
+  'From running the business' => inLine(lang, 'From running the business'),
+  'Assets and deposits' => inLine(lang, 'Assets and deposits'),
+  'Owner' => inLine(lang, 'Owner'),
+  'At the end' => inLine(lang, 'At the end'),
+  'Opening' => inLine(lang, 'Opening'),
+  'Balance at the start' => inLine(lang, 'Balance at the start'),
+  'Entries' => inLine(lang, 'Entries'),
+  'Closing' => inLine(lang, 'Closing'),
+  'Balance at the end' => inLine(lang, 'Balance at the end'),
+  _ => en,
 };
 
 typedef DateSpan = ({String from, String to});
@@ -92,9 +125,9 @@ class StatementView {
     for (final row in _rows(value)) StatementLine(s.accountName(row['account'] as String? ?? ''), row['amount'] as num? ?? 0),
   ];
 
-  static StatementView? fromTool(StatementKind kind, Object? json, [UaeStrings? ae]) {
-    final s = ae ?? const UaeStrings(false);
-    String t(String en) => s.statementTitle(en);
+  static StatementView? fromTool(StatementKind kind, Object? json, [UaeStrings? ae, String lang = 'en']) {
+    final s = ae ?? UaeStrings(false, india: lang);
+    String t(String en) => s.ar ? s.statementTitle(en) : statementWords(s.india, en);
     final data = toolData(json);
     if (data.isEmpty) return null;
     final fileName = data['fileName'] as String? ?? 'statement.csv';
@@ -124,7 +157,7 @@ class StatementView {
             StatementSection(t('Liabilities'), _accounts(data['liabilities'], s), total: data['totalLiabilities'] as num?, totalLabel: t('Total')),
             StatementSection(t('Equity'), _accounts(data['equity'], s), total: data['totalEquity'] as num?, totalLabel: t('Total')),
           ],
-          warning: data['balanced'] == false ? (ae != null ? ae.doesNotBalance : 'It does not balance. Ask your CA to look at the books.') : '',
+          warning: data['balanced'] == false ? (ae != null ? ae.doesNotBalance : inLine(lang, 'It does not balance. Ask your CA to look at the books.')) : '',
         );
       case StatementKind.cashFlow:
         List<StatementLine> flows(Object? section) => [
@@ -143,7 +176,7 @@ class StatementView {
             if (flows(data['financing']).isNotEmpty) StatementSection(t('Owner'), flows(data['financing']), total: net(data['financing']), totalLabel: t('Total')),
             StatementSection(t('At the end'), [StatementLine(t('Cash and bank'), data['closing'] as num? ?? 0)]),
           ],
-          warning: data['ties'] == false ? (ae != null ? ae.doesNotTie : 'The movements do not add up to the closing balance. Ask your CA to look.') : '',
+          warning: data['ties'] == false ? (ae != null ? ae.doesNotTie : inLine(lang, 'The movements do not add up to the closing balance. Ask your CA to look.')) : '',
         );
       case StatementKind.customer:
         return StatementView(
@@ -215,7 +248,7 @@ class _StatementsScreenState extends State<StatementsScreen> {
     try {
       final json = await api.query(_tools[_kind]!, args);
       if (!mounted) return null;
-      final view = StatementView.fromTool(_kind, json, uaeEdition(context) ? UaeStrings.of(context) : null);
+      final view = StatementView.fromTool(_kind, json, uaeEdition(context) ? UaeStrings.of(context) : null, indiaLang(context));
       if (view == null && json is Map) _error = (json['hint'] as String?) ?? UaeStrings.of(context).statementFailed;
       return view;
     } on MycaApiException catch (err) {
@@ -235,7 +268,7 @@ class _StatementsScreenState extends State<StatementsScreen> {
     final saved = await AppScope.of(context).saveTextFile(view.fileName, view.csv);
     if (!mounted) return;
     final ae = uaeEdition(context) ? UaeStrings.of(context) : null;
-    setState(() => _note = ae != null ? (saved ? ae.statementSaved(view.fileName) : ae.notSaved) : saved ? 'Saved ${view.fileName}. Send it to your CA or the customer.' : 'Not saved.');
+    setState(() => _note = ae != null ? (saved ? ae.statementSaved(view.fileName) : ae.notSaved) : saved ? inFormat(context, 'Saved {file}. Send it to your CA or the customer.', {'file': view.fileName}) : inText(context, 'Not saved.'));
   }
 
   @override
@@ -253,7 +286,7 @@ class _StatementsScreenState extends State<StatementsScreen> {
             children: [
               for (final kind in StatementKind.values)
                 ChoiceChip(
-                  label: Text(s.statementTitle(statementTitles[kind]!)),
+                  label: Text(s.ar ? s.statementTitle(statementTitles[kind]!) : statementWords(indiaLang(context), statementTitles[kind]!)),
                   selected: _kind == kind,
                   onSelected: (_) {
                     _kind = kind;
@@ -273,7 +306,7 @@ class _StatementsScreenState extends State<StatementsScreen> {
             isExpanded: true,
             initialValue: _period,
             decoration: InputDecoration(labelText: _kind == StatementKind.balanceSheet ? s.asAtEndOf : s.period),
-            items: [for (final p in StatementPeriod.values) DropdownMenuItem(value: p, child: Text(s.statementTitle(periodLabels[p]!), overflow: TextOverflow.ellipsis))],
+            items: [for (final p in StatementPeriod.values) DropdownMenuItem(value: p, child: Text(s.ar ? s.statementTitle(periodLabels[p]!) : statementWords(indiaLang(context), periodLabels[p]!), overflow: TextOverflow.ellipsis))],
             onChanged: (p) {
               if (p == null) return;
               _period = p;

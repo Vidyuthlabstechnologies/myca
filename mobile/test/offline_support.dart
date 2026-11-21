@@ -68,7 +68,7 @@ class OfflineServer implements MycaApi {
   Future<void> signOut() async {}
 
   @override
-  Future<ChatReply> chat(String message) async {
+  Future<ChatReply> chat(String message, {String lang = 'en'}) async {
     _check();
     return ChatReply.fromJson({'reply': 'ok'});
   }

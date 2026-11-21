@@ -148,3 +148,64 @@ String dollarsTyped(Object? value) {
   if (n == null) return '';
   return n == n.roundToDouble() ? n.round().toString() : n.toStringAsFixed(2);
 }
+
+class EinInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final cut = digits.length > 9 ? digits.substring(0, 9) : digits;
+    final text = cut.length <= 2 ? cut : '${cut.substring(0, 2)}-${cut.substring(2)}';
+    return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
+  }
+}
+
+class ZipInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final cut = digits.length > 9 ? digits.substring(0, 9) : digits;
+    final text = cut.length <= 5 ? cut : '${cut.substring(0, 5)}-${cut.substring(5)}';
+    return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
+  }
+}
+
+String typedSnapshot(Iterable<TextEditingController> controllers, [Iterable<Object?> extra = const []]) =>
+    [for (final c in controllers) c.text, for (final e in extra) '$e'].join('\u0000');
+
+class UsLeaveGuard extends StatelessWidget {
+  const UsLeaveGuard({super.key, required this.dirty, required this.listenable, required this.child});
+
+  final bool Function() dirty;
+  final Listenable listenable;
+  final Widget child;
+
+  Future<void> _ask(BuildContext context) async {
+    final navigator = Navigator.of(context);
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Leave without saving?'),
+        content: const Text('What you typed on this screen is not saved yet.'),
+        actions: [
+          TextButton(key: const Key('usLeave.stay'), onPressed: () => Navigator.of(dialog).pop(false), child: const Text('Keep editing')),
+          TextButton(key: const Key('usLeave.leave'), onPressed: () => Navigator.of(dialog).pop(true), child: const Text('Leave')),
+        ],
+      ),
+    );
+    if (leave == true) navigator.pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: listenable,
+      builder: (context, _) => PopScope<Object?>(
+        canPop: !dirty(),
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _ask(context);
+        },
+        child: child,
+      ),
+    );
+  }
+}

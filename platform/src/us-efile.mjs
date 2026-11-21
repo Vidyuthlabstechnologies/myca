@@ -7,7 +7,8 @@ import { buildMefSubmission, makeSubmissionId, returnDigest, routingNumberValid 
 import { simulateAcknowledgement } from './us-mef-sim.mjs';
 import { irsMefSettings, irsMefMissing } from './us-mef-settings.mjs';
 import { transmissionZip } from './us-mef-zip.mjs';
-import { usReturnRecord } from './us-return.mjs';
+import { importedPriorYear } from './us-return.mjs';
+import { figuresOf1040 } from './us-1040x.mjs';
 import { efileRoute, partnerMode, partnerSetup, startPartnerFiling } from './us-filing-partner.mjs';
 
 const PIN = /^\d{5}$/;
@@ -95,10 +96,6 @@ function ipPinOf(args, who) {
   return who === 'taxpayer' ? value : args.spouseIdentityProtectionPin;
 }
 
-function importedPriorYearAgi(state, taxYear) {
-  const value = usReturnRecord(state, String(taxYear))?.answers?.priorYearAgi;
-  return Number.isFinite(Number(value)) && value !== '' && value != null ? Math.round(Number(value)) : undefined;
-}
 
 function signer(args, who, problems, importedAgi) {
   const pin = String(args[`${who}Pin`] ?? '');
@@ -198,8 +195,9 @@ export async function signUsReturn(state, args = {}, actor, options = {}) {
   if (!loaded.ok) return loaded;
   const computed = loaded.data;
   const problems = [];
-  const signature = { taxpayer: signer(args, 'taxpayer', problems, importedPriorYearAgi(state, taxYear)), date: options.today || new Date().toISOString().slice(0, 10) };
-  if (computed.filingStatus === 'mfj') signature.spouse = signer(args, 'spouse', problems);
+  const imported = importedPriorYear(state, taxYear);
+  const signature = { taxpayer: signer(args, 'taxpayer', problems, imported?.agi), date: options.today || new Date().toISOString().slice(0, 10) };
+  if (computed.filingStatus === 'mfj') signature.spouse = signer(args, 'spouse', problems, imported?.joint ? imported.agi : undefined);
   const { refund, payment } = moneyPlan(args, computed.lines, problems);
   if (problems.length) return fail('SIGNATURE_INVALID', { problems });
   const withRefund = { ...computed, refund };
@@ -278,7 +276,7 @@ export async function fileUsReturn(state, args = {}, actor, options = {}) {
     ack = simulateAcknowledgement(built, { acceptedSsns, receivedAt: nowIso });
   }
   book.submissionSeq = sequence;
-  const submission = { submissionId, taxYear, mode, transport, submittedAt: nowIso, xmlSha256: built.xmlSha256, returnHash: entry.signature.returnHash, documentCount: built.documentCount, status: 'submitted', ack: null };
+  const submission = { submissionId, taxYear, mode, transport, submittedAt: nowIso, xmlSha256: built.xmlSha256, returnHash: entry.signature.returnHash, documentCount: built.documentCount, status: 'submitted', ack: null, figures: figuresOf1040(computed) };
   if (ack) applyAck(submission, ack);
   const stored = book.returns[String(taxYear)];
   stored.submissions = [...(stored.submissions || []), submission];
@@ -293,7 +291,7 @@ async function filePartner(state, taxYear, args, actor, options) {
   const loaded = await computedReturn(state, taxYear, options);
   if (!loaded.ok) return loaded;
   const contact = args.contact && typeof args.contact === 'object' ? { email: String(args.contact.email || '').slice(0, 200), phone: String(args.contact.phone || '').replace(/\D/g, '').slice(0, 15) } : {};
-  return startPartnerFiling(state, { taxYear, computed: loaded.data, scope: args.partnerScope, contact, shareTins: args.shareTins === true }, actor, options);
+  return startPartnerFiling(state, { taxYear, computed: loaded.data, scope: args.partnerScope, contact, shareTins: args.shareTins === true, priorYear: importedPriorYear(state, taxYear) }, actor, options);
 }
 
 function applyAck(submission, ack) {

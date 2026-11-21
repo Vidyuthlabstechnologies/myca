@@ -40,7 +40,7 @@ import { CA_SYNC_MODES, syncOf } from './ca-sync.mjs';
 import { inWords } from '../../platform/src/words.mjs';
 import { createInbound, INBOUND_HEADER, relayTokenMatches } from './inbound.mjs';
 import { createWhatsApp } from './whatsapp.mjs';
-import { chatText } from './chat-text.mjs';
+import { chatText, withChatLanguage } from './chat-text.mjs';
 import { htmlEscape } from '../../platform/src/text-safe.mjs';
 import { DEMO_BLOCKED_ACTIONS, seedDemo } from './demo.mjs';
 import { createRateLimits, LIMITS } from './rate-limits.mjs';
@@ -56,9 +56,9 @@ export const INBOUND_RELAY_HEADER = 'x-myca-relay-token';
 export const PLAY_NOTIFY_HEADER = 'x-myca-notify-token';
 export const STRIPE_SIGNATURE_HEADER = 'stripe-signature';
 export const US_SUPPORTED_FORMS = Object.freeze({
-  supported: ['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule SE', 'Form 8949', 'Form 8812', 'Form 8863', 'Form 8959', 'Form 8960', 'Form 8995', 'W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T'],
-  coming: ['Form 2441', 'Form 8962', 'Form 8995-A', 'Form 2210', 'Schedule E'],
-  notThisSeason: ['State returns', 'Form 1040-NR', 'Dual-status returns', 'FBAR (FinCEN 114)', 'Form 8938', 'Form 1116', 'Form 1040-X'],
+  supported: ['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule E', 'Schedule SE', 'Form 2441', 'Form 4562', 'Form 5695', 'Form 8582', 'Form 8949', 'Form 8812', 'Form 8863', 'Form 8880', 'Form 8959', 'Form 8889', 'Form 8960', 'Form 8962', 'Form 8995', 'Form 1040-X', 'Form 5329', 'Form 8606', 'W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T', '1095-A', '1099-SA', '5498-SA', '5498'],
+  coming: ['Form 8995-A', 'Form 2210'],
+  notThisSeason: ['State returns', 'Form 1040-NR', 'Dual-status returns', 'FBAR (FinCEN 114)', 'Form 8938', 'Form 1116'],
 });
 
 const MAX_BODY_BYTES = 1024 * 1024;
@@ -93,7 +93,7 @@ const OWNER_ONLY_POSTS = new Map([
 
 const WRITES = new Set(['replace', 'uploads', 'propose', 'confirm', 'connector-sync', 'plaid-exchange', 'gusto-connect']);
 
-export const PROPOSABLE = new Set(['sign_us_return', 'file_us_return', 'import_payroll_tax_forms', 'import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'ims_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'set_business_address', 'set_party_address', 'set_sku_cost', 'register_offline_device', 'post_offline_sales', 'import_sku_costs', 'record_stock', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note', 'record_collection_reminder', 'record_payment_run', 'attach_document', 'approve_payroll', 'record_salary_payment', 'tds_review_answer', 'record_gst_payment', 'close_year', 'set_transport', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_suta_rate', 'add_recurring', 'stop_recurring', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer', 'set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'import_us_prior_year']);
+export const PROPOSABLE = new Set(['sign_us_return', 'file_us_return', 'import_payroll_tax_forms', 'import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'ims_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'set_business_address', 'set_party_address', 'set_sku_cost', 'register_offline_device', 'post_offline_sales', 'import_sku_costs', 'record_stock', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note', 'record_collection_reminder', 'record_payment_run', 'attach_document', 'approve_payroll', 'record_salary_payment', 'tds_review_answer', 'record_gst_payment', 'close_year', 'set_transport', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_suta_rate', 'add_recurring', 'stop_recurring', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer', 'set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'import_us_prior_year', 'start_us_amended_return', 'set_us_amended_return']);
 
 const NOT_A_PLACE_OF_BUSINESS = new Set(['97', '99']);
 
@@ -952,8 +952,9 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         if (action === 'ask') {
           const message = chatText(body.message);
           if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
+          const asker = withChatLanguage(actor, body.lang);
           return runner.withSharedBooks(businessId, context, async (session, { asOf }) => {
-            const out = await session.chat(message, actor);
+            const out = await session.chat(message, asker);
             if (!out.preview && !out.awaitingConfirmation) return out;
             return { reply: `These books are shared with you as they stood on ${inWords(indiaDate(asOf.getTime()))}, so nothing can be posted from here. Ask the owner to make the change, or to share the books again.`, tools: [] };
           });
@@ -1065,9 +1066,10 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (action === 'ask') {
         const message = chatText(body.message);
         if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
+        const asker = withChatLanguage(actor, body.lang);
         const canPost = await billing.allows(businessId, 'post');
         return withBooks(businessId, context, async (session) => {
-          if (!canPost.ok) return readOnlyChat(session, message, actor);
+          if (!canPost.ok) return readOnlyChat(session, message, asker);
           if (await unpaidFiling(businessId, session)) await session.discard(actor);
           const unprotected = await secondStepMissing(user.userId, session.state.pendingChatAction?.name);
           if (unprotected && confirmationIntent(message) && confirmationIntent(message) !== 'cancel') {
@@ -1076,7 +1078,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           }
           await withServerFactors(user.userId, session.state.pendingChatAction, clientAddress(req));
           // A "yes" in chat can confirm a pending US filing, which must reach the partner the same way.
-          const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, user.userId, () => session.chat(message, actor)) : await session.chat(message, actor);
+          const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, user.userId, () => session.chat(message, asker)) : await session.chat(message, asker);
           const unpaid = await unpaidFiling(businessId, session);
           if (!unpaid) return out;
           await session.discard(actor);

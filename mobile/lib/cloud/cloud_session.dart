@@ -1535,8 +1535,11 @@ class _CloudBooksApi implements MycaApi {
   Future<void> signOut() => _session.signOut();
 
   @override
-  Future<ChatReply> chat(String message) async => ChatReply.fromJson(
-    await _session.call('POST', '${_session._books}/ask', {'message': message}),
+  Future<ChatReply> chat(String message, {String lang = 'en'}) async => ChatReply.fromJson(
+    await _session.call('POST', '${_session._books}/ask', {
+      'message': message,
+      if (lang != 'en') 'lang': lang,
+    }),
   );
 
   @override

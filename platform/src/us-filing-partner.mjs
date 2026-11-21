@@ -18,6 +18,7 @@ import { loadEnvFile, productionCallsEnabled } from './runtime-config.mjs';
 import { performExternalAction } from './action-gate.mjs';
 import { normalizeClientId } from './books.mjs';
 import { appendAuditEvent, stateDigest } from './ca-api.mjs';
+import { figuresOf1040 } from './us-1040x.mjs';
 
 export const PARTNERS = Object.freeze({
   'column-tax': Object.freeze({ label: 'Column Tax', site: 'https://www.columntax.com' }),
@@ -119,7 +120,7 @@ function person(item, sendTins) {
  * the separate IRC 7216 consent (cloud/src/us-7216.mjs); otherwise the filer types them once
  * in the partner's own flow.
  */
-export function partnerPrefill(computed, { sendTins = false, contact = {} } = {}) {
+export function partnerPrefill(computed, { sendTins = false, contact = {}, priorYear = null } = {}) {
   const lines = computed.lines || {};
   const forms = Array.isArray(computed.forms) ? computed.forms : [];
   return {
@@ -146,6 +147,7 @@ export function partnerPrefill(computed, { sendTins = false, contact = {} } = {}
     other_forms: forms.filter((f) => f.kind !== 'W-2').map((f) => ({ kind: f.kind, owner: f.owner, payer: f.payer || '', payer_tin: f.payerTin || '', fields: f.fields || {} })),
     digital_assets: computed.digitalAssets === true,
     myca_estimate: { adjusted_gross_income: money(lines['11']), total_tax: money(lines['24']), refund: money(lines['35a']), amount_owed: money(lines['37']) },
+    ...(priorYear && Number.isFinite(Number(priorYear.agi)) ? { prior_year: { adjusted_gross_income: money(priorYear.agi), filed_jointly: priorYear.joint === true } } : {}),
   };
 }
 
@@ -231,7 +233,7 @@ async function createSession(settings, payload, { fetchImpl, signal }) {
  * engine's filing shape (computedForm1040ForFiling). In the simulator the partner's answer is
  * immediate: the return is submitted and accepted, the way the MeF simulator behaves.
  */
-export async function startPartnerFiling(state, { taxYear, computed, scope, contact, shareTins = false } = {}, actor, options = {}) {
+export async function startPartnerFiling(state, { taxYear, computed, scope, contact, shareTins = false, priorYear = null } = {}, actor, options = {}) {
   const settings = options.settings || partnerSettings();
   const missing = partnerMissing(settings);
   const book = bookOf(state);
@@ -248,7 +250,7 @@ export async function startPartnerFiling(state, { taxYear, computed, scope, cont
   const mode = productionCallsEnabled() && configured ? 'live' : 'sandbox';
   let session;
   if (configured) {
-    const payload = { external_id: externalId, tax_year: taxYear, prefill: partnerPrefill(computed, { sendTins, contact }) };
+    const payload = { external_id: externalId, tax_year: taxYear, prefill: partnerPrefill(computed, { sendTins, contact, priorYear }) };
     const got = await performExternalAction(state, {
       actionId: 'us_filer_session',
       actor,
@@ -262,7 +264,7 @@ export async function startPartnerFiling(state, { taxYear, computed, scope, cont
   } else {
     session = { handoffUrl: '', sessionId: `sim-${ref.slice(0, 8)}` };
   }
-  entry.partner = { provider: settings.provider || 'simulator', ref, externalId, sessionId: session.sessionId || '', status: 'in_progress', startedAt: entry.partner?.startedAt || nowIso, lastOpenedAt: nowIso, mode };
+  entry.partner = { provider: settings.provider || 'simulator', ref, externalId, sessionId: session.sessionId || '', status: 'in_progress', startedAt: entry.partner?.startedAt || nowIso, lastOpenedAt: nowIso, mode, figures: figuresOf1040(computed) };
   entry.submissions = entry.submissions || [];
   book.returns[String(taxYear)] = entry;
   audit(state, 'us_efile.partner_start', beforeHash, { actorId: actor?.userId, taxYear, provider: entry.partner.provider, mode, sentTins: Boolean(configured && sendTins) });

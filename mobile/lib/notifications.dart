@@ -2,6 +2,9 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import 'format.dart' show formatLanguage;
+import 'india/india_strings.dart' show inLine;
+
 class DueItem {
   const DueItem({required this.key, required this.when, required this.title, required this.detail, required this.overdue});
 
@@ -77,11 +80,11 @@ class DeviceNotifications implements NotificationPlanner {
       await _plugin.zonedSchedule(
         id: id++,
         title: item.title,
-        body: item.detail.isEmpty ? 'Due today. Open MyCA to deal with it.' : item.detail,
+        body: item.detail.isEmpty ? inLine(formatLanguage, 'Due today. Open MyCA to deal with it.') : item.detail,
         scheduledDate: tz.TZDateTime.from(at, tz.local),
-        notificationDetails: const NotificationDetails(
-          android: AndroidNotificationDetails('myca_due', 'What is due', channelDescription: 'Filings, reminders and payroll falling due', importance: Importance.defaultImportance),
-          iOS: DarwinNotificationDetails(threadIdentifier: 'myca_due'),
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails('myca_due', inLine(formatLanguage, 'What is due'), channelDescription: inLine(formatLanguage, 'Filings, reminders and payroll falling due'), importance: Importance.defaultImportance),
+          iOS: const DarwinNotificationDetails(threadIdentifier: 'myca_due'),
         ),
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );

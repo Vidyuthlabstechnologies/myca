@@ -111,7 +111,7 @@ export function gstr3bFor(state, docs, inwardOverride) {
   const salesText = invoicesToSalesCsv(withLiabilityHsn((docs.invoices || []).filter((inv) => !isSezSupply(inv))));
   const inwardText = inwardOverride || purchasesToInwardCsv(docs.purchases);
   const supplierState = docs.gstin !== undefined ? companyAs(state, docs.gstin).state : state.company.state;
-  const result = filingPrep({ salesText, inwardText, supplierState, fy: state.company.fy });
+  const result = filingPrep({ salesText, inwardText, supplierState });
   const draft = result.gstr3b || {};
   return { ...draft, outward: netOfNotes(withSezSupplies(draft.outward, sezInvoices), docs.creditNotes || [], docs.debitNotes || [], supplierState), itc: lessPurchaseNotes(draft.itc, docs.purchaseNotes || []), period: docs.period, missingHsn: invoicesMissingHsn(docs.invoices) };
 }

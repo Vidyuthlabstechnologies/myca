@@ -72,8 +72,11 @@ class HttpMycaApi implements MycaApi {
   }
 
   @override
-  Future<ChatReply> chat(String message) async =>
-      ChatReply.fromJson(await _post('/api/chat', {'message': message}));
+  Future<ChatReply> chat(String message, {String lang = 'en'}) async =>
+      ChatReply.fromJson(await _post('/api/chat', {
+        'message': message,
+        if (lang != 'en') 'lang': lang,
+      }));
 
   @override
   Future<ChatReply> propose(String name, Map<String, Object?> args) async =>

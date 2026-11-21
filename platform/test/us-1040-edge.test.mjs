@@ -422,15 +422,20 @@ test('1099-R: IRA and pension lines 4 and 5, blank taxable amount taken as gross
   assert.equal(out.data.lines['25b'], 2000);
 });
 
-test('Schedule 2 line 8: 10% additional tax on a code 1 early distribution (IRC 72(t)); an exception or code J/S needs Form 5329', () => {
+test('Schedule 2 line 8: 10% additional tax on a code 1 early distribution (IRC 72(t)); an exception is its number on the 1099-R (Form 5329 line 2)', () => {
   const early = run('single', [w2(40000), { kind: '1099-R', payer: 'IRA', fields: { grossDistribution: 10000, taxableAmount: 10000, iraSepSimple: true, distributionCode: '1' } }]);
   assert.equal(early.data.schedules['2']['8'], 1000);
   assert.deepEqual(needs(early), []);
-  const exception = run('single', [w2(40000), { kind: '1099-R', payer: 'IRA', fields: { grossDistribution: 10000, taxableAmount: 10000, iraSepSimple: true, distributionCode: '1' } }], { answers: { earlyDistributionException: true } });
+  const noNumber = run('single', [w2(40000), { kind: '1099-R', payer: 'IRA', fields: { grossDistribution: 10000, taxableAmount: 10000, iraSepSimple: true, distributionCode: '1' } }], { answers: { earlyDistributionException: true } });
+  assert.equal(noNumber.data.schedules['2']['8'], 1000);
+  assert.ok(noNumber.data.checks.some((item) => item.code === 'EARLY_DISTRIBUTION_EXCEPTION_CODE' && item.level === 'error'));
+  const exception = run('single', [w2(40000), { kind: '1099-R', payer: 'IRA', fields: { grossDistribution: 10000, taxableAmount: 10000, iraSepSimple: true, distributionCode: '1', exceptionCode: '08' } }]);
   assert.equal(exception.data.lines['23'], 0);
-  assert.deepEqual(needs(exception), ['5329']);
-  const roth = run('single', [w2(40000), { kind: '1099-R', payer: 'Roth', fields: { grossDistribution: 3000, taxableAmount: 0, iraSepSimple: true, distributionCode: 'J' } }]);
-  assert.deepEqual(needs(roth), ['5329']);
+  assert.deepEqual(needs(exception), []);
+  const roth = run('single', [w2(40000), { kind: '1099-R', payer: 'Roth', fields: { grossDistribution: 3000, distributionCode: 'J' } }], { answers: { rothContributionBasis: 5000 } });
+  assert.equal(roth.data.lines['4b'], 0);
+  assert.equal(roth.data.lines['23'], 0);
+  assert.deepEqual(needs(roth), []);
 });
 
 test('1099-G: unemployment on Schedule 1 line 7 and its withholding on line 25b; a state refund is taxable only as answered', () => {
@@ -539,4 +544,127 @@ test('IRC 199A(i) 2026: a net business loss is carried forward on line 18 with n
   assert.equal(out.data.lines['13a'], 0);
   assert.ok(out.data.schedules[8995]['18'] < 0);
   assert.equal(out.data.schedules[8995]['16'], 0);
+});
+
+const ssa = (netBenefits, owner = 'taxpayer') => ({ kind: 'SSA-1099', owner, payer: 'SSA', fields: { netBenefits } });
+
+test('Pub. 915: a negative SSA-1099 box 5 makes line 6a zero; a net repayment of $3,000 or less is not deductible', () => {
+  const out = run('single', [w2(30000), ssa(-2000)]);
+  assert.equal(out.data.lines['6a'], 0);
+  assert.equal(out.data.lines['6b'], 0);
+  assert.ok(!codes(out).includes('FORM_AMOUNT_NEGATIVE'));
+  const warning = out.data.checks.find((item) => item.code === 'SSA_NET_REPAYMENT');
+  assert.equal(warning.level, 'warning');
+  assert.match(warning.message, /\$2000 more than the benefits paid/);
+  assert.match(warning.message, /\$3000 or less is a miscellaneous itemized deduction/);
+  const atThreshold = run('single', [w2(30000), ssa(-3000)]);
+  assert.ok(codes(atThreshold).includes('SSA_NET_REPAYMENT'));
+  assert.ok(!atThreshold.data.unsupported.some((row) => row.form === 'Section 1341 claim'));
+});
+
+test('Pub. 915 and IRC 1341: a net repayment over $3,000 is flagged for an itemized deduction or 1341 credit, not required to file', () => {
+  const out = run('single', [w2(30000), ssa(-4500)]);
+  assert.equal(out.data.lines['6a'], 0);
+  const item = out.data.unsupported.find((row) => row.form === 'Section 1341 claim');
+  assert.deepEqual(item, { form: 'Section 1341 claim', reason: 'Social Security repaid above the benefits by more than the claim-of-right threshold', code: 'SSA_REPAYMENT_1341', required: false });
+  assert.equal(out.data.checks.find((row) => row.code === 'SSA_REPAYMENT_1341').level, 'warning');
+  assert.match(out.data.checks.find((row) => row.code === 'SSA_REPAYMENT_1341').message, /\$4500 more than the benefits paid/);
+  assert.deepEqual(needs(out), []);
+});
+
+test('Pub. 915 joint return: one spouse\'s negative box 5 offsets the other\'s ($3,000 less $500 is $2,500 on line 6a)', () => {
+  const out = run('mfj', [w2(20000), ssa(3000), ssa(-500, 'spouse')]);
+  assert.equal(out.data.lines['6a'], 2500);
+  assert.ok(!codes(out).includes('SSA_NET_REPAYMENT'));
+  const negativeWithheld = run('single', [w2(20000), { kind: 'SSA-1099', payer: 'SSA', fields: { netBenefits: 1000, federalWithheld: -50 } }]);
+  assert.ok(codes(negativeWithheld).includes('FORM_AMOUNT_NEGATIVE'));
+});
+
+test('Schedule 1-A line 11 ("decrease the result to the next lower whole number"): $150,999 of MAGI keeps all $10,000 of tips, $151,000 loses $100, $152,000 loses $200', () => {
+  const tipsAt = (wages) => run('single', [w2(wages)], { answers: { qualifiedTips: 10000 } }).data.schedules['1-A']['13'];
+  assert.equal(tipsAt(150999), 10000);
+  assert.equal(tipsAt(151000), 9900);
+  assert.equal(tipsAt(151999), 9900);
+  assert.equal(tipsAt(152000), 9800);
+  const overtimeAt = (wages) => run('single', [w2(wages)], { answers: { qualifiedOvertime: 12500 } }).data.schedules['1-A']['21'];
+  assert.equal(overtimeAt(150999), 12500);
+  assert.equal(overtimeAt(151500), 12400);
+});
+
+test('Schedule 1-A line 28 ("increase the result to the next higher whole number"): $1 over $100,000 already costs $200 of car loan interest', () => {
+  const carAt = (wages) => run('single', [w2(wages)], { answers: { carLoanInterest: 5000 } }).data.schedules['1-A']['30'];
+  assert.equal(carAt(100000), 5000);
+  assert.equal(carAt(100001), 4800);
+  assert.equal(carAt(101000), 4800);
+  assert.equal(carAt(101001), 4600);
+});
+
+test('Schedule 1-A lines 33 to 35: 6% of MAGI over $75,000 is not stepped; $1 over is 6 cents, which rounds to nothing', () => {
+  const seniorAt = (wages) => run('single', [w2(wages)], { taxpayer: { ...adult, dateOfBirth: '1958-01-01' } }).data.lines['13b'];
+  assert.equal(seniorAt(75001), 6000);
+  assert.equal(seniorAt(75050), 5997);
+  assert.equal(seniorAt(175000), 0);
+});
+
+test('Schedule 1-A line 5: business tips count only up to the net income of the business less the deductible SE tax (rideshare $1,000 profit, SE deduction $71, so $929 of $1,800)', () => {
+  const out = computeForm1040({ filingStatus: 'single', taxpayer: adult, forms: [], businesses: [{ name: 'Rideshare', grossReceipts: 15000, totalExpenses: 14000 }], answers: { businessQualifiedTips: 1800 } }, '2025');
+  assert.equal(out.data.schedules['1']['15'], 71);
+  assert.equal(out.data.schedules['1-A']['13'], 929);
+  assert.ok(codes(out).includes('TIPS_ABOVE_NET_INCOME'));
+  const loss = computeForm1040({ filingStatus: 'single', taxpayer: adult, forms: [w2(30000)], businesses: [{ name: 'Rideshare', grossReceipts: 5000, totalExpenses: 6000 }], answers: { businessQualifiedTips: 800, qualifiedTips: 300 } }, '2025');
+  assert.equal(loss.data.schedules['1-A']['13'], 300);
+});
+
+test('Schedule 1-A Parts II and III on a joint return: only the spouse who received the tips or overtime needs an SSN valid for work', () => {
+  const noSsnSpouse = { ...spouse, ssnValid: false };
+  const out = computeForm1040({ filingStatus: 'mfj', taxpayer: adult, spouse: noSsnSpouse, forms: [w2(60000)], answers: { qualifiedTips: 5000, qualifiedOvertime: 2000 } }, '2025');
+  assert.equal(out.data.schedules['1-A']['13'], 5000);
+  assert.equal(out.data.schedules['1-A']['21'], 2000);
+  assert.ok(!codes(out).includes('TIPS_NEED_SSN'));
+  const both = computeForm1040({ filingStatus: 'mfj', taxpayer: adult, spouse: noSsnSpouse, forms: [w2(60000)], answers: { qualifiedTips: 5000, spouseQualifiedTips: 2000, spouseQualifiedOvertime: 1000 } }, '2025');
+  assert.equal(both.data.schedules['1-A']['13'], 5000);
+  assert.equal(both.data.schedules['1-A']['21'], undefined);
+  assert.ok(codes(both).includes('TIPS_NEED_SSN'));
+  assert.ok(codes(both).includes('OVERTIME_NEEDS_SSN'));
+});
+
+test('Schedule 1-A lines 2a to 3 and Schedule 8812 lines 2a to 3: excluded foreign or Puerto Rico income is added to AGI for the income limits', () => {
+  const tips = run('single', [w2(140000)], { answers: { qualifiedTips: 10000, excludedForeignIncome: 11000 } });
+  assert.equal(tips.data.lines['11'], 140000);
+  assert.equal(tips.data.schedules['1-A']['13'], 9900);
+  const ctc = run('single', [w2(195000)], { dependents: [kid('Leo', '2016-02-02')], answers: { excludedForeignIncome: 6000 } });
+  assert.equal(ctc.data.schedules['8812']['10'], 1000);
+  assert.equal(ctc.data.schedules['8812']['12'], 2150);
+});
+
+test('Schedule 8812 Part II-B lines 21 to 26 (2025): line 21 from the Additional Medicare Tax and RRTA worksheet (W-2 boxes 4 and 6), line 24 is Form 1040 line 27a plus Schedule 3 line 11', () => {
+  const kids = [kid('A', '2012-01-01'), kid('B', '2014-01-01'), kid('C', '2016-01-01')];
+  const out = run('hoh', [w2(3000), { kind: '1099-INT', payer: 'Bank', fields: { interest: 12000 } }], { dependents: kids });
+  const f = out.data.schedules['8812'];
+  assert.equal(f['16b'], 5100);
+  assert.equal(f['21'], 186 + 44);
+  assert.equal(f['22'], 0);
+  assert.equal(f['23'], 230);
+  assert.equal(f['24'], 0);
+  assert.equal(f['25'], 230);
+  assert.equal(f['26'], 230);
+  assert.equal(f['27'], 230);
+  const one = run('hoh', [w2(10000)], { dependents: [kid('Leo', '2016-02-02')] }).data.schedules['8812'];
+  assert.equal(one['21'], undefined);
+});
+
+test('Educator expenses: $300 (2025) and $350 (2026, Rev. Proc. 2025-32 section 3.12) above the line; from 2026 the rest is an itemized deduction (IRC 67(b)(13), P.L. 119-21 section 70110)', () => {
+  const y2025 = run('single', [w2(60000)], { answers: { educatorExpenses: 1000, itemize: 'yes' } }, '2025');
+  assert.equal(y2025.data.schedules['1']['11'], 300);
+  assert.equal(y2025.data.schedules.A['16'], 0);
+  const y2026 = run('single', [w2(60000)], { answers: { educatorExpenses: 1000, itemize: 'yes' } }, '2026');
+  assert.equal(y2026.data.schedules['1']['11'], 350);
+  assert.equal(y2026.data.schedules.A['16'], 650);
+  assert.equal(y2026.data.schedules.A['17'], y2026.data.lines['12']);
+  const standard = run('single', [w2(60000)], { answers: { educatorExpenses: 1000 } }, '2026');
+  assert.equal(standard.data.schedules['1']['11'], 350);
+  assert.equal(standard.data.schedules.A, undefined);
+  const joint = run('mfj', [w2(60000)], { answers: { educatorExpenses: 200, spouseEducatorExpenses: 500, itemize: 'yes' } }, '2026');
+  assert.equal(joint.data.schedules['1']['11'], 550);
+  assert.equal(joint.data.schedules.A['16'], 150);
 });

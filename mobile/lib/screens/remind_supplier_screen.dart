@@ -5,6 +5,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../proposal_flow.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -53,12 +54,13 @@ class _RemindSupplierScreenState extends State<RemindSupplierScreen>
   @override
   Future<void> onPosted() async {
     HapticFeedback.mediumImpact();
+    final lang = indiaLang(context);
     final shared = await AppScope.of(context).shareText(_message.text.trim());
     if (!mounted) return;
     setState(
       () => _sentNote = shared
-          ? 'Your phone offered the message to WhatsApp, email or another app.'
-          : 'Your phone could not open the share sheet. Copy the message and send it yourself.',
+          ? inLine(lang, 'Your phone offered the message to WhatsApp, email or another app.')
+          : inLine(lang, 'Your phone could not open the share sheet. Copy the message and send it yourself.'),
     );
   }
 
@@ -69,7 +71,7 @@ class _RemindSupplierScreenState extends State<RemindSupplierScreen>
   }
 
   Future<void> _send() =>
-      propose('Send this reminder from my phone', 'record_supplier_reminder', {
+      propose(inText(context, 'Send this reminder from my phone'), 'record_supplier_reminder', {
         'supplier': widget.supplier,
         'period': widget.period,
         'message': _message.text.trim(),
@@ -80,7 +82,7 @@ class _RemindSupplierScreenState extends State<RemindSupplierScreen>
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Remind supplier')),
+      appBar: AppBar(title: Text(inText(context, 'Remind supplier'))),
       body: FutureBuilder<SupplierReminderDraft?>(
         future: _draft,
         builder: (context, snap) {
@@ -89,8 +91,8 @@ class _RemindSupplierScreenState extends State<RemindSupplierScreen>
           }
           final draft = snap.data;
           if (draft == null) {
-            return const EmptyNote(
-              text: 'There is nothing to ask this supplier for this month.',
+            return EmptyNote(
+              text: inText(context, 'There is nothing to ask this supplier for this month.'),
             );
           }
           return Column(
@@ -102,14 +104,22 @@ class _RemindSupplierScreenState extends State<RemindSupplierScreen>
                     Text(draft.supplier, style: text.headlineSmall),
                     const SizedBox(height: 4),
                     Text(
-                      '${draft.bills == 1 ? '1 bill' : '${draft.bills} bills'} for ${monthLabel(draft.period)} · ${rupees(draft.credit)} of your input credit waiting',
+                      inCount(
+                        context,
+                        draft.bills,
+                        '1 bill for {month} · {credit} of your input credit waiting',
+                        '{n} bills for {month} · {credit} of your input credit waiting',
+                        {'month': monthLabel(draft.period), 'credit': rupees(draft.credit)},
+                      ),
                       style: text.bodyMedium,
                     ),
                     if (draft.timesSent > 0)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
-                          'You reminded them on ${longDate(draft.lastSent)}${draft.timesSent > 1 ? ' (${draft.timesSent} times so far)' : ''}.',
+                          draft.timesSent > 1
+                              ? inFormat(context, 'You reminded them on {date} ({n} times so far).', {'date': longDate(draft.lastSent), 'n': draft.timesSent})
+                              : inFormat(context, 'You reminded them on {date}.', {'date': longDate(draft.lastSent)}),
                           style: text.bodyMedium?.copyWith(color: Palette.warn),
                         ),
                       ),
@@ -124,16 +134,16 @@ class _RemindSupplierScreenState extends State<RemindSupplierScreen>
                           '${_message.text.length}/2000',
                           style: text.bodySmall?.copyWith(color: Palette.muted),
                         ),
-                        decoration: const InputDecoration(
-                          labelText: 'Message',
+                        decoration: InputDecoration(
+                          labelText: inText(context, 'Message'),
                           helperText:
-                              'Only their own bill numbers, dates and amounts. Edit it as you like.',
+                              inText(context, 'Only their own bill numbers, dates and amounts. Edit it as you like.'),
                         ),
                       ),
                       const SizedBox(height: 12),
                       FilledButton(
                         onPressed: busy ? null : _send,
-                        child: const Text('Send from my phone'),
+                        child: Text(inText(context, 'Send from my phone')),
                       ),
                     ],
                     for (final entry in entries) entry.toBubble(),
@@ -145,7 +155,7 @@ class _RemindSupplierScreenState extends State<RemindSupplierScreen>
                         onPressed: () => Clipboard.setData(
                           ClipboardData(text: _message.text.trim()),
                         ),
-                        child: const Text('Copy message'),
+                        child: Text(inText(context, 'Copy message')),
                       ),
                     ],
                   ],
@@ -156,7 +166,7 @@ class _RemindSupplierScreenState extends State<RemindSupplierScreen>
                   busy: busy,
                   onPost: postPending,
                   onDiscard: discardPending,
-                  postLabel: 'Yes, send it',
+                  postLabel: inText(context, 'Yes, send it'),
                 ),
             ],
           );

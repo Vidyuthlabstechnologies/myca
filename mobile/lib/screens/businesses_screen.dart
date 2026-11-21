@@ -6,6 +6,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../cloud/cloud_session.dart';
 import '../crash_reports.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../theme.dart';
 import '../uae/uae_cloud_strings.dart';
@@ -83,7 +84,7 @@ class _BusinessesScreenState extends State<BusinessesScreen> {
     final state = AppScope.of(context);
     final navigator = Navigator.of(context);
     final s = UaeStrings.of(context);
-    final body = uaeEdition(context) ? s.deleteBusinessBody : 'Its books, documents and members go with it. Backups are kept for fourteen days, after which it cannot be recovered.';
+    final body = uaeEdition(context) ? s.deleteBusinessBody : inText(context, 'Its books, documents and members go with it. Backups are kept for fourteen days, after which it cannot be recovered.');
     if (!await _sure(s.deleteWho(name), body, s.delete)) return;
     try {
       await state.cloud!.deleteBusiness();
@@ -248,7 +249,7 @@ class _BusinessesScreenState extends State<BusinessesScreen> {
                     key: const Key('legal.rights'),
                     leading: const TintTile(tint: Tint.ask, mark: Mark.confirm),
                     title: s.yourPrivacyRights,
-                    subtitle: ae ? s.privacyRightsSubtitle : 'Privacy notice, terms, Grievance Officer, and requests to see, correct or erase your data',
+                    subtitle: ae ? s.privacyRightsSubtitle : inText(context, 'Privacy notice, terms, Grievance Officer, and requests to see, correct or erase your data'),
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyRightsScreen())),
                   ),
                 ],

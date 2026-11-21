@@ -6,6 +6,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
 import '../app_services.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../theme.dart';
 import '../uae/uae_edition.dart';
@@ -40,7 +41,7 @@ Future<String> askMyCa(
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
-        title: Text(ae ? s.sendToAccountant : 'Send to your CA?'),
+        title: Text(ae ? s.sendToAccountant : inText(context, 'Send to your CA?')),
         content: SingleChildScrollView(
           child: Text([preview.summary, ...preview.effects].join('\n\n')),
         ),
@@ -138,7 +139,7 @@ class _AskSheetState extends State<_AskSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(ae ? s.askYourAccountant : 'Ask your CA', style: text.headlineSmall),
+          Text(ae ? s.askYourAccountant : inText(context, 'Ask your CA'), style: text.headlineSmall),
           const SizedBox(height: 4),
           Text(
             s.askAbout(widget.about),
@@ -206,10 +207,10 @@ class _AskSheetState extends State<_AskSheet> {
   }
 }
 
-String caStatusWords(CaRequest request, [UaeStrings? ae]) => ae != null ? ae.accountantStatus(request.status) : switch (request.status) {
-  'answered' => 'Answered',
-  'closed' => 'Closed',
-  _ => 'Waiting for your CA',
+String caStatusWords(CaRequest request, [UaeStrings? ae, String lang = 'en']) => ae != null ? ae.accountantStatus(request.status) : switch (request.status) {
+  'answered' => inLine(lang, 'Answered'),
+  'closed' => inLine(lang, 'Closed'),
+  _ => inLine(lang, 'Waiting for your CA'),
 };
 
 class CaScreen extends StatefulWidget {
@@ -242,7 +243,7 @@ class _CaScreenState extends State<CaScreen> {
   Widget build(BuildContext context) {
     final ae = uaeEdition(context) ? UaeStrings.of(context) : null;
     return Scaffold(
-      appBar: AppBar(title: Text(ae != null ? ae.yourAccountant : AppScope.of(context).edition == 'GB' ? 'Your accountant' : 'Your CA')),
+      appBar: AppBar(title: Text(ae != null ? ae.yourAccountant : AppScope.of(context).edition == 'GB' ? 'Your accountant' : inText(context, 'Your CA'))),
       body: FutureBuilder<List<CaRequest>>(
         future: _requests,
         builder: (context, state) {
@@ -256,7 +257,7 @@ class _CaScreenState extends State<CaScreen> {
               if (requests.isEmpty)
                 EmptyNote(
                   text:
-                      ae != null ? ae.noOpenQuestions : AppScope.of(context).edition == 'GB' ? 'No open questions. Ask your accountant from an invoice or a flagged item; MyCA attaches the details.' : 'No open questions. Use "Ask my CA" on an invoice, a flagged item or a month\'s review; MyCA attaches the details.',
+                      ae != null ? ae.noOpenQuestions : AppScope.of(context).edition == 'GB' ? 'No open questions. Ask your accountant from an invoice or a flagged item; MyCA attaches the details.' : inText(context, 'No open questions. Use "Ask my CA" on an invoice, a flagged item or a month\'s review; MyCA attaches the details.'),
                 )
               else
                 Panel(
@@ -273,7 +274,7 @@ class _CaScreenState extends State<CaScreen> {
                         ),
                         title: request.title,
                         subtitle:
-                            '${caStatusWords(request, ae)} · ${ae != null ? ae.longDate(request.lastOn) : longDate(request.lastOn)}',
+                            '${caStatusWords(request, ae, indiaLang(context))} · ${ae != null ? ae.longDate(request.lastOn) : longDate(request.lastOn)}',
                         trailing: const Chevron(),
                         onTap: () async {
                           await Navigator.of(context).push(
@@ -288,7 +289,7 @@ class _CaScreenState extends State<CaScreen> {
                 ),
               const SizedBox(height: 14),
               Text(
-                ae != null ? ae.accountantSees : AppScope.of(context).edition == 'GB' ? 'Your accountant sees these in MyCA once you have invited them from People.' : 'Your CA sees these in MyCA once you have invited them from People.',
+                ae != null ? ae.accountantSees : AppScope.of(context).edition == 'GB' ? 'Your accountant sees these in MyCA once you have invited them from People.' : inText(context, 'Your CA sees these in MyCA once you have invited them from People.'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -362,7 +363,7 @@ class _CaThreadScreenState extends State<CaThreadScreen> {
     setState(
       () => _note = uaeEdition(context)
           ? UaeStrings.of(context).copiedForAccountant
-          : 'Copied. Paste it into WhatsApp or email if your CA is not on MyCA yet.',
+          : inText(context, 'Copied. Paste it into WhatsApp or email if your CA is not on MyCA yet.'),
     );
   }
 
@@ -381,7 +382,7 @@ class _CaThreadScreenState extends State<CaThreadScreen> {
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
               children: [
                 Text(
-                  caStatusWords(_request, ae).toUpperCase(),
+                  caStatusWords(_request, ae, indiaLang(context)).toUpperCase(),
                   style: text.labelSmall,
                 ),
                 const SizedBox(height: 4),

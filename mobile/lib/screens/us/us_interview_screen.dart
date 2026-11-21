@@ -1,11 +1,13 @@
 import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../us/us_text_scaler.dart';
 import '../../api/myca_api.dart';
 import '../../app_state.dart';
 import '../../us/us_return.dart';
 import 'us_fields.dart';
+import 'us_review_screen.dart';
 
 class UsInterviewScreen extends StatefulWidget {
   const UsInterviewScreen({super.key, required this.taxYear});
@@ -21,6 +23,7 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
   int _at = 0;
   Object? _answer;
   final _typed = TextEditingController();
+  final _drafts = <String, (String, Object?)>{};
   String _note = '';
   bool _busy = false;
   bool _failed = false;
@@ -70,15 +73,26 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
     return questions[_at];
   }
 
+  void _keepDraft() {
+    final q = _current;
+    if (q != null) _drafts[q.id] = (_typed.text, _answer);
+  }
+
   void _show() {
     final q = _current;
-    _answer = q?.answer;
-    _typed.text = q == null || q.answer == null ? '' : (q.kind == 'amount' ? dollarsTyped(q.answer) : '${q.answer}');
+    final draft = q == null ? null : _drafts[q.id];
+    if (draft != null) {
+      _typed.text = draft.$1;
+      _answer = draft.$2;
+    } else {
+      _answer = q?.answer;
+      _typed.text = q == null || q.answer == null ? '' : (q.inputKind == 'amount' ? dollarsTyped(q.answer) : '${q.answer}');
+    }
     _note = '';
   }
 
   Object? _value(UsQuestion q) {
-    switch (q.kind) {
+    switch (q.inputKind) {
       case 'amount':
         return parseDollars(_typed.text);
       case 'count':
@@ -92,14 +106,19 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
     }
   }
 
+  Future<void> _none() async {
+    _typed.text = '0';
+    await _next();
+  }
+
   Future<void> _next() async {
     final q = _current;
     if (q == null) return;
     final value = _value(q);
     if (value == null) {
-      return setState(() => _note = switch (q.kind) {
-        'amount' => 'Enter an amount. Use 0 if none.',
-        'count' => 'Enter a whole number. Use 0 if none.',
+      return setState(() => _note = switch (q.inputKind) {
+        'amount' => _typed.text.trim().isEmpty ? 'Enter an amount, or tap None if you had none.' : 'Enter dollars and cents, like 1234.56.',
+        'count' => 'Enter a whole number, or tap None.',
         'text' => 'Type your answer.',
         _ => 'Choose an answer.',
       });
@@ -112,9 +131,10 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
       final reply = await saveAndConfirm(_api, 'answer_us_interview', {'taxYear': widget.taxYear, 'id': q.id, 'answer': value});
       if (!mounted) return;
       if (!reply.posted) {
-        setState(() => _note = reply.reply.isEmpty ? 'Not saved. Try again.' : reply.reply);
+        setState(() => _note = reply.reply.isEmpty ? 'Not saved. Check your connection and tap Next again.' : reply.reply);
         return;
       }
+      _drafts.remove(q.id);
       await _load(after: q.id);
     } on MycaApiException catch (err) {
       if (mounted) setState(() => _note = err.message);
@@ -126,17 +146,30 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
   void _back() {
     if (_at == 0) return;
     setState(() {
+      _keepDraft();
       _at -= 1;
       _show();
     });
   }
 
+  Widget _choiceButton(String key, String label, Object value) {
+    final picked = _answer == value;
+    void pick() => setState(() => _answer = value);
+    return picked ? FilledButton(key: Key(key), onPressed: pick, child: Text(label)) : OutlinedButton(key: Key(key), onPressed: pick, child: Text(label));
+  }
+
   Widget _input(UsQuestion q) {
-    switch (q.kind) {
+    switch (q.inputKind) {
       case 'amount':
         return MoneyField(key: const Key('usInterview.amount'), controller: _typed, label: 'Amount');
       case 'count':
-        return TextField(key: const Key('usInterview.count'), controller: _typed, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'How many'));
+        return TextField(
+          key: const Key('usInterview.count'),
+          controller: _typed,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: const InputDecoration(labelText: 'How many'),
+        );
       case 'text':
         return TextField(key: const Key('usInterview.text'), controller: _typed, decoration: const InputDecoration(labelText: 'Your answer'));
       case 'choice':
@@ -153,17 +186,9 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
       default:
         return Row(
           children: [
-            Expanded(
-              child: _answer == true
-                  ? FilledButton(key: const Key('usInterview.yes'), onPressed: () => setState(() => _answer = true), child: const Text('Yes'))
-                  : OutlinedButton(key: const Key('usInterview.yes'), onPressed: () => setState(() => _answer = true), child: const Text('Yes')),
-            ),
+            Expanded(child: _choiceButton('usInterview.yes', 'Yes', true)),
             const SizedBox(width: 10),
-            Expanded(
-              child: _answer == false
-                  ? FilledButton(key: const Key('usInterview.no'), onPressed: () => setState(() => _answer = false), child: const Text('No'))
-                  : OutlinedButton(key: const Key('usInterview.no'), onPressed: () => setState(() => _answer = false), child: const Text('No')),
-            ),
+            Expanded(child: _choiceButton('usInterview.no', 'No', false)),
           ],
         );
     }
@@ -174,6 +199,7 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
     final text = Theme.of(context).textTheme;
     final questions = _questions;
     final q = _current;
+    final canSayNone = q != null && (q.inputKind == 'amount' || q.inputKind == 'count');
     return Scaffold(
       appBar: AppBar(title: const Text('A few questions')),
       body: SafeArea(
@@ -194,13 +220,20 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
                 ? ListView(
                     padding: const EdgeInsets.all(24),
                     children: [
-                      Text('That is everything', style: text.headlineMedium),
+                      Text(questions.isEmpty ? 'No questions for you' : 'That is everything', key: const Key('usInterview.finished'), style: text.headlineMedium),
                       const SizedBox(height: 8),
-                      Text('Your answers are saved. Next, review your return.', style: text.bodyLarge),
+                      Text(questions.isEmpty ? 'Nothing else is needed for your return here. Next, review your return.' : 'Your answers are saved. Next, review your return.', style: text.bodyLarge),
                       const SizedBox(height: 20),
-                      FilledButton(key: const Key('usInterview.done'), onPressed: () => Navigator.of(context).pop(), child: const Text('Back to my return')),
+                      FilledButton(
+                        key: const Key('usInterview.review'),
+                        onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => UsReviewScreen(taxYear: widget.taxYear))),
+                        child: const Text('Review my return'),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton(key: const Key('usInterview.done'), onPressed: () => Navigator.of(context).pop(), child: const Text('Back to my return')),
                       if (questions.isNotEmpty)
                         TextButton(
+                          key: const Key('usInterview.again'),
                           onPressed: () => setState(() {
                             _at = 0;
                             _show();
@@ -212,7 +245,7 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
                 : ListView(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
                     children: [
-                      LinearProgressIndicator(value: questions.isEmpty ? 1 : (_at + 1) / questions.length, minHeight: 4),
+                      LinearProgressIndicator(value: questions.isEmpty ? 1 : (_at + 1) / questions.length, minHeight: 4, semanticsLabel: 'Question ${_at + 1} of ${questions.length}'),
                       const SizedBox(height: 8),
                       Text('Question ${_at + 1} of ${questions.length}', style: text.bodySmall),
                       const SizedBox(height: 20),
@@ -225,13 +258,17 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
                       _input(q),
                       if (_note.isNotEmpty) ...[
                         const SizedBox(height: 12),
-                        Text(_note, style: TextStyle(color: context.myca.danger, fontWeight: FontWeight.w500)),
+                        Text(_note, key: const Key('usInterview.note'), style: TextStyle(color: context.myca.danger, fontWeight: FontWeight.w500)),
                       ],
                       const SizedBox(height: 24),
-                      Row(
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
                           if (_at > 0) TextButton(key: const Key('usInterview.back'), onPressed: _busy ? null : _back, child: const Text('Back')),
-                          const Spacer(),
+                          if (canSayNone) OutlinedButton(key: const Key('usInterview.none'), onPressed: _busy ? null : _none, child: const Text('None')),
                           FilledButton(key: const Key('usInterview.next'), onPressed: _busy ? null : _next, child: Text(_busy ? 'Saving…' : 'Next')),
                         ],
                       ),

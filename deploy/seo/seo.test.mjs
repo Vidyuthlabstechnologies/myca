@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { outputs, playUrl, renderPage, stale } from './build.mjs';
+import { outputs, playUrl, renderPage, stale, usLegalReady } from './build.mjs';
 import { INDIA_PRICES, PAGES, US_FORMS, US_PRICES } from './pages.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -85,5 +85,22 @@ test('a page with blanks for the owner to fill is kept out of search and the sit
     if (!/\[[^\]]*(company|support email|partner|address)[^\]]*\]/i.test(html)) continue;
     assert.match(html, /<meta name="robots" content="noindex">/, name);
     assert.ok(!sitemap.includes(`/${name}<`), name);
+  }
+});
+
+test('US pages do not link the draft legal pages from the footer while they still have blanks', () => {
+  const files = outputs();
+  const drafts = !usLegalReady();
+  for (const [name, html] of Object.entries(files)) {
+    if (!name.endsWith('.html') || !html.includes('href="/us/')) continue;
+    const footer = html.slice(html.indexOf('<footer'));
+    for (const link of ['/us/privacy', '/us/terms', '/us/refunds']) {
+      if (drafts) assert.ok(!footer.includes(`href="${link}"`), `${name} ${link}`);
+    }
+  }
+  for (const name of ['us.html', 'us/terms.html', 'us/refunds.html']) {
+    const html = readFileSync(join(root, 'deploy', 'public', name), 'utf8');
+    const footer = html.slice(html.indexOf('<footer'));
+    if (drafts) assert.ok(!/href="\/us\/(privacy|terms|refunds)"/.test(footer), name);
   }
 });

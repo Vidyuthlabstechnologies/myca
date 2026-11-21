@@ -105,7 +105,7 @@ class OfflineFirstApi implements MycaApi {
   Future<void> signOut() => inner.signOut();
 
   @override
-  Future<ChatReply> chat(String message) => _online(() => inner.chat(message));
+  Future<ChatReply> chat(String message, {String lang = 'en'}) => _online(() => inner.chat(message, lang: lang));
 
   @override
   Future<ChatReply> propose(String name, Map<String, Object?> args) async {

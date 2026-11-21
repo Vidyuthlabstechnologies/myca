@@ -38,6 +38,7 @@ import { usPlanningWords } from './us-planning.mjs';
 import { usRefundBoostWords } from './us-refund-boost.mjs';
 import { usStateTaxWords } from './us-state-tax.mjs';
 import { usPriorYearWords } from './us-prior-year.mjs';
+import { usAmendedWords } from './us-amended.mjs';
 import { usBrokerageCsvWords } from './us-brokerage-import.mjs';
 import { cpaPackWords } from './us-cpa-pack.mjs';
 import { payrollFileWords } from './us-payroll-files.mjs';
@@ -600,6 +601,7 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'us_refund_boost' && result.data) return usRefundBoostWords(result.data);
   if (name === 'us_state_tax' && result.data) return usStateTaxWords(result.data);
   if (name === 'import_us_prior_year' && result.data) return usPriorYearWords(result.data);
+  if (['us_amended_return', 'start_us_amended_return', 'set_us_amended_return'].includes(name) && result.data) return usAmendedWords(result.data, money);
   if (name === 'us_brokerage_csv' && result.data) return usBrokerageCsvWords(result.data);
   if (['us_return_status', 'us_return_review', 'us_tax_estimate', 'list_us_tax_forms', 'us_interview'].includes(name) && result.data) return usReturnWords(name, result.data, money);
   if (name === 'schedule_c_document' && result.data) return `Schedule C ${result.data.year}: net profit ${money(result.data.netProfit)}${result.data.selfEmploymentTax != null ? `, self-employment tax ${money(result.data.selfEmploymentTax)}` : ''}. Saved as ${result.data.fileName} from the Federal and owner taxes screen.`;
@@ -1237,9 +1239,9 @@ export function discardPending(state) {
   return spoken(discardCore(state));
 }
 
-export async function chat(state, said) {
+export async function chat(state, said, { lang } = {}) {
   const message = redactTinsFor(setCurrentCountry(state), said);
-  const out = await throughLanguage(message, async (english, how) => spoken(await chatCore(state, english, how)));
+  const out = await throughLanguage(message, async (english, how) => spoken(await chatCore(state, english, how)), { lang });
   rememberTurn(state, message, out.reply);
   logEvalEvent(state, { input: message, toolName: out.tools?.[0]?.name || out.preview?.tool || out.pending?.name || out.pending?.tool || '', outcome: out.blocked ? 'blocked' : out.awaitingConfirmation || out.pending ? 'held' : out.tools?.length ? 'ran' : 'answered', viaModel: Boolean(out.viaModel), blocked: Boolean(out.blocked), reply: out.reply });
   return out;

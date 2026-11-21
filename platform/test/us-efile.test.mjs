@@ -300,3 +300,18 @@ test('signing uses last year\'s AGI brought in by the prior-year import when non
   const signed = await signUsReturn(state, args, null, { computedReturn });
   assert.equal(signed.ok, true, JSON.stringify(signed));
 });
+
+test('a joint signer uses last year\'s joint AGI for the spouse only when last year was a joint MyCA return', async () => {
+  const computedReturn = async () => ({ ok: true, data: computed1040() });
+  const args = signArgs({ priorYear: {} });
+  const typedOnly = usState();
+  typedOnly.usReturns = { 2025: { answers: { priorYearAgi: 80000 } } };
+  const typed = await signUsReturn(typedOnly, args, null, { computedReturn });
+  assert.equal(typed.error, 'SIGNATURE_INVALID');
+  assert.deepEqual(typed.problems.map((problem) => problem.code), ['PRIOR_YEAR_VERIFICATION_MISSING']);
+  assert.match(typed.problems[0].message, /spouse/);
+  const joint = usState();
+  joint.usReturns = { 2024: { filingStatus: 'mfj', answers: {} }, 2025: { answers: { priorYearAgi: 80000 } } };
+  const signed = await signUsReturn(joint, args, null, { computedReturn });
+  assert.equal(signed.ok, true, JSON.stringify(signed));
+});

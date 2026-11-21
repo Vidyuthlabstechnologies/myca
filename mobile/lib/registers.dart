@@ -1,5 +1,6 @@
 import 'api/models.dart';
 import 'format.dart';
+import 'india/india_strings.dart' show inFill, inLine;
 
 enum RegisterKind { sales, purchases }
 
@@ -54,27 +55,31 @@ Party partyNamed(List<Invoice> documents, String name, String fallbackGstin) {
   return partiesOf(docs).single;
 }
 
-String lastEntryLine(Invoice doc, RegisterKind kind) {
-  final what = kind == RegisterKind.sales ? 'Invoice' : 'Bill';
+String lastEntryLine(Invoice doc, RegisterKind kind, [String lang = 'en']) {
   final state = doc.cancelled
-      ? 'cancelled'
+      ? inLine(lang, 'cancelled')
       : doc.paid
-      ? 'paid'
+      ? inLine(lang, 'paid')
       : doc.partial
-      ? 'part paid'
-      : 'unpaid';
-  return '$what ${doc.id}, ${rupees(doc.total)}, $state';
+      ? inLine(lang, 'part paid')
+      : inLine(lang, 'unpaid');
+  final parts = {'id': doc.id, 'amount': rupees(doc.total), 'state': state};
+  return kind == RegisterKind.sales
+      ? inFill(inLine(lang, 'Invoice {id}, {amount}, {state}'), parts)
+      : inFill(inLine(lang, 'Bill {id}, {amount}, {state}'), parts);
 }
 
-String registerSubtitle(List<Invoice> documents, RegisterKind kind) {
+String registerSubtitle(List<Invoice> documents, RegisterKind kind, [String lang = 'en']) {
+  final sales = kind == RegisterKind.sales;
   if (documents.isEmpty) {
-    return kind == RegisterKind.sales ? 'No sales yet' : 'No purchases yet';
+    return sales ? inLine(lang, 'No sales yet') : inLine(lang, 'No purchases yet');
   }
   final parties = partiesOf(documents);
   final latest = parties.first;
-  final people = kind == RegisterKind.sales ? 'customers' : 'suppliers';
-  final single = kind == RegisterKind.sales ? 'customer' : 'supplier';
-  final count = parties.length == 1 ? '1 $single' : '${parties.length} $people';
+  final n = {'n': parties.length};
+  final count = parties.length == 1
+      ? (sales ? inLine(lang, '1 customer') : inLine(lang, '1 supplier'))
+      : (sales ? inFill(inLine(lang, '{n} customers'), n) : inFill(inLine(lang, '{n} suppliers'), n));
   return '$count · ${latest.name}: ${rupees(latest.latest!.total)}';
 }
 
@@ -223,17 +228,17 @@ HeadThread headThread(List<Expense> expenses, String code, String name) {
   return HeadThread(code: code, name: name, expenses: own);
 }
 
-String expensesSubtitle(List<Expense> expenses) {
-  if (expenses.isEmpty) return 'No expenses yet';
+String expensesSubtitle(List<Expense> expenses, [String lang = 'en']) {
+  if (expenses.isEmpty) return inLine(lang, 'No expenses yet');
   final threads = headThreadsOf(expenses);
   final latest = threads.first;
-  final heads = threads.length == 1 ? '1 head' : '${threads.length} heads';
+  final heads = threads.length == 1 ? inLine(lang, '1 head') : inFill(inLine(lang, '{n} heads'), {'n': threads.length});
   return '$heads · ${latest.name}: ${rupees(latest.latest.amount)}';
 }
 
-String headSubtitle(HeadThread thread) {
+String headSubtitle(HeadThread thread, [String lang = 'en']) {
   final count = thread.expenses.length == 1
-      ? '1 entry'
-      : '${thread.expenses.length} entries';
-  return '$count · ${rupees(thread.total)} · last ${longDate(thread.latest.date)}';
+      ? inLine(lang, '1 entry')
+      : inFill(inLine(lang, '{n} entries'), {'n': thread.expenses.length});
+  return inFill(inLine(lang, '{count} · {amount} · last {date}'), {'count': count, 'amount': rupees(thread.total), 'date': longDate(thread.latest.date)});
 }
