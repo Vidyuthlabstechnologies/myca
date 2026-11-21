@@ -205,8 +205,8 @@ function auditWordsAreNames(state, text, known) {
 const AUDIT_MAKING_WORDS = '(?:record(?:ed)?|add|enter|book|make|made|create|created|raise|issue|generate|prepare|post)\\s+(?:an?\\s+|the\\s+|new\\s+)?';
 const AUDIT_RECEIPT_MADE = new RegExp(`\\b(?:paid|received|${AUDIT_MAKING_WORDS}receipt)\\b`, 'i');
 const AUDIT_NOTE_MADE = new RegExp(`\\b${AUDIT_MAKING_WORDS}(?:credit|debit)\\s+note\\b`, 'i');
-const AUDIT_INVOICE_ID = /\bINV-\d+\b/i;
-const AUDIT_DOCUMENT_ID = /\b(?:INV|BILL)-\d+\b/i;
+const AUDIT_INVOICE_ID = /\bINV-(?:[A-Z]{2}\d{4}-)?\d+\b/i;
+const AUDIT_DOCUMENT_ID = /\b(?:INV-(?:[A-Z]{2}\d{4}-)?|BILL-)\d+\b/i;
 const AUDIT_NOTE_WORDS = /\b(?:credit|debit)\s+notes?\b/i;
 const AUDIT_ACTOR_STOP = new Set(['the', 'a', 'an', 'this', 'last', 'past', 'previous', 'prior', 'for', 'from', 'since', 'until', 'till', 'in', 'on', 'at', 'to', 'today', 'yesterday', 'tomorrow', 'limit', 'everything', 'including', 'all', 'and', 'or', 'as', 'between', 'during', 'over', 'after', 'before', 'each', 'per', 'with', 'please', 'pls', 'thanks', 'now', 'only', 'just', 'also', 'then', 'week', 'month', 'quarter', 'year', 'fy', 'date', 'day', 'time', 'user', 'users', 'person', 'people', 'actor', 'actors', 'name', 'action', 'type', 'kind', 'excel', 'xlsx', 'spreadsheet', 'invoice', 'invoices', 'bill', 'bills', 'party', 'parties', 'customer', 'customers', 'supplier', 'suppliers', 'client', 'clients', 'tool', 'tools', 'account', 'accounts', 'entry', 'entries', 'change', 'changes', 'event', 'events', 'role', 'roles', 'hand', 'ims', 'gst', 'tds', 'newest', 'oldest', 'latest', 'earliest', 'recent', 'recently', 'first', 'category', 'categories', 'hour', 'hours', 'minute', 'minutes', 'who', 'whom', 'whose', 'which', 'what', 'order', 'sorted', 'sort', 'size', 'amount', 'value', 'number', 'id', 'status', 'source', 'group', 'section', 'module', 'reason', 'field', 'ledger', 'record', 'records', 'result', 'results', 'chat', 'app', 'phone', 'email', 'voice', 'default', 'mistake', 'accident', 'most', 'least', 'top', 'bottom', 'highest', 'lowest', 'biggest', 'smallest', 'largest', 'reverse', 'ascending', 'descending', 'asc', 'desc', 'alphabetical', 'alphabetically', 'chronological', 'chronologically', 'timestamp', 'timestamps', 'days', 'weeks', 'months', 'years', 'when', 'where', 'how', 'why', 'weekday', 'priority', 'severity', 'risk', 'importance', 'relevance', 'any', 'that', 'whatever', 'whichever']);
 const AUDIT_ACTOR_LABEL = /^(?:(?:the|a)\s+)?(?:user|actor|person|staff|member|employee|accountant|partner)\s+(?:(?:called|named)\s+)?(?=[a-z])/i;
@@ -222,7 +222,7 @@ const AUDIT_LIMIT_FORMS = [
   /\b(?:last|latest|recent|most\s+recent|top)\s+(\d+)(?!\d)(?!\s*(?:-\s*)?(?:hours?|hrs?|days?|weeks?|fortnights?|months?|quarters?|years?|st|nd|rd|th)\b)/i,
 ];
 const AUDIT_MONTH_ONLY = new RegExp(`^(?:${CHAT_MONTH_WORDS})$`, 'i');
-const AUDIT_NARROWING_IDS = /\b(?:INV|BILL|CN|DN|PDN)-\d+\b/gi;
+const AUDIT_NARROWING_IDS = /\b(?:INV-(?:[A-Z]{2}\d{4}-)?|BILL-|CN-|DN-|PDN-)\d+\b/gi;
 const AUDIT_REQUEST_WORDS = new Set([...AUDIT_ACTOR_STOP, ...AUDIT_OPENING_WORDS, 'audit', 'trail', 'trails', 'log', 'logs', 'edit', 'changed', 'books', 'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december', ...CHAT_MONTH_PREFIXES, 'sept']);
 
 function auditActorSaid(text) {

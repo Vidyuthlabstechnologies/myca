@@ -265,6 +265,11 @@ and [`README.md`](README.md) for what is left and how it is being done.
   text passed to `inText` has no Hindi line. Other screens and server replies stay in English for now
 - India counter sale buyer details (2026-11-15): a counter bill of ₹50,000 or more is held until the
   customer's name and address are entered, and the address goes on the invoice (`partyAddress`)
+- India offline billing engine (2026-11-21): `offline_kit` (query), `register_offline_device` and
+  `post_offline_sales` (propose and confirm, hidden from the assistant) give each phone its own invoice
+  series (`INV-MA2627-0001`) and post its offline bills, receipts and new items exactly once by `ref`,
+  refusing any bill whose figures differ from the engine's; shared vectors in
+  `platform/test/fixtures/offline-invoice-vectors.json`. Contract: docs/architecture/OFFLINE-BILLING.md
 - US federal figures checked against the IRS text (2026-11-15): the 2025 and 2026 brackets, capital gains
   thresholds, earned income credit table, student loan interest phase-out and QBI thresholds, and the 2026
   standard deduction and child tax credit, were compared line by line with Rev. Proc. 2024-40 and 2025-32. All

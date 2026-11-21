@@ -90,6 +90,7 @@ export function createState() {
     skus: {},
     stockMoves: [],
     inventoryValuations: [],
+    offlineSeries: [],
     loyalty: { settings: null, entries: [], seq: 0 },
     inventoryCosting: null,
     portalSaves: {},
@@ -208,6 +209,7 @@ export function serialize(state) {
     skus: state.skus || {},
     stockMoves: state.stockMoves || [],
     inventoryValuations: state.inventoryValuations || [],
+    offlineSeries: state.offlineSeries || [],
     loyalty: state.loyalty || { settings: null, entries: [], seq: 0 },
     inventoryCosting: state.inventoryCosting || null,
     portalSaves: state.portalSaves || {},
@@ -407,6 +409,7 @@ export function deserialize(raw) {
   state.skus = raw.skus && typeof raw.skus === 'object' ? raw.skus : {};
   state.stockMoves = Array.isArray(raw.stockMoves) ? raw.stockMoves : [];
   state.inventoryValuations = Array.isArray(raw.inventoryValuations) ? raw.inventoryValuations : [];
+  state.offlineSeries = Array.isArray(raw.offlineSeries) ? raw.offlineSeries : [];
   state.loyalty = raw.loyalty && typeof raw.loyalty === 'object' && Array.isArray(raw.loyalty.entries) ? { settings: raw.loyalty.settings && typeof raw.loyalty.settings === 'object' ? raw.loyalty.settings : null, entries: raw.loyalty.entries, seq: Number(raw.loyalty.seq || 0) } : { settings: null, entries: [], seq: 0 };
   state.inventoryCosting = raw.inventoryCosting && typeof raw.inventoryCosting === 'object' ? raw.inventoryCosting : null;
   state.portalSaves = raw.portalSaves && typeof raw.portalSaves === 'object' ? raw.portalSaves : {};

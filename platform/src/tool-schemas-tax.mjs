@@ -1,5 +1,5 @@
 import { IMS_MAX_KEY } from './ims.mjs';
-import { noArgs, tdsProperties, REGISTRATION_ARG } from './tool-schema-parts.mjs';
+import { noArgs, tdsProperties, REGISTRATION_ARG, INVOICE_ID, invoiceIdOr } from './tool-schema-parts.mjs';
 
 export const TAX_TOOL_SCHEMAS = {
   provider_doctor: noArgs,
@@ -94,7 +94,7 @@ export const TAX_TOOL_SCHEMAS = {
     additionalProperties: false,
     required: ['invoiceId', 'amount'],
     properties: {
-      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      invoiceId: INVOICE_ID,
       amount: { type: 'number', exclusiveMinimum: 0 },
       date: { type: 'string', minLength: 10, maxLength: 10 },
       section: { type: 'string', maxLength: 6 },
@@ -294,13 +294,13 @@ export const TAX_TOOL_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     required: ['invoiceId'],
-    properties: { invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' } },
+    properties: { invoiceId: INVOICE_ID },
   },
   govt_generate_ewb: {
     type: 'object',
     additionalProperties: false,
     required: ['invoiceId'],
-    properties: { invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' }, caApprovalId: { type: 'string', maxLength: 40 } },
+    properties: { invoiceId: INVOICE_ID, caApprovalId: { type: 'string', maxLength: 40 } },
   },
   ask_tax: {
     type: 'object',
@@ -581,14 +581,14 @@ export const TAX_TOOL_SCHEMAS = {
   govt_nic_mock: {
     type: 'object',
     additionalProperties: false,
-    properties: { invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' } },
+    properties: { invoiceId: INVOICE_ID },
   },
   govt_generate_irn: {
     type: 'object',
     additionalProperties: false,
     required: ['invoiceId'],
     properties: {
-      invoiceId: { type: 'string', pattern: '^(INV|CN|DN|BILL|SI)-[0-9]{4,}$' },
+      invoiceId: invoiceIdOr(['CN', 'DN', 'BILL', 'SI']),
       provider: { type: 'string', enum: ['nic', 'sandbox'] },
       caApprovalId: { type: 'string' },
     },

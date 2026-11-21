@@ -29,7 +29,7 @@ const SET_PATTERNS = [
 export function planTermsFromChat(text) {
   const raw = normalizeChat(text);
   if (!/\b(?:terms?|pays?|will\s+pay|credit)\b/i.test(raw)) return null;
-  if (/\b(?:INV|BILL)-\d+/i.test(raw) || /\binvoice\b|\bsold\b|\bbill\b/i.test(raw)) return null;
+  if (/\b(?:INV-(?:[A-Z]{2}\d{4}-)?|BILL-)\d+/i.test(raw) || /\binvoice\b|\bsold\b|\bbill\b/i.test(raw)) return null;
   if (isQuestion(raw) || isNegated(raw)) return null;
   for (const pattern of SET_PATTERNS) {
     const found = raw.match(pattern);

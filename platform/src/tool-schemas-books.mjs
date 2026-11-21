@@ -1,5 +1,92 @@
 import { REPORT_KEYS } from './report-sheets.mjs';
-import { noArgs, salaryComponent, REGISTRATION_ARG } from './tool-schema-parts.mjs';
+import { noArgs, salaryComponent, REGISTRATION_ARG, INVOICE_ID, OFFLINE_DEVICE_ID_PATTERN, MAX_OFFLINE_ENTRIES, OFFLINE_RECEIPT_MODES } from './tool-schema-parts.mjs';
+
+const OFFLINE_DEVICE_ID = { type: 'string', pattern: OFFLINE_DEVICE_ID_PATTERN };
+const OFFLINE_REF = { type: 'string', minLength: 8, maxLength: 64 };
+const ISO_DAY = { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' };
+const RUPEES = { type: 'number', minimum: 0 };
+
+const OFFLINE_LINE = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['description', 'qty', 'rate', 'gstRate'],
+  properties: {
+    description: { type: 'string', minLength: 1, maxLength: 200 },
+    sku: { type: 'string', maxLength: 64 },
+    hsn: { type: 'string', maxLength: 8 },
+    qty: { type: 'number', exclusiveMinimum: 0 },
+    unit: { type: 'string', maxLength: 20 },
+    rate: RUPEES,
+    gstRate: { type: 'number', minimum: 0, maximum: 40 },
+    cessRate: { type: 'number', minimum: 0 },
+    cessPerUnit: { type: 'number', minimum: 0 },
+  },
+};
+
+const OFFLINE_SALE = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['ref', 'id', 'date', 'lines', 'printed'],
+  properties: {
+    ref: OFFLINE_REF,
+    id: { type: 'string', pattern: '^INV-[A-Z]{2}[0-9]{4}-[0-9]{4,}$' },
+    date: ISO_DAY,
+    createdAt: { type: 'string', maxLength: 40 },
+    partyName: { type: 'string', maxLength: 120 },
+    partyGstin: { type: 'string', maxLength: 15 },
+    partyState: { type: 'string', maxLength: 2 },
+    partyAddress: { type: 'string', maxLength: 200 },
+    lines: { type: 'array', minItems: 1, maxItems: 100, items: OFFLINE_LINE },
+    printed: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['taxable', 'cgst', 'sgst', 'igst', 'total'],
+      properties: { taxable: RUPEES, cgst: RUPEES, sgst: RUPEES, igst: RUPEES, total: RUPEES },
+    },
+    payment: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['amount', 'mode'],
+      properties: { amount: { type: 'number', exclusiveMinimum: 0 }, mode: { type: 'string', enum: [...OFFLINE_RECEIPT_MODES] } },
+    },
+    voided: {
+      type: 'object',
+      additionalProperties: false,
+      properties: { reason: { type: 'string', maxLength: 200 }, at: { type: 'string', maxLength: 40 } },
+    },
+    acceptEngineFigures: { type: 'boolean' },
+    exportSale: { type: 'object' },
+    supplyType: { type: 'string', maxLength: 10 },
+  },
+};
+
+const OFFLINE_RECEIPT = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['ref', 'invoiceId', 'amount', 'date', 'mode'],
+  properties: {
+    ref: OFFLINE_REF,
+    invoiceId: INVOICE_ID,
+    amount: { type: 'number', exclusiveMinimum: 0 },
+    date: ISO_DAY,
+    mode: { type: 'string', enum: [...OFFLINE_RECEIPT_MODES] },
+  },
+};
+
+const OFFLINE_ITEM = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['ref', 'sku', 'name', 'price', 'gstRate'],
+  properties: {
+    ref: OFFLINE_REF,
+    sku: { type: 'string', minLength: 1, maxLength: 64 },
+    name: { type: 'string', minLength: 1, maxLength: 120 },
+    price: RUPEES,
+    gstRate: { type: 'number', minimum: 0, maximum: 40 },
+    hsn: { type: 'string', maxLength: 8 },
+    barcode: { type: 'string', maxLength: 32 },
+  },
+};
 
 export const BOOKS_TOOL_SCHEMAS = {
   company_profile: noArgs,
@@ -341,6 +428,29 @@ export const BOOKS_TOOL_SCHEMAS = {
       reorderLevel: { type: 'number', minimum: 0 },
       reorderQty: { type: 'number', minimum: 0 },
       on: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
+  offline_kit: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['deviceId'],
+    properties: { deviceId: OFFLINE_DEVICE_ID },
+  },
+  register_offline_device: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['deviceId'],
+    properties: { deviceId: OFFLINE_DEVICE_ID, deviceName: { type: 'string', maxLength: 60 } },
+  },
+  post_offline_sales: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['deviceId'],
+    properties: {
+      deviceId: OFFLINE_DEVICE_ID,
+      sales: { type: 'array', maxItems: MAX_OFFLINE_ENTRIES, items: OFFLINE_SALE },
+      receipts: { type: 'array', maxItems: MAX_OFFLINE_ENTRIES, items: OFFLINE_RECEIPT },
+      items: { type: 'array', maxItems: MAX_OFFLINE_ENTRIES, items: OFFLINE_ITEM },
     },
   },
   catalogue_settings: {

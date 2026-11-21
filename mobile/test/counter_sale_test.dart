@@ -245,7 +245,10 @@ void main() {
     await tester.tap(find.byKey(const Key('counter-post')));
     await tester.pumpAndSettle();
     expect(api.confirmed, contains('tok-create_invoice'));
-    expect(find.text('Posted INV-0042.'), findsOneWidget);
+    expect(find.text('Posted INV-0042. Paid by Cash.'), findsOneWidget);
+    final paid = api.proposals.last;
+    expect(paid.tool, 'record_receipt');
+    expect(paid.args, {'invoiceId': 'INV-0042', 'amount': 59, 'mode': 'cash', 'date': '2026-11-14'});
 
     await tester.ensureVisible(find.byKey(const Key('counter-print')));
     await tester.tap(find.byKey(const Key('counter-print')));

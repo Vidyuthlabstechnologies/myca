@@ -46,7 +46,7 @@ function skuKey(value) {
   return String(value == null ? '' : value).trim().toUpperCase().slice(0, MAX_SKU);
 }
 
-function skus(state) {
+export function skus(state) {
   return state.skus && typeof state.skus === 'object' ? state.skus : {};
 }
 

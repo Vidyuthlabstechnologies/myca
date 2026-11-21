@@ -44,7 +44,7 @@ function listOf(unpaid) {
 // otherwise the open invoices are listed and nothing is recorded.
 export function planReceiptWithoutInvoice(state, text) {
   const raw = normalizeChat(text);
-  if (!RECEIPT_WORDS.test(raw) || /\bINV-\d+\b/i.test(raw) || PAID_OUT.test(raw)) return null;
+  if (!RECEIPT_WORDS.test(raw) || /\bINV-(?:[A-Z]{2}\d{4}-)?\d+\b/i.test(raw) || PAID_OUT.test(raw)) return null;
   const customers = customersNamedIn(state, raw);
   if (customers.length === 0) {
     const named = raw.match(NAMED_AFTER_FROM);

@@ -6,6 +6,7 @@ import '../api/models.dart';
 import '../notifications.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import 'offline_banner.dart';
 import '../india/india_language_picker.dart';
 import '../india/india_strings.dart';
 import '../attention.dart';
@@ -185,6 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
           children: [
+            if (state.offline != null) OfflineBanner(offline: state.offline!),
             Padding(
               padding: const EdgeInsets.fromLTRB(2, 0, 2, 18),
               child: Column(

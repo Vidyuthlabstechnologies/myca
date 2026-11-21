@@ -26,6 +26,9 @@ import 'cloud/plaid_link.dart';
 import 'crash_reports.dart';
 import 'lock/app_lock.dart';
 import 'notifications.dart';
+import 'offline/offline_billing.dart';
+import 'offline/offline_files.dart';
+import 'package:path_provider/path_provider.dart';
 import 'lock/device_app_lock.dart';
 import 'screens/bill_capture_screen.dart';
 import 'screens/business_setup_screen.dart';
@@ -113,6 +116,7 @@ void main() {
         edition: editionFor(appFlavor),
         installationId: deviceInstallationId,
         languages: const DeviceLanguageStore(),
+        offline: OfflineBilling(DirectoryOfflineFiles(getApplicationSupportDirectory)),
       ),
     ),
   );

@@ -25,6 +25,8 @@ import { yearClosePreview, tallyPushPreview, attachDocumentPreview, skuSupplyPre
 import { documentStockPlan, withItemUnits } from './document-stock.mjs';
 import { checkConvert, invoiceArgsFromQuote } from './quotes.mjs';
 
+import { offlineDevicePreview, offlineSalesPreview } from './offline-sales.mjs';
+
 export { TDS_REASONS, rowsCounted } from './confirm-tax.mjs';
 
 function withDocumentStock(state, args, kind) {
@@ -51,6 +53,7 @@ export const CONFIRM_TOOLS = new Set([
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
+  'register_offline_device', 'post_offline_sales',
   ...ENGINE_WRITE_TOOLS,
 ]);
 
@@ -175,6 +178,8 @@ const PREVIEWERS = {
   govt_generate_irn: (state, args) => irnPreview(state, args, false),
   govt_nic_cancel_irn: (state, args) => irnPreview(state, args, true),
   exception_decide: exceptionPreview,
+  register_offline_device: offlineDevicePreview,
+  post_offline_sales: offlineSalesPreview,
 };
 
 const PERSISTED_PENDING_LIMIT = 64 * 1024;

@@ -63,6 +63,7 @@ class Snapshot {
     required this.users,
     required this.activeUser,
     this.sharedAsOf = '',
+    this.raw = const <String, dynamic>{},
   });
 
   factory Snapshot.fromJson(Object? json) {
@@ -82,10 +83,12 @@ class Snapshot {
       users: _maps(map['users']).map(FirmUser.fromJson).toList(),
       activeUser: active is Map ? FirmUser.fromJson(active) : null,
       sharedAsOf: _text(map['sharedAsOf']),
+      raw: map,
     );
   }
 
   final String sharedAsOf;
+  final Map<String, dynamic> raw;
   final Company company;
   final List<Invoice> invoices;
   final List<Invoice> purchases;
