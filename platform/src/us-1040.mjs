@@ -674,10 +674,11 @@ export function computeForm1040(input = {}, taxYearArg) {
   const excessSs = [];
   for (const owner of owners) {
     const forms = ownerWages(owner);
-    const maxSs = ofBasis(fromCents(socialSecurity.wageBaseCents), socialSecurity.employeeBasisPoints);
-    const withheldSs = sum(forms, (form) => Math.min(field(form, 'socialSecurityTax'), maxSs));
-    if (forms.length > 1 && withheldSs > maxSs) excessSs.push(withheldSs - maxSs);
-    if (forms.some((form) => field(form, 'socialSecurityTax') > maxSs)) checks.push(check('warning', 'EMPLOYER_OVERWITHHELD_SS', 'One employer withheld more Social Security tax than the yearly maximum; ask that employer to refund it (it cannot be claimed on the return).', ''));
+    const maxSsCents = Math.round((socialSecurity.wageBaseCents * socialSecurity.employeeBasisPoints) / 10000);
+    const ssCents = (form) => Math.max(0, Math.round(Number(form.fields?.socialSecurityTax || 0) * 100));
+    const withheldSsCents = forms.reduce((total, form) => total + Math.min(ssCents(form), maxSsCents), 0);
+    if (forms.length > 1 && withheldSsCents > maxSsCents) excessSs.push(Math.round((withheldSsCents - maxSsCents) / 100));
+    if (forms.some((form) => ssCents(form) > maxSsCents)) checks.push(check('warning', 'EMPLOYER_OVERWITHHELD_SS', 'One employer withheld more Social Security tax than the yearly maximum; ask that employer to refund it (it cannot be claimed on the return).', ''));
   }
   const line11of3 = sum(excessSs);
   if (line17of8812 > 0 && !answers.foreignEarnedIncomeExclusion) {

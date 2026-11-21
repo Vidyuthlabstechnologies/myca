@@ -107,3 +107,9 @@ test('the review PDF breaks pages by height, so no row is drawn below the bottom
   assert.ok(Math.min(...ys) >= 40, `lowest row at ${Math.min(...ys)}`);
   assert.equal(typeof simplePdf, 'function');
 });
+
+test('Schedule 3 line 11: excess Social Security tax is figured on the cents, against the $10,918.20 maximum for 2025', () => {
+  const job = (payer, wages, socialSecurityTax) => ({ kind: 'W-2', payer, fields: { wages, socialSecurityWages: wages, socialSecurityTax } });
+  const out = computeForm1040({ filingStatus: 'single', taxpayer: { dateOfBirth: '1980-01-01' }, forms: [job('A', 120000, 7440.4), job('B', 90000, 5580.4)] }, '2025');
+  assert.equal(out.data.schedules['3']['11'], 2103);
+});
