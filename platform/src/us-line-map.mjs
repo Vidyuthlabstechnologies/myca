@@ -87,6 +87,8 @@ export function layoutLines(taxYear, form, values) {
   if (!layout) return { ...values };
   const out = {};
   for (const [key, source] of layout) if (values[source] !== undefined) out[key] = values[source];
+  const sources = new Set(layout.map(([, source]) => source));
+  for (const [key, value] of Object.entries(values)) if (/^[A-Za-z]/.test(key) && !sources.has(key) && !(key in out)) out[key] = value;
   return out;
 }
 

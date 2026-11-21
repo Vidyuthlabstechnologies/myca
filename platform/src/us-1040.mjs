@@ -1067,7 +1067,7 @@ export function computeForm1040(input = {}, taxYearArg) {
     ...(schedule1A.total > 0 ? { '1-A': stringKeys(layoutLines(taxYear, '1-A', schedule1A)) } : {}),
     ...(schedule2.total + schedule2.partI > 0 ? { 2: stringKeys(layoutLines(taxYear, 2, schedule2)) } : {}),
     ...(schedule3[8] + schedule3[15] > 0 ? { 3: stringKeys(layoutLines(taxYear, 3, schedule3)) } : {}),
-    ...(itemize ? { A: stringKeys(layoutLines(taxYear, 'A', scheduleA)) } : {}),
+    ...(itemize ? { A: stringKeys(layoutLines(taxYear, 'A', String(taxYear) >= '2026' && scheduleA.afterSection68 !== undefined ? { ...scheduleA, 17: scheduleA.afterSection68 } : scheduleA)) } : {}),
     ...(taxableInterest > 1500 || ordinaryDividends > 1500 ? { B: { interest: ints.map((form) => ({ payer: form.payer || '', amount: field(form, 'interest') + field(form, 'treasuryInterest') })), dividends: divs.map((form) => ({ payer: form.payer || '', amount: field(form, 'ordinaryDividends') })), 4: taxableInterest, 6: ordinaryDividends } } : {}),
     ...(businesses.length ? { C: businesses.map((item) => ({ id: item.id, name: item.name, owner: item.owner, source: item.source, lines: stringKeys(item.lines), expenses: item.expenses })) } : {}),
     ...(d.has ? { D: { ...stringKeys(d.lines), carryoverToNextYear: carryover }, 8949: d.transactions.map(({ formId, ...row }) => row) } : {}),

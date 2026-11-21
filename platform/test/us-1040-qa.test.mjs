@@ -11,7 +11,7 @@ test('1040 instructions lines 4a-4b: a direct rollover (1099-R code G) with box 
   const out = run('single', [r({ grossDistribution: 80000, distributionCode: 'G', iraSepSimple: false })]);
   assert.equal(out.data.lines['5a'], 80000);
   assert.equal(out.data.lines['5b'], 0);
-  assert.equal(out.data.lines['11'], 0);
+  assert.equal(out.data.lines['11a'], 0);
   assert.ok(codes(out).includes('ROLLOVER_NOT_TAXED'));
 });
 
@@ -39,12 +39,12 @@ test('Schedule C line 24b from the books: business meals are deducted at 50% (IR
 test('Form 8995 instructions: a qualifying surviving spouse uses the $197,300 threshold of all other returns, not the joint $394,600 (Rev. Proc. 2024-40 section 3.27)', () => {
   const kid = { firstName: 'Ivy', relationship: 'daughter', dateOfBirth: '2015-02-02', months: 12 };
   const out = computeForm1040({ filingStatus: 'qss', taxpayer: { ...adult, dateOfBirth: '1980-01-01' }, dependents: [kid], businesses: [{ owner: 'taxpayer', grossReceipts: 300000, totalExpenses: 50000 }], forms: [] }, '2025');
-  assert.ok(out.data.lines['11'] - out.data.lines['12'] > 197300);
+  assert.ok(out.data.lines['11a'] - out.data.lines['12e'] > 197300);
   assert.equal(out.data.lines['13a'], 0);
   assert.ok(out.data.unsupported.some((item) => item.form === '8995-A'));
 });
 
-const eic = (filingStatus, wages, children) => computeForm1040({ filingStatus, taxpayer: { dateOfBirth: '1990-05-05' }, ...(filingStatus === 'mfj' ? { spouse: { dateOfBirth: '1990-06-06' } } : {}), dependents: Array.from({ length: children }, (_, i) => ({ firstName: `K${i}`, relationship: 'son', dateOfBirth: `2015-01-0${i + 1}`, months: 12 })), forms: [{ kind: 'W-2', payer: 'Acme', fields: { wages } }] }, '2025').data.lines['27'];
+const eic = (filingStatus, wages, children) => computeForm1040({ filingStatus, taxpayer: { dateOfBirth: '1990-05-05' }, ...(filingStatus === 'mfj' ? { spouse: { dateOfBirth: '1990-06-06' } } : {}), dependents: Array.from({ length: children }, (_, i) => ({ firstName: `K${i}`, relationship: 'son', dateOfBirth: `2015-01-0${i + 1}`, months: 12 })), forms: [{ kind: 'W-2', payer: 'Acme', fields: { wages } }] }, '2025').data.lines['27a'];
 
 test('2025 EIC Table: the band holding the earned income amount gives the maximum credit', () => {
   assert.equal(eic('single', 8460, 0), 649);
@@ -85,7 +85,7 @@ test('Form 7206: self-employed health insurance is capped at business profit les
   const out = computeForm1040({ filingStatus: 'single', taxpayer: { dateOfBirth: '1980-01-01' }, forms: [{ kind: '1099-NEC', payer: 'Client', fields: { nonemployeeCompensation: 5000 } }], answers: { selfEmployedHealthInsurance: 10000 } }, '2025');
   const half = out.data.schedules['1']['15'];
   assert.equal(out.data.schedules['1']['17'], 5000 - half);
-  assert.equal(out.data.lines['11'], 0);
+  assert.equal(out.data.lines['11a'], 0);
   assert.ok(codes(out).includes('SE_HEALTH_ABOVE_PROFIT'));
 });
 
@@ -117,14 +117,16 @@ test('Schedule 3 line 11: excess Social Security tax is figured on the cents, ag
 test('IRC section 68 (2026): itemized deductions are cut by 2/37 of the smaller of the deductions or the income above the 37% bracket start', () => {
   const run2026 = (filingStatus, wages, propertyTax, charityCash) => computeForm1040({ filingStatus, taxpayer: { dateOfBirth: '1980-01-01' }, ...(filingStatus === 'mfj' ? { spouse: { dateOfBirth: '1980-01-01' } } : {}), forms: [{ kind: 'W-2', payer: 'Acme', fields: { wages } }], answers: { realEstateTaxes: propertyTax, charityCash, itemize: 'yes' } }, '2026');
   const single = run2026('single', 800000, 10000, 60000);
-  assert.equal(single.data.schedules.A['17'], 66000);
+  assert.equal(single.data.schedules.A['15'], 56000);
+  assert.equal(single.data.schedules.A.afterSection68, 62432);
+  assert.equal(single.data.schedules.A['18'], 62432);
   assert.equal(single.data.schedules.A.section68Reduction, 3568);
-  assert.equal(single.data.lines['12'], 62432);
+  assert.equal(single.data.lines['12e'], 62432);
   assert.equal(single.data.lines['15'], 737568);
   assert.equal(single.data.lines['16'], 228857);
   const joint = run2026('mfj', 800000, 10000, 44000);
   assert.equal(joint.data.schedules.A.section68Reduction, 1692);
-  assert.equal(joint.data.lines['12'], 48308);
+  assert.equal(joint.data.lines['12e'], 48308);
   assert.equal(joint.data.lines['16'], 200631);
   assert.equal(run2026('single', 300000, 10000, 20000).data.schedules.A.section68Reduction, undefined);
 });
