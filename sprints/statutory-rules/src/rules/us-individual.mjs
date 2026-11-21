@@ -493,22 +493,22 @@ export const RULES = [
   },
   {
     id: 'us.federal.individual.educator-expenses',
-    value: { maxPerEducatorCents: 350 * D },
-    basis: 'above_the_line_deduction_for_unreimbursed_classroom_expenses_of_an_eligible_educator',
+    value: { maxPerEducatorCents: 350 * D, excessItemized: true },
+    basis: 'above_the_line_deduction_for_unreimbursed_classroom_expenses_of_an_eligible_educator_with_the_excess_over_the_limit_an_itemized_deduction_outside_the_miscellaneous_itemized_deductions',
     ...year(2026),
     act: 'IRC',
-    section: '62(a)(2)(D)',
-    source: `IRC section 62(a)(2)(D); ${RP_2026}: three hundred fifty dollars (${NOT_REREAD})`,
+    section: '62(a)(2)(D), 67(b)(13)',
+    source: `IRC section 62(a)(2)(D); ${RP_2026} section 3.12: three hundred fifty dollars, read from irs.gov/pub/irs-drop/rp-25-32.pdf on 2026-11-21. Public Law 119-21 section 70110(b) adds section 67(b)(13) and 67(g): from taxable years beginning after December 31, 2025, educator expenses figured without the dollar limitation (and with interscholastic sports administrators and coaches as eligible educators) are an itemized deduction that is not a miscellaneous itemized deduction, read from the enrolled bill text, congress.gov/119/bills/hr1/BILLS-119hr1enr.pdf, on 2026-11-21; the part above the limit is taken on Schedule A line 16`,
     attestations: []
   },
   {
     id: 'us.federal.individual.educator-expenses',
-    value: { maxPerEducatorCents: 350 * D },
-    basis: 'above_the_line_deduction_for_unreimbursed_classroom_expenses_of_an_eligible_educator',
+    value: { maxPerEducatorCents: 350 * D, excessItemized: true },
+    basis: 'above_the_line_deduction_for_unreimbursed_classroom_expenses_of_an_eligible_educator_with_the_excess_over_the_limit_an_itemized_deduction_outside_the_miscellaneous_itemized_deductions',
     ...year(2027),
     act: 'IRC',
-    section: '62(a)(2)(D)',
-    source: `IRC section 62(a)(2)(D); ${RP_2027} section 3.13: three hundred fifty dollars (${READ_2027})`,
+    section: '62(a)(2)(D), 67(b)(13)',
+    source: `IRC section 62(a)(2)(D); ${RP_2027} section 3.13: three hundred fifty dollars (${READ_2027}); the excess is an itemized deduction under section 67(b)(13) added by Public Law 119-21 section 70110(b)`,
     attestations: []
   },
 ];
