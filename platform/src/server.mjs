@@ -253,8 +253,8 @@ function handler(req, res) {
       return send(req, res, 200, { ok: true, user: session.activeUser() });
     }
     if (req.method === 'POST' && url.pathname === '/api/chat') {
-      const { message } = JSON.parse(await readBody(req) || '{}');
-      return send(req, res, 200, await session.chat(message));
+      const { message, lang } = JSON.parse(await readBody(req) || '{}');
+      return send(req, res, 200, await session.chat(message, lang ? { lang: String(lang) } : undefined));
     }
     if (req.method === 'POST' && url.pathname === '/api/propose') {
       const { name, args } = JSON.parse(await readBody(req) || '{}');

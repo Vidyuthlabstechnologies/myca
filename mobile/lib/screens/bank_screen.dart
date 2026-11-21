@@ -6,6 +6,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../excel.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../proposal_flow.dart';
 import '../registers.dart';
@@ -1012,7 +1013,7 @@ class _AccountSheetState extends State<_AccountSheet> {
               TextField(
                 controller: _ifsc,
                 textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(labelText: 'IFSC (optional)'),
+                decoration: InputDecoration(labelText: inText(context, 'IFSC (optional)')),
               ),
             ],
             if (_error.isNotEmpty) ...[

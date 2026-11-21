@@ -14,6 +14,7 @@ const FIGURES = Object.freeze({
   longTermLossCarryover: { answer: 'longTermLossCarryover', label: 'Long-term capital loss carryover' },
   qbiLossCarryforward: { answer: 'qbiLossCarryforward', label: 'Qualified business loss carryforward (Form 8995 line 16, line 18 from 2026)' },
   qbiReitPtpLossCarryforward: { answer: 'qbiReitPtpLossCarryforward', label: 'REIT and PTP loss carryforward (Form 8995 line 17, line 19 from 2026)' },
+  iraBasis: { answer: 'priorIraBasis', label: 'Basis in traditional IRAs (Form 8606 line 14)' },
 });
 
 function fail(error, extra = {}) {
@@ -146,6 +147,8 @@ export function planUsPriorYearImport(state, args = {}) {
       if (carry.longTerm > 0) figures.longTermLossCarryover = carry.longTerm;
       if (d.qbiCarryforward?.qbiLoss > 0) figures.qbiLossCarryforward = d.qbiCarryforward.qbiLoss;
       if (d.qbiCarryforward?.reitPtpLoss > 0) figures.qbiReitPtpLossCarryforward = d.qbiCarryforward.reitPtpLoss;
+      const iraBasis = Number(d.retirementCarryforward?.iraBasis || 0);
+      if (iraBasis > 0) figures.iraBasis = iraBasis;
       if (d.summary.itemized) notes.push(`You itemized in ${priorYear}: a state tax refund received in ${taxYear} can be taxable.`);
       const seen = new Set();
       for (const form of prior.forms || []) {

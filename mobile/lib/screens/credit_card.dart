@@ -4,6 +4,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'ims_screen.dart';
@@ -49,6 +50,7 @@ class _CreditCardState extends State<CreditCard> {
 
   Future<void> _add2b() async {
     final state = AppScope.of(context);
+    final lang = indiaLang(context);
     final picked = await state.pickTextFile(const ['csv']);
     if (picked == null || !mounted) return;
     setState(() {
@@ -69,11 +71,11 @@ class _CreditCardState extends State<CreditCard> {
       } else if (mounted && await _confirm(preview)) {
         final done = await state.api.confirm(preview.token);
         note = done.posted
-            ? 'Added. Your bills are checked against it below.'
+            ? inLine(lang, 'Added. Your bills are checked against it below.')
             : done.reply;
       } else {
         await state.api.discard();
-        note = 'Not added.';
+        note = inLine(lang, 'Not added.');
       }
     } on MycaApiException catch (err) {
       note = err.message;
@@ -91,16 +93,16 @@ class _CreditCardState extends State<CreditCard> {
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
-        title: const Text('Add this GSTR-2B?'),
+        title: Text(inText(context, 'Add this GSTR-2B?')),
         content: Text([preview.summary, ...preview.effects].join('\n\n')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialog).pop(false),
-            child: const Text('Cancel'),
+            child: Text(inText(context, 'Cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialog).pop(true),
-            child: const Text('Add'),
+            child: Text(inText(context, 'Add')),
           ),
         ],
       ),
@@ -139,7 +141,7 @@ class _CreditCardState extends State<CreditCard> {
                         child: Text(
                           risk.supplierInvoiceNo.isEmpty
                               ? risk.billId
-                              : 'Bill ${risk.supplierInvoiceNo}',
+                              : inFormat(context, 'Bill {number}', {'number': risk.supplierInvoiceNo}),
                           style: text.titleMedium,
                         ),
                       ),
@@ -175,7 +177,7 @@ class _CreditCardState extends State<CreditCard> {
                           ),
                         );
                       },
-                      child: const Text('Remind supplier'),
+                      child: Text(inText(context, 'Remind supplier')),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -184,7 +186,7 @@ class _CreditCardState extends State<CreditCard> {
                   width: double.infinity,
                   child: OutlinedButton(
                     onPressed: () => Navigator.of(sheet).pop(),
-                    child: const Text('Got it'),
+                    child: Text(inText(context, 'Got it')),
                   ),
                 ),
               ],
@@ -213,32 +215,32 @@ class _CreditCardState extends State<CreditCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'INPUT CREDIT AGAINST GSTR-2B, ${monthLabel(widget.period).toUpperCase()}',
+                inFormat(context, 'INPUT CREDIT AGAINST GSTR-2B, {month}', {'month': monthLabel(widget.period).toUpperCase()}),
                 style: text.labelSmall,
               ),
               const SizedBox(height: 8),
               if (check == null)
                 Text(
                   state.connectionState == ConnectionState.done
-                      ? 'Could not check.'
-                      : 'Checking…',
+                      ? inText(context, 'Could not check.')
+                      : inText(context, 'Checking…'),
                   style: text.bodyMedium,
                 )
               else if (check.bills == 0)
                 Text(
-                  'No purchase bills with GST in this month.',
+                  inText(context, 'No purchase bills with GST in this month.'),
                   style: text.bodyLarge,
                 )
               else ...[
                 AmountRow(
-                  start: Text('Matched in 2B', style: text.bodyMedium),
+                  start: Text(inText(context, 'Matched in 2B'), style: text.bodyMedium),
                   amount: rupees(check.creditMatched),
                   style: text.bodyMedium?.copyWith(fontFeatures: moneyFigures),
                 ),
                 const SizedBox(height: 2),
                 AmountRow(
                   start: Text(
-                    'At risk',
+                    inText(context, 'At risk'),
                     style: text.titleMedium?.copyWith(
                       color: check.creditAtRisk > 0 ? Palette.warn : Palette.ink,
                     ),
@@ -252,7 +254,7 @@ class _CreditCardState extends State<CreditCard> {
                 if (!check.hasStatement) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'Add the GSTR-2B for this month to see which bills your suppliers have reported.',
+                    inText(context, 'Add the GSTR-2B for this month to see which bills your suppliers have reported.'),
                     style: text.bodySmall,
                   ),
                 ] else if (check.bySupplier.isNotEmpty) ...[
@@ -272,9 +274,7 @@ class _CreditCardState extends State<CreditCard> {
                                 style: text.titleMedium,
                               ),
                               Text(
-                                supplier.bills == 1
-                                    ? '1 bill'
-                                    : '${supplier.bills} bills',
+                                inCount(context, supplier.bills, '1 bill', '{n} bills'),
                                 style: text.bodySmall,
                               ),
                             ],
@@ -298,7 +298,7 @@ class _CreditCardState extends State<CreditCard> {
                 if (check.notBooked > 0) ...[
                   const SizedBox(height: 6),
                   Text(
-                    '${check.notBooked == 1 ? '1 bill' : '${check.notBooked} bills'} in 2B ${check.notBooked == 1 ? 'is' : 'are'} not in your books.',
+                    inCount(context, check.notBooked, '1 bill in 2B is not in your books.', '{n} bills in 2B are not in your books.'),
                     style: text.bodySmall,
                   ),
                 ],
@@ -310,10 +310,10 @@ class _CreditCardState extends State<CreditCard> {
                   onPressed: _busy ? null : _add2b,
                   child: Text(
                     _busy
-                        ? 'Adding…'
+                        ? inText(context, 'Adding…')
                         : check?.hasStatement == true
-                        ? 'Replace GSTR-2B'
-                        : 'Add GSTR-2B for ${monthLabel(widget.period)}',
+                        ? inText(context, 'Replace GSTR-2B')
+                        : inFormat(context, 'Add GSTR-2B for {month}', {'month': monthLabel(widget.period)}),
                   ),
                 ),
               ),
@@ -328,13 +328,13 @@ class _CreditCardState extends State<CreditCard> {
                         builder: (_) => ImsScreen(period: widget.period),
                       ),
                     ),
-                    child: const Text('Review in IMS'),
+                    child: Text(inText(context, 'Review in IMS')),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    'Using ${check!.statementFile}, added ${longDate(check.statementOn)}.',
+                    inFormat(context, 'Using {file}, added {date}.', {'file': check!.statementFile, 'date': longDate(check.statementOn)}),
                     style: text.bodySmall,
                   ),
                 ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'api/models.dart';
+import 'india/india_strings.dart';
 import 'marks.dart';
 import 'theme.dart';
 import 'uae/uae_strings.dart';
@@ -23,12 +24,12 @@ class RulesStatusNote extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SectionLabel('Statutory rules'),
+              SectionLabel(inText(context, 'Statutory rules')),
               Text(rules.summary, style: text.bodyMedium),
               for (final family in rules.attention)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Text('Needs an update: $family', style: text.bodyMedium?.copyWith(color: paletteOf(context).warn)),
+                  child: Text(inFormat(context, 'Needs an update: {family}', {'family': family}), style: text.bodyMedium?.copyWith(color: paletteOf(context).warn)),
                 ),
               for (final note in rules.notes)
                 Padding(
