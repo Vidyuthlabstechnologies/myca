@@ -5,11 +5,13 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
 import '../india/india_strings.dart';
+import '../india/loyalty_points.dart';
 import '../pos/escpos.dart';
 import '../pos/printer.dart';
 import '../pos/receipt.dart';
 import '../pos/scan_screen.dart';
 import '../registers.dart';
+import 'loyalty_screen.dart';
 
 class CartLine {
   CartLine({required this.sku, required this.name, required this.price, required this.gstRate, this.hsn = '', this.qty = 1});
@@ -40,10 +42,11 @@ num billTaxable(List<CartLine> cart) => cart.fold<num>(0, (sum, line) => sum + l
 
 bool needsBuyerDetails(List<CartLine> cart) => billTaxable(cart) >= buyerDetailsFromRupees;
 
-Map<String, Object?> counterSaleArgs(List<CartLine> cart, {String customer = '', String address = ''}) => {
+Map<String, Object?> counterSaleArgs(List<CartLine> cart, {String customer = '', String address = '', int? redeemPoints}) => {
   'partyName': customer.trim().isEmpty ? 'Walk-in customer' : customer.trim(),
   if (address.trim().isNotEmpty) 'partyAddress': address.trim(),
   'lines': [for (final line in cart) line.toLine()],
+  if (customer.trim().isNotEmpty && redeemPoints != null && redeemPoints > 0) 'redeemPoints': redeemPoints,
 };
 
 class CounterSaleScreen extends StatefulWidget {
@@ -65,6 +68,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
   bool _busy = false;
   ChatPreview? _preview;
   Map<String, dynamic>? _posted;
+  int? _redeem;
 
   MycaApi get api => AppScope.of(context).api;
 
@@ -165,7 +169,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
       _message = '';
     });
     try {
-      final reply = await api.propose('create_invoice', counterSaleArgs(cart, customer: _customer.text, address: _address.text));
+      final reply = await api.propose('create_invoice', counterSaleArgs(cart, customer: _customer.text, address: _address.text, redeemPoints: _redeem));
       if (!mounted) return;
       setState(() {
         _preview = reply.preview;
@@ -198,6 +202,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
           cart.clear();
           _customer.clear();
           _address.clear();
+          _redeem = null;
         }
       });
       if (reply.posted) await AppScope.of(context).refresh();
@@ -259,7 +264,18 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
     final text = Theme.of(context).textTheme;
     final subtotal = cart.fold<num>(0, (sum, line) => sum + line.amount);
     return Scaffold(
-      appBar: AppBar(title: Text(inText(context, 'Counter sale'))),
+      appBar: AppBar(
+        title: Text(inText(context, 'Counter sale')),
+        actions: [
+          if (loyaltyEdition(context))
+            IconButton(
+              key: const Key('counter-loyalty'),
+              tooltip: inText(context, 'Loyalty points'),
+              icon: const Icon(Icons.loyalty_outlined),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AppScope(state: AppScope.of(context), child: const LoyaltyScreen()))),
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
@@ -307,11 +323,19 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
             const SizedBox(height: 8),
             Text('Before GST: ${rupees(subtotal)}', style: text.titleMedium, key: const Key('counter-subtotal')),
             const SizedBox(height: 8),
-            TextField(key: const Key('counter-customer'), controller: _customer, decoration: InputDecoration(labelText: needsBuyerDetails(cart) ? inText(context, 'Customer name') : inText(context, 'Customer (optional)'), hintText: needsBuyerDetails(cart) ? null : inText(context, 'Walk-in customer'))),
+            TextField(key: const Key('counter-customer'), controller: _customer, onChanged: (_) => setState(() => _preview = null), decoration: InputDecoration(labelText: needsBuyerDetails(cart) ? inText(context, 'Customer name') : inText(context, 'Customer (optional)'), hintText: needsBuyerDetails(cart) ? null : inText(context, 'Walk-in customer'))),
             if (needsBuyerDetails(cart)) ...[
               const SizedBox(height: 8),
               TextField(key: const Key('counter-address'), controller: _address, maxLength: 200, decoration: InputDecoration(labelText: inText(context, 'Customer address with state'), helperText: inText(context, 'Needed on bills of ₹50,000 or more before GST'))),
             ],
+            LoyaltyPointsField(
+              partyName: _customer.text,
+              billBeforeGst: subtotal,
+              onChanged: (points) => setState(() {
+                _redeem = points;
+                _preview = null;
+              }),
+            ),
             const SizedBox(height: 12),
             if (_preview == null) FilledButton(key: const Key('counter-make'), onPressed: _busy ? null : _makeBill, child: Text(inText(context, 'Make bill'))),
           ],

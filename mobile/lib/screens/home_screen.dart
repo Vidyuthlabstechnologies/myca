@@ -18,6 +18,7 @@ import '../widgets.dart';
 import 'ask_screen.dart';
 import 'bank_screen.dart';
 import 'books_check_screen.dart';
+import 'loyalty_screen.dart';
 import 'marketplace_screen.dart';
 import 'online_store_screen.dart';
 import 'recurring_screen.dart';
@@ -410,6 +411,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: inText(context, 'Publish items on a link buyers can order from on WhatsApp'),
                   trailing: const Chevron(),
                   onTap: () => _open(const OnlineStoreScreen()),
+                ),
+                if (state.edition == 'IN' && company.country == 'IN')
+                RowCard(
+                  leading: const TintTile(tint: Tint.sales, mark: Mark.bringIn),
+                  title: inText(context, 'Loyalty points'),
+                  subtitle: inText(context, 'Points customers earn and use, and what the shop owes in points'),
+                  trailing: const Chevron(),
+                  onTap: () => _open(const LoyaltyScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.switchBooks),
