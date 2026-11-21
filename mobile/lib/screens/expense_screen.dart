@@ -5,6 +5,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../proposal_flow.dart';
 import '../registers.dart';
 import '../theme.dart';
@@ -75,7 +76,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
     if (amount == null) return setState(() => _error = UaeStrings.of(context).enterAmount);
     if (rate == null) {
       return setState(
-        () => _error = 'The $salesTaxName rate must be a number, or leave it blank.',
+        () => _error = inFormat(context, 'The {tax} rate must be a number, or leave it blank.', {'tax': salesTaxName}),
       );
     }
     final tdsProblem = _tds.problem();
@@ -95,7 +96,11 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
     };
     _lastArgs = args;
     await propose(
-      rate > 0 ? '$what: ${rupees(amount)} from $_mode, $salesTaxName $rate% inside' : UaeStrings.of(context).expenseSaid(what, rupees(amount), _mode == 'bank'),
+      rate > 0
+          ? _mode == 'bank'
+                ? inFormat(context, '{what}: {amount} from bank, {tax} {rate}% inside', {'what': what, 'amount': rupees(amount), 'tax': salesTaxName, 'rate': rate})
+                : inFormat(context, '{what}: {amount} from cash, {tax} {rate}% inside', {'what': what, 'amount': rupees(amount), 'tax': salesTaxName, 'rate': rate})
+          : UaeStrings.of(context).expenseSaid(what, rupees(amount), _mode == 'bank'),
       'post_expense',
       args,
     );
@@ -167,7 +172,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
                           decimal: true,
                         ),
                         decoration: InputDecoration(
-                          labelText: 'Amount paid, with $salesTaxName',
+                          labelText: inFormat(context, 'Amount paid, with {tax}', {'tax': salesTaxName}),
                           prefixText: moneyPrefix,
                         ),
                       ),
@@ -181,7 +186,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
                           decimal: true,
                         ),
                         decoration: InputDecoration(
-                          labelText: '$salesTaxName inside',
+                          labelText: inFormat(context, '{tax} inside', {'tax': salesTaxName}),
                           suffixText: '%',
                         ),
                       ),
@@ -220,7 +225,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
                   ),
                 ] else
                 Text(
-                  moneyCountry == 'GB' ? 'Give the VAT rate only if the receipt shows VAT. Reclaim VAT only with a valid VAT receipt from a VAT-registered supplier.' : 'Give the GST rate only if the bill shows GST. Credit is taken only when the supplier GSTIN is on the bill; add it later from the Purchases chat if you need it.',
+                  moneyCountry == 'GB' ? 'Give the VAT rate only if the receipt shows VAT. Reclaim VAT only with a valid VAT receipt from a VAT-registered supplier.' : inText(context, 'Give the GST rate only if the bill shows GST. Credit is taken only when the supplier GSTIN is on the bill; add it later from the Purchases chat if you need it.'),
                   style: text.bodySmall,
                 ),
                 if (_error.isNotEmpty) ...[

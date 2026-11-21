@@ -5,6 +5,7 @@ import '../api/myca_api.dart';
 import '../app_services.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../proposal_flow.dart';
 import '../theme.dart';
@@ -50,7 +51,7 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
     if (shared != null) WidgetsBinding.instance.addPostFrameCallback((_) => _readFile(shared));
     if (shared == null && widget.documentSha256.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _readStored(widget.documentSha256, widget.fileName.isEmpty ? 'the file' : widget.fileName),
+        (_) => _readStored(widget.documentSha256, widget.fileName.isEmpty ? inText(context, 'the file') : widget.fileName),
       );
     }
   }
@@ -91,6 +92,7 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
 
   Future<void> _readStored(String sha, String name) async {
     final state = AppScope.of(context);
+    final lang = indiaLang(context);
     setState(() {
       _note = '';
       _read = null;
@@ -106,8 +108,8 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
       final data = toolData(answer);
       if (data.isEmpty) {
         note = answer is Map && answer['error'] == 'MODEL_NOT_CONFIGURED'
-            ? 'Reading bills needs the model switched on by whoever runs your MyCA. Until then, add the bill by hand from Purchases.'
-            : 'The bill could not be read. Add it by hand from Purchases.';
+            ? inLine(lang, 'Reading bills needs the model switched on by whoever runs your MyCA. Until then, add the bill by hand from Purchases.')
+            : inLine(lang, 'The bill could not be read. Add it by hand from Purchases.');
       } else {
         read = data;
       }
@@ -122,13 +124,24 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
     });
   }
 
-  Future<void> _attach(Map<String, dynamic> match) => propose('Attach $_fileName to ${match['id']}', 'attach_document', {'documentSha256': _sha, 'id': '${match['id']}'});
+  Future<void> _attach(Map<String, dynamic> match) => propose(inFormat(context, 'Attach {file} to {id}', {'file': _fileName, 'id': '${match['id']}'}), 'attach_document', {'documentSha256': _sha, 'id': '${match['id']}'});
 
   Widget _matchCard(Map<String, dynamic> match, TextTheme text) {
-    final kind = match['kind'] == 'bill' ? 'bill' : 'expense';
+    final bill = match['kind'] == 'bill';
     final id = '${match['id']}';
     final when = '${match['date'] ?? ''}';
     final party = '${match['party'] ?? ''}';
+    final parts = {'id': id, 'amount': rupees(match['amount'] as num? ?? 0), 'party': party, 'date': when};
+    final looks = switch ((bill, party.isEmpty, when.isEmpty)) {
+      (true, true, true) => inFormat(context, 'This looks like bill {id} already in the books: {amount}', parts),
+      (true, false, true) => inFormat(context, 'This looks like bill {id} already in the books: {amount} to {party}', parts),
+      (true, true, false) => inFormat(context, 'This looks like bill {id} already in the books: {amount} on {date}', parts),
+      (true, false, false) => inFormat(context, 'This looks like bill {id} already in the books: {amount} to {party} on {date}', parts),
+      (false, true, true) => inFormat(context, 'This looks like expense {id} already in the books: {amount}', parts),
+      (false, false, true) => inFormat(context, 'This looks like expense {id} already in the books: {amount} to {party}', parts),
+      (false, true, false) => inFormat(context, 'This looks like expense {id} already in the books: {amount} on {date}', parts),
+      (false, false, false) => inFormat(context, 'This looks like expense {id} already in the books: {amount} to {party} on {date}', parts),
+    };
     return Panel(
       children: [
         Padding(
@@ -137,12 +150,12 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'This looks like $kind $id already in the books: ${rupees(match['amount'] as num? ?? 0)}${party.isEmpty ? '' : ' to $party'}${when.isEmpty ? '' : ' on $when'}',
+                looks,
                 style: text.bodyMedium,
               ),
               const SizedBox(height: 10),
-              FilledButton(onPressed: busy ? null : () => _attach(match), child: Text('Attach to $id')),
-              TextButton(onPressed: busy ? null : () => setState(() => _matchDismissed = true), child: const Text('It is a new bill')),
+              FilledButton(onPressed: busy ? null : () => _attach(match), child: Text(inFormat(context, 'Attach to {id}', {'id': id}))),
+              TextButton(onPressed: busy ? null : () => setState(() => _matchDismissed = true), child: Text(inText(context, 'It is a new bill'))),
             ],
           ),
         ),
@@ -153,7 +166,7 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
   Future<void> _record() async {
     final proposal = Map<String, dynamic>.from(_read!['proposal'] as Map);
     final args = Map<String, Object?>.from(proposal['args'] as Map);
-    await propose('Bill from ${args['partyName']} read from $_fileName', '${proposal['tool']}', args);
+    await propose(inFormat(context, 'Bill from {name} read from {file}', {'name': '${args['partyName']}', 'file': _fileName}), '${proposal['tool']}', args);
   }
 
   @override
@@ -166,20 +179,20 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
     final matches = read == null ? const <Map<String, dynamic>>[] : [for (final m in (read['matches'] as List? ?? const [])) if (m is Map) Map<String, dynamic>.from(m)];
     final match = !_matchDismissed && matches.isNotEmpty ? matches.first : null;
     return Scaffold(
-      appBar: AppBar(title: const Text('Read a bill')),
+      appBar: AppBar(title: Text(inText(context, 'Read a bill'))),
       body: Column(
         children: [
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               children: [
-                Text('Pick a photo, PDF or text of a supplier bill. MyCA reads the supplier, number, date and lines, then previews the purchase; nothing is posted until you confirm, and every figure is yours to correct.', style: text.bodyMedium),
+                Text(inText(context, 'Pick a photo, PDF or text of a supplier bill. MyCA reads the supplier, number, date and lines, then previews the purchase; nothing is posted until you confirm, and every figure is yours to correct.'), style: text.bodyMedium),
                 const SizedBox(height: 14),
                 if (read == null && pending == null)
                   FilledButton.icon(
                     onPressed: _reading || busy ? null : _pick,
                     icon: const Icon(Icons.photo_camera_outlined),
-                    label: Text(_reading ? 'Reading $_fileName…' : 'Choose a bill'),
+                    label: Text(_reading ? inFormat(context, 'Reading {file}…', {'file': _fileName}) : inText(context, 'Choose a bill')),
                   ),
                 if (_note.isNotEmpty) ...[
                   const SizedBox(height: 10),
@@ -191,19 +204,24 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
                     _matchCard(match, text),
                     const SizedBox(height: 10),
                   ],
-                  SectionLabel('Read from $_fileName'),
+                  SectionLabel(inFormat(context, 'Read from {file}', {'file': _fileName})),
                   Panel(
                     children: [
                       RowCard(
                         leading: const TintTile(tint: Tint.purchases, mark: Mark.purchases),
                         title: '${args['partyName']}',
-                        subtitle: [if (args['partyGstin'] != null) 'GSTIN ${args['partyGstin']}', if (args['supplierInvoiceNo'] != null) 'Bill ${args['supplierInvoiceNo']}', if (args['date'] != null) longDate('${args['date']}')].join(' · '),
+                        subtitle: [if (args['partyGstin'] != null) 'GSTIN ${args['partyGstin']}', if (args['supplierInvoiceNo'] != null) inFormat(context, 'Bill {number}', {'number': '${args['supplierInvoiceNo']}'}), if (args['date'] != null) longDate('${args['date']}')].join(' · '),
                       ),
                       for (final line in lines)
                         RowCard(
                           leading: const TintTile(tint: Tint.purchases, mark: Mark.comingUp),
                           title: '${line['description']}',
-                          subtitle: '${line['qty']} × ${rupees(line['rate'] as num? ?? 0)}${line['gstRate'] != null ? ' at ${line['gstRate']}% GST' : ''}${line['hsn'] != null && '${line['hsn']}'.isNotEmpty ? ' · HSN ${line['hsn']}' : ''}',
+                          subtitle: [
+                            line['gstRate'] != null
+                                ? inFormat(context, '{qty} × {rate} at {gst}% GST', {'qty': '${line['qty']}', 'rate': rupees(line['rate'] as num? ?? 0), 'gst': '${line['gstRate']}'})
+                                : '${line['qty']} × ${rupees(line['rate'] as num? ?? 0)}',
+                            if (line['hsn'] != null && '${line['hsn']}'.isNotEmpty) 'HSN ${line['hsn']}',
+                          ].join(' · '),
                         ),
                     ],
                   ),
@@ -213,8 +231,8 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
                   ],
                   const SizedBox(height: 14),
                   if (pending == null && match == null) ...[
-                    FilledButton(onPressed: busy || lines.isEmpty ? null : _record, child: const Text('Preview the purchase')),
-                    TextButton(onPressed: busy ? null : _pick, child: const Text('Choose another bill')),
+                    FilledButton(onPressed: busy || lines.isEmpty ? null : _record, child: Text(inText(context, 'Preview the purchase'))),
+                    TextButton(onPressed: busy ? null : _pick, child: Text(inText(context, 'Choose another bill'))),
                   ],
                 ],
                 for (final entry in entries) entry.toBubble(),
