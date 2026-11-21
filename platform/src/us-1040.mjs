@@ -323,6 +323,7 @@ export function computeForm1040(input = {}, taxYearArg) {
   const passiveAllowance = read('us.federal.individual.passive-loss-special-allowance');
   const dwellingUse = read('us.federal.individual.dwelling-unit-personal-use');
   const macrsRealProperty = read('us.federal.individual.macrs-real-property');
+  const mortgageInsurance = read('us.federal.individual.mortgage-insurance-premiums');
   const claimOfRight = read('us.federal.individual.claim-of-right');
   if (missing.some((id) => !['us.federal.individual.claim-of-right', 'us.federal.individual.senior-deduction', 'us.federal.individual.tips-deduction', 'us.federal.individual.overtime-deduction', 'us.federal.individual.car-loan-interest', 'us.federal.individual.qbi-minimum'].includes(id))) return { ok: false, error: 'RULE_NOT_IN_FORCE', taxYear, missing };
 
@@ -533,7 +534,14 @@ export function computeForm1040(input = {}, taxYearArg) {
   const medicalFloor = ofBasis(Math.max(0, agi), medical.basisPoints);
   const medicalDeduction = Math.max(0, medicalPaid - medicalFloor);
   const mortgageForms = formsOf(input, '1098');
-  const mortgageInterest = sum(mortgageForms, (form) => field(form, 'mortgageInterest') + field(form, 'pointsPaid')) + positive(answers.otherMortgageInterest);
+  const mortgageReported = sum(mortgageForms, (form) => field(form, 'mortgageInterest') + field(form, 'pointsPaid'));
+  const mortgageNotReported = positive(answers.otherMortgageInterest);
+  const insurancePaid = sum(mortgageForms, (form) => field(form, 'mortgageInsurancePremiums'));
+  const insuranceKey = status === 'mfs' ? 'mfs' : 'other';
+  const insuranceSteps = Math.ceil(Math.max(0, agi - fromCents(mortgageInsurance.phaseOutStartCents[insuranceKey])) / fromCents(mortgageInsurance.phaseOutStepCents[insuranceKey]));
+  const line8d = mortgageInsurance.deductible ? Math.round((insurancePaid * Math.max(0, 10000 - insuranceSteps * mortgageInsurance.reductionPerStepBasisPoints)) / 10000) : 0;
+  if (insurancePaid > 0 && !mortgageInsurance.deductible) checks.push(check('warning', 'MORTGAGE_INSURANCE_NOT_DEDUCTIBLE', `Mortgage insurance premiums (Form 1098 box 5) are not deductible for ${taxYear}; the deduction returns from 2026.`, ''));
+  const mortgageInterest = mortgageReported + mortgageNotReported + line8d;
   const mortgageAboveLimit = mortgageForms.some((form) => field(form, 'outstandingPrincipal') > 750000) || sum(mortgageForms, (form) => field(form, 'outstandingPrincipal')) > (status === 'mfs' ? 375000 : 750000);
   const cashGifts = positive(answers.charityCash);
   const nonCashGifts = positive(answers.charityNonCash);
@@ -542,7 +550,7 @@ export function computeForm1040(input = {}, taxYearArg) {
   const nonCashAllowed = Math.min(nonCashGifts, ofBasis(Math.max(0, agi), 3000), Math.max(0, ofBasis(Math.max(0, agi), charitable.cashAgiLimitBasisPoints) - cashAllowed));
   const charityDeduction = Math.max(0, cashAllowed + nonCashAllowed - charityFloor);
   const otherItemized = positive(answers.otherItemizedDeductions) + educatorItemized;
-  const scheduleA = { 1: medicalPaid, 2: agi, 3: medicalFloor, 4: medicalDeduction, '5a': line5a, '5b': realEstate, '5c': personalProperty, '5d': line5d, '5e': line5e, 7: line5e, '8a': mortgageInterest, 10: mortgageInterest, 11: cashAllowed, 12: nonCashAllowed, 14: charityDeduction, 16: otherItemized };
+  const scheduleA = { 1: medicalPaid, 2: agi, 3: medicalFloor, 4: medicalDeduction, '5a': line5a, '5b': realEstate, '5c': personalProperty, '5d': line5d, '5e': line5e, 7: line5e, '8a': mortgageReported, '8b': mortgageNotReported, '8d': line8d, '8e': mortgageInterest, 10: mortgageInterest, 11: cashAllowed, 12: nonCashAllowed, 14: charityDeduction, 16: otherItemized };
   scheduleA[17] = medicalDeduction + line5e + mortgageInterest + charityDeduction + otherItemized;
   const preference = answers.itemize;
   const nonItemizerCap = fromCents(jointOr(charitable.nonItemizerCents, status));
@@ -675,15 +683,16 @@ export function computeForm1040(input = {}, taxYearArg) {
   const educationRows = [];
   let aotcTotal = 0;
   let llcExpenses = 0;
-  const students = Array.isArray(answers.education) && answers.education.length ? answers.education : formsOf(input, '1098-T').map((form) => ({ student: form.fields?.studentName || form.payer || 'Student', credit: form.fields?.atLeastHalfTime && !form.fields?.graduate ? 'aotc' : 'llc', expenses: Math.max(0, field(form, 'tuitionPaid') - field(form, 'scholarships')), aotcPriorYears: 0 }));
+  const students = Array.isArray(answers.education) && answers.education.length ? answers.education : formsOf(input, '1098-T').map((form) => ({ student: form.fields?.studentName || form.payer || 'Student', credit: form.fields?.atLeastHalfTime ? 'aotc' : 'llc', expenses: Math.max(0, field(form, 'tuitionPaid') - field(form, 'scholarships')), aotcPriorYears: form.fields?.aotcClaimedFourYears ? education.aotcMaxYears : 0, firstFourYearsCompleted: form.fields?.firstFourYearsCompleted ?? form.fields?.graduate, felonyDrugConviction: form.fields?.felonyDrugConviction }));
   if (students.length && status === 'mfs') checks.push(check('warning', 'EDUCATION_MFS', 'Education credits are not allowed on a separate return.', ''));
   else if (students.length && tp.canBeClaimedAsDependent) checks.push(check('warning', 'EDUCATION_DEPENDENT', 'Someone who can be claimed as a dependent cannot take an education credit; the person claiming them takes it.', ''));
   else {
     for (const student of students) {
       const expenses = positive(student.expenses);
       const wantsAotc = student.credit !== 'llc';
-      const aotcAllowed = wantsAotc && Number(student.aotcPriorYears || 0) < education.aotcMaxYears && !student.felonyDrugConviction;
-      if (wantsAotc && !aotcAllowed) checks.push(check('warning', 'AOTC_NOT_ALLOWED', `${student.student}: the American opportunity credit is limited to ${education.aotcMaxYears} years and to students without a felony drug conviction, so the lifetime learning credit is used.`, ''));
+      const aotcBar = Number(student.aotcPriorYears || 0) >= education.aotcMaxYears ? `it was already claimed for ${education.aotcMaxYears} earlier years` : student.firstFourYearsCompleted ? 'the student completed the first four years of postsecondary education before the year' : student.felonyDrugConviction ? 'the student has a felony drug conviction' : '';
+      const aotcAllowed = wantsAotc && !aotcBar;
+      if (wantsAotc && !aotcAllowed) checks.push(check('warning', 'AOTC_NOT_ALLOWED', `${student.student}: no American opportunity credit because ${aotcBar} (Form 8863 lines 23 to 26), so the lifetime learning credit is used.`, ''));
       if (aotcAllowed) {
         const full = fromCents(education.aotcFullCents);
         const quarter = fromCents(education.aotcQuarterCents);
@@ -698,12 +707,15 @@ export function computeForm1040(input = {}, taxYearArg) {
   }
   const educationFraction = phaseOutFraction(magi, jointOr(education.phaseOutCents, status));
   const aotcAfter = Math.round(aotcTotal * educationFraction);
-  const aotcRefundable = answers.aotcRefundableBlocked ? 0 : ofBasis(aotcAfter, education.aotcRefundableBasisPoints);
+  const supportTest = tpAge !== null && tpAge < 24 && !joint(status) && (tpAge < 18 || (answers.aotcEarnedUnderHalfSupport === true && (tpAge === 18 || answers.aotcFullTimeStudent === true)));
+  const aotcRefundableBlocked = aotcAfter > 0 && supportTest && answers.aotcParentAlive === true;
+  if (aotcAfter > 0 && tpAge !== null && tpAge < 24 && !joint(status) && !aotcRefundableBlocked && [tpAge >= 18 ? 'aotcEarnedUnderHalfSupport' : '', tpAge > 18 ? 'aotcFullTimeStudent' : '', 'aotcParentAlive'].some((id) => id && answers[id] === undefined)) checks.push(check('warning', 'AOTC_REFUNDABLE_QUESTIONS', 'You were under 24 at the end of the year: answer the American opportunity credit questions on student status, support and parents, because they decide whether 40% of the credit can be refunded (Form 8863 line 7).', 'Answer them on the Deductions and credits step.'));
+  const aotcRefundable = aotcRefundableBlocked ? 0 : ofBasis(aotcAfter, education.aotcRefundableBasisPoints);
   const llcTentative = ofBasis(Math.min(llcExpenses, fromCents(education.llcExpenseCapCents)), education.llcBasisPoints);
   const llcAfter = Math.round(llcTentative * educationFraction);
   const educationNonrefundableTentative = aotcAfter - aotcRefundable + llcAfter;
   const educationCredit = Math.min(educationNonrefundableTentative, Math.max(0, line18 - foreignCredit - careCredit));
-  const form8863 = students.length && educationRows.length ? { students: educationRows, 1: aotcTotal, 7: aotcAfter, 8: aotcRefundable, 9: aotcAfter - aotcRefundable, 10: llcExpenses, 12: llcTentative, 18: llcAfter + aotcAfter - aotcRefundable, 19: educationCredit, phaseOutFraction: educationFraction } : null;
+  const form8863 = students.length && educationRows.length ? { students: educationRows, 1: aotcTotal, 7: aotcAfter, line7Under24: aotcRefundableBlocked, 8: aotcRefundable, 9: aotcAfter - aotcRefundable, 10: llcExpenses, 12: llcTentative, 18: llcAfter + aotcAfter - aotcRefundable, 19: educationCredit, phaseOutFraction: educationFraction } : null;
 
   const schedule3 = { 1: foreignCredit, 2: careCredit, 3: educationCredit };
   schedule3[8] = schedule3[1] + schedule3[2] + schedule3[3];

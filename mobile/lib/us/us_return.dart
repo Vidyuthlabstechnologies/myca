@@ -149,6 +149,7 @@ const builtInFormKinds = <UsFormKind>[
     UsFieldSpec('payer', 'Lender name', type: 'text', required: true),
     UsFieldSpec('mortgageInterest', 'Mortgage interest received', box: '1', required: true),
     UsFieldSpec('outstandingPrincipal', 'Outstanding mortgage principal', box: '2'),
+    UsFieldSpec('mortgageInsurancePremiums', 'Mortgage insurance premiums (deductible from 2026)', box: '5'),
     UsFieldSpec('pointsPaid', 'Points paid on purchase', box: '6'),
     UsFieldSpec('propertyTax', 'Property tax (if shown)', box: '10'),
   ]),
