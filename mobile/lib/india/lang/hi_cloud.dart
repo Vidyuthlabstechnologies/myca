@@ -130,7 +130,6 @@ const hiCloud = <String, String>{
   'Restore {name} from a file': 'फ़ाइल से {name} वापस लाएँ',
   'A download from here, or a backup from the Windows app': 'यहाँ से डाउनलोड की गई फ़ाइल, या Windows ऐप का बैकअप',
   'Leaving': 'छोड़ना',
-  'Delete {name}': '{name} मिटाएँ',
   'Removes its books and documents for everyone': 'इसके खाते और कागज़ात सबके लिए हट जाते हैं',
   'Delete my account': 'मेरा अकाउंट मिटाएँ',
   'Signs you out everywhere; businesses you alone own go with it': 'हर जगह से साइन आउट; जिन कारोबारों के अकेले मालिक आप हैं, वे भी मिट जाते हैं',
@@ -184,9 +183,6 @@ const hiCloud = <String, String>{
   'Signing in…': 'साइन इन हो रहा है…',
 
   // Server and lock
-  'Sandbox mode: nothing is filed with the government yet': 'सैंडबॉक्स मोड: अभी सरकार के पास कुछ फ़ाइल नहीं होता',
-  'Test environment: nothing is filed, paid or sent': 'टेस्ट एनवायरनमेंट: कुछ भी फ़ाइल, भुगतान या भेजा नहीं जाता',
-  'MyCA is out of reach': 'MyCA तक नहीं पहुँच पा रहे',
   'MyCA is locked': 'MyCA लॉक है',
   'That did not work. Try again.': 'यह नहीं हुआ। फिर से कोशिश करें।',
   'Use your fingerprint, face or screen lock to open your books.': 'अपने खाते खोलने के लिए फ़िंगरप्रिंट, चेहरा या स्क्रीन लॉक इस्तेमाल करें।',
