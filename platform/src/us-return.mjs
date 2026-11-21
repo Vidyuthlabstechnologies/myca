@@ -18,6 +18,8 @@ const MAX_AMOUNT = 1e11;
 const money = (key, label, box, extra = {}) => ({ key, label, box, type: 'money', required: false, ...extra });
 const PAYER = [{ key: 'payer', label: 'Payer name', box: '', type: 'text', required: true }, { key: 'payerTin', label: 'Payer TIN (EIN)', box: '', type: 'ein', required: false }];
 const WITHHELD = (box) => money('federalWithheld', 'Federal income tax withheld', box);
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MARKETPLACE_MONTHS = MONTH_NAMES.flatMap((name, index) => [money(`enrollmentPremium${index + 1}`, `${name}: monthly enrollment premium`, `${21 + index}A`), money(`slcspPremium${index + 1}`, `${name}: second lowest cost silver plan (SLCSP) premium`, `${21 + index}B`), money(`advancePayment${index + 1}`, `${name}: advance payment of the premium tax credit`, `${21 + index}C`)]);
 
 export const FORM_SPECS = Object.freeze({
   'W-2': { title: 'Wage and Tax Statement', description: 'Wages from an employer.', fields: [{ key: 'payer', label: 'Employer name', box: 'c', type: 'text', required: true }, { key: 'payerTin', label: 'Employer EIN', box: 'b', type: 'ein', required: false }, money('wages', 'Wages, tips, other compensation', '1', { required: true }), WITHHELD('2'), money('socialSecurityWages', 'Social security wages', '3'), money('socialSecurityTax', 'Social security tax withheld', '4'), money('medicareWages', 'Medicare wages and tips', '5'), money('medicareTax', 'Medicare tax withheld', '6'), money('socialSecurityTips', 'Social security tips', '7'), { key: 'box12', label: 'Box 12 codes', box: '12', type: 'code', required: false }, { key: 'retirementPlan', label: 'Retirement plan', box: '13', type: 'yesno', required: false }, { key: 'state', label: 'State', box: '15', type: 'state', required: false }, money('stateWages', 'State wages', '16'), money('stateWithheld', 'State income tax', '17'), money('localWithheld', 'Local income tax', '19')] },
@@ -31,6 +33,7 @@ export const FORM_SPECS = Object.freeze({
   'SSA-1099': { title: 'Social Security Benefit Statement', description: 'Social Security benefits.', fields: [{ key: 'payer', label: 'Payer', box: '', type: 'text', required: false }, money('netBenefits', 'Net benefits', '5', { required: true }), WITHHELD('6')] },
   1098: { title: 'Mortgage Interest Statement', description: 'Home mortgage interest and property tax.', fields: [...PAYER, money('mortgageInterest', 'Mortgage interest received', '1', { required: true }), money('outstandingPrincipal', 'Outstanding mortgage principal', '2'), money('pointsPaid', 'Points paid on purchase', '6'), money('propertyTax', 'Property tax paid from escrow', '10')] },
   '1098-E': { title: 'Student Loan Interest Statement', description: 'Interest paid on a student loan.', fields: [...PAYER, money('studentLoanInterest', 'Student loan interest received', '1', { required: true })] },
+  '1095-A': { title: 'Health Insurance Marketplace Statement', description: 'Coverage bought on HealthCare.gov or a state Marketplace, for the premium tax credit (Form 8962). Enter the monthly amounts, or only the line 33 totals if nothing changed all year.', fields: [{ key: 'payer', label: 'Marketplace identifier', box: '1', type: 'text', required: true }, { key: 'policyNumber', label: 'Marketplace-assigned policy number', box: '2', type: 'text', required: false }, { key: 'issuer', label: 'Policy issuer\'s name', box: '3', type: 'text', required: false }, { key: 'recipientName', label: 'Recipient\'s name', box: '4', type: 'text', required: false }, ...MARKETPLACE_MONTHS, money('enrollmentPremiumAnnual', 'Annual total: enrollment premiums', '33A'), money('slcspPremiumAnnual', 'Annual total: SLCSP premiums', '33B'), money('advancePaymentAnnual', 'Annual total: advance payments of the premium tax credit', '33C')] },
   '1098-T': { title: 'Tuition Statement', description: 'College tuition for an education credit.', fields: [...PAYER, { key: 'studentName', label: 'Student name', box: '', type: 'text', required: false }, money('tuitionPaid', 'Payments received for qualified tuition', '1', { required: true }), money('scholarships', 'Scholarships or grants', '5'), { key: 'atLeastHalfTime', label: 'At least half-time student', box: '8', type: 'yesno', required: false }, { key: 'graduate', label: 'Graduate student', box: '9', type: 'yesno', required: false }] },
 });
 
@@ -50,7 +53,14 @@ const QUESTIONS = Object.freeze([
   { id: 'qbiMaterialParticipation', text: 'Did you work in your business regularly, continuously and substantially this year?', help: 'This is material participation, for example more than 500 hours, or most of the work in the business. From 2026 it can give you a minimum business income deduction of $400 (IRC 199A(i)).', kind: 'yesno', when: (ctx) => ctx.hasBusiness && Number(ctx.taxYear) >= 2026 },
   { id: 'rentalIncome', text: 'Did you have rental or royalty income not on a 1099-MISC?', help: 'Renting out a home, room or vacation property, or royalties. These go on Schedule E.', kind: 'yesno' },
   { id: 'childCareExpenses', text: 'Child or dependent care costs you paid so you could work', help: 'Daycare, after-school care or a sitter for a child under 13 or a dependent who cannot care for themself (Form 2441).', kind: 'amount', when: (ctx) => ctx.hasDependents },
-  { id: 'marketplaceCoverage', text: 'Did anyone on this return have health coverage from the Marketplace (Form 1095-A)?', help: 'Coverage bought on HealthCare.gov or a state exchange.', kind: 'yesno' },
+  { id: 'marketplaceCoverage', text: 'Did anyone on this return have health coverage from the Marketplace (Form 1095-A)?', help: 'Coverage bought on HealthCare.gov or a state exchange. If yes, add the Form 1095-A on the Tax forms step.', kind: 'yesno' },
+  { id: 'marketplacePolicyShared', text: 'Did a Marketplace policy on your 1095-A also cover someone outside this return\'s tax family, or cover someone on this return under another person\'s 1095-A?', help: 'For example a policy shared with a former spouse or with an adult child who files their own return (Form 8962 Part IV).', kind: 'yesno', when: (ctx) => ctx.hasMarketplace },
+  { id: 'marketplaceDependentsMagi', text: 'Modified AGI of your dependents who must file their own return', help: 'Their AGI plus tax-exempt interest, excluded foreign income and untaxed Social Security (Form 8962 Worksheet 1-2). Leave empty if no dependent has to file.', kind: 'amount', when: (ctx) => ctx.hasMarketplace && ctx.hasDependents },
+  { id: 'marketplaceForeignExcluded', text: 'Foreign earned income and housing excluded on Form 2555 (lines 45 and 50)', help: 'Added back to modified AGI for the premium tax credit. Leave empty if none.', kind: 'amount', when: (ctx) => ctx.hasMarketplace },
+  { id: 'marketplaceEnrollmentEstimate', text: 'When you enrolled, did the Marketplace estimate your household income at or above the federal poverty line (and, from 2026, no more than four times it), and were advance payments made?', help: 'Only matters if your actual income was below the poverty line: then you can still take the credit.', kind: 'yesno', when: (ctx) => ctx.hasMarketplace },
+  { id: 'marketplaceLawfullyPresent', text: 'Was the person enrolled a lawfully present immigrant who could not get Medicaid because of immigration status?', help: 'For 2025 this lets the credit be taken with household income below the poverty line. It does not apply from 2026.', kind: 'yesno', when: (ctx) => ctx.hasMarketplace && ctx.taxYear === '2025' },
+  { id: 'marketplaceAbuseException', text: 'Are you living apart from your spouse and unable to file jointly because of domestic abuse or spousal abandonment?', help: 'Checking box A on Form 8962 lets a married person filing separately take the premium tax credit, for at most three years in a row.', kind: 'yesno', when: (ctx) => ctx.hasMarketplace && ctx.status === 'mfs' },
+  { id: 'marketplaceMarriageAlternative', text: 'Did you marry during the year and want the alternative calculation for the year of marriage?', help: 'Form 8962 Part V can lower the repayment of advance payments for the months before the marriage.', kind: 'yesno', when: (ctx) => ctx.hasMarketplace && (ctx.status === 'mfj' || ctx.status === 'mfs') },
   { id: 'otherIncome', text: 'Other income not on a form', help: 'Prizes, jury duty pay, hobby income and similar.', kind: 'amount' },
   { id: 'qualifiedTips', text: 'Tips you received in a job where tips are customary', help: 'For the no-tax-on-tips deduction (2025 to 2028).', kind: 'amount' },
   { id: 'spouseQualifiedTips', text: 'Tips your spouse received', help: 'For the no-tax-on-tips deduction.', kind: 'amount', when: (ctx) => ctx.joint },
@@ -82,8 +92,8 @@ const LINE_LABELS = Object.freeze({
   '1040': { '1a': 'Wages (W-2 box 1)', '1z': 'Total wages', '2a': 'Tax-exempt interest', '2b': 'Taxable interest', '3a': 'Qualified dividends', '3b': 'Ordinary dividends', '4a': 'IRA distributions', '4b': 'IRA distributions, taxable', '5a': 'Pensions and annuities', '5b': 'Pensions and annuities, taxable', '6a': 'Social security benefits', '6b': 'Social security benefits, taxable', 7: 'Capital gain or loss', 8: 'Additional income (Schedule 1)', 9: 'Total income', 10: 'Adjustments to income (Schedule 1)', 11: 'Adjusted gross income', 12: 'Standard or itemized deduction', '13a': 'Qualified business income deduction', '13b': 'Additional deductions (Schedule 1-A)', 14: 'Total deductions', 15: 'Taxable income', 16: 'Tax', 17: 'Schedule 2, line 3', 18: 'Tax before credits', 19: 'Child tax credit and credit for other dependents', 20: 'Other credits (Schedule 3)', 21: 'Total credits', 22: 'Tax after credits', 23: 'Other taxes (Schedule 2)', 24: 'Total tax', '25a': 'Federal tax withheld, W-2', '25b': 'Federal tax withheld, 1099', '25c': 'Federal tax withheld, other', '25d': 'Total withholding', 26: 'Estimated tax payments', 27: 'Earned income credit', 28: 'Additional child tax credit', 29: 'American opportunity credit, refundable', 31: 'Other payments (Schedule 3)', 32: 'Total other payments and refundable credits', 33: 'Total payments', 34: 'Overpaid', '35a': 'Refund', 36: 'Applied to next year\'s estimated tax', 37: 'Amount you owe' },
   'Schedule 1': { 1: 'Taxable state and local refunds', 3: 'Business income (Schedule C)', 7: 'Unemployment compensation', '8z': 'Other income', 10: 'Total additional income', 11: 'Educator expenses', 13: 'HSA deduction', 15: 'Deductible part of self-employment tax', 16: 'SEP, SIMPLE and qualified plans', 17: 'Self-employed health insurance', 18: 'Penalty on early withdrawal of savings', 20: 'IRA deduction', 21: 'Student loan interest deduction', 26: 'Total adjustments' },
   'Schedule 1-A': { 13: 'No tax on tips', 21: 'No tax on overtime', 30: 'Car loan interest', 37: 'Enhanced deduction for seniors', charity: 'Charitable gifts (non-itemizer)', 38: 'Total additional deductions' },
-  'Schedule 2': { 4: 'Self-employment tax', 8: 'Additional tax on early retirement distributions', 11: 'Additional Medicare tax', 12: 'Net investment income tax', 21: 'Total other taxes' },
-  'Schedule 3': { 1: 'Foreign tax credit', 3: 'Education credits', 8: 'Total nonrefundable credits', 11: 'Excess social security tax withheld', 15: 'Total other payments' },
+  'Schedule 2': { '1a': 'Excess advance premium tax credit repayment (Form 8962)', 3: 'Total additions to tax (to Form 1040 line 17)', 4: 'Self-employment tax', 8: 'Additional tax on early retirement distributions', 11: 'Additional Medicare tax', 12: 'Net investment income tax', 21: 'Total other taxes' },
+  'Schedule 3': { 1: 'Foreign tax credit', 3: 'Education credits', 8: 'Total nonrefundable credits', 9: 'Net premium tax credit (Form 8962)', 11: 'Excess social security tax withheld', 15: 'Total other payments' },
   'Schedule A': { 4: 'Medical and dental above 7.5% of AGI', '5d': 'State and local taxes before the cap', '5e': 'State and local taxes after the cap', 10: 'Home mortgage interest', 14: 'Gifts to charity', 16: 'Other itemized deductions', 17: 'Total itemized deductions' },
   'Schedule D': { 7: 'Net short-term gain or loss', 13: 'Capital gain distributions', 15: 'Net long-term gain or loss', 16: 'Net gain or loss', 21: 'Loss allowed this year' },
 });
@@ -242,6 +252,23 @@ export function coerceFields(kind, fields, problems) {
   return out;
 }
 
+function marketplaceProblems(fields) {
+  const problems = [];
+  const monthly = Object.keys(fields).some((key) => /^(enrollmentPremium|slcspPremium|advancePayment)\d+$/.test(key));
+  if (!monthly && fields.enrollmentPremiumAnnual === undefined) problems.push('Enter the monthly amounts (lines 21 to 32) or the annual totals (line 33).');
+  for (let month = 1; month <= 12; month += 1) {
+    if (Number(fields[`advancePayment${month}`] || 0) > 0 && !(Number(fields[`enrollmentPremium${month}`] || 0) > 0)) problems.push(`${MONTH_NAMES[month - 1]}: an advance payment needs that month's enrollment premium (column A).`);
+  }
+  if (monthly) {
+    for (const [prefix, total] of [['enrollmentPremium', 'enrollmentPremiumAnnual'], ['slcspPremium', 'slcspPremiumAnnual'], ['advancePayment', 'advancePaymentAnnual']]) {
+      if (fields[total] === undefined) continue;
+      const added = Array.from({ length: 12 }, (_, index) => Number(fields[`${prefix}${index + 1}`] || 0)).reduce((sum, value) => sum + value, 0);
+      if (Math.abs(added - fields[total]) > 1) problems.push(`Line 33 ${total === 'enrollmentPremiumAnnual' ? 'column A' : total === 'slcspPremiumAnnual' ? 'column B' : 'column C'} (${fields[total]}) is not the total of the months (${Math.round(added * 100) / 100}).`);
+    }
+  }
+  return problems;
+}
+
 export function planUsTaxForm(state, args = {}) {
   const taxYear = yearArg(args.taxYear);
   if (!taxYear) return fail('TAX_YEAR_NOT_SUPPORTED', { supported: SUPPORTED_YEARS });
@@ -261,6 +288,7 @@ export function planUsTaxForm(state, args = {}) {
     problems.push(...local.filter((problem) => problem.startsWith('Sale ')));
   }
   if (kind === 'W-2' && fields.wages > 0 && fields.federalWithheld > fields.wages) problems.push('Federal tax withheld is more than the wages.');
+  if (kind === '1095-A') problems.push(...marketplaceProblems(fields));
   if (problems.length) return fail('US_TAX_FORM_INVALID', { problems });
   const source = ['upload', 'payroll'].includes(args.source) ? args.source : 'manual';
   return { ok: true, taxYear, form: { kind, owner, payer, payerTin: payerTin.replace(/^(\d{2})-?(\d{7})$/, '$1-$2'), fields, source, documentId: text(args.documentId, 80) } };
@@ -321,7 +349,7 @@ function context(state, ret) {
   const books = ret ? booksScheduleC(state, ret.taxYear) : null;
   const usesBooks = Boolean(books) && answers.useBooksForScheduleC !== false;
   const manualBusiness = Number(answers.businessGrossReceipts || 0) > 0;
-  return { taxYear: ret?.taxYear || '', status: ret?.filingStatus || '', answers: ret?.answers || {}, hasDependents: (ret?.dependents || []).length > 0, joint: ret?.filingStatus === 'mfj', booksHaveIncome: Boolean(books), usesBooks, books, manualBusiness, hasBusiness: usesBooks || manualBusiness || (ret?.forms || []).some((form) => form.kind === '1099-NEC'), hasStateRefund: (ret?.forms || []).some((form) => form.kind === '1099-G' && Number(form.fields.stateRefund || 0) > 0), hasEarlyDistribution: (ret?.forms || []).some((form) => form.kind === '1099-R' && String(form.fields.distributionCode || '').includes('1')) };
+  return { taxYear: ret?.taxYear || '', status: ret?.filingStatus || '', hasMarketplace: (ret?.forms || []).some((form) => form.kind === '1095-A') || answers.marketplaceCoverage === true, answers: ret?.answers || {}, hasDependents: (ret?.dependents || []).length > 0, joint: ret?.filingStatus === 'mfj', booksHaveIncome: Boolean(books), usesBooks, books, manualBusiness, hasBusiness: usesBooks || manualBusiness || (ret?.forms || []).some((form) => form.kind === '1099-NEC'), hasStateRefund: (ret?.forms || []).some((form) => form.kind === '1099-G' && Number(form.fields.stateRefund || 0) > 0), hasEarlyDistribution: (ret?.forms || []).some((form) => form.kind === '1099-R' && String(form.fields.distributionCode || '').includes('1')) };
 }
 
 function visibleQuestions(state, ret) {
@@ -397,7 +425,7 @@ export function engineInput(state, ret, { forFiling = false } = {}) {
   };
 }
 
-const STEP_OF_CODE = { SPOUSE_REQUIRED: 'profile', SPOUSE_NAME_FOR_MFS: 'profile', HOH_NEEDS_QUALIFYING_PERSON: 'profile', QSS_NEEDS_CHILD: 'profile', DEPENDENT_DOB_INVALID: 'profile', CHILD_WITHOUT_SSN: 'profile', TAXPAYER_DOB_MISSING: 'profile', SPOUSE_FORM_ON_NON_JOINT: 'forms', NEC_ABOVE_RECEIPTS: 'forms', SCHEDULE_E_NOT_COVERED: 'forms', FORM_2441_NOT_COVERED: 'interview', FORM_8962_NOT_COVERED: 'interview', FORM_2210_MAY_APPLY: 'interview', QBI_ABOVE_THRESHOLD: 'review', NO_INCOME_DOCUMENTS: 'forms', EARLY_DISTRIBUTION: 'forms', FORM_AMOUNT_NEGATIVE: 'forms', DEPENDENT_FILER_WITH_DEPENDENTS: 'profile', DEPENDENT_BORN_AFTER_YEAR: 'profile', TAXPAYER_DOB_INVALID: 'profile', CTC_NEEDS_FILER_SSN: 'profile', FORM_1116_NEEDED: 'forms', ITEMIZED_37_LIMIT: 'interview', STATE_REFUND_TAXABILITY: 'interview', SE_HEALTH_ABOVE_PROFIT: 'interview', MORTGAGE_DEBT_LIMIT: 'forms', FORM_8283: 'interview', EMPLOYER_OVERWITHHELD_SS: 'forms' };
+const STEP_OF_CODE = { SPOUSE_REQUIRED: 'profile', SPOUSE_NAME_FOR_MFS: 'profile', HOH_NEEDS_QUALIFYING_PERSON: 'profile', QSS_NEEDS_CHILD: 'profile', DEPENDENT_DOB_INVALID: 'profile', CHILD_WITHOUT_SSN: 'profile', TAXPAYER_DOB_MISSING: 'profile', SPOUSE_FORM_ON_NON_JOINT: 'forms', NEC_ABOVE_RECEIPTS: 'forms', SCHEDULE_E_NOT_COVERED: 'forms', FORM_2441_NOT_COVERED: 'interview', FORM_1095A_MISSING: 'forms', FORM_1095A_MONTHLY_NEEDED: 'forms', FORM_1095A_ANNUAL_ONLY: 'forms', FORM_1095A_SLCSP_DIFFERS: 'forms', FORM_8962_ALLOCATION_NOT_COVERED: 'interview', FORM_8962_MARRIAGE_ALTERNATIVE_NOT_COVERED: 'interview', PTC_MFS_NOT_ALLOWED: 'interview', PTC_BELOW_POVERTY_LINE: 'interview', PTC_ABOVE_400_PERCENT: 'review', PTC_CLAIMED_AS_DEPENDENT: 'profile', PTC_SE_HEALTH_INSURANCE: 'interview', PTC_RULES_MISSING: 'review', FORM_2210_MAY_APPLY: 'interview', QBI_ABOVE_THRESHOLD: 'review', NO_INCOME_DOCUMENTS: 'forms', EARLY_DISTRIBUTION: 'forms', FORM_AMOUNT_NEGATIVE: 'forms', DEPENDENT_FILER_WITH_DEPENDENTS: 'profile', DEPENDENT_BORN_AFTER_YEAR: 'profile', TAXPAYER_DOB_INVALID: 'profile', CTC_NEEDS_FILER_SSN: 'profile', FORM_1116_NEEDED: 'forms', ITEMIZED_37_LIMIT: 'interview', STATE_REFUND_TAXABILITY: 'interview', SE_HEALTH_ABOVE_PROFIT: 'interview', MORTGAGE_DEBT_LIMIT: 'forms', FORM_8283: 'interview', EMPLOYER_OVERWITHHELD_SS: 'forms' };
 
 function profileChecks(ret) {
   const checks = [];

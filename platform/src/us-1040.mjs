@@ -1,21 +1,23 @@
 import { rules } from './sprint-load.mjs';
+import { computeForm8962 } from './us-form-8962.mjs';
 
 export const FILING_STATUSES = Object.freeze(['single', 'mfj', 'mfs', 'hoh', 'qss']);
 export const SUPPORTED_YEARS = Object.freeze(['2025', '2026']);
-export const FORM_KINDS = Object.freeze(['W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T']);
+export const FORM_KINDS = Object.freeze(['W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T', '1095-A']);
 const LONG_STATUS = Object.freeze({ single: 'single', mfj: 'married_joint', mfs: 'married_separate', hoh: 'head_of_household', qss: 'single' });
 const STATUS_LABEL = Object.freeze({ single: 'Single', mfj: 'Married filing jointly', mfs: 'Married filing separately', hoh: 'Head of household', qss: 'Qualifying surviving spouse' });
 const CHILD_RELATIONSHIPS = new Set(['son', 'daughter', 'stepchild', 'foster_child', 'brother', 'sister', 'half_brother', 'half_sister', 'stepbrother', 'stepsister', 'grandchild', 'niece', 'nephew', 'sibling', 'niece_nephew']);
 const FORM_REASONS = Object.freeze({ 'Schedule E': 'Rental and royalty income', 2441: 'Child and dependent care expenses', 8962: 'Marketplace health coverage (premium tax credit)', '8995-A': 'Qualified business income above the threshold', 2210: 'Possible estimated tax penalty', 1116: 'Foreign tax credit above the amount claimable without Form 1116', 5329: 'Additional tax on an early retirement distribution with an exception or a Roth or SIMPLE code', 8283: 'Non-cash charitable gifts over $500', 'Pub. 936 worksheet': 'Mortgage interest on debt above the acquisition debt limit', 'Section 68 limit': 'Itemized deductions reduced for the 37% bracket from 2026' });
-export const US_FORMS_SUPPORTED = Object.freeze(['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule SE', 'Schedule EIC', '8812', '8863', '8949', '8959', '8960', '8995']);
-export const US_FORMS_COMING = Object.freeze(['2441', '8962', '8995-A', '2210', 'Schedule E', '1116', '5329', '8283']);
+export const US_FORMS_SUPPORTED = Object.freeze(['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule SE', 'Schedule EIC', '8812', '8863', '8949', '8959', '8960', '8962', '8995']);
+export const US_FORMS_COMING = Object.freeze(['2441', '8995-A', '2210', 'Schedule E', '1116', '5329', '8283']);
 const NOT_COVERED = Object.freeze([
   'Alternative minimum tax (Form 6251)',
   'Rental, royalty, partnership, S corporation and trust income (Schedule E, Schedule K-1)',
   'Sale of business property (Form 4797) and depreciation (Form 4562)',
   'Unrecaptured section 1250 gain and collectibles (Schedule D tax worksheet)',
   'Child and dependent care credit (Form 2441), retirement savings credit (Form 8880) and clean energy credits',
-  'Premium tax credit (Form 8962), HSA (Form 8889) and IRA deduction worksheets: the deductible amounts are taken as entered',
+  'HSA (Form 8889) and IRA deduction worksheets: the deductible amounts are taken as entered',
+  'Premium tax credit shared-policy allocation and the alternative calculation for the year of marriage (Form 8962 Parts IV and V)',
   'Additional tax on early retirement distributions (Form 5329) and household employment taxes (Schedule H)',
   'Qualified business income above the threshold (Form 8995-A)',
   'Estimated tax penalty (Form 2210)',
@@ -376,7 +378,6 @@ export function computeForm1040(input = {}, taxYearArg) {
   if (miscForms.some((form) => field(form, 'rents') || field(form, 'royalties'))) needForm('Schedule E', 'SCHEDULE_E_NOT_COVERED', 'Rents or royalties on a 1099-MISC go on Schedule E, which MyCA does not prepare yet.', 'Have your CPA prepare Schedule E.');
   else if (answers.rentalIncome === true || answers.rentalIncome === 'yes') needForm('Schedule E', 'SCHEDULE_E_NOT_COVERED', 'Rental or royalty income goes on Schedule E, which MyCA does not prepare yet.', 'Have your CPA prepare Schedule E.');
   if (positive(answers.childCareExpenses) > 0) needForm('2441', 'FORM_2441_NOT_COVERED', 'Child and dependent care costs are claimed on Form 2441, which MyCA does not prepare yet; no credit is included.', 'Have your CPA prepare Form 2441.');
-  if (answers.marketplaceCoverage === true || answers.marketplaceCoverage === 'yes') needForm('8962', 'FORM_8962_NOT_COVERED', 'Marketplace coverage on a Form 1095-A must be reconciled on Form 8962, which MyCA does not prepare yet; a return without it is rejected.', 'Have your CPA prepare Form 8962.');
   const otherIncome = dollars(answers.otherIncome) + miscOther;
 
   const businesses = businessesOf(input);
@@ -425,6 +426,30 @@ export function computeForm1040(input = {}, taxYearArg) {
   adjustments[21] = studentLoanDeduction;
   adjustments[26] = ssAdjustments + studentLoanDeduction;
   const agi = totalIncome - adjustments[26];
+
+  const marketplaceForms = formsOf(input, '1095-A');
+  const yes = (value) => value === true || value === 'yes';
+  let form8962 = null;
+  if (!marketplaceForms.length && yes(answers.marketplaceCoverage)) checks.push(check('error', 'FORM_1095A_MISSING', 'Marketplace coverage must be reconciled on Form 8962 from the Form 1095-A; a return without it is rejected.', 'Add the Form 1095-A from HealthCare.gov or your state Marketplace.'));
+  else if (marketplaceForms.length && input.taxpayer?.canBeClaimedAsDependent) checks.push(check('warning', 'PTC_CLAIMED_AS_DEPENDENT', 'Someone can claim you as a dependent, so you cannot take the premium tax credit; the person who claims you reconciles the Form 1095-A on their Form 8962.', ''));
+  else if (marketplaceForms.length && yes(answers.marketplacePolicyShared)) needForm('8962', 'FORM_8962_ALLOCATION_NOT_COVERED', 'A Marketplace policy shared with another tax family must be allocated on Form 8962 Part IV, which MyCA does not prepare; no premium tax credit or repayment is included.', 'Have your CPA prepare Form 8962.');
+  else if (marketplaceForms.length) {
+    const povertyLine = read('us.federal.individual.ptc-poverty-line');
+    const applicableFigure = read('us.federal.individual.ptc-applicable-figure');
+    const repaymentLimit = read('us.federal.individual.ptc-repayment-limit');
+    if (!povertyLine || !applicableFigure || !repaymentLimit) checks.push(check('error', 'PTC_RULES_MISSING', `MyCA has no premium tax credit rules for ${taxYear}.`, 'Have your CPA prepare Form 8962.'));
+    else {
+      const familySize = (input.taxpayer?.canBeClaimedAsDependent ? 0 : 1) + (hasSpouse && !input.spouse?.canBeClaimedAsDependent ? 1 : 0) + dependents.length;
+      const modifiedAgi = agi + taxExemptInterest + positive(answers.marketplaceForeignExcluded) + Math.max(0, benefits - ss.taxable);
+      form8962 = computeForm8962({ taxYear, filingStatus: status, familySize, modifiedAgi, dependentsModifiedAgi: dollars(answers.marketplaceDependentsMagi), state: input.address?.state, statements: marketplaceForms.map((form) => form.fields || {}), abuseException: yes(answers.marketplaceAbuseException), enrollmentEstimateException: yes(answers.marketplaceEnrollmentEstimate), lawfullyPresentException: yes(answers.marketplaceLawfullyPresent), povertyLine, applicableFigure, repaymentLimit });
+      for (const item of form8962.checks) checks.push(check(item.level, item.code, item.message, item.fix, '8962'));
+      if (!form8962.ok) form8962 = null;
+      if (form8962 && yes(answers.marketplaceMarriageAlternative) && married) needForm('8962', 'FORM_8962_MARRIAGE_ALTERNATIVE_NOT_COVERED', 'The alternative calculation for the year of marriage (Form 8962 Part V) can lower the repayment, but MyCA does not prepare it; the regular calculation is used.', 'Ask your CPA whether the alternative calculation lowers your repayment.', false);
+      if (form8962 && positive(answers.selfEmployedHealthInsurance) > 0) checks.push(check('warning', 'PTC_SE_HEALTH_INSURANCE', 'The self-employed health insurance deduction and the premium tax credit depend on each other (Pub. 974 iterative calculation), which MyCA does not run; the deduction is taken as entered.', 'Have your CPA confirm both amounts.', '8962'));
+    }
+  }
+  const ptcRepayment = form8962 ? form8962.repayment : 0;
+  const netPremiumTaxCredit = form8962 ? form8962.netCredit : 0;
 
   const tp = input.taxpayer || {};
   const sp = input.spouse || {};
@@ -543,7 +568,7 @@ export function computeForm1040(input = {}, taxYearArg) {
   const preferential = qualifiedDividends + d.netCapitalGain;
   const worksheet = preferential > 0 ? qualifiedDividendsWorksheet({ taxable: line15, qualifiedDividends, netCapitalGain: d.netCapitalGain, status, bands, capitalGains }) : null;
   const line16 = worksheet ? worksheet.tax : regularTax(line15, bands);
-  const line17 = 0;
+  const line17 = ptcRepayment;
   const line18 = line16 + line17;
 
   const foreignTax = sum(divs, (form) => field(form, 'foreignTaxPaid')) + sum(ints, (form) => field(form, 'foreignTaxPaid'));
@@ -617,7 +642,7 @@ export function computeForm1040(input = {}, taxYearArg) {
   const niitTax = ofBasis(Math.min(netInvestmentIncome, Math.max(0, magi - niitThreshold)), niit.basisPoints);
   const form8960 = niitTax > 0 ? { 1: taxableInterest, 2: ordinaryDividends, '5a': capitalLine, 8: netInvestmentIncome, 12: netInvestmentIncome, 13: magi, 14: niitThreshold, 15: Math.max(0, magi - niitThreshold), 16: Math.min(netInvestmentIncome, Math.max(0, magi - niitThreshold)), 17: niitTax } : null;
 
-  const schedule2 = { 1: 0, 3: 0, 4: seTax, 8: earlyDistributionTax, 11: additionalMedicare, 12: niitTax };
+  const schedule2 = { '1a': ptcRepayment, '1z': ptcRepayment, 2: 0, 3: ptcRepayment, 4: seTax, 8: earlyDistributionTax, 11: additionalMedicare, 12: niitTax };
   schedule2[21] = schedule2[4] + schedule2[8] + schedule2[11] + schedule2[12];
   const line23 = schedule2[21];
   const line24 = line22 + line23;
@@ -680,8 +705,9 @@ export function computeForm1040(input = {}, taxYearArg) {
   const form8812 = ctcBase > 0 ? { 4: ctcChildren, 5: ctcChildren * fromCents(ctc.perChildCents), 6: otherDependents, 7: otherDependents * fromCents(ctc.otherDependentCents), 8: ctcBase, 9: ctcStart, 10: ctcExcess, 11: ctcReduction, 12: ctcAfter, 13: ctcLimit, 14: line19, '16a': ctcLeft, '16b': actcCap, 17: line17of8812, '18a': earnedIncome, 19: line19of8812, 20: line20of8812, 27: line28 } : null;
 
   const line29 = aotcRefundable;
+  schedule3[9] = netPremiumTaxCredit;
   schedule3[11] = line11of3;
-  schedule3[15] = line11of3;
+  schedule3[15] = schedule3[9] + line11of3;
   const line31 = schedule3[15];
   const line32 = line27 + line28 + line29 + line31;
   const line33 = line25d + line26 + line32;
@@ -704,7 +730,7 @@ export function computeForm1040(input = {}, taxYearArg) {
   const schedules = {
     1: stringKeys({ ...schedule1Part1, ...adjustments }),
     ...(line13b > 0 ? { '1-A': stringKeys(schedule1A) } : {}),
-    ...(schedule2[21] > 0 ? { 2: stringKeys(schedule2) } : {}),
+    ...(schedule2[21] + schedule2[3] > 0 ? { 2: stringKeys(schedule2) } : {}),
     ...(schedule3[8] + schedule3[15] > 0 ? { 3: stringKeys(schedule3) } : {}),
     ...(itemize ? { A: stringKeys(scheduleA) } : {}),
     ...(taxableInterest > 1500 || ordinaryDividends > 1500 ? { B: { interest: ints.map((form) => ({ payer: form.payer || '', amount: field(form, 'interest') + field(form, 'treasuryInterest') })), dividends: divs.map((form) => ({ payer: form.payer || '', amount: field(form, 'ordinaryDividends') })), 4: taxableInterest, 6: ordinaryDividends } } : {}),
@@ -713,6 +739,7 @@ export function computeForm1040(input = {}, taxYearArg) {
     ...(seByOwner.length ? { SE: seByOwner.map((item) => ({ owner: item.owner, belowMinimum: item.below, lines: stringKeys(item.lines) })) } : {}),
     ...(form8812 ? { 8812: stringKeys(form8812) } : {}),
     ...(form8863 ? { 8863: form8863 } : {}),
+    ...(form8962 ? { 8962: { ...stringKeys(form8962.lines), method: form8962.method, applicable: form8962.applicable } } : {}),
     ...(form8959 ? { 8959: stringKeys(form8959) } : {}),
     ...(form8960 ? { 8960: stringKeys(form8960) } : {}),
     ...(form8995 ? { 8995: stringKeys(form8995) } : {}),
