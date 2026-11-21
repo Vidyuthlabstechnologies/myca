@@ -1,8 +1,9 @@
 import { computeForm1040, ageAtYearEnd, dependentFlags } from '../../us-1040.mjs';
 import { engineInput } from '../../us-return.mjs';
-import { whole, positive, sum, check, yesNo } from './state-kit.mjs';
+import { whole, positive, sum, check, yesNo, INCOME_KEYS, sourcedAgi } from './state-kit.mjs';
 
-export const INCOME_KEYS = Object.freeze(['wages', 'taxableInterest', 'usObligationInterest', 'ordinaryDividends', 'qualifiedDividends', 'capitalGain', 'iraTaxable', 'pensionTaxable', 'socialSecurityTaxable', 'unemployment', 'stateRefundTaxable', 'businessIncome', 'otherIncome', 'adjustments']);
+export { INCOME_KEYS, sourcedAgi };
+
 
 const DAY = 86400000;
 const dayNumber = (iso) => Math.floor(Date.parse(`${iso}T00:00:00Z`) / DAY);
@@ -153,6 +154,3 @@ export function sourcedIncome(ctx, filing) {
   return { sourced, share, checks, method: filing.residency };
 }
 
-export function sourcedAgi(sourced) {
-  return INCOME_KEYS.filter((key) => key !== 'adjustments' && key !== 'qualifiedDividends' && key !== 'usObligationInterest').reduce((total, key) => total + whole(sourced[key]), 0) - whole(sourced.adjustments);
-}

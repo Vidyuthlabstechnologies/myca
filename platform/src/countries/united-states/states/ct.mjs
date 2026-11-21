@@ -1,5 +1,4 @@
-import { whole, positive, sum, bracketTax, rateOf, ratio, check, lineTable, byStatus, yesNo } from '../state-kit.mjs';
-import { sourcedAgi } from '../state-context.mjs';
+import { whole, positive, sum, bracketTax, rateOf, ratio, check, lineTable, byStatus, yesNo, sourcedAgi } from '../state-kit.mjs';
 
 const statusKey = (status) => (status === 'qss' ? 'mfj' : status);
 

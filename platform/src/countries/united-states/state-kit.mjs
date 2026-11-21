@@ -82,3 +82,9 @@ export function lineTable(entries) {
 export function yesNo(value) {
   return value === true || value === 'yes' || value === 'true';
 }
+
+export const INCOME_KEYS = Object.freeze(['wages', 'taxableInterest', 'usObligationInterest', 'ordinaryDividends', 'qualifiedDividends', 'capitalGain', 'iraTaxable', 'pensionTaxable', 'socialSecurityTaxable', 'unemployment', 'stateRefundTaxable', 'businessIncome', 'otherIncome', 'adjustments']);
+
+export function sourcedAgi(sourced) {
+  return INCOME_KEYS.filter((key) => key !== 'adjustments' && key !== 'qualifiedDividends' && key !== 'usObligationInterest').reduce((total, key) => total + whole(sourced[key]), 0) - whole(sourced.adjustments);
+}
