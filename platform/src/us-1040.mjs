@@ -2,6 +2,7 @@ import { rules } from './sprint-load.mjs';
 import { careQualifyingPersons, dependentCareBenefits, dependentCareCredit, deemedEarnedIncome } from './us-form-2441.mjs';
 import { computeForm8962 } from './us-form-8962.mjs';
 import { computeForm8889, hsaContributionLimit, hsaMonthsOf } from './us-form-8889.mjs';
+import { allocateQbiAdjustments, computeForm8995 } from './us-form-8995.mjs';
 import { computeScheduleE, RENTAL_ENTRY_KIND } from './us-form-schedule-e.mjs';
 
 export const FILING_STATUSES = Object.freeze(['single', 'mfj', 'mfs', 'hoh', 'qss']);
@@ -237,7 +238,7 @@ function businessesOf(input) {
     const expenses = Array.isArray(item.expenses) ? item.expenses.map((row) => ({ line: String(row.line || ''), label: String(row.label || ''), amount: dollars(row.amount) })) : [];
     const totalExpenses = expenses.length ? sum(expenses, (row) => row.amount) : positive(item.totalExpenses);
     const grossIncome = grossReceipts - returns - costOfGoods;
-    return { id: item.id || `business-${index + 1}`, name: String(item.name || 'Business'), owner: item.owner === 'spouse' ? 'spouse' : 'taxpayer', source: item.source || 'manual', lines: { 1: grossReceipts, 2: returns, 4: costOfGoods, 7: grossIncome, 28: totalExpenses, 31: grossIncome - totalExpenses }, expenses, netProfit: grossIncome - totalExpenses };
+    return { id: item.id || `business-${index + 1}`, name: String(item.name || 'Business'), owner: item.owner === 'spouse' ? 'spouse' : 'taxpayer', source: item.source || 'manual', materialParticipation: item.materialParticipation, lines: { 1: grossReceipts, 2: returns, 4: costOfGoods, 7: grossIncome, 28: totalExpenses, 31: grossIncome - totalExpenses }, expenses, netProfit: grossIncome - totalExpenses };
   });
   for (const owner of ['taxpayer', 'spouse']) {
     const nec = formsOf(input, '1099-NEC').filter((form) => (form.owner === 'spouse' ? 'spouse' : 'taxpayer') === owner);
@@ -689,27 +690,33 @@ export function computeForm1040(input = {}, taxYearArg) {
 
   const beforeQbi = Math.max(0, agi - line12 - line13b);
   const reitDividends = sum(divs, (form) => field(form, 'section199aDividends'));
-  const qbiIncome = businessIncome - seDeduction - adjustments[16] - adjustments[17] + scheduleE.qbiRental;
   const qbiThreshold = fromCents(qbi.thresholdCents[status]);
+  const participationAnswer = (value) => (value === true || value === 'yes' ? true : value === false || value === 'no' ? false : null);
+  const participationOf = (item) => {
+    const own = participationAnswer(item.materialParticipation);
+    if (own !== null) return own;
+    const sameOwner = businesses.filter((other) => other.owner === item.owner).length;
+    const byOwner = participationAnswer(item.owner === 'spouse' ? answers.spouseQbiMaterialParticipation : answers.qbiMaterialParticipation);
+    if (sameOwner === 1 && byOwner !== null) return byOwner;
+    return businesses.length === 1 ? participationAnswer(answers.qbiMaterialParticipation) : null;
+  };
+  const qbiBusinesses = [
+    ...allocateQbiAdjustments(businesses.map((item) => ({ id: item.id, name: item.name, owner: item.owner, profit: item.netProfit, active: participationOf(item) })), { byOwner: Object.fromEntries(seByOwner.map((item) => [item.owner, item.deduction])), shared: adjustments[16] + adjustments[17] }),
+    ...(scheduleE.qbiRental ? [{ id: 'rental-enterprise', name: 'Rental real estate enterprise (Rev. Proc. 2019-38)', owner: 'taxpayer', profit: scheduleE.qbiRental, qbi: scheduleE.qbiRental, active: false }] : []),
+  ];
+  const qbiLossCarryforward = positive(answers.qbiLossCarryforward);
+  const reitPtpLossCarryforward = positive(answers.qbiReitPtpLossCarryforward);
+  const hasCurrentQbi = qbiBusinesses.some((item) => item.qbi !== 0) || reitDividends > 0;
   let line13a = 0;
   let form8995 = null;
-  if (qbiIncome !== 0 || reitDividends > 0) {
-    if (beforeQbi > qbiThreshold) needForm('8995-A', 'QBI_ABOVE_THRESHOLD', `Taxable income before the QBI deduction is above ${qbiThreshold}, so Form 8995-A applies, which MyCA does not prepare; no QBI deduction is included.`, 'Have your CPA prepare Form 8995-A.');
+  let qbiResult = null;
+  if (hasCurrentQbi || qbiLossCarryforward > 0 || reitPtpLossCarryforward > 0) {
+    if (hasCurrentQbi && beforeQbi > qbiThreshold) needForm('8995-A', 'QBI_ABOVE_THRESHOLD', `Taxable income before the QBI deduction is above ${qbiThreshold}, so Form 8995-A applies, which MyCA does not prepare; no QBI deduction is included.`, 'Have your CPA prepare Form 8995-A.');
     else {
-      const component = ofBasis(Math.max(0, qbiIncome), qbi.basisPoints) + ofBasis(reitDividends, qbi.basisPoints);
-      const incomeLimit = ofBasis(Math.max(0, beforeQbi - (qualifiedDividends + d.netCapitalGain)), qbi.basisPoints);
-      const beforeMinimum = Math.min(component, incomeLimit);
-      const minimumAmount = qbiMinimum ? fromCents(qbiMinimum.minimumCents) : 0;
-      const activeFloor = qbiMinimum ? fromCents(qbiMinimum.activeQbiFloorCents) : 0;
-      const participation = answers.qbiMaterialParticipation;
-      const active = participation === true || participation === 'yes';
-      const answeredNo = participation === false || participation === 'no';
-      const minimumDeduction = qbiMinimum && active && qbiIncome >= activeFloor ? minimumAmount : 0;
-      line13a = Math.max(beforeMinimum, minimumDeduction);
-      form8995 = qbiMinimum
-        ? { 2: Math.max(0, qbiIncome), 5: ofBasis(Math.max(0, qbiIncome), qbi.basisPoints), 6: reitDividends, 10: component, 11: beforeQbi, 12: qualifiedDividends + d.netCapitalGain, 14: incomeLimit, 15: beforeMinimum, 16: minimumDeduction, 17: line13a, ...(qbiIncome < 0 ? { 18: qbiIncome } : {}) }
-        : { 2: Math.max(0, qbiIncome), 5: ofBasis(Math.max(0, qbiIncome), qbi.basisPoints), 6: reitDividends, 10: component, 11: beforeQbi, 12: qualifiedDividends + d.netCapitalGain, 14: incomeLimit, 15: line13a, ...(qbiIncome < 0 ? { 16: qbiIncome } : {}) };
-      if (qbiMinimum && !active && !answeredNo && qbiIncome >= activeFloor && beforeMinimum < minimumAmount) checks.push(check('warning', 'QBI_MINIMUM_NEEDS_ANSWER', `Your business may qualify for the minimum QBI deduction of $${minimumAmount} (IRC 199A(i)) if you materially participate in it. Answer the material participation question to claim it.`, 'Answer whether you worked in your business regularly, continuously and substantially this year.', '8995'));
+      qbiResult = computeForm8995({ businesses: qbiBusinesses, qbiLossCarryforward, reitPtp: reitDividends, reitPtpLossCarryforward, taxableIncome: beforeQbi, netCapitalGain: qualifiedDividends + d.netCapitalGain, basisPoints: qbi.basisPoints, minimum: qbiMinimum ? { amount: fromCents(qbiMinimum.minimumCents), activeFloor: fromCents(qbiMinimum.activeQbiFloorCents) } : null });
+      line13a = qbiResult.deduction;
+      form8995 = qbiResult.lines;
+      if (qbiResult.minimumMayApply) checks.push(check('warning', 'QBI_MINIMUM_NEEDS_ANSWER', `Your business income may qualify for the minimum QBI deduction of $${fromCents(qbiMinimum.minimumCents)} (IRC 199A(i)) if you materially participate in ${qbiResult.unanswered.join(', ')}. Answer the material participation question for each business to claim it.`, 'Answer whether you worked in each business regularly, continuously and substantially this year.', '8995'));
     }
   }
   const line14 = line12 + line13a + line13b;
@@ -956,6 +963,8 @@ export function computeForm1040(input = {}, taxYearArg) {
       qualifiedDividendsWorksheet: worksheet ? worksheet.worksheet : null,
       socialSecurityWorksheet: ss.worksheet,
       capitalLossCarryover: carryover,
+      qbiCarryforward: qbiResult ? qbiResult.carryforward : hasCurrentQbi && beforeQbi > qbiThreshold ? null : { qbiLoss: 0, reitPtpLoss: 0 },
+      qbiBusinesses: qbiResult ? qbiResult.businesses : [],
       passiveLossCarryover: scheduleE.has ? scheduleE.carryforward : [],
       checks,
       rulesUsed,
