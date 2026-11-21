@@ -903,7 +903,7 @@ export const TOOLS = [
   {
     name: 'us_form_kinds',
     title: 'US tax form kinds',
-    description: 'The tax forms a personal return accepts (W-2, 1099-INT, 1099-DIV, 1099-B, 1099-NEC, 1099-MISC, 1099-G, 1099-R, SSA-1099, 1098, 1098-E, 1098-T, 1095-A), each with its boxes as field keys, labels and types. US only. Read-only.',
+    description: 'The tax forms a personal return accepts (W-2, 1099-INT, 1099-DIV, 1099-B, 1099-NEC, 1099-MISC, 1099-G, 1099-R, SSA-1099, 1098, 1098-E, 1098-T, 1095-A, 1099-SA, 5498-SA), each with its boxes as field keys, labels and types. US only. Read-only.',
     args: [],
     run: () => usFormKinds(),
   },

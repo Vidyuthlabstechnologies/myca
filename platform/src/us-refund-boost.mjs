@@ -11,7 +11,7 @@ const empty = (value) => value === undefined || value === null || value === '' |
 
 const AMOUNT_CHECKS = Object.freeze([
   { id: 'ira', answer: 'iraDeduction', title: 'Traditional IRA contribution', question: 'Did you, or could you before the filing deadline, put money in a traditional IRA?', note: 'Contributions made up to the April filing deadline count for this year. The deduction shrinks when you or your spouse have a workplace retirement plan and income is high.', applies: earns },
-  { id: 'hsa', answer: 'hsaDeduction', title: 'Health savings account', question: 'Did you put money of your own (not through payroll) into an HSA?', note: 'Only with a high-deductible health plan. Payroll HSA money is already left out of W-2 wages.', applies: () => true },
+  { id: 'hsa', answer: 'hsaOwnContributions', trial: (input) => (input.answers?.hsaCoverage ? {} : { hsaCoverage: 'self-only' }), title: 'Health savings account', question: 'Did you put money of your own (not through payroll) into an HSA?', note: 'Only with a high-deductible health plan, up to the yearly HSA limit less what your employer put in. Payroll HSA money is already left out of W-2 wages.', applies: (input) => input.answers?.hsaCoverage !== 'none' && empty(input.answers?.hsaDeduction) },
   { id: 'student-loan', answer: 'studentLoanInterest', title: 'Student loan interest', question: 'Did you pay interest on a student loan?', note: 'Your lender sends Form 1098-E when interest is $600 or more, but smaller amounts count too.', applies: (input) => !hasForm(input, '1098-E') },
   { id: 'educator', answer: 'educatorExpenses', title: 'Educator expenses', question: 'Are you a K-12 teacher, aide or counselor who bought classroom supplies?', note: 'For at least 900 hours a school year in a K-12 school.', applies: earns },
   { id: 'se-health', answer: 'selfEmployedHealthInsurance', title: 'Self-employed health insurance', question: 'Did you pay your own health, dental or long-term care insurance while self-employed?', note: 'Not for months you could join an employer\'s plan, yours or your spouse\'s.', applies: selfEmployed },
@@ -50,7 +50,7 @@ export function usRefundBoost(state, args = {}) {
   for (const item of AMOUNT_CHECKS) {
     if (!empty(input.answers?.[item.answer]) || !item.applies(input)) continue;
     checked += 1;
-    const trial = net(computeForm1040(withAnswers(input, { [item.answer]: TRIAL }), taxYear));
+    const trial = net(computeForm1040(withAnswers(input, { [item.answer]: TRIAL, ...(item.trial ? item.trial(input) : {}) }), taxYear));
     const gain = trial === null ? 0 : Math.round(trial - baseNet);
     if (gain > 0) opportunities.push({ id: item.id, title: item.title, question: item.question, note: item.note, answer: item.answer, kind: 'amount', per1000: gain });
   }
