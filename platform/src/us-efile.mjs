@@ -288,9 +288,19 @@ export async function fileUsReturn(state, args = {}, actor, options = {}) {
 // 2027 season: the embedded partner signs Form 8879 with the filer and transmits, so no MyCA
 // signature is needed first. The cloud passes partnerScope (the business id) so the partner's
 // webhook can find the return again.
+function partnerBlockers(data) {
+  const problems = (data.checks || []).filter((item) => item.level === 'error').map((item) => item.message);
+  if (!data.taxpayer?.firstName || !data.taxpayer?.lastName) problems.push('Your name is needed.');
+  if (!data.address?.line1 || !data.address?.zip || !data.address?.state) problems.push('Your home address with state and ZIP is needed.');
+  if (!(data.forms || []).length && !(data.schedules?.C || []).length) problems.push('Add at least one tax form or your business income.');
+  return problems;
+}
+
 async function filePartner(state, taxYear, args, actor, options) {
   const loaded = await computedReturn(state, taxYear, options);
   if (!loaded.ok) return loaded;
+  const blocking = partnerBlockers(loaded.data);
+  if (blocking.length) return fail('US_RETURN_NOT_READY', { problems: blocking });
   const contact = args.contact && typeof args.contact === 'object' ? { email: String(args.contact.email || '').slice(0, 200), phone: String(args.contact.phone || '').replace(/\D/g, '').slice(0, 15) } : {};
   return startPartnerFiling(state, { taxYear, computed: loaded.data, scope: args.partnerScope, contact, shareTins: args.shareTins === true, priorYear: importedPriorYear(state, taxYear) }, actor, options);
 }

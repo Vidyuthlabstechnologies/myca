@@ -140,12 +140,16 @@ function phaseOutFraction(magi, range) {
 
 function eitcAt(amount, row, start, band) {
   if (amount <= 0) return 0;
-  const point = Math.floor(amount / band) * band + band / 2;
   const earnedCap = row.earnedIncomeAmountCents / 100;
-  const credit = (Math.min(point, earnedCap) * row.creditBasisPoints) / 10000;
   const maximum = Math.round((earnedCap * row.creditBasisPoints) / 10000);
-  const reduced = point > start ? Math.min(credit, maximum - ((point - start) * row.phaseOutBasisPoints) / 10000) : credit;
-  return Math.max(0, Math.round(reduced));
+  const end = Math.round(start + (maximum * 10000) / row.phaseOutBasisPoints);
+  if (amount >= end) return 0;
+  const low = Math.floor(amount / band) * band;
+  const high = Math.min(low + band, end);
+  const point = (low + high) / 2;
+  if (high <= earnedCap) return Math.round((point * row.creditBasisPoints) / 10000);
+  if (low < start) return maximum;
+  return Math.max(0, Math.round(maximum - ((point - start) * row.phaseOutBasisPoints) / 10000));
 }
 
 function formsOf(input, kind) {
@@ -564,8 +568,10 @@ export function computeForm1040(input = {}, taxYearArg) {
   const educatorDeduction = sum(educatorPaid, (paid) => Math.min(paid, educatorCap));
   const educatorItemized = educator?.excessItemized ? sum(educatorPaid, (paid) => Math.max(0, paid - educatorCap)) : 0;
   const earlyWithdrawal = sum(ints, (form) => field(form, 'earlyWithdrawalPenalty'));
-  const adjustments = { 11: educatorDeduction, 13: hsa.deduction, 15: seDeduction, 16: positive(answers.retirementPlanDeduction), 17: positive(answers.selfEmployedHealthInsurance), 18: earlyWithdrawal, 20: positive(answers.iraDeduction) };
-  if (adjustments[17] > 0 && adjustments[17] > Math.max(0, businessIncome - seDeduction - adjustments[16])) checks.push(check('warning', 'SE_HEALTH_ABOVE_PROFIT', 'Self-employed health insurance is limited to the business profit less the SE tax and retirement deductions.', 'Check the amount with your CPA.'));
+  const seHealthPaid = positive(answers.selfEmployedHealthInsurance);
+  const seHealthLimit = Math.max(0, businessIncome - seDeduction - positive(answers.retirementPlanDeduction));
+  const adjustments = { 11: educatorDeduction, 13: hsa.deduction, 15: seDeduction, 16: positive(answers.retirementPlanDeduction), 17: Math.min(seHealthPaid, seHealthLimit), 18: earlyWithdrawal, 20: positive(answers.iraDeduction) };
+  if (seHealthPaid > seHealthLimit) checks.push(check('warning', 'SE_HEALTH_ABOVE_PROFIT', `Self-employed health insurance is limited to the business profit less the deductible part of SE tax and retirement contributions (Form 7206), so ${seHealthLimit} of the ${seHealthPaid} paid is deducted.`, 'The rest may count as a medical expense if you itemize.'));
 
   const line1z = wages + line1e;
   const line4b = sum(iraForms, iraTaxable);
@@ -587,7 +593,7 @@ export function computeForm1040(input = {}, taxYearArg) {
   else if (loanInterest > 0 && !input.taxpayer?.canBeClaimedAsDependent) {
     const capped = Math.min(loanInterest, fromCents(studentLoan.maxCents));
     const magi = totalIncome - ssAdjustments;
-    studentLoanDeduction = Math.round(capped * phaseOutFraction(magi, jointOr(studentLoan.phaseOutCents, status)));
+    studentLoanDeduction = capped - Math.round(capped * Math.round((1 - phaseOutFraction(magi, jointOr(studentLoan.phaseOutCents, status))) * 1000) / 1000);
   }
   adjustments[21] = studentLoanDeduction;
   adjustments[26] = ssAdjustments + studentLoanDeduction;
@@ -701,13 +707,19 @@ export function computeForm1040(input = {}, taxYearArg) {
   const mortgageForms = formsOf(input, '1098');
   const mortgageReported = sum(mortgageForms, (form) => field(form, 'mortgageInterest') + field(form, 'pointsPaid'));
   const mortgageNotReported = positive(answers.otherMortgageInterest);
+  const mortgagePaid = mortgageReported + mortgageNotReported;
+  const debtLimit = status === 'mfs' ? 375000 : 750000;
+  const principal = sum(mortgageForms, (form) => field(form, 'outstandingPrincipal'));
+  const mortgageAboveLimit = principal > debtLimit;
   const insurancePaid = sum(mortgageForms, (form) => field(form, 'mortgageInsurancePremiums'));
   const insuranceKey = status === 'mfs' ? 'mfs' : 'other';
   const insuranceSteps = Math.ceil(Math.max(0, agi - fromCents(mortgageInsurance.phaseOutStartCents[insuranceKey])) / fromCents(mortgageInsurance.phaseOutStepCents[insuranceKey]));
   const line8d = mortgageInsurance.deductible ? Math.round((insurancePaid * Math.max(0, 10000 - insuranceSteps * mortgageInsurance.reductionPerStepBasisPoints)) / 10000) : 0;
   if (insurancePaid > 0 && !mortgageInsurance.deductible) checks.push(check('warning', 'MORTGAGE_INSURANCE_NOT_DEDUCTIBLE', `Mortgage insurance premiums (Form 1098 box 5) are not deductible for ${taxYear}; the deduction returns from 2026.`, ''));
-  const mortgageInterest = mortgageReported + mortgageNotReported + line8d;
-  const mortgageAboveLimit = mortgageForms.some((form) => field(form, 'outstandingPrincipal') > 750000) || sum(mortgageForms, (form) => field(form, 'outstandingPrincipal')) > (status === 'mfs' ? 375000 : 750000);
+  const interestAllowed = mortgageAboveLimit ? Math.round((mortgagePaid * debtLimit) / principal) : mortgagePaid;
+  const line8a = mortgageAboveLimit ? Math.round((mortgageReported * debtLimit) / principal) : mortgageReported;
+  const line8b = interestAllowed - line8a;
+  const mortgageInterest = interestAllowed + line8d;
   const cashGifts = positive(answers.charityCash);
   const nonCashGifts = positive(answers.charityNonCash);
   const charityFloor = ofBasis(Math.max(0, agi), charitable.itemizedFloorBasisPoints);
@@ -715,14 +727,14 @@ export function computeForm1040(input = {}, taxYearArg) {
   const nonCashAllowed = Math.min(nonCashGifts, ofBasis(Math.max(0, agi), 3000), Math.max(0, ofBasis(Math.max(0, agi), charitable.cashAgiLimitBasisPoints) - cashAllowed));
   const charityDeduction = Math.max(0, cashAllowed + nonCashAllowed - charityFloor);
   const otherItemized = positive(answers.otherItemizedDeductions) + educatorItemized;
-  const scheduleA = { 1: medicalPaid, 2: agi, 3: medicalFloor, 4: medicalDeduction, '5a': line5a, '5b': realEstate, '5c': personalProperty, '5d': line5d, '5e': line5e, 7: line5e, '8a': mortgageReported, '8b': mortgageNotReported, '8d': line8d, '8e': mortgageInterest, 10: mortgageInterest, 11: cashAllowed, 12: nonCashAllowed, 14: charityDeduction, 16: otherItemized };
+  const scheduleA = { 1: medicalPaid, 2: agi, 3: medicalFloor, 4: medicalDeduction, '5a': line5a, '5b': realEstate, '5c': personalProperty, '5d': line5d, '5e': line5e, 7: line5e, '8a': line8a, '8b': line8b, '8d': line8d, '8e': mortgageInterest, 10: mortgageInterest, 11: cashAllowed, 12: nonCashAllowed, 14: charityDeduction, 16: otherItemized };
   scheduleA[17] = medicalDeduction + line5e + mortgageInterest + charityDeduction + otherItemized;
   const preference = answers.itemize;
   const nonItemizerCap = fromCents(jointOr(charitable.nonItemizerCents, status));
   const itemize = spouseItemizes || preference === 'yes' || (preference !== 'no' && scheduleA[17] > standardDeduction + Math.min(cashGifts, nonItemizerCap));
   const line12 = itemize ? scheduleA[17] : standardDeduction;
   const nonItemizerCharity = !itemize ? Math.min(cashGifts, nonItemizerCap) : 0;
-  if (itemize && mortgageAboveLimit && mortgageInterest > 0) needForm('Pub. 936 worksheet', 'MORTGAGE_DEBT_LIMIT', 'Mortgage principal is above the acquisition debt limit, so only part of the interest is deductible (Pub. 936 worksheet), which MyCA does not prorate.', 'Have your CPA apply the Pub. 936 limit, or take the standard deduction.');
+  if (itemize && mortgageAboveLimit && mortgageInterest > 0) needForm('Pub. 936 worksheet', 'MORTGAGE_DEBT_LIMIT', `Mortgage principal of ${principal} is above the ${debtLimit} acquisition debt limit, so only ${interestAllowed} of the ${mortgagePaid} interest is deducted, prorated on the principal shown on the 1098. The Pub. 936 worksheet uses the average balance, and debt taken out before 16 December 2017 has a $1,000,000 limit.`, 'Have your CPA confirm the Pub. 936 worksheet.', false);
   else if (mortgageAboveLimit && mortgageInterest > 0) checks.push(check('warning', 'MORTGAGE_DEBT_LIMIT', 'Mortgage principal is above the acquisition debt limit; it does not matter while you take the standard deduction.', ''));
   if (itemize && nonCashAllowed > 500) needForm('8283', 'FORM_8283', 'Non-cash gifts over $500 need Form 8283, which MyCA does not prepare.', 'Have your CPA prepare Form 8283.');
   else if (nonCashGifts > 500) checks.push(check('warning', 'FORM_8283', 'Non-cash gifts over $500 need Form 8283 when you itemize; they are not deducted with the standard deduction.', ''));
@@ -811,12 +823,18 @@ export function computeForm1040(input = {}, taxYearArg) {
       if (qbiResult.minimumMayApply) checks.push(check('warning', 'QBI_MINIMUM_NEEDS_ANSWER', `Your business income may qualify for the minimum QBI deduction of $${fromCents(qbiMinimum.minimumCents)} (IRC 199A(i)) if you materially participate in ${qbiResult.unanswered.join(', ')}. Answer the material participation question for each business to claim it.`, 'Answer whether you worked in each business regularly, continuously and substantially this year.', '8995'));
     }
   }
-  const line14 = line12 + line13a + line13b;
-  const line15 = Math.max(0, agi - line14);
-
   const bands = brackets[bracketKey(status)];
   const topBandStart = bands[bands.length - 1].fromCents / 100;
-  if (taxYear >= '2026' && itemize && Math.max(0, agi - line13a - line13b) > topBandStart) needForm('Section 68 limit', 'ITEMIZED_37_LIMIT', 'From 2026, itemized deductions of a taxpayer in the 37% bracket are reduced so they save at most 35 cents a dollar (IRC section 68); MyCA does not apply that reduction.', 'Have your CPA apply the section 68 limit, or take the standard deduction.');
+  const section68Excess = taxYear >= '2026' && itemize ? Math.max(0, agi - line13a - line13b - topBandStart) : 0;
+  const section68Reduction = section68Excess > 0 ? Math.round((Math.min(scheduleA[17], section68Excess) * 2) / 37) : 0;
+  if (section68Reduction > 0) {
+    scheduleA.section68Reduction = section68Reduction;
+    scheduleA.afterSection68 = scheduleA[17] - section68Reduction;
+    checks.push(check('warning', 'ITEMIZED_37_LIMIT', `From 2026, itemized deductions in the 37% bracket are reduced by 2/37 of the smaller of the deductions or the income above ${topBandStart} (IRC section 68), here by ${section68Reduction}.`, '', 'Schedule A'));
+  }
+  const line12Allowed = line12 - section68Reduction;
+  const line14 = line12Allowed + line13a + line13b;
+  const line15 = Math.max(0, agi - line14);
   const preferential = qualifiedDividends + d.netCapitalGain;
   const worksheet = preferential > 0 ? qualifiedDividendsWorksheet({ taxable: line15, qualifiedDividends, netCapitalGain: d.netCapitalGain, status, bands, capitalGains }) : null;
   const line16 = worksheet ? worksheet.tax : regularTax(line15, bands);
@@ -956,10 +974,11 @@ export function computeForm1040(input = {}, taxYearArg) {
   const excessSs = [];
   for (const owner of owners) {
     const forms = ownerWages(owner);
-    const maxSs = ofBasis(fromCents(socialSecurity.wageBaseCents), socialSecurity.employeeBasisPoints);
-    const withheldSs = sum(forms, (form) => Math.min(field(form, 'socialSecurityTax'), maxSs));
-    if (forms.length > 1 && withheldSs > maxSs) excessSs.push(withheldSs - maxSs);
-    if (forms.some((form) => field(form, 'socialSecurityTax') > maxSs)) checks.push(check('warning', 'EMPLOYER_OVERWITHHELD_SS', 'One employer withheld more Social Security tax than the yearly maximum; ask that employer to refund it (it cannot be claimed on the return).', ''));
+    const maxSsCents = Math.round((socialSecurity.wageBaseCents * socialSecurity.employeeBasisPoints) / 10000);
+    const ssCents = (form) => Math.max(0, Math.round(Number(form.fields?.socialSecurityTax || 0) * 100));
+    const withheldSsCents = forms.reduce((total, form) => total + Math.min(ssCents(form), maxSsCents), 0);
+    if (forms.length > 1 && withheldSsCents > maxSsCents) excessSs.push(Math.round((withheldSsCents - maxSsCents) / 100));
+    if (forms.some((form) => ssCents(form) > maxSsCents)) checks.push(check('warning', 'EMPLOYER_OVERWITHHELD_SS', 'One employer withheld more Social Security tax than the yearly maximum; ask that employer to refund it (it cannot be claimed on the return).', ''));
   }
   const line11of3 = sum(excessSs);
   const withheldFica = sum(w2s, (form) => field(form, 'socialSecurityTax') + field(form, 'medicareTax')) + wageAdditional - additionalWithheld + Math.round(seAdditional / 2);
@@ -1035,7 +1054,7 @@ export function computeForm1040(input = {}, taxYearArg) {
     wages, dependentCareBenefits: line1e || undefined, totalWages: line1z, taxExemptInterest, taxableInterest, qualifiedDividends, ordinaryDividends,
     iraDistributions: sum(iraForms, (form) => field(form, 'grossDistribution')), iraTaxable: line4b, pensions: sum(pensionForms, (form) => field(form, 'grossDistribution')), pensionsTaxable: line5b,
     socialSecurity: benefits, socialSecurityTaxable: ss.taxable, capitalGain: capitalLine, additionalIncome: schedule1Part1[10], totalIncome, adjustments: adjustments[26], agi,
-    deduction: line12, nonItemizerCharity, qbiDeduction: line13a, additionalDeductions: schedule1A.total, totalDeductions: line14, taxableIncome: line15, tax: line16, schedule2Tax: line17, taxBeforeCredits: line18,
+    deduction: line12Allowed, nonItemizerCharity, qbiDeduction: line13a, additionalDeductions: schedule1A.total, totalDeductions: line14, taxableIncome: line15, tax: line16, schedule2Tax: line17, taxBeforeCredits: line18,
     childTaxCredit: line19, otherCredits: line20, totalCredits: line21, taxAfterCredits: line22, otherTaxes: line23, totalTax: line24,
     w2Withheld: line25a, form1099Withheld: line25b, otherWithheld: line25c, withholding: line25d, estimatedPayments: line26, earnedIncomeCredit: line27, additionalChildTaxCredit: line28, aotcRefundable: line29,
     schedule3Payments: line31, otherPayments: line32, totalPayments: line33, overpaid: line34, refund: line35a, appliedToNextYear: applyNext, owed: line37,
@@ -1092,7 +1111,7 @@ export function computeForm1040(input = {}, taxYearArg) {
       filingStatusLabel: STATUS_LABEL[status],
       lines: stringKeys(lines),
       schedules,
-      summary: { totalIncome, agi, deduction: line12, itemized: itemize, standardDeduction, itemizedTotal: scheduleA[17], taxableIncome: line15, tax: line16, credits: line21, otherTaxes: line23, totalTax: line24, payments: line33, refund: line35a, owed: line37, effectiveRate: totalIncome > 0 ? Math.round((line24 / totalIncome) * 10000) / 100 : 0 },
+      summary: { totalIncome, agi, deduction: line12Allowed, itemized: itemize, standardDeduction, itemizedTotal: scheduleA[17], taxableIncome: line15, tax: line16, credits: line21, otherTaxes: line23, totalTax: line24, payments: line33, refund: line35a, owed: line37, effectiveRate: totalIncome > 0 ? Math.round((line24 / totalIncome) * 10000) / 100 : 0 },
       dependents: dependents.map((item) => ({ firstName: item.firstName || '', lastName: item.lastName || '', relationship: item.relationship || '', age: item.age, ctcEligible: item.ctcEligible, odcEligible: item.odcEligible, eitcChild: item.eitcChild })),
       qualifiedDividendsWorksheet: worksheet ? worksheet.worksheet : null,
       socialSecurityWorksheet: ss.worksheet,

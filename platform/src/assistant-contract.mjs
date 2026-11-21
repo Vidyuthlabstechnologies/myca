@@ -40,6 +40,12 @@ export { TOOL_ARG_SCHEMAS } from './tool-schemas.mjs';
 export { assistantTools, modelTools, validateAssistantToolCall } from './assistant-tools.mjs';
 
 const PERIOD_TOOLS = new Set(['gst_payable', 'export_tally', 'export_gstr1_json', 'prepare_gstr1', 'filing_pack', 'prepare_gstr3b']);
+const YEAR_TOOLS = new Set(['contractor_1099_file', 'schedule_se', 'cpa_pack']);
+
+function saidTaxYear(text) {
+  const found = String(text).match(/(?<![\d$₹.,])\b(20[0-9]{2})\b(?![\d.,])/);
+  return found ? found[1] : '';
+}
 
 export function pendingFileContent(state) {
   const pending = state.pendingFile;
@@ -676,6 +682,10 @@ export function planLocalToolCall(state, message) {
 
   for (const route of ROUTES) {
     if (!route.re.test(text)) continue;
+    if (YEAR_TOOLS.has(route.tool)) {
+      const year = saidTaxYear(text);
+      return { kind: 'tool', name: route.tool, args: year ? { year } : {} };
+    }
     const period = PERIOD_TOOLS.has(route.tool) ? saidPeriod(text) : '';
     return { kind: 'tool', name: route.tool, args: period ? { period } : {} };
   }
