@@ -224,3 +224,22 @@ test('the preview on the partner route needs no signature and says what is passe
   assert.ok(preview.effects.some((line) => /SSN once more/.test(line)));
   assert.equal(ACTION_CLASSES.us_filer_session.actionClass, 'read');
 });
+
+test('partner route: a return with an error, no address or no income forms is not handed to the partner', async () => {
+  process.env.MYCA_US_FILER = 'column-tax';
+  const withError = async () => ({ ok: true, data: { ...computed1040(), checks: [{ level: 'error', code: 'SPOUSE_FORM_ON_NON_JOINT', message: 'W-2 belongs to the spouse.' }] } });
+  const out = await fileUsReturn(usState(), { taxYear: 2026, partnerScope: SCOPE }, { userId: 'u1' }, { computedReturn: withError, now: '2027-02-01T10:00:00.000Z' });
+  assert.equal(out.error, 'US_RETURN_NOT_READY');
+  assert.deepEqual(out.problems, ['W-2 belongs to the spouse.']);
+  const bare = async () => ({ ok: true, data: { ...computed1040(), address: null, forms: [] } });
+  const second = await fileUsReturn(usState(), { taxYear: 2026, partnerScope: SCOPE }, { userId: 'u1' }, { computedReturn: bare, now: '2027-02-01T10:00:00.000Z' });
+  assert.equal(second.error, 'US_RETURN_NOT_READY');
+  assert.equal(second.problems.length, 2);
+});
+
+test('partner prefill carries the interview answers, business income and estimated tax so the partner does not lose them', () => {
+  const prefill = partnerPrefill({ ...computed1040(), answers: { estimatedTaxPayments: 4000, digitalAssets: false }, lines: { '11': 85000, '26': 4000 }, schedules: { C: [{ owner: 'taxpayer', businessName: 'Hill Bakes', activityCode: '311810', lines: { 1: 30000, 4: 2000, 28: 8000, 31: 20000 } }] } });
+  assert.equal(prefill.answers.estimatedTaxPayments, 4000);
+  assert.equal(prefill.estimated_tax_paid, 4000);
+  assert.deepEqual(prefill.businesses, [{ owner: 'taxpayer', name: 'Hill Bakes', activity_code: '311810', gross_receipts: 30000, cost_of_goods_sold: 2000, total_expenses: 8000, net_profit: 20000 }]);
+});
