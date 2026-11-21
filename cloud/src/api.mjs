@@ -40,7 +40,7 @@ import { CA_SYNC_MODES, syncOf } from './ca-sync.mjs';
 import { inWords } from '../../platform/src/words.mjs';
 import { createInbound, INBOUND_HEADER, relayTokenMatches } from './inbound.mjs';
 import { createWhatsApp } from './whatsapp.mjs';
-import { chatText } from './chat-text.mjs';
+import { chatText, withChatLanguage } from './chat-text.mjs';
 import { htmlEscape } from '../../platform/src/text-safe.mjs';
 import { DEMO_BLOCKED_ACTIONS, seedDemo } from './demo.mjs';
 import { createRateLimits, LIMITS } from './rate-limits.mjs';
@@ -952,8 +952,9 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         if (action === 'ask') {
           const message = chatText(body.message);
           if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
+          const asker = withChatLanguage(actor, body.lang);
           return runner.withSharedBooks(businessId, context, async (session, { asOf }) => {
-            const out = await session.chat(message, actor);
+            const out = await session.chat(message, asker);
             if (!out.preview && !out.awaitingConfirmation) return out;
             return { reply: `These books are shared with you as they stood on ${inWords(indiaDate(asOf.getTime()))}, so nothing can be posted from here. Ask the owner to make the change, or to share the books again.`, tools: [] };
           });
@@ -1065,9 +1066,10 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (action === 'ask') {
         const message = chatText(body.message);
         if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
+        const asker = withChatLanguage(actor, body.lang);
         const canPost = await billing.allows(businessId, 'post');
         return withBooks(businessId, context, async (session) => {
-          if (!canPost.ok) return readOnlyChat(session, message, actor);
+          if (!canPost.ok) return readOnlyChat(session, message, asker);
           if (await unpaidFiling(businessId, session)) await session.discard(actor);
           const unprotected = await secondStepMissing(user.userId, session.state.pendingChatAction?.name);
           if (unprotected && confirmationIntent(message) && confirmationIntent(message) !== 'cancel') {
@@ -1076,7 +1078,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           }
           await withServerFactors(user.userId, session.state.pendingChatAction, clientAddress(req));
           // A "yes" in chat can confirm a pending US filing, which must reach the partner the same way.
-          const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, user.userId, () => session.chat(message, actor)) : await session.chat(message, actor);
+          const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, user.userId, () => session.chat(message, asker)) : await session.chat(message, asker);
           const unpaid = await unpaidFiling(businessId, session);
           if (!unpaid) return out;
           await session.discard(actor);

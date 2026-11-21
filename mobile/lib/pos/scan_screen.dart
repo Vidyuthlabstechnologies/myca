@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../india/india_strings.dart';
+
 typedef BarcodeScan = Future<String?> Function(BuildContext context);
 
 Future<String?> scanBarcodeWithCamera(BuildContext context) => Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => const ScanScreen()));
@@ -38,9 +40,9 @@ class _ScanScreenState extends State<ScanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scan a barcode'),
+        title: Text(inText(context, 'Scan a barcode')),
         actions: [
-          IconButton(tooltip: 'Torch', icon: const Icon(Icons.flashlight_on_outlined), onPressed: () => _controller.toggleTorch()),
+          IconButton(tooltip: inText(context, 'Torch'), icon: const Icon(Icons.flashlight_on_outlined), onPressed: () => _controller.toggleTorch()),
         ],
       ),
       body: Stack(
@@ -50,7 +52,7 @@ class _ScanScreenState extends State<ScanScreen> {
             alignment: Alignment.bottomCenter,
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Text('Point the camera at the barcode on the pack.', style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white), textAlign: TextAlign.center),
+              child: Text(inText(context, 'Point the camera at the barcode on the pack.'), style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white), textAlign: TextAlign.center),
             ),
           ),
         ],

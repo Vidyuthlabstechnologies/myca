@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../api/models.dart';
 import '../cloud/cloud_session.dart';
 import '../app_state.dart';
+import '../india/india_language_picker.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../theme.dart';
 import '../uae/uae_cloud_strings.dart';
@@ -45,7 +47,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
               if (ae == null && state.edition != 'GB')
                 Text(
                   company.gstin.isEmpty
-                      ? 'Not registered for GST'
+                      ? inText(sheet, 'Not registered for GST')
                       : 'GSTIN ${company.gstin}',
                   style: text.bodyMedium,
                 )
@@ -54,6 +56,24 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
               if (user != null)
                 Text(s.signedInAs(user.name), style: text.bodyMedium),
               const SizedBox(height: 18),
+              if (state.edition == 'IN') ...[
+                Panel(
+                  children: [
+                    RowCard(
+                      key: const Key('business.language'),
+                      leading: const TintTile(tint: Tint.ask, letter: 'अ'),
+                      title: inText(sheet, 'Language'),
+                      subtitle: indiaLanguage(state.language.isEmpty ? indiaLang(sheet) : state.language).nativeName,
+                      trailing: const Chevron(),
+                      onTap: () {
+                        navigator.pop();
+                        showIndiaLanguageSheet(context);
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
               if (state.cloud != null) ...[
                 if (user?.role != 'accountant') ...[
                   _BriefSwitch(cloud: state.cloud!),
@@ -74,8 +94,8 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                     if (ae == null)
                     RowCard(
                       leading: const TintTile(tint: Tint.ask, mark: Mark.confirm),
-                      title: 'Plan and billing',
-                      subtitle: 'Your plan, trial and what it includes',
+                      title: inText(sheet, 'Plan and billing'),
+                      subtitle: inText(sheet, 'Your plan, trial and what it includes'),
                       trailing: const Chevron(),
                       onTap: () {
                         navigator.pop();
@@ -116,8 +136,8 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                     if (user?.role == 'owner' && ae == null && state.edition != 'GB')
                       RowCard(
                         leading: const TintTile(tint: Tint.ask, mark: Mark.cloudBooks),
-                        title: 'Connections to banks and apps',
-                        subtitle: company.country == 'US' ? 'Plaid, TaxJar, Gusto and Track1099' : 'Amazon, Shopify, Razorpay and Zoho',
+                        title: inText(sheet, 'Connections to banks and apps'),
+                        subtitle: company.country == 'US' ? 'Plaid, TaxJar, Gusto and Track1099' : inText(sheet, 'Amazon, Shopify, Razorpay and Zoho'),
                         trailing: const Chevron(),
                         onTap: () {
                           navigator.pop();
@@ -296,7 +316,7 @@ class _CrashSwitch extends StatelessWidget {
         subtitle: Text(
           uaeEdition(context)
               ? UaeStrings.of(context).crashReportsAe
-              : 'Only what went wrong in the app. Names, amounts, GSTINs and phone numbers are removed before it leaves the phone.',
+              : inText(context, 'Only what went wrong in the app. Names, amounts, GSTINs and phone numbers are removed before it leaves the phone.'),
         ),
         value: state.crashReportsOn,
         activeTrackColor: Palette.ink,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../cloud/cloud_session.dart';
+import '../india/india_strings.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -11,10 +12,14 @@ const connectorHelp = {
   'taxjar': 'Sign up at app.taxjar.com and open Account → API Access. Generate a Sandbox token, or use the live token with environment production. Save it, then look up a rate below; MyCA records the combined rate for that jurisdiction from today.',
   'gusto': 'Create a developer account at dev.gusto.com and add an application. Copy its Client ID and Client Secret, save them here with environment demo, then tap Connect Gusto and allow the app in the browser. Gusto sends the browser back to MyCA; tap Refresh when you return. Processed payrolls land as a CSV with a reminder.',
   'track1099': 'Sign up at track1099.com; test mode needs no payment. Turn on two-factor sign-in, then open the Account page, API tab: copy the API token and the Team API ID shown beneath it. Until the Track1099 API routes are confirmed, MyCA files nothing through it; the 1099-NEC figures come from the 1099 screen as a file you upload to Track1099.',
-  'amazon': 'Seller Central → Apps and Services → Develop apps: create a private SP-API app, note the LWA client id and secret, and authorise it to get the refresh token. Marketplace id is A21TJRUUN4KGV for India; region IN.',
-  'shopify': 'Shopify admin → Settings → Apps and sales channels → Develop apps: create an app with read_orders and read_shopify_payments_payouts, install it, and copy the Admin API access token. Shop domain is the myshopify.com host.',
-  'razorpay': 'Razorpay dashboard → Account & Settings → API Keys: generate the key id and secret (test or live).',
-  'zoho': 'Zoho API console → Self Client: create a client, generate a code for ZohoBooks.fullaccess.all, exchange it for a refresh token; org id from Zoho Books settings; dc is in for India.',
+};
+
+String connectorHelpLine(BuildContext context, String channel) => switch (channel) {
+  'amazon' => inText(context, 'Seller Central → Apps and Services → Develop apps: create a private SP-API app, note the LWA client id and secret, and authorise it to get the refresh token. Marketplace id is A21TJRUUN4KGV for India; region IN.'),
+  'shopify' => inText(context, 'Shopify admin → Settings → Apps and sales channels → Develop apps: create an app with read_orders and read_shopify_payments_payouts, install it, and copy the Admin API access token. Shop domain is the myshopify.com host.'),
+  'razorpay' => inText(context, 'Razorpay dashboard → Account & Settings → API Keys: generate the key id and secret (test or live).'),
+  'zoho' => inText(context, 'Zoho API console → Self Client: create a client, generate a code for ZohoBooks.fullaccess.all, exchange it for a refresh token; org id from Zoho Books settings; dc is in for India.'),
+  _ => connectorHelp[channel] ?? '',
 };
 
 const connectorFieldLabels = {
@@ -55,17 +60,18 @@ const connectorEnvironments = {
 
 const modeChannels = {'quicko', 'nic'};
 
-String environmentLabel(String channel, String choice) {
+String environmentLabel(BuildContext context, String channel, String choice) {
   if (!modeChannels.contains(channel)) return choice;
-  return choice == 'production' ? 'Live (real portal)' : 'Test (sandbox)';
+  return choice == 'production' ? inText(context, 'Live (real portal)') : inText(context, 'Test (sandbox)');
 }
 
-const connectorPullLabels = {
-  'plaid': 'Pull transactions',
-  'gusto': 'Pull payroll summaries',
-  'amazon': 'Pull settlement',
-  'shopify': 'Pull payouts',
-  'razorpay': 'Pull settlements',
+String connectorPullLabel(BuildContext context, String channel) => switch (channel) {
+  'plaid' => 'Pull transactions',
+  'gusto' => 'Pull payroll summaries',
+  'amazon' => inText(context, 'Pull settlement'),
+  'shopify' => inText(context, 'Pull payouts'),
+  'razorpay' => inText(context, 'Pull settlements'),
+  _ => inText(context, 'Pull now'),
 };
 
 const oauthChannels = {'plaid', 'gusto'};
@@ -75,9 +81,9 @@ List<String> editableFields(ConnectorView view) => [
         if (!oauthChannels.contains(view.channel) || !machineManagedFields.contains(field)) field,
     ];
 
-String connectorStatus(ConnectorView view) {
-  if (!view.configured) return 'Not connected';
-  return view.enabled ? 'Connected' : 'Saved, paused';
+String connectorStatus(BuildContext context, ConnectorView view) {
+  if (!view.configured) return inText(context, 'Not connected');
+  return view.enabled ? inText(context, 'Connected') : inText(context, 'Saved, paused');
 }
 
 class ConnectorsScreen extends StatefulWidget {
@@ -133,9 +139,9 @@ class _ConnectorsScreenState extends State<ConnectorsScreen> {
     final list = _list;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Connections to banks and apps'),
+        title: Text(inText(context, 'Connections to banks and apps')),
         actions: [
-          IconButton(tooltip: 'Refresh', onPressed: _loading ? null : _reload, icon: const Icon(Icons.refresh, size: 22)),
+          IconButton(tooltip: inText(context, 'Refresh'), onPressed: _loading ? null : _reload, icon: const Icon(Icons.refresh, size: 22)),
         ],
       ),
       body: list == null
@@ -155,12 +161,12 @@ class _ConnectorsScreenState extends State<ConnectorsScreen> {
                       ? 'Your bank, read-only through Open Banking. Keys stay on the MyCA server, encrypted; nothing posts to the books without you.'
                       : country == 'US'
                       ? 'Your bank, sales tax rates, payroll and 1099 filing. Keys stay on the MyCA server, encrypted; nothing posts to the books without you.'
-                      : 'Marketplaces, payment gateways and Zoho Books. Keys stay on the MyCA server, encrypted; nothing posts to the books without you.',
+                      : inText(context, 'Marketplaces, payment gateways and Zoho Books. Keys stay on the MyCA server, encrypted; nothing posts to the books without you.'),
                   style: text.bodyMedium,
                 ),
                 if (!list.pulls) ...[
                   const SizedBox(height: 8),
-                  Text('Pulls are switched off on the service, so Pull now runs as a dry run.', style: text.bodyMedium?.copyWith(color: Palette.warn)),
+                  Text(inText(context, 'Pulls are switched off on the service, so Pull now runs as a dry run.'), style: text.bodyMedium?.copyWith(color: Palette.warn)),
                 ],
                 if (_error.isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -252,7 +258,9 @@ class _ConnectorCardState extends State<ConnectorCard> {
     }
   }
 
-  Future<void> _save() => _run('Saving…', (cloud) async {
+  Future<void> _save() {
+    final done = inText(context, 'Saved.');
+    return _run(inText(context, 'Saving…'), (cloud) async {
         final fields = <String, Object?>{};
         for (final entry in _controllers.entries) {
           final value = entry.value.text.trim();
@@ -264,13 +272,17 @@ class _ConnectorCardState extends State<ConnectorCard> {
           _controllers[field]?.clear();
         }
         widget.onChanged(saved);
-        _say('Saved.');
+        _say(done);
       });
+  }
 
-  Future<void> _setEnabled(bool enabled) => _run(enabled ? 'Resuming…' : 'Pausing…', (cloud) async {
+  Future<void> _setEnabled(bool enabled) {
+    final done = enabled ? inText(context, 'Resumed.') : inText(context, 'Paused; nothing is pulled until you resume.');
+    return _run(enabled ? inText(context, 'Resuming…') : inText(context, 'Pausing…'), (cloud) async {
         widget.onChanged(await cloud.saveConnector(view.channel, {'enabled': enabled}));
-        _say(enabled ? 'Resumed.' : 'Paused; nothing is pulled until you resume.');
+        _say(done);
       });
+  }
 
   Future<void> _connectBank() => _run('Opening Plaid Link…', (cloud) async {
         final token = await cloud.plaidLinkToken();
@@ -301,15 +313,18 @@ class _ConnectorCardState extends State<ConnectorCard> {
         _say(rate.line);
       });
 
-  Future<void> _pull() => _run('Pulling…', (cloud) async {
+  Future<void> _pull() {
+    final nothing = inFormat(context, 'Nothing was pulled for {name}.', {'name': view.title});
+    return _run(inText(context, 'Pulling…'), (cloud) async {
         final sync = await cloud.connectorSync();
         final mine = sync.forChannel(view.channel);
-        _say(mine.isEmpty ? 'Nothing was pulled for ${view.title}.' : mine.map((r) => r.line).join('\n'), problem: mine.any((r) => !r.ok));
+        _say(mine.isEmpty ? nothing : mine.map((r) => r.line).join('\n'), problem: mine.any((r) => !r.ok));
         await widget.onRefresh();
       });
+  }
 
   Widget _field(String field) {
-    final label = field == 'environment' && modeChannels.contains(view.channel) ? 'Mode' : connectorFieldLabels[field] ?? field;
+    final label = field == 'environment' && modeChannels.contains(view.channel) ? inText(context, 'Mode') : connectorFieldLabels[field] ?? field;
     final choices = field == 'environment' ? connectorEnvironments[view.channel] : null;
     if (choices != null) {
       return DropdownButtonFormField<String>(
@@ -317,7 +332,7 @@ class _ConnectorCardState extends State<ConnectorCard> {
         key: ValueKey('${view.channel}.environment'),
         initialValue: _environment,
         decoration: InputDecoration(labelText: label),
-        items: [for (final choice in choices) DropdownMenuItem(value: choice, child: Text(environmentLabel(view.channel, choice)))],
+        items: [for (final choice in choices) DropdownMenuItem(value: choice, child: Text(environmentLabel(context, view.channel, choice)))],
         onChanged: _busy ? null : (value) => setState(() => _environment = value ?? _environment),
       );
     }
@@ -330,7 +345,7 @@ class _ConnectorCardState extends State<ConnectorCard> {
       autocorrect: false,
       decoration: InputDecoration(
         labelText: label,
-        helperText: secret && view.isSet(field) ? '(saved)' : (view.optional.contains(field) ? 'Optional' : null),
+        helperText: secret && view.isSet(field) ? inText(context, '(saved)') : (view.optional.contains(field) ? inText(context, 'Optional') : null),
       ),
     );
   }
@@ -339,8 +354,8 @@ class _ConnectorCardState extends State<ConnectorCard> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final fields = editableFields(view);
-    final status = connectorStatus(view);
-    final pullLabel = connectorPullLabels[view.channel] ?? 'Pull now';
+    final status = connectorStatus(context, view);
+    final pullLabel = connectorPullLabel(context, view.channel);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -359,11 +374,11 @@ class _ConnectorCardState extends State<ConnectorCard> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               StatusTag(text: status, color: view.configured ? (view.enabled ? Palette.accent : Palette.warn) : Palette.muted),
-              if (view.lastFetchedTo.isNotEmpty) Text('Pulled to ${view.lastFetchedTo}', style: text.bodySmall?.copyWith(color: Palette.muted)),
+              if (view.lastFetchedTo.isNotEmpty) Text(inFormat(context, 'Pulled to {date}', {'date': view.lastFetchedTo}), style: text.bodySmall?.copyWith(color: Palette.muted)),
             ],
           ),
           const SizedBox(height: 10),
-          Text(connectorHelp[view.channel] ?? '', style: text.bodyMedium),
+          Text(connectorHelpLine(context, view.channel), style: text.bodyMedium),
           const SizedBox(height: 8),
           for (final field in fields) ...[
             const SizedBox(height: 6),
@@ -410,7 +425,7 @@ class _ConnectorCardState extends State<ConnectorCard> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              FilledButton(onPressed: _busy ? null : _save, child: const Text('Save')),
+              FilledButton(onPressed: _busy ? null : _save, child: Text(inText(context, 'Save'))),
               if (view.channel == 'plaid') OutlinedButton(onPressed: _busy ? null : _connectBank, child: const Text('Connect my bank')),
               if (view.channel == 'gusto') OutlinedButton(onPressed: _busy ? null : _connectGusto, child: const Text('Connect Gusto')),
               if (view.channel == 'taxjar') OutlinedButton(onPressed: _busy ? null : _lookUpRate, child: const Text('Look up rate')),
@@ -418,7 +433,7 @@ class _ConnectorCardState extends State<ConnectorCard> {
               if (view.configured)
                 TextButton(
                   onPressed: _busy ? null : () => _setEnabled(!view.enabled),
-                  child: Text(view.enabled ? 'Pause' : 'Resume'),
+                  child: Text(view.enabled ? inText(context, 'Pause') : inText(context, 'Resume')),
                 ),
             ],
           ),

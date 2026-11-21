@@ -1,0 +1,2 @@
+const kannada = <String, String>{
+};

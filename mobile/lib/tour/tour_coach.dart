@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:myca_design/myca_design.dart' show Bahi;
+import '../india/india_strings.dart';
 import '../theme.dart';
 import 'tour.dart';
 
@@ -72,9 +73,10 @@ class _CoachCardState extends State<_CoachCard> {
   TourStep get step => widget.step;
 
   @override
-  void initState() {
-    super.initState();
-    final words = step.say.split(' ').length;
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_quiet != null) return;
+    final words = step.say(context).split(' ').length;
     _quiet = Timer(Duration(milliseconds: (words * 140).clamp(900, 3200)), () {
       if (mounted) setState(() => _talking = false);
     });
@@ -120,13 +122,13 @@ class _CoachCardState extends State<_CoachCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${Bahi.name} · ${tour.index + 1} of ${tour.count}',
+                          inFormat(context, '{name} · {step} of {count}', {'name': Bahi.name, 'step': tour.index + 1, 'count': tour.count}),
                           style: text.labelSmall?.copyWith(color: Palette.accent),
                         ),
                         const SizedBox(height: 4),
                         Semantics(
                           liveRegion: true,
-                          child: Text(step.say, style: text.bodyLarge?.copyWith(height: 1.38)),
+                          child: Text(step.say(context), style: text.bodyLarge?.copyWith(height: 1.38)),
                         ),
                       ],
                     ),
@@ -146,13 +148,13 @@ class _CoachCardState extends State<_CoachCard> {
                 TextButton(
                   onPressed: () => tour.finish(),
                   style: TextButton.styleFrom(foregroundColor: Palette.muted, minimumSize: const Size(48, 44)),
-                  child: const Text('End tour'),
+                  child: Text(inText(context, 'End tour')),
                 ),
                 if (step.showMe != null)
                   OutlinedButton(
                     onPressed: tour.showMe,
                     style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
-                    child: const Text('Show me'),
+                    child: Text(inText(context, 'Show me')),
                   ),
                 FilledButton(
                   onPressed: tour.next,
@@ -160,7 +162,7 @@ class _CoachCardState extends State<_CoachCard> {
                     minimumSize: const Size(0, 44),
                     backgroundColor: step.wait == TourWait.next ? Palette.accent : Palette.ink,
                   ),
-                  child: Text(step.wait == TourWait.next ? step.nextLabel : 'Skip ahead'),
+                  child: Text(step.wait == TourWait.next ? step.nextLabel(context) : inText(context, 'Skip ahead')),
                 ),
               ],
             ),

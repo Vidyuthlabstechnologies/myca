@@ -59,27 +59,27 @@ class _ActionChips extends StatelessWidget {
                 ),
               if (onTdsWithheld != null)
                 ActionChip(
-                  label: const Text('TDS withheld'),
+                  label: Text(inText(context, 'TDS withheld')),
                   onPressed: busy ? null : onTdsWithheld,
                 ),
               if (onQuote != null)
                 ActionChip(
-                  label: const Text('Quote, order or challan'),
+                  label: Text(inText(context, 'Quote, order or challan')),
                   onPressed: busy ? null : onQuote,
                 ),
               if (onDebitNote != null)
                 ActionChip(
-                  label: const Text('Debit note'),
+                  label: Text(inText(context, 'Debit note')),
                   onPressed: busy ? null : onDebitNote,
                 ),
               if (onTerms != null)
                 ActionChip(
-                  label: Text(s.termsChip(terms)),
+                  label: Text(terms == null || s.ar ? s.termsChip(terms) : inFormat(context, 'Terms: {terms}', {'terms': _termsWords(context, terms!)})),
                   onPressed: busy ? null : onTerms,
                 ),
               if (onSupplierTerms != null)
                 ActionChip(
-                  label: const Text('Supplier terms'),
+                  label: Text(inText(context, 'Supplier terms')),
                   onPressed: busy ? null : onSupplierTerms,
                 ),
             ],

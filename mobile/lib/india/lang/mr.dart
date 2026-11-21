@@ -1,0 +1,2 @@
+const marathi = <String, String>{
+};

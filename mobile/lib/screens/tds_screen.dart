@@ -5,6 +5,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../proposal_flow.dart';
 import '../registers.dart';
 import '../theme.dart';
@@ -62,32 +63,30 @@ class _TdsActionScreenState extends State<TdsActionScreen> with ProposalFlow {
       final tan = _tan.text.replaceAll(RegExp(r'\s+'), '').toUpperCase();
       if (!RegExp(r'^[A-Z]{4}[0-9]{5}[A-Z]$').hasMatch(tan)) {
         return setState(
-          () => _error = 'A TAN is four letters, five digits and a letter.',
+          () => _error = inText(context, 'A TAN is four letters, five digits and a letter.'),
         );
       }
       setState(() => _error = '');
-      return propose('We deduct TDS, TAN $tan', 'set_tds_deductor', {
+      return propose(inFormat(context, 'We deduct TDS, TAN {tan}', {'tan': tan}), 'set_tds_deductor', {
         'tan': tan,
       });
     }
     final challan = _challan.text.trim();
     if (challan.length < 5) {
       return setState(
-        () => _error =
-            'Enter the challan reference as printed (the CIN, or the BSR code and serial number).',
+        () => _error = inText(context, 'Enter the challan reference as printed (the CIN, or the BSR code and serial number).'),
       );
     }
     final amountText = _amount.text.trim();
     final amount = amountText.isEmpty ? null : parseAmount(amountText);
     if (amountText.isNotEmpty && amount == null) {
       return setState(
-        () => _error =
-            'Enter the amount, or leave it blank to deposit everything due.',
+        () => _error = inText(context, 'Enter the amount, or leave it blank to deposit everything due.'),
       );
     }
     final day = isoDate(_date ?? AppScope.of(context).now());
     setState(() => _error = '');
-    await propose('Deposited TDS, challan $challan', 'record_tds_deposit', {
+    await propose(inFormat(context, 'Deposited TDS, challan {challan}', {'challan': challan}), 'record_tds_deposit', {
       'challan': challan,
       'date': day,
       'amount': ?amount,
@@ -100,7 +99,7 @@ class _TdsActionScreenState extends State<TdsActionScreen> with ProposalFlow {
     final today = AppScope.of(context).now();
     return Scaffold(
       appBar: AppBar(
-        title: Text(_setup ? 'Deduct TDS' : 'Record a TDS deposit'),
+        title: Text(_setup ? inText(context, 'Deduct TDS') : inText(context, 'Record a TDS deposit')),
       ),
       body: Column(
         children: [
@@ -110,8 +109,8 @@ class _TdsActionScreenState extends State<TdsActionScreen> with ProposalFlow {
               children: [
                 Text(
                   _setup
-                      ? 'If this business deducts TDS on payments to contractors, professionals or landlords, add its TAN. Bills and expenses can then carry TDS, and the deposit dates show in your deadlines.'
-                      : '${rupees(widget.summary.due)} of TDS is still to deposit. Record a challan paid on the income-tax portal or at the bank. MyCA pays nothing itself.',
+                      ? inText(context, 'If this business deducts TDS on payments to contractors, professionals or landlords, add its TAN. Bills and expenses can then carry TDS, and the deposit dates show in your deadlines.')
+                      : inFormat(context, '{amount} of TDS is still to deposit. Record a challan paid on the income-tax portal or at the bank. MyCA pays nothing itself.', {'amount': rupees(widget.summary.due)}),
                   style: text.bodyMedium,
                 ),
                 const SizedBox(height: 16),
@@ -126,8 +125,8 @@ class _TdsActionScreenState extends State<TdsActionScreen> with ProposalFlow {
                     TextField(
                       controller: _challan,
                       textCapitalization: TextCapitalization.characters,
-                      decoration: const InputDecoration(
-                        labelText: 'Challan reference',
+                      decoration: InputDecoration(
+                        labelText: inText(context, 'Challan reference'),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -136,8 +135,8 @@ class _TdsActionScreenState extends State<TdsActionScreen> with ProposalFlow {
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
-                      decoration: const InputDecoration(
-                        labelText: 'Amount (blank for everything due)',
+                      decoration: InputDecoration(
+                        labelText: inText(context, 'Amount (blank for everything due)'),
                         prefixText: '₹ ',
                       ),
                     ),
@@ -146,7 +145,7 @@ class _TdsActionScreenState extends State<TdsActionScreen> with ProposalFlow {
                       spacing: 8,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Text('Paid on', style: text.bodyMedium),
+                        Text(inText(context, 'Paid on'), style: text.bodyMedium),
                         ActionChip(
                           label: Text(longDate(isoDate(_date ?? today))),
                           onPressed: _pickDate,
@@ -161,7 +160,7 @@ class _TdsActionScreenState extends State<TdsActionScreen> with ProposalFlow {
                   const SizedBox(height: 14),
                   FilledButton(
                     onPressed: busy ? null : _preview,
-                    child: const Text('Preview'),
+                    child: Text(inText(context, 'Preview')),
                   ),
                 ],
                 for (final entry in entries) entry.toBubble(),
@@ -169,7 +168,7 @@ class _TdsActionScreenState extends State<TdsActionScreen> with ProposalFlow {
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('Done'),
+                    child: Text(inText(context, 'Done')),
                   ),
                 ],
               ],

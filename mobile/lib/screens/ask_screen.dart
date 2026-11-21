@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../my/my_strings.dart';
 import '../proposal_flow.dart';
 import '../marks.dart';
@@ -103,10 +104,12 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                       else
                       EmptyNote(
                         text:
-                            '${moneyCountry == 'GB' ? 'Ask about your VAT' : 'Ask about your GST'}, deadlines or invoices. '
-                            'Nothing is posted to your books until you confirm it. '
-                            'MyCA works from the rules it shows you; it is not a chartered accountant '
-                            'and does not give tax or legal advice.',
+                            moneyCountry == 'GB'
+                                ? 'Ask about your VAT, deadlines or invoices. '
+                                    'Nothing is posted to your books until you confirm it. '
+                                    'MyCA works from the rules it shows you; it is not a chartered accountant '
+                                    'and does not give tax or legal advice.'
+                                : inText(context, 'Ask about your GST, deadlines or invoices. Nothing is posted to your books until you confirm it. MyCA works from the rules it shows you; it is not a chartered accountant and does not give tax or legal advice.'),
                       ),
                       Wrap(
                         alignment: WrapAlignment.center,
@@ -140,7 +143,7 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                                 onPressed: () => reportAnswer(context, entry.text),
                                 style: TextButton.styleFrom(foregroundColor: Palette.muted, visualDensity: VisualDensity.compact),
                                 icon: const Icon(Icons.flag_outlined, size: 16),
-                                label: Text(myMalayOr(context, 'Report this answer', 'Laporkan jawapan ini')),
+                                label: Text(myMalayOr(context, inText(context, 'Report this answer'), 'Laporkan jawapan ini')),
                               ),
                             ],
                           ),
@@ -199,12 +202,19 @@ const answerReportReasons = ['Wrong or misleading', 'Harmful or offensive', 'Som
 
 const _answerReportReasonsMalay = {'Wrong or misleading': 'Salah atau mengelirukan', 'Harmful or offensive': 'Berbahaya atau menyinggung', 'Something else': 'Lain-lain'};
 
+String _reasonWords(BuildContext context, String reason) => switch (reason) {
+  'Wrong or misleading' => inText(context, 'Wrong or misleading'),
+  'Harmful or offensive' => inText(context, 'Harmful or offensive'),
+  'Something else' => inText(context, 'Something else'),
+  _ => reason,
+};
+
 Future<void> reportAnswer(BuildContext context, String answer) async {
   final state = AppScope.of(context);
   final messenger = ScaffoldMessenger.of(context);
   String w(String english, String malay) => myMalayOr(context, english, malay);
-  final thanks = w('Thank you. The answer was reported for review.', 'Terima kasih. Jawapan ini telah dilaporkan untuk disemak.');
-  final failed = w('Could not send the report. Try again when you are online.', 'Laporan tidak dapat dihantar. Cuba lagi apabila anda dalam talian.');
+  final thanks = w(inText(context, 'Thank you. The answer was reported for review.'), 'Terima kasih. Jawapan ini telah dilaporkan untuk disemak.');
+  final failed = w(inText(context, 'Could not send the report. Try again when you are online.'), 'Laporan tidak dapat dihantar. Cuba lagi apabila anda dalam talian.');
   final reason = await showModalBottomSheet<String>(
     context: context,
     showDragHandle: true,
@@ -215,14 +225,14 @@ Future<void> reportAnswer(BuildContext context, String answer) async {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
-            child: Text(w('Report this answer', 'Laporkan jawapan ini'), style: Theme.of(context).textTheme.titleMedium),
+            child: Text(w(inText(context, 'Report this answer'), 'Laporkan jawapan ini'), style: Theme.of(context).textTheme.titleMedium),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-            child: Text(w('Tell us what is wrong. The answer is sent to MyCA for review, without your books.', 'Beritahu kami apa yang salah. Jawapan ini dihantar kepada MyCA untuk disemak, tanpa buku akaun anda.')),
+            child: Text(w(inText(context, 'Tell us what is wrong. The answer is sent to MyCA for review, without your books.'), 'Beritahu kami apa yang salah. Jawapan ini dihantar kepada MyCA untuk disemak, tanpa buku akaun anda.')),
           ),
           for (final reason in answerReportReasons)
-            ListTile(key: ValueKey('ask.reason.$reason'), title: Text(w(reason, _answerReportReasonsMalay[reason] ?? reason)), onTap: () => Navigator.of(context).pop(reason)),
+            ListTile(key: ValueKey('ask.reason.$reason'), title: Text(w(_reasonWords(context, reason), _answerReportReasonsMalay[reason] ?? reason)), onTap: () => Navigator.of(context).pop(reason)),
           const SizedBox(height: 8),
         ],
       ),
