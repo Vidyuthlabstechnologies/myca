@@ -22,7 +22,7 @@ export function allocateQbiAdjustments(businesses, { byOwner = {}, shared = 0 } 
 }
 
 export function computeForm8995({ businesses = [], qbiLossCarryforward = 0, reitPtp = 0, reitPtpLossCarryforward = 0, taxableIncome = 0, netCapitalGain = 0, basisPoints, minimum = null }) {
-  const rows = businesses.map((item) => ({ id: item.id, name: item.name, qbi: Math.round(item.qbi), active: item.active === true ? true : item.active === false ? false : null }));
+  const rows = businesses.map((item) => ({ id: item.id, name: item.name, owner: item.owner === 'spouse' ? 'spouse' : 'taxpayer', qbi: Math.round(item.qbi), active: item.active === true ? true : item.active === false ? false : null }));
   const line2 = total(rows, (row) => row.qbi);
   const line3 = 0 - magnitude(qbiLossCarryforward);
   const line4 = Math.max(0, line2 + line3);

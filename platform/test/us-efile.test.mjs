@@ -102,8 +102,8 @@ test('Schedule C and SE lines map to their MeF documents', () => {
   const withC = computed1040({ filingStatus: 'single', spouse: null, dependents: [], schedules: { C: [{ businessName: 'Luna Bakery', activityCode: '311810', lines: { '1': 40000, '28': 12000, '31': 28000 } }], SE: [{ owner: 'taxpayer', lines: { '2': 28000, '12': 3956, '13': 1978 } }], '1': { '3': 28000, '15': 1978, '26': 1978 }, '2': { '4': 3956, '21': 3956 } } });
   const built = buildMefSubmission(withC, { efin: '123456', softwareId: '12345678', submissionId: makeSubmissionId('123456', '2026-02-10', 1), timestamp: 't', signature: { taxpayer: { pin: '12345', priorYearPin: '11111' }, date: '2026-02-10' } });
   assert.equal(built.ok, true, JSON.stringify(built.problems));
-  assert.ok(built.xml.includes('<IRS1040ScheduleC documentId="IRS1040ScheduleC-1"><BusinessNameLine1Txt>Luna Bakery</BusinessNameLine1Txt><PrincipalBusinessActivityCd>311810</PrincipalBusinessActivityCd><TotalGrossReceiptsAmt>40000</TotalGrossReceiptsAmt>'));
-  assert.ok(built.xml.includes('<SelfEmploymentTaxAmt>3956</SelfEmploymentTaxAmt>'));
+  assert.ok(built.xml.includes('<IRS1040ScheduleC documentId="IRS1040ScheduleC-1"><PrincipalBusinessActivityCd>311810</PrincipalBusinessActivityCd><BusinessNameLine1Txt>Luna Bakery</BusinessNameLine1Txt><TotalGrossReceiptsAmt>40000</TotalGrossReceiptsAmt>'));
+  assert.ok(built.xml.includes('<IRS1040ScheduleSE documentId="IRS1040ScheduleSE-1"><PersonNm>Maya ONeil</PersonNm><SSN>400011234</SSN><NetNonFarmProfitLossAmt>28000</NetNonFarmProfitLossAmt><SelfEmploymentTaxAmt>3956</SelfEmploymentTaxAmt>'));
   assert.ok(built.xml.includes('<DeductibleSelfEmploymentTaxAmt>1978</DeductibleSelfEmploymentTaxAmt>'));
   assert.ok(built.xml.includes('<PrimaryPriorYearPIN>11111</PrimaryPriorYearPIN>'));
   assert.ok(!built.xml.includes('SpouseSSN'));
@@ -286,7 +286,7 @@ test('an EIC worksheet with no credit or no qualifying child attaches nothing; a
   assert.equal(sub({ qualifyingChildren: 0, earnedIncome: 9000, agi: 9000, credit: 400 }).ok, true);
   const needed = sub({ qualifyingChildren: 2, earnedIncome: 20000, agi: 20000, credit: 5000 });
   assert.equal(needed.ok, false);
-  assert.deepEqual(needed.problems.map((p) => p.code), ['UNSUPPORTED_SCHEDULE']);
+  assert.deepEqual(needed.problems.map((p) => p.code), ['EIC_CHILD_DETAILS_MISSING']);
 });
 
 test('signing uses last year\'s AGI brought in by the prior-year import when none is typed', async () => {

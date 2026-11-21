@@ -1033,7 +1033,7 @@ export function computeForm1040(input = {}, taxYearArg) {
     }
     line28 = allowed;
   }
-  const form8812 = ctcBase > 0 ? { 4: ctcChildren, 5: ctcChildren * fromCents(ctc.perChildCents), 6: otherDependents, 7: otherDependents * fromCents(ctc.otherDependentCents), 8: ctcBase, 9: ctcStart, 10: ctcExcess, 11: ctcReduction, 12: ctcAfter, 13: ctcLimit, 14: line19, '16a': ctcLeft, '16b': actcCap, 17: line17of8812, '18a': earnedIncome, 19: line19of8812, 20: line20of8812, ...(partIIB || {}), 27: line28 } : null;
+  const form8812 = ctcBase > 0 ? { 1: agi, 3: agi, 4: ctcChildren, 5: ctcChildren * fromCents(ctc.perChildCents), 6: otherDependents, 7: otherDependents * fromCents(ctc.otherDependentCents), 8: ctcBase, 9: ctcStart, 10: ctcExcess, 11: ctcReduction, 12: ctcAfter, 13: ctcLimit, 14: line19, '16a': ctcLeft, '16b': actcCap, 17: line17of8812, '18a': earnedIncome, 19: line19of8812, 20: line20of8812, ...(partIIB || {}), 27: line28 } : null;
 
   const line29 = aotcRefundable;
   schedule3[9] = netPremiumTaxCredit;
@@ -1068,9 +1068,9 @@ export function computeForm1040(input = {}, taxYearArg) {
     ...(schedule2.total + schedule2.partI > 0 ? { 2: stringKeys(layoutLines(taxYear, 2, schedule2)) } : {}),
     ...(schedule3[8] + schedule3[15] > 0 ? { 3: stringKeys(layoutLines(taxYear, 3, schedule3)) } : {}),
     ...(itemize ? { A: { ...stringKeys(layoutLines(taxYear, 'A', String(taxYear) >= '2026' && scheduleA.afterSection68 !== undefined ? { ...scheduleA, 17: scheduleA.afterSection68 } : scheduleA)), ...(scheduleA.section68Reduction ? { section68Reduction: scheduleA.section68Reduction, afterSection68: scheduleA.afterSection68 } : {}) } } : {}),
-    ...(taxableInterest > 1500 || ordinaryDividends > 1500 ? { B: { interest: ints.map((form) => ({ payer: form.payer || '', amount: field(form, 'interest') + field(form, 'treasuryInterest') })), dividends: divs.map((form) => ({ payer: form.payer || '', amount: field(form, 'ordinaryDividends') })), 4: taxableInterest, 6: ordinaryDividends } } : {}),
+    ...(taxableInterest > 1500 || ordinaryDividends > 1500 ? { B: { interest: ints.map((form) => ({ payer: form.payer || '', amount: field(form, 'interest') + field(form, 'treasuryInterest') })), dividends: divs.map((form) => ({ payer: form.payer || '', amount: field(form, 'ordinaryDividends') })), 4: taxableInterest, 6: ordinaryDividends, ...(typeof answers.foreignAccounts === 'boolean' ? { foreignAccounts: answers.foreignAccounts } : {}), ...(typeof answers.foreignTrust === 'boolean' ? { foreignTrust: answers.foreignTrust } : {}) } } : {}),
     ...(businesses.length ? { C: businesses.map((item) => ({ id: item.id, name: item.name, owner: item.owner, source: item.source, lines: stringKeys(item.lines), expenses: item.expenses })) } : {}),
-    ...(d.has ? { D: { ...stringKeys(d.lines), carryoverToNextYear: carryover }, 8949: d.transactions.map(({ formId, ...row }) => row) } : {}),
+    ...(d.has ? { D: { ...stringKeys(d.lines), carryoverToNextYear: carryover, ...(typeof answers.qofDisposition === 'boolean' ? { qofDisposition: answers.qofDisposition } : {}) }, 8949: d.transactions.map(({ formId, ...row }) => row) } : {}),
     ...(scheduleE.has ? { E: { properties: scheduleE.properties.map((item) => ({ ...item, lines: stringKeys(item.lines) })), lines: stringKeys(scheduleE.lines), depreciation: scheduleE.properties.filter((item) => item.depreciation).map((item) => ({ property: item.name, ...item.depreciation })), unallowedLossCarryforward: scheduleE.carryforward, magiForPassiveLoss: scheduleE.magi } } : {}),
     ...(scheduleE.form8582 ? { 8582: { ...scheduleE.form8582, lines: stringKeys(scheduleE.form8582.lines) } } : {}),
     ...(scheduleE.form4562?.length ? { 4562: scheduleE.form4562 } : {}),
@@ -1086,7 +1086,7 @@ export function computeForm1040(input = {}, taxYearArg) {
     ...(form8962 ? { 8962: { ...stringKeys(form8962.lines), method: form8962.method, applicable: form8962.applicable } } : {}),
     ...(form8959 ? { 8959: stringKeys(layoutLines(taxYear, 8959, form8959)) } : {}),
     ...(form8960 ? { 8960: stringKeys(form8960) } : {}),
-    ...(form8995 ? { 8995: stringKeys(form8995) } : {}),
+    ...(form8995 ? { 8995: { ...stringKeys(form8995), businesses: qbiResult.businesses } } : {}),
     ...(eic ? { EIC: eic } : {}),
   };
   if (!w2s.length && !(input.forms || []).some((form) => !['2441-PROVIDER', '5695-ITEM'].includes(form.kind)) && !businesses.length) checks.push(check('warning', 'NO_INCOME_DOCUMENTS', 'No W-2, 1099 or business income has been added yet.', 'Add your tax forms.'));

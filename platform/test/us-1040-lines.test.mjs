@@ -130,7 +130,9 @@ test('the e-file map follows the year: 2026 13a is the Schedule 1-A total and 13
   assert.equal(form1040MefLines('2026')['13a'], 'TotalAdditionalDeductionsAmt');
   assert.equal(form1040MefLines('2026')['13b'], 'QualifiedBusinessIncomeDedAmt');
   assert.equal(form1040MefLines('2026')['24a'], 'TotalTaxAmt');
-  assert.equal(scheduleMefDocuments('2026')['2'].lines['6'], 'NetInvestmentIncomeTaxAmt');
+  assert.equal(scheduleMefDocuments('2026')['2'].lines['6'], 'IndivNetInvstIncomeTaxAmt');
   assert.deepEqual(repeatedLines('2025', '1040'), ['11b']);
-  assert.deepEqual(repeatedLines('2026', '1040'), ['11b', '24c', '32c']);
+  assert.deepEqual(repeatedLines('2026', '1040'), ['11b']);
+  assert.equal(form1040MefLines('2026')['24c'], 'TotalTaxAfter1062TaxAmt');
+  assert.equal(form1040MefLines('2026')['32c'], 'CalcRefundableCrAmt');
 });
