@@ -2336,8 +2336,8 @@ export const TOOLS = [
   {
     name: 'store_order_action',
     title: 'Answer an online store order',
-    description: 'Answer an order request from the online store: accept it, which makes a quote for the buyer at the items\' saved prices and GST rates, decline it, or mark it fulfilled. Owner only.',
-    args: ['id', 'action'],
+    description: 'Answer an order request from the online store: accept it, which makes a quote for the buyer at the items\' saved prices and GST rates, decline it, or mark it fulfilled. To decline many at once give ids (a list of order numbers) or fromPhone (every open order from that mobile number) with action decline. Owner only.',
+    args: ['id', 'ids', 'fromPhone', 'action'],
     run: (state, args = {}) => storeOrderAction(state, args),
   },
   {

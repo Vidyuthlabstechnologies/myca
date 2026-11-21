@@ -604,6 +604,16 @@ export function catalogueItemsPreview(state, args) {
 export function storeOrderActionPreview(state, args) {
   const planned = planStoreOrderAction(state, args);
   if (!planned.ok) return storeBlocked(planned);
+  if (planned.plan.bulk) {
+    const { orders, fromPhone, skipped } = planned.plan;
+    const ids = orders.map((order) => order.id);
+    return {
+      blockers: [],
+      summary: `Decline ${ids.length} open order${ids.length === 1 ? '' : 's'}${fromPhone ? ` from ${fromPhone}` : ''}: ${ids.slice(0, 10).join(', ')}${ids.length > 10 ? ` and ${ids.length - 10} more` : ''}.`,
+      effects: ['Nothing posts to your books.', ...(skipped ? [`${skipped} already answered ${skipped === 1 ? 'is' : 'are'} left as ${skipped === 1 ? 'it is' : 'they are'}.`] : [])],
+      figures: { declined: ids.length },
+    };
+  }
   const { order, action, quote } = planned.plan;
   if (action === 'accept') {
     return {

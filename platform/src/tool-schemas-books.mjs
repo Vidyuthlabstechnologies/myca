@@ -391,9 +391,11 @@ export const BOOKS_TOOL_SCHEMAS = {
   store_order_action: {
     type: 'object',
     additionalProperties: false,
-    required: ['id', 'action'],
+    required: ['action'],
     properties: {
       id: { type: 'string', pattern: '^ORD-[0-9]{4,}$' },
+      ids: { type: 'array', minItems: 1, maxItems: 200, items: { type: 'string', pattern: '^ORD-[0-9]{4,}$' } },
+      fromPhone: { type: 'string', minLength: 10, maxLength: 20 },
       action: { type: 'string', enum: ['accept', 'decline', 'fulfil'] },
     },
   },

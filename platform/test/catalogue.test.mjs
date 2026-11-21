@@ -5,7 +5,7 @@ import { runTool } from '../src/tools.mjs';
 import { isRemoteQuery } from '../src/remote-contract.mjs';
 import { validateAssistantToolCall } from '../src/assistant-contract.mjs';
 import { needsConfirmation, previewOf } from '../src/chat-confirm.mjs';
-import { publicCatalogue, priceStoreOrder, receiveStoreOrder, slugProblem, slugFromName, indianMobile, itemId, recordStoreLink, orderText } from '../src/catalogue.mjs';
+import { publicCatalogue, priceStoreOrder, receiveStoreOrder, slugProblem, slugFromName, indianMobile, itemId, recordStoreLink, orderText, pruneClosedStoreOrders, MAX_OPEN_PER_PHONE, MAX_ORDERS_PER_PHONE_PER_DAY, STORE_ORDER_KEEP_DAYS } from '../src/catalogue.mjs';
 
 async function shop() {
   const state = createState();
@@ -236,4 +236,62 @@ test('a store order invoiced from its quote earns no points for a customer who h
   assert.equal(made.invoice.source, 'store');
   assert.equal(made.loyalty, undefined);
   assert.equal(state.loyalty.entries.length, before);
+});
+
+const orderFrom = (state, buyerPhone, receivedAt = '2026-11-21T10:00:00Z', buyerName = 'Spam') => receiveStoreOrder(state, priceStoreOrder(publicCatalogue(state), { buyerName, buyerPhone, lines: [{ id: itemId('TEA-250'), qty: 1 }] }).order, { receivedAt });
+
+test('one phone can hold only a few open orders and send only a few a day, so honest buyers still get through', async () => {
+  const state = await openShop();
+  for (let n = 0; n < MAX_OPEN_PER_PHONE; n += 1) assert.equal(orderFrom(state, '9820012345').ok, true);
+  const blocked = orderFrom(state, '+91 98200 12345');
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.error, 'TOO_MANY_OPEN_FROM_PHONE');
+  assert.equal(orderFrom(state, '9876500001', '2026-11-21T10:05:00Z', 'Meena').ok, true);
+  const declined = await runTool(state, 'store_order_action', { action: 'decline', fromPhone: '98200 12345' });
+  assert.equal(declined.ok, true, JSON.stringify(declined));
+  assert.deepEqual(declined.orderIds, ['ORD-0001', 'ORD-0002', 'ORD-0003']);
+  for (let n = 0; n < MAX_ORDERS_PER_PHONE_PER_DAY - MAX_OPEN_PER_PHONE; n += 1) assert.equal(orderFrom(state, '9820012345', '2026-11-21T12:00:00Z').ok, true);
+  await runTool(state, 'store_order_action', { action: 'decline', fromPhone: '9820012345' });
+  assert.equal(orderFrom(state, '9820012345', '2026-11-21T13:00:00Z').error, 'TOO_MANY_TODAY_FROM_PHONE');
+  assert.equal(orderFrom(state, '9820012345', '2026-11-22T13:00:00Z').ok, true);
+  assert.equal((await runTool(state, 'store_orders', { status: 'new' })).data.orders.filter((order) => order.buyerName === 'Meena').length, 1);
+});
+
+test('the owner declines many orders at once, by number or every open one from a phone', async () => {
+  const state = await openShop();
+  orderFrom(state, '9820012345');
+  orderFrom(state, '9820012345');
+  orderFrom(state, '9876500001', undefined, 'Meena');
+  orderFrom(state, '9876500002', undefined, 'Ravi');
+  assert.equal(validateAssistantToolCall('store_order_action', { action: 'decline', fromPhone: '9820012345' }).ok, true);
+  assert.equal(validateAssistantToolCall('store_order_action', { action: 'decline', ids: ['ORD-0001', 'ORD-0004'] }).ok, true);
+  const preview = previewOf(state, 'store_order_action', { action: 'decline', fromPhone: '9820012345' });
+  assert.deepEqual(preview.blockers, []);
+  assert.match(preview.summary, /Decline 2 open orders from 9820012345: ORD-0001, ORD-0002/);
+  assert.equal((await runTool(state, 'store_order_action', { action: 'accept', fromPhone: '9820012345' })).error, 'BULK_DECLINE_ONLY');
+  assert.equal((await runTool(state, 'store_order_action', { action: 'decline', ids: ['ORD-0009'] })).error, 'ORDER_NOT_FOUND');
+  const byIds = await runTool(state, 'store_order_action', { action: 'decline', ids: ['ORD-0001', 'ORD-0004'] });
+  assert.equal(byIds.ok, true, JSON.stringify(byIds));
+  assert.deepEqual(byIds.orderIds, ['ORD-0001', 'ORD-0004']);
+  assert.equal(state.auditEvents.at(-1).action, 'store.orders_declined');
+  const rest = await runTool(state, 'store_order_action', { action: 'decline', fromPhone: '9820012345' });
+  assert.deepEqual(rest.orderIds, ['ORD-0002']);
+  assert.equal((await runTool(state, 'store_order_action', { action: 'decline', fromPhone: '9820012345' })).error, 'NO_OPEN_ORDERS');
+  const counts = (await runTool(state, 'store_orders', {})).data.counts;
+  assert.deepEqual(counts, { new: 1, accepted: 0, declined: 3, fulfilled: 0 });
+});
+
+test('closed orders older than the keep period are dropped from the books; open and recent ones stay', async () => {
+  const state = await openShop();
+  for (const phone of ['9820012341', '9820012342', '9820012343', '9820012344']) orderFrom(state, phone);
+  await runTool(state, 'store_order_action', { id: 'ORD-0001', action: 'decline' });
+  await runTool(state, 'store_order_action', { id: 'ORD-0002', action: 'decline' });
+  await runTool(state, 'store_order_action', { id: 'ORD-0003', action: 'accept' });
+  state.catalogue.orders = state.catalogue.orders.map((order) => (['ORD-0001', 'ORD-0003'].includes(order.id) ? { ...order, decidedAt: '2026-01-10' } : order));
+  const pruned = pruneClosedStoreOrders(state, { today: '2026-11-21' });
+  assert.deepEqual(pruned, { ok: true, removed: 1 });
+  assert.deepEqual(state.catalogue.orders.map((order) => order.id), ['ORD-0002', 'ORD-0003', 'ORD-0004']);
+  assert.equal(state.auditEvents.at(-1).action, 'store.orders_pruned');
+  assert.deepEqual(pruneClosedStoreOrders(state, { today: '2026-11-21' }), { ok: true, removed: 0 });
+  assert.equal(STORE_ORDER_KEEP_DAYS, 90);
 });

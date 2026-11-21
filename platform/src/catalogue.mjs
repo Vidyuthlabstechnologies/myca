@@ -15,6 +15,11 @@ export const MAX_ORDER_LINES = 50;
 export const MAX_LINE_QTY = 999;
 export const MAX_OPEN_ORDERS = 200;
 export const MAX_ITEMS_PER_CALL = 200;
+export const MAX_OPEN_PER_PHONE = 3;
+export const MAX_ORDERS_PER_PHONE_PER_DAY = 5;
+export const STORE_ORDER_KEEP_DAYS = 90;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const CLOSED_STATUSES = ['declined', 'fulfilled'];
 export const ORDER_STATUSES = ['new', 'accepted', 'declined', 'fulfilled'];
 const ORDER_ACTIONS = { accept: 'accepted', decline: 'declined', fulfil: 'fulfilled' };
 const LIMITS = { storeName: 80, description: 300, address: 200, city: 60, itemDescription: 200, category: 40, buyerName: 80, note: 300 };
@@ -314,6 +319,10 @@ export function receiveStoreOrder(state, priced, { ref = '', receivedAt = '' } =
   const snapshot = publicCatalogue(state);
   if (!snapshot.enabled) return fail('STORE_CLOSED');
   const catalogue = ensureCatalogue(state);
+  const samePhone = catalogue.orders.filter((order) => order.buyerPhone === priced.buyerPhone);
+  if (samePhone.filter((order) => order.status === 'new').length >= MAX_OPEN_PER_PHONE) return fail('TOO_MANY_OPEN_FROM_PHONE', { max: MAX_OPEN_PER_PHONE });
+  const at = Date.parse(receivedAt);
+  if (Number.isFinite(at) && samePhone.filter((order) => Date.parse(order.receivedAt) > at - DAY_MS).length >= MAX_ORDERS_PER_PHONE_PER_DAY) return fail('TOO_MANY_TODAY_FROM_PHONE', { max: MAX_ORDERS_PER_PHONE_PER_DAY });
   if (catalogue.orders.filter((order) => order.status === 'new').length >= MAX_OPEN_ORDERS) return fail('STORE_INBOX_FULL');
   const skuById = new Map(Object.keys(catalogue.items).filter((sku) => catalogue.items[sku]?.published).map((sku) => [itemId(sku), sku]));
   const lines = [];
@@ -354,8 +363,45 @@ function quoteArgsFor(state, order) {
   return { ok: true, args: { partyName: order.buyerName, lines } };
 }
 
+function wantsBulk(args) {
+  return Array.isArray(args.ids) || (args.fromPhone != null && args.fromPhone !== '');
+}
+
+function planBulkDecline(state, args) {
+  if (String(args.action || '') !== 'decline') return fail('BULK_DECLINE_ONLY', { hint: 'Many orders at once can only be declined; accept or fulfil them one at a time.' });
+  const { orders } = catalogueOf(state);
+  let chosen;
+  let phone = '';
+  if (Array.isArray(args.ids)) {
+    const wanted = [...new Set(args.ids.map((id) => String(id || '').trim().toUpperCase()))];
+    const missing = wanted.find((id) => !orders.some((order) => order.id === id));
+    if (missing) return fail('ORDER_NOT_FOUND', { id: missing });
+    chosen = orders.filter((order) => wanted.includes(order.id));
+  } else {
+    phone = indianMobile(String(args.fromPhone).slice(0, 20));
+    if (!phone) return fail('BAD_PHONE', { hint: 'Give a 10-digit Indian mobile number.' });
+    chosen = orders.filter((order) => order.buyerPhone === phone);
+  }
+  const open = chosen.filter((order) => order.status === 'new');
+  if (!open.length) return fail('NO_OPEN_ORDERS', { hint: 'None of these orders is waiting for an answer.' });
+  return { ok: true, plan: { bulk: true, action: 'decline', status: 'declined', orders: open, skipped: chosen.length - open.length, fromPhone: phone } };
+}
+
+export function pruneClosedStoreOrders(state, { today = localToday(), keepDays = STORE_ORDER_KEEP_DAYS } = {}) {
+  if (!inIndia(state) || !Array.isArray(state.catalogue?.orders)) return { ok: true, removed: 0 };
+  const cutoff = new Date(Date.parse(`${today}T00:00:00Z`) - keepDays * DAY_MS).toISOString().slice(0, 10);
+  const closedOn = (order) => String(order.decidedAt || order.receivedAt || '').slice(0, 10);
+  const kept = state.catalogue.orders.filter((order) => !(CLOSED_STATUSES.includes(order.status) && closedOn(order) && closedOn(order) < cutoff));
+  const removed = state.catalogue.orders.length - kept.length;
+  if (!removed) return { ok: true, removed: 0 };
+  state.catalogue.orders = kept;
+  appendAuditEvent(state, { actorId: 'automation', action: 'store.orders_pruned', clientId: String(state.activeClientId || 'SELF'), metadata: { removed, closedBefore: cutoff } });
+  return { ok: true, removed };
+}
+
 export function planStoreOrderAction(state, args = {}) {
   if (!inIndia(state)) return fail('INDIA_ONLY');
+  if (wantsBulk(args)) return planBulkDecline(state, args);
   const order = findOrder(state, args.id);
   if (!order) return fail('ORDER_NOT_FOUND');
   const action = String(args.action || '');
@@ -375,6 +421,14 @@ export function storeOrderAction(state, args = {}) {
   const planned = planStoreOrderAction(state, args);
   if (!planned.ok) return planned;
   const { plan } = planned;
+  if (plan.bulk) {
+    const ids = plan.orders.map((order) => order.id);
+    const decidedAt = localToday();
+    const catalogue = ensureCatalogue(state);
+    catalogue.orders = catalogue.orders.map((order) => (ids.includes(order.id) ? { ...order, status: 'declined', decidedAt } : order));
+    audit(state, 'store.orders_declined', { orderIds: ids, count: ids.length, byPhone: Boolean(plan.fromPhone) });
+    return { ok: true, status: 'declined', orderIds: ids, declined: ids.length, skipped: plan.skipped };
+  }
   let quoteId = plan.order.quoteId || '';
   if (plan.action === 'accept') {
     const made = createQuote(state, plan.quoteArgs);

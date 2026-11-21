@@ -19,6 +19,7 @@ export const LIMITS = Object.freeze({
   storeView: { max: 600, windowSeconds: 3600 },
   storeOrderIp: { max: 20, windowSeconds: 3600 },
   storeOrderStore: { max: 300, windowSeconds: 86400 },
+  storeOrderAlert: { max: 1, windowSeconds: 900 },
 });
 
 function keyOf(kind, who) {

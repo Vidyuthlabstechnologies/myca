@@ -3,6 +3,8 @@ import { keyedHash } from './tokens.mjs';
 import { DEMO_INACTIVE_DAYS } from './demo.mjs';
 import { usRecordsHeldUntil } from './us-retention.mjs';
 import { PRIVACY_REQUEST_KEEP_DAYS } from './privacy-requests.mjs';
+import { pruneClosedStoreOrders, STORE_ORDER_KEEP_DAYS } from '../../platform/src/catalogue.mjs';
+import { localToday } from '../../platform/src/dates.mjs';
 
 export const JOB_HEADER = 'x-myca-job-token';
 const MIN_TOKEN_LENGTH = 32;
@@ -108,16 +110,25 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, read
     summary.privacyRequestsOverdue = (await db.query("select count(*)::int as n from privacy_requests where status = 'open' and due_at < $1", [new Date(now())])).rows[0].n;
     if (summary.privacyRequestsOverdue) log({ requestId, job: 'purge', alert: 'PRIVACY_REQUESTS_OVERDUE', overdue: summary.privacyRequestsOverdue });
     summary.whatsappRows = (await db.query('delete from whatsapp_messages where received_at < $1', [new Date(now() - WHATSAPP_MESSAGE_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
+    summary.storeOrderRows = (await db.query("delete from store_orders where status in ('declined', 'fulfilled') and created_at < $1", [new Date(now() - STORE_ORDER_KEEP_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     return summary;
   }
 
   async function daily(requestId) {
     const found = await db.query('select b.business_id from books b join businesses x on x.id = b.business_id where x.deletion_requested_at is null order by b.business_id');
-    const summary = { ok: true, businesses: found.rowCount, ran: 0, skipped: 0, reminders: 0, warnings: 0, pulled: 0, failed: [] };
+    const summary = { ok: true, businesses: found.rowCount, ran: 0, skipped: 0, reminders: 0, warnings: 0, pulled: 0, storeOrdersPruned: 0, failed: [] };
     for (const row of found.rows) {
       const businessId = row.business_id;
       try {
-        const out = await withBooks(businessId, { requestId, userId: null, deviceId: null }, (session) => session.tool('run_automation', {}, { actor: { userId: 'automation', role: 'owner' } }));
+        const out = await withBooks(businessId, { requestId, userId: null, deviceId: null }, async (session) => {
+          const ran = await session.tool('run_automation', {}, { actor: { userId: 'automation', role: 'owner' } });
+          const pruned = pruneClosedStoreOrders(session.state, { today: localToday(new Date(now())), keepDays: STORE_ORDER_KEEP_DAYS });
+          if (pruned.removed) {
+            session.persist();
+            summary.storeOrdersPruned += pruned.removed;
+          }
+          return ran;
+        });
         if (out.ok === false) {
           summary.failed.push({ businessId, error: out.error });
           continue;

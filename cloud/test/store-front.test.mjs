@@ -167,7 +167,7 @@ test('order requests are bounded: JSON only, a body budget, a strict schema and 
   const qty = await api.call('POST', '/v1/store/busy-traders/orders', { headers: ip(5), body: { buyerName: 'Meena', buyerPhone: '9820012345', lines: [{ id: tea, qty: 100000 }] } });
   assert.equal(qty.body.error, 'BAD_QUANTITY');
   const statuses = [];
-  for (let n = 0; n < 4; n += 1) statuses.push((await api.call('POST', '/v1/store/busy-traders/orders', { headers: ip(6), body: { buyerName: 'Ravi', buyerPhone: '9820012345', lines: [{ id: tea, qty: 1 }] } })).status);
+  for (let n = 0; n < 4; n += 1) statuses.push((await api.call('POST', '/v1/store/busy-traders/orders', { headers: ip(6), body: { buyerName: 'Ravi', buyerPhone: `982001234${n}`, lines: [{ id: tea, qty: 1 }] } })).status);
   for (let n = 0; n < 4; n += 1) statuses.push((await api.call('POST', '/v1/store/no-such-store/orders', { headers: ip(6), body: {} })).status);
   assert.deepEqual(statuses, [200, 200, 200, 200, 404, 404, 429, 429]);
 });
@@ -212,4 +212,30 @@ test('replacing the books from a backup refreshes the public store', async () =>
   assert.equal(link.enabled, true);
   assert.equal(link.snapshot.enabled, true);
   assert.equal((await api.call('GET', '/v1/store/restored-traders', { headers: ip(8) })).status, 200);
+});
+
+test('one phone cannot flood the inbox, and the owner gets one WhatsApp for a burst of orders, with the count', async () => {
+  const owner = await shop('Flood Traders');
+  const tea = itemId('TEA');
+  const before = sent.length;
+  const place = (n, phone) => api.call('POST', '/v1/store/flood-traders/orders', { headers: ip(20 + n), body: { buyerName: 'Spam', buyerPhone: phone, lines: [{ id: tea, qty: 1 }] } });
+  for (let n = 0; n < 3; n += 1) assert.equal((await place(n, '9820099999')).status, 200);
+  const blocked = await place(3, '9820099999');
+  assert.equal(blocked.status, 400, blocked.text);
+  assert.equal(blocked.body.error, 'TOO_MANY_OPEN_FROM_PHONE');
+  assert.match(blocked.body.hint, /WhatsApp/);
+  assert.equal((await place(4, '9820088888')).status, 200, 'an honest buyer still gets through');
+  const alerts = sent.slice(before).filter((message) => /online store order/i.test(message.text));
+  assert.equal(alerts.length, 1, JSON.stringify(alerts));
+  assert.match(alerts[0].text, /ORD-0001/);
+  const declined = await posted(owner, 'store_order_action', { action: 'decline', fromPhone: '9820099999' });
+  assert.deepEqual(declined.tools[0].result.orderIds, ['ORD-0001', 'ORD-0002', 'ORD-0003']);
+  const rows = (await api.db.query("select count(*)::int as n from store_orders where business_id = $1 and status = 'declined'", [owner.businessId])).rows[0].n;
+  assert.equal(rows, 3);
+  api.clock.advance(16 * 60 * 1000);
+  assert.equal((await place(5, '9820077777')).status, 200);
+  const later = sent.slice(before).filter((message) => /online store order/i.test(message.text));
+  assert.equal(later.length, 2);
+  assert.match(later[1].text, /2 online store orders waiting, newest ORD-0005/);
+  assert.equal(later[1].text.includes('9820077777'), false);
 });

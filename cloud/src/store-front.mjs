@@ -111,7 +111,7 @@ export function notFoundPage() {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Not found</title><style>${PAGE_STYLE}</style></head><body><main><h2>This store link does not work.</h2><p class="muted">Check the link with the shop.</p></main></body></html>`;
 }
 
-export function createStoreFront({ db, withBooks, throttle, sender = null, now = () => Date.now(), log = () => {} }) {
+export function createStoreFront({ db, withBooks, throttle, alertGate = null, sender = null, now = () => Date.now(), log = () => {} }) {
   async function find(slugGiven, q = (text, params) => db.query(text, params)) {
     const slug = normalizeSlug(slugGiven);
     if (slug !== String(slugGiven || '') || slugProblem(slug) || !indiaHostedHere()) return null;
@@ -166,18 +166,26 @@ export function createStoreFront({ db, withBooks, throttle, sender = null, now =
         [ref, row.business_id, received.order.id, priced.order.buyerName, priced.order.buyerPhone, JSON.stringify(priced.order.lines), priced.order.note, 'new'],
       );
       session.persist();
-      return { ok: true, order: { number: received.order.id, lines: priced.order.lines.map(({ name, qty, price, amount }) => ({ name, qty, price, amount })), total: priced.order.total, priced: priced.order.priced }, storeName: row.snapshot.store?.name || '', text: orderText(row.snapshot.store?.name || '', priced.order) };
+      const waiting = (session.state.catalogue?.orders || []).filter((one) => one.status === 'new').length;
+      return { ok: true, waiting, order: { number: received.order.id, lines: priced.order.lines.map(({ name, qty, price, amount }) => ({ name, qty, price, amount })), total: priced.order.total, priced: priced.order.priced }, storeName: row.snapshot.store?.name || '', text: orderText(row.snapshot.store?.name || '', priced.order) };
     });
     if (out.ok === false) {
       if (out.error === 'STORE_CLOSED') throw notFound();
       return { ok: false, error: out.error, hint: ORDER_HINTS[out.error] || 'Check the order and try again.' };
     }
-    const items = out.order.lines.reduce((sum, line) => sum + line.qty, 0);
-    await notifyOwners(row.business_id, `New online store order ${out.order.number}: ${items} item${items === 1 ? '' : 's'}${out.order.total ? `, ₹${out.order.total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}. Open MyCA, Online store, to answer it.`);
-    return out;
+    const { waiting, ...answer } = out;
+    if (!alertGate || (await alertGate(row.business_id)).ok) await notifyOwners(row.business_id, alertText(answer.order, waiting));
+    return answer;
   }
 
   return { find, view, page, order };
+}
+
+function alertText(order, waiting) {
+  const items = order.lines.reduce((sum, line) => sum + line.qty, 0);
+  const newest = `${order.number}: ${items} item${items === 1 ? '' : 's'}${order.total ? `, ₹${order.total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}`;
+  if (waiting > 1) return `${waiting} online store orders waiting, newest ${newest}. Open MyCA, Online store, to answer them.`;
+  return `New online store order ${newest}. Open MyCA, Online store, to answer it.`;
 }
 
 const ORDER_HINTS = {
@@ -193,4 +201,6 @@ const ORDER_HINTS = {
   ITEM_UNAVAILABLE: 'An item is no longer sold here. Reload the page.',
   ITEM_OUT_OF_STOCK: 'An item is out of stock. Remove it and try again.',
   STORE_INBOX_FULL: 'The shop has many orders waiting. Send this one on WhatsApp instead.',
+  TOO_MANY_OPEN_FROM_PHONE: 'You already have orders waiting at this shop. Wait for the shop to answer them, or send this one on WhatsApp.',
+  TOO_MANY_TODAY_FROM_PHONE: 'You have sent many orders to this shop today. Try again tomorrow, or send this one on WhatsApp.',
 };

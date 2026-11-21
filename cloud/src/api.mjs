@@ -420,7 +420,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     const taken = await rateLimits.take(kind, who);
     if (!taken.ok) throw httpError(429, 'RATE_LIMITED', { retryAfterSeconds: taken.retryAfterSeconds, hint: 'Too many requests in a short time. Wait a little and try again.' });
   }
-  const storeFront = createStoreFront({ db, withBooks, throttle, sender: whatsappSender, now, log });
+  const storeFront = createStoreFront({ db, withBooks, throttle, alertGate: (businessId) => rateLimits.take('storeOrderAlert', businessId), sender: whatsappSender, now, log });
   const jobs = createJobs({ db, secret, rateLimits, withBooks, readBooks: (...args) => runner.withReadOnlyBooks(...args), connectors, syncChannels, pullsEnabled: channelPullsEnabled, sender: whatsappSender, vault, billing, now, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
   const openId = createOidcVerifier({ issuer: oidc.issuer || '', clientIds: oidc.clientIds || [], jwksUrl: oidc.jwksUrl || '', keys: oidcKeys, now });
