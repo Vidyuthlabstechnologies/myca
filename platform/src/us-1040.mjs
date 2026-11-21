@@ -6,18 +6,20 @@ import { energyItemsFor, homeImprovementCredit, cleanEnergyTentative, cleanEnerg
 import { computeForm8889, hsaContributionLimit, hsaMonthsOf } from './us-form-8889.mjs';
 import { allocateQbiAdjustments, computeForm8995 } from './us-form-8995.mjs';
 import { computeScheduleE, RENTAL_ENTRY_KIND } from './us-form-schedule-e.mjs';
+import { computeForm8606 } from './us-form-8606.mjs';
+import { computeForm5329 } from './us-form-5329.mjs';
 
 export const FILING_STATUSES = Object.freeze(['single', 'mfj', 'mfs', 'hoh', 'qss']);
 export const SUPPORTED_YEARS = Object.freeze(['2025', '2026']);
-export const FORM_KINDS = Object.freeze(['W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T', '1095-A', '1099-SA', '5498-SA', '2441-PROVIDER', '5695-ITEM']);
+export const FORM_KINDS = Object.freeze(['W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T', '1095-A', '1099-SA', '5498-SA', '5498', '2441-PROVIDER', '5695-ITEM']);
 export const US_ENTRY_KINDS = Object.freeze([RENTAL_ENTRY_KIND]);
 export const US_INPUT_KINDS = Object.freeze([...FORM_KINDS, ...US_ENTRY_KINDS]);
 const LONG_STATUS = Object.freeze({ single: 'single', mfj: 'married_joint', mfs: 'married_separate', hoh: 'head_of_household', qss: 'single' });
 const STATUS_LABEL = Object.freeze({ single: 'Single', mfj: 'Married filing jointly', mfs: 'Married filing separately', hoh: 'Head of household', qss: 'Qualifying surviving spouse' });
 const CHILD_RELATIONSHIPS = new Set(['son', 'daughter', 'stepchild', 'foster_child', 'brother', 'sister', 'half_brother', 'half_sister', 'stepbrother', 'stepsister', 'grandchild', 'niece', 'nephew', 'sibling', 'niece_nephew']);
-const FORM_REASONS = Object.freeze({ 'Schedule K-1': 'Partnership, S corporation, estate and trust income (Schedule E Parts II and III)', 'Real estate professional': 'Rental losses of a real estate professional', 'Pub 527': 'Vacation home used as a home (rental expense limit)', 'Short-term rental': 'Rental with an average stay of 7 days or less', 6198: 'At-risk limits on a rental loss', 4797: 'Sale of rental or business property', 8962: 'Marketplace health coverage (premium tax credit)', '8995-A': 'Qualified business income above the threshold', 2210: 'Possible estimated tax penalty', 1116: 'Foreign tax credit above the amount claimable without Form 1116', 5329: 'Additional tax on an early retirement distribution with an exception or a Roth or SIMPLE code, or the 6% tax on HSA excess contributions', 8283: 'Non-cash charitable gifts over $500', 8853: 'Archer MSA or Medicare Advantage MSA distributions', 'Pub. 936 worksheet': 'Mortgage interest on debt above the acquisition debt limit', 'Section 68 limit': 'Itemized deductions reduced for the 37% bracket from 2026', 'Section 1341 claim': 'Social Security repaid above the benefits by more than the claim-of-right threshold' });
-export const US_FORMS_SUPPORTED = Object.freeze(['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule E', 'Schedule SE', 'Schedule EIC', '2441', '4562', '5695', '8582', '8812', '8863', '8880', '8949', '8889', '8959', '8960', '8962', '8995']);
-export const US_FORMS_COMING = Object.freeze(['8995-A', '2210', '1116', '5329', '8283']);
+const FORM_REASONS = Object.freeze({ 'Schedule K-1': 'Partnership, S corporation, estate and trust income (Schedule E Parts II and III)', 'Real estate professional': 'Rental losses of a real estate professional', 'Pub 527': 'Vacation home used as a home (rental expense limit)', 'Short-term rental': 'Rental with an average stay of 7 days or less', 6198: 'At-risk limits on a rental loss', 4797: 'Sale of rental or business property', 8962: 'Marketplace health coverage (premium tax credit)', '8995-A': 'Qualified business income above the threshold', 2210: 'Possible estimated tax penalty', 1116: 'Foreign tax credit above the amount claimable without Form 1116', 5329: 'Additional taxes on retirement and other tax-favored accounts that MyCA does not figure, including the 6% tax on HSA excess contributions', 8606: 'A spouse\'s nondeductible IRA basis and Roth IRA distributions', '8915-F': 'Spreading a qualified disaster distribution over three years', 8283: 'Non-cash charitable gifts over $500', 8853: 'Archer MSA or Medicare Advantage MSA distributions', 'Pub. 936 worksheet': 'Mortgage interest on debt above the acquisition debt limit', 'Section 68 limit': 'Itemized deductions reduced for the 37% bracket from 2026', 'Section 1341 claim': 'Social Security repaid above the benefits by more than the claim-of-right threshold' });
+export const US_FORMS_SUPPORTED = Object.freeze(['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule E', 'Schedule SE', 'Schedule EIC', '2441', '4562', '5329', '5695', '8582', '8606', '8812', '8863', '8880', '8949', '8889', '8959', '8960', '8962', '8995']);
+export const US_FORMS_COMING = Object.freeze(['8995-A', '2210', '1116', '8283']);
 const NOT_COVERED = Object.freeze([
   'Alternative minimum tax (Form 6251)',
   'Partnership, S corporation, estate and trust income (Schedule E Parts II to V, Schedule K-1), real estate professionals, the vacation home expense limit (Pub. 527) and at-risk limits (Form 6198)',
@@ -29,7 +31,9 @@ const NOT_COVERED = Object.freeze([
   'IRA deduction worksheet: the deductible amount is taken as entered',
   'HSA: qualified HSA funding distributions from an IRA (Form 8889 lines 10 and 19), Archer and Medicare Advantage MSAs (Form 8853), the Line 3 worksheet when the coverage type changed during the year, and the Form 5329 tax on excess contributions',
   'Premium tax credit shared-policy allocation and the alternative calculation for the year of marriage (Form 8962 Parts IV and V)',
-  'Additional tax on early retirement distributions (Form 5329) and household employment taxes (Schedule H)',
+  'Household employment taxes (Schedule H)',
+  'Form 5329 Parts II and V to VIII (education, ABLE, Coverdell, Archer MSA and HSA accounts) and the Roth conversion recapture amount on line 1',
+  'Form 8606 for a spouse, and spreading qualified disaster distributions (Form 8915-F)',
   'Qualified business income above the threshold (Form 8995-A)',
   'Estimated tax penalty (Form 2210)',
   'State returns',
@@ -390,6 +394,9 @@ export function computeForm1040(input = {}, taxYearArg) {
   const overtime = read('us.federal.individual.overtime-deduction');
   const carLoan = read('us.federal.individual.car-loan-interest');
   const qbiMinimum = read('us.federal.individual.qbi-minimum');
+  const earlyTax = read('us.federal.individual.early-distribution-tax');
+  const rates5329 = read('us.federal.individual.form-5329-rates');
+  const exceptionRule = read('us.federal.individual.early-distribution-exceptions');
   const saversRule = read('us.federal.individual.savers-credit');
   const cleanRule = read('us.federal.individual.residential-clean-energy');
   const homeRule = read('us.federal.individual.energy-home-improvement');
@@ -443,17 +450,43 @@ export function computeForm1040(input = {}, taxYearArg) {
   const ordinaryDividends = sum(divs, (form) => field(form, 'ordinaryDividends'));
   const qualifiedDividends = Math.min(ordinaryDividends, sum(divs, (form) => field(form, 'qualifiedDividends')));
   const retirement = formsOf(input, '1099-R');
-  const iraForms = retirement.filter((form) => form.fields?.iraSepSimple);
-  const pensionForms = retirement.filter((form) => !form.fields?.iraSepSimple);
-  const taxableOf = (form) => (form.fields?.taxableAmount === undefined || form.fields?.taxableAmount === null || form.fields?.taxableAmount === '' ? field(form, 'grossDistribution') : field(form, 'taxableAmount'));
   const codeOf = (form) => String(form.fields?.distributionCode || '').toUpperCase();
-  const earlyForms = retirement.filter((form) => codeOf(form).includes('1'));
-  const earlyException = answers.earlyDistributionException === true || answers.earlyDistributionException === 'yes';
-  const earlyTax = read('us.federal.individual.early-distribution-tax');
-  for (const form of retirement) if (/[JS]/.test(codeOf(form))) needForm('5329', 'EARLY_DISTRIBUTION', `${form.payer || 'A'} 1099-R has distribution code ${form.fields.distributionCode}: the additional tax on an early Roth or SIMPLE distribution is figured on Form 5329, which MyCA does not prepare.`, 'Have your CPA prepare Form 5329.');
-  if (earlyForms.length && earlyException) needForm('5329', 'EARLY_DISTRIBUTION', 'An exception to the 10% additional tax on an early distribution is claimed on Form 5329, which MyCA does not prepare.', 'Have your CPA prepare Form 5329.');
-  else if (earlyForms.length) checks.push(check('warning', 'EARLY_DISTRIBUTION', 'A 1099-R with distribution code 1 is an early distribution: the 10% additional tax is on Schedule 2 line 8. If an exception applies, Form 5329 is needed.', 'Answer the early distribution question in the interview.'));
-  const earlyDistributionTax = earlyException || !earlyTax ? 0 : ofBasis(sum(earlyForms, taxableOf), earlyTax.basisPoints);
+  const rothIra = (form) => /[JQT]/.test(codeOf(form));
+  const iraForms = retirement.filter((form) => form.fields?.iraSepSimple || rothIra(form));
+  const pensionForms = retirement.filter((form) => !form.fields?.iraSepSimple && !rothIra(form));
+  const taxableBlank = (form) => form.fields?.taxableAmount === undefined || form.fields?.taxableAmount === null || form.fields?.taxableAmount === '';
+  const notTaxableCode = (form) => /[GHQ]/.test(codeOf(form));
+  const taxableOf = (form) => (!taxableBlank(form) ? field(form, 'taxableAmount') : notTaxableCode(form) ? 0 : field(form, 'grossDistribution'));
+  for (const form of retirement) if (taxableBlank(form) && notTaxableCode(form) && field(form, 'grossDistribution') > 0) checks.push(check('warning', 'ROLLOVER_NOT_TAXED', `${form.payer || 'A'} 1099-R has distribution code ${form.fields.distributionCode} (a direct rollover or a qualified Roth distribution) and no taxable amount in box 2a, so none of it is taxed.`, 'Enter the box 2a amount if the form shows one.'));
+  const answeredYes = (value) => value === true || value === 'yes';
+  const accountForms = formsOf(input, '5498').filter((form) => ownerOf(form) === 'taxpayer');
+  const accountValue = (roth) => sum(accountForms.filter((form) => (form.fields?.accountType === 'roth') === roth), (form) => field(form, 'fairMarketValue'));
+  const answerOr = (value, fallback) => (value === undefined || value === null || value === '' ? fallback : positive(value));
+  const traditionalForms = iraForms.filter((form) => form.fields?.iraSepSimple && !rothIra(form) && !/[GH]/.test(codeOf(form)) && ownerOf(form) === 'taxpayer');
+  const traditionalGross = sum(traditionalForms, (form) => field(form, 'grossDistribution'));
+  const conversions = Math.min(traditionalGross, answerOr(answers.rothConversionAmount, sum(accountForms, (form) => field(form, 'rothConversion'))));
+  const rothQualified = (form) => /Q/.test(codeOf(form)) || (/T/.test(codeOf(form)) && answeredYes(answers.rothFiveYearMet));
+  const rothNonqualified = iraForms.filter((form) => rothIra(form) && !rothQualified(form) && ownerOf(form) === 'taxpayer');
+  const rothNonqualifiedGross = sum(rothNonqualified, (form) => field(form, 'grossDistribution'));
+  const form8606 = computeForm8606({ nondeductibleContributions: answers.iraNondeductibleContributions, priorBasis: answers.priorIraBasis, contributionsAfterYearEnd: answers.iraNondeductibleAfterYearEnd, yearEndValue: answerOr(answers.iraYearEndValue, accountValue(false)), distributions: traditionalGross - conversions, conversions, rothDistributions: rothNonqualifiedGross, firstHomeExpenses: answers.rothFirstHomeExpenses, firstHomeLimit: fromCents(exceptionRule.caps['09']), rothContributionBasis: answers.rothContributionBasis, rothConversionBasis: answers.rothConversionBasis });
+  const taxableShare = new Map();
+  const shareOut = (forms, total, gross) => {
+    let left = total;
+    forms.forEach((form, index) => {
+      const amount = index === forms.length - 1 ? left : Math.round((total * field(form, 'grossDistribution')) / gross);
+      taxableShare.set(form, amount);
+      left -= amount;
+    });
+  };
+  if (form8606.taxableDistributions !== null && traditionalGross > 0) shareOut(traditionalForms, form8606.taxableDistributions + form8606.taxableConversion, traditionalGross);
+  if (rothNonqualifiedGross > 0) shareOut(rothNonqualified, form8606.taxableRoth, rothNonqualifiedGross);
+  for (const form of iraForms) if (rothIra(form) && rothQualified(form) && ownerOf(form) === 'taxpayer' && /T/.test(codeOf(form))) taxableShare.set(form, 0);
+  const iraTaxable = (form) => (taxableShare.has(form) ? taxableShare.get(form) : taxableOf(form));
+  if (rothNonqualified.length && (answers.rothContributionBasis === undefined || answers.rothContributionBasis === '')) checks.push(check('warning', 'ROTH_BASIS_NEEDED', 'A nonqualified Roth IRA distribution is taxed only on the part above your Roth contributions and conversions (Form 8606 Part III); without your contribution basis all of it is treated as earnings.', 'Answer the Roth IRA basis questions in the interview.', '8606'));
+  if (iraForms.some((form) => /T/.test(codeOf(form)) && ownerOf(form) === 'taxpayer') && answers.rothFiveYearMet === undefined) checks.push(check('warning', 'ROTH_FIVE_YEAR_RULE', 'A 1099-R with code T is a qualified Roth IRA distribution only if your first Roth IRA contribution was for a year at least five years before this one; otherwise the earnings are taxable.', 'Answer the Roth five-year question in the interview.', '8606'));
+  if (form8606.fromConversions > 0) needForm('5329', 'ROTH_CONVERSION_RECAPTURE', `${form8606.fromConversions} of the Roth IRA distribution comes out of conversions or rollovers. Any part from a conversion made in the last five years that was taxed when converted is subject to the 10% additional tax (the recapture amount on Form 5329 line 1), which MyCA does not allocate; it is not included.`, 'Have your CPA allocate the distribution to each year\'s conversions (Pub. 590-B ordering rules).', false);
+  if (iraForms.some((form) => ownerOf(form) === 'spouse' && ((rothIra(form) && !rothQualified(form)) || form.fields?.taxableNotDetermined))) needForm('8606', 'FORM_8606_SPOUSE', 'Your spouse has an IRA distribution whose taxable part is figured on their own Form 8606, which MyCA prepares only for you; box 2a of the 1099-R is used as the taxable amount.', 'Have your CPA prepare your spouse\'s Form 8606, or enter the taxable amount in box 2a.', false);
+  if (traditionalForms.some((form) => form.fields?.taxableNotDetermined) && !form8606.partI && answers.priorIraBasis === undefined) checks.push(check('warning', 'IRA_BASIS_UNKNOWN', 'The 1099-R says the taxable amount was not determined. If you ever made nondeductible IRA contributions, part of the distribution is tax-free (Form 8606).', 'Answer the IRA basis question in the interview.', '8606'));
   const netBenefits = sum(formsOf(input, 'SSA-1099'), (form) => dollars(form.fields?.netBenefits));
   const benefits = Math.max(0, netBenefits);
   if (netBenefits < 0) {
@@ -534,7 +567,7 @@ export function computeForm1040(input = {}, taxYearArg) {
   if (adjustments[17] > 0 && adjustments[17] > Math.max(0, businessIncome - seDeduction - adjustments[16])) checks.push(check('warning', 'SE_HEALTH_ABOVE_PROFIT', 'Self-employed health insurance is limited to the business profit less the SE tax and retirement deductions.', 'Check the amount with your CPA.'));
 
   const line1z = wages + line1e;
-  const line4b = sum(iraForms, taxableOf);
+  const line4b = sum(iraForms, iraTaxable);
   const line5b = sum(pensionForms, taxableOf);
   const magiBeforeScheduleE = line1z + taxableInterest + ordinaryDividends + line4b + line5b + capitalLine + schedule1Part1[10] - (adjustments[11] + adjustments[13] + adjustments[16] + adjustments[17] + adjustments[18]);
   const scheduleE = computeScheduleE({ taxYear, status, livedWithSpouse: answers.livedWithSpouse === false ? false : answers.livedWithSpouse === true ? true : undefined, entries: rentalEntries, miscForms, magiBeforeScheduleE, qbiSafeHarbor: yesAnswer(answers.rentalQbiSafeHarbor), rules: { allowance: passiveAllowance, personalUse: dwellingUse, macrs: macrsRealProperty } });
@@ -558,6 +591,59 @@ export function computeForm1040(input = {}, taxYearArg) {
   adjustments[21] = studentLoanDeduction;
   adjustments[26] = ssAdjustments + studentLoanDeduction;
   const agi = totalIncome - adjustments[26];
+
+  const medicalRoom = Math.max(0, positive(answers.medicalExpenses) - ofBasis(Math.max(0, agi), medical.basisPoints));
+  const capOf = (code) => (exceptionRule.caps[code] !== undefined ? fromCents(exceptionRule.caps[code]) : code === '05' ? medicalRoom : Infinity);
+  const capUsed = new Map();
+  const disasterCap = fromCents(exceptionRule.qualifiedDisasterMaxCents);
+  const earlyRows = { taxpayer: [], spouse: [] };
+  const earlyForms = retirement.filter((form) => /[1JS]/.test(codeOf(form)));
+  const legacyException = answeredYes(answers.earlyDistributionException);
+  for (const form of earlyForms) {
+    const owner = ownerOf(form);
+    const who = form.payer || 'A';
+    let included = iraTaxable(form);
+    if (form.fields?.qualifiedDisasterDistribution) {
+      const key = `${owner}|disaster`;
+      const excluded = Math.min(included, Math.max(0, disasterCap - (capUsed.get(key) || 0)));
+      capUsed.set(key, (capUsed.get(key) || 0) + excluded);
+      included -= excluded;
+      needForm('8915-F', 'QUALIFIED_DISASTER_DISTRIBUTION', `${who} 1099-R is a qualified disaster recovery distribution: up to ${disasterCap} is free of the 10% additional tax. Its income is all included this year; spreading it over three years and repayments are figured on Form 8915-F, which MyCA does not prepare.`, 'Have your CPA prepare Form 8915-F if you want to spread the income.', false);
+    }
+    if (included <= 0) continue;
+    const code = String(form.fields?.exceptionCode || '').padStart(form.fields?.exceptionCode ? 2 : 0, '0');
+    let exception = 0;
+    if (code && !exceptionRule.codes.includes(code)) checks.push(check('error', 'EARLY_DISTRIBUTION_EXCEPTION_INVALID', `${who} 1099-R has exception number ${code}, which is not on the ${taxYear} Form 5329 list (${exceptionRule.codes[0]} to ${exceptionRule.codes[exceptionRule.codes.length - 2]}, or 99 for more than one).`, 'Correct the exception number on the 1099-R.', '5329'));
+    else if (code && form.fields?.iraSepSimple && exceptionRule.notIra.includes(code)) checks.push(check('error', 'EARLY_DISTRIBUTION_EXCEPTION_INVALID', `${who} 1099-R is from an IRA, and exception ${code} does not apply to IRAs.`, 'Correct the exception number on the 1099-R.', '5329'));
+    else if (code && !form.fields?.iraSepSimple && !rothIra(form) && exceptionRule.iraOnly.includes(code)) checks.push(check('error', 'EARLY_DISTRIBUTION_EXCEPTION_INVALID', `${who} 1099-R is from an employer plan, and exception ${code} applies only to IRA distributions.`, 'Correct the exception number on the 1099-R.', '5329'));
+    else if (code) {
+      const claimed = form.fields?.exceptionAmount === undefined || form.fields?.exceptionAmount === null || form.fields?.exceptionAmount === '' ? included : Math.min(included, field(form, 'exceptionAmount'));
+      const key = code === '05' ? 'all|05' : `${owner}|${code}`;
+      const room = Math.max(0, capOf(code) - (capUsed.get(key) || 0));
+      exception = Math.min(claimed, room);
+      capUsed.set(key, (capUsed.get(key) || 0) + exception);
+      if (exception < claimed) checks.push(check('warning', 'EARLY_DISTRIBUTION_EXCEPTION_CAPPED', `Exception ${code} on ${who} 1099-R covers at most ${capOf(code)}${code === '05' ? ' (medical expenses above 7.5% of AGI)' : code === '19' ? ' per child' : code === '09' ? ' in your lifetime' : code === '23' ? ' a year' : ''}, so ${claimed - exception} of it is subject to the additional tax.`, code === '19' ? 'If the distribution was for more than one child, have your CPA confirm it.' : 'Check the amount with your CPA.', '5329'));
+      if (code === '22') checks.push(check('warning', 'DOMESTIC_ABUSE_ACCOUNT_LIMIT', `A domestic abuse victim distribution is also limited to 50% of the vested account balance; MyCA applies only the ${capOf(code)} limit.`, '', '5329'));
+      if (code === '23') checks.push(check('warning', 'EMERGENCY_DISTRIBUTION_REPEAT', 'Only one emergency personal expense distribution is allowed a year, and none in the next three years unless it is repaid or new contributions make up for it.', '', '5329'));
+    } else if (legacyException) checks.push(check('error', 'EARLY_DISTRIBUTION_EXCEPTION_CODE', `An exception to the 10% additional tax was claimed, but ${who} 1099-R has no exception number for Form 5329 line 2.`, 'Enter the exception number (and the amount it covers) on the 1099-R.', '5329'));
+    else if (/1/.test(codeOf(form))) checks.push(check('warning', 'EARLY_DISTRIBUTION', `${who} 1099-R has distribution code 1, an early distribution: the 10% additional tax is on Schedule 2 line 8. If an exception applies, enter its number from the Form 5329 instructions on the 1099-R.`, 'Enter the exception number on the 1099-R if one applies.', '5329'));
+    earlyRows[owner].push({ amount: included, exception, code, simple: /S/.test(codeOf(form)) });
+  }
+  const rateSet = { earlyBasisPoints: earlyTax.basisPoints, ...rates5329 };
+  const hasExcess = answeredYes(answers.iraExcessContributions);
+  const iraExcess = hasExcess && positive(answers.iraExcessPrior) + positive(answers.iraExcessCurrent) > 0 ? { prior: answers.iraExcessPrior, applied: answers.iraExcessApplied, distributionsIncluded: form8606.taxableDistributions !== null ? form8606.taxableDistributions : Math.max(0, sum(traditionalForms, iraTaxable) - conversions), priorWithdrawn: answers.iraExcessWithdrawn, current: answers.iraExcessCurrent, yearEndValue: answerOr(answers.iraYearEndValue, accountForms.some((form) => form.fields?.accountType !== 'roth') ? accountValue(false) : null) } : null;
+  const rothExcess = hasExcess && positive(answers.rothExcessPrior) + positive(answers.rothExcessCurrent) > 0 ? { prior: answers.rothExcessPrior, applied: answers.rothExcessApplied, distributions: sum(iraForms.filter((form) => rothIra(form) && ownerOf(form) === 'taxpayer'), (form) => field(form, 'grossDistribution')), current: answers.rothExcessCurrent, yearEndValue: answerOr(answers.rothYearEndValue, accountForms.some((form) => form.fields?.accountType === 'roth') ? accountValue(true) : null) } : null;
+  if ((iraExcess && iraExcess.yearEndValue === null) || (rothExcess && rothExcess.yearEndValue === null)) checks.push(check('warning', 'IRA_VALUE_FOR_EXCESS', 'The 6% tax on excess contributions is limited to the account value on December 31; without that value it is figured on the whole excess.', 'Enter the year-end IRA value (Form 5498 box 5) in the interview.', '5329'));
+  if (hasExcess && answeredYes(answers.otherAccountExcess)) needForm('5329', 'FORM_5329_OTHER_ACCOUNTS', 'Excess contributions to an Archer MSA, Coverdell ESA or ABLE account (Form 5329 Parts V, VI and VIII) are not figured by MyCA, so that 6% tax is not included; HSA excess contributions are flagged from Form 8889.', 'Have your CPA complete those parts of Form 5329.');
+  const rmd = answeredYes(answers.rmdShortfall) ? { required: answers.rmdRequired, distributed: answers.rmdDistributed, corrected: answeredYes(answers.rmdCorrected), waiver: answers.rmdWaiverAmount } : null;
+  if (rmd && positive(answers.rmdRequired) <= positive(answers.rmdDistributed)) checks.push(check('warning', 'RMD_NO_SHORTFALL', 'The amount distributed is not less than the required minimum distribution, so there is no excise tax.', '', '5329'));
+  const forms5329 = owners.map((owner) => {
+    const result = computeForm5329({ early: earlyRows[owner], ...(owner === 'taxpayer' ? { iraExcess, rothExcess, rmd } : {}), rates: rateSet });
+    const fileRequired = earlyRows[owner].some((row) => row.code || row.simple) || (owner === 'taxpayer' && Boolean(iraExcess || rothExcess || rmd)) || retirement.some((form) => ownerOf(form) === owner && /J/.test(codeOf(form)) && iraTaxable(form) > 0);
+    return { owner, result, fileRequired };
+  }).filter((item) => Object.keys(item.result.lines).length);
+  if (rmd && forms5329.some((item) => item.result.waiverRequested > 0)) checks.push(check('warning', 'RMD_WAIVER_REQUESTED', `A waiver of the tax on ${forms5329.find((item) => item.result.waiverRequested > 0).result.waiverRequested} of the shortfall is requested: "RC" and that amount go next to line 54, with a statement explaining the reasonable error and the steps taken to remedy it. The IRS decides and bills any tax it does not waive.`, 'Attach the statement of explanation when you file.', '5329'));
+  const earlyDistributionTax = sum(forms5329, (item) => item.result.total);
 
   const marketplaceForms = formsOf(input, '1095-A');
   const yes = (value) => value === true || value === 'yes';
@@ -949,6 +1035,8 @@ export function computeForm1040(input = {}, taxYearArg) {
     '25a': line25a, '25b': line25b, '25c': line25c, '25d': line25d, 26: line26, 27: line27, 28: line28, 29: line29, 31: line31, 32: line32, 33: line33, 34: line34, '35a': line35a, 36: applyNext, 37: line37,
   };
   const stringKeys = (object) => Object.fromEntries(Object.entries(object).map(([key, value]) => [String(key), value]));
+  const all5329 = forms5329.map((item) => ({ owner: item.owner, fileRequired: item.fileRequired, exceptionNumber: item.result.exceptionNumber, lines: stringKeys(item.result.lines) }));
+  const filed5329 = all5329.filter((item) => item.fileRequired);
   const schedules = {
     1: stringKeys({ ...schedule1Part1, ...adjustments }),
     ...(line13b > 0 ? { '1-A': stringKeys(schedule1A) } : {}),
@@ -968,6 +1056,8 @@ export function computeForm1040(input = {}, taxYearArg) {
     ...(form5695 ? { 5695: stringKeys(form5695) } : {}),
     ...(form8863 ? { 8863: form8863 } : {}),
     ...(form8880 ? { 8880: form8880.lines } : {}),
+    ...(filed5329.length ? { 5329: filed5329 } : {}),
+    ...(form8606.required ? { 8606: [{ owner: 'taxpayer', lines: stringKeys(form8606.lines), basisCarryforward: form8606.basisCarryforward }] } : {}),
     ...(form8962 ? { 8962: { ...stringKeys(form8962.lines), method: form8962.method, applicable: form8962.applicable } } : {}),
     ...(form8959 ? { 8959: stringKeys(form8959) } : {}),
     ...(form8960 ? { 8960: stringKeys(form8960) } : {}),
@@ -1004,6 +1094,8 @@ export function computeForm1040(input = {}, taxYearArg) {
       qbiCarryforward: qbiResult ? qbiResult.carryforward : hasCurrentQbi && beforeQbi > qbiThreshold ? null : { qbiLoss: 0, reitPtpLoss: 0 },
       qbiBusinesses: qbiResult ? qbiResult.businesses : [],
       passiveLossCarryover: scheduleE.has ? scheduleE.carryforward : [],
+      form5329: all5329,
+      retirementCarryforward: { iraBasis: form8606.basisCarryforward, ...(form8606.rothBasisLeft ? { rothContributionBasis: form8606.rothBasisLeft.contributions, rothConversionBasis: form8606.rothBasisLeft.conversions } : {}), iraExcess: sum(forms5329, (item) => item.result.iraExcessCarryforward), rothExcess: sum(forms5329, (item) => item.result.rothExcessCarryforward) },
       checks,
       rulesUsed,
       unreviewed,
