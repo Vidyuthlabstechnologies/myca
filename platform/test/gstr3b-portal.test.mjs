@@ -4,7 +4,7 @@ import { join } from 'node:path';
 process.env.APPDATA = mkdtempSync(join(tmpdir(), 'myca-3b-'));
 process.env.HOME = process.env.APPDATA;
 
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createState } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
@@ -23,6 +23,9 @@ function withCheck(first14) {
 }
 const BUYER = withCheck('27AAACK1234F1Z');
 const SUPPLIER = withCheck('27AAACS5678G1Z');
+
+const real = new Date();
+mock.timers.enable({ apis: ['Date'], now: new Date(real.getFullYear(), real.getMonth(), 10, 12).getTime() });
 
 function lastMonth() {
   const [y, m] = localToday().split('-').map(Number);
