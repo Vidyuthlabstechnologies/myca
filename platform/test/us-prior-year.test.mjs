@@ -115,3 +115,16 @@ test('the return status carries the imported prior-year AGI so the app can fill 
   const after = await runTool(state, 'us_return_status', { taxYear: '2026' });
   assert.deepEqual(after.data.priorYear, { agi: Math.round(review.data.summary.agi), joint: false });
 });
+
+test('a filer with no tax forms finishes the forms step by saying so, and the interview does not ask it', async () => {
+  const state = createState();
+  state.company = { name: 'Lee household', country: 'US', entityType: 'household' };
+  await runTool(state, 'set_us_taxpayer', { taxYear: '2025', filingStatus: 'single', taxpayer: { firstName: 'Kim', lastName: 'Lee', ssn: '400-12-3456', dateOfBirth: '1990-01-01', occupation: 'Student' }, address: { line1: '1 Main St', city: 'Austin', state: 'TX', zip: '78701' } });
+  const forms = async () => (await runTool(state, 'us_return_status', { taxYear: '2025' })).data.steps.find((step) => step.id === 'forms').done;
+  assert.equal(await forms(), false);
+  const answered = await runTool(state, 'answer_us_interview', { taxYear: '2025', id: 'noTaxForms', answer: true });
+  assert.equal(answered.ok, true, JSON.stringify(answered));
+  assert.equal(await forms(), true);
+  const interview = await runTool(state, 'us_interview', { taxYear: '2025' });
+  assert.equal(interview.data.questions.some((question) => question.id === 'noTaxForms'), false);
+});

@@ -22,6 +22,11 @@ class PolishApi extends UsFakeApi {
     if (name == 'us_return_status' && answer is Map) {
       final data = Map<String, Object?>.from(answer['data'] as Map);
       if (priorYear != null) data['priorYear'] = priorYear;
+      if (answers['noTaxForms'] == true) {
+        data['steps'] = [
+          for (final step in data['steps'] as List) step['id'] == 'forms' ? {...step as Map, 'done': true} : step,
+        ];
+      }
       return {'ok': true, 'data': data};
     }
     if (name == 'us_interview' && questions != null) return {'ok': true, 'data': {'questions': questions}};
@@ -311,5 +316,32 @@ void main() {
     expect(tester.widget<TextField>(find.descendant(of: find.byKey(const Key('usSign.agi')), matching: find.byType(TextField))).controller!.text, '60000');
     expect(tester.widget<TextField>(find.descendant(of: find.byKey(const Key('usSign.spouseAgi')), matching: find.byType(TextField))).controller!.text, '');
     expect(find.text('If you filed jointly last year, it is the same number.'), findsOneWidget);
+  });
+
+  testWidgets('a filer with no tax forms says so once and the hub counts the step as done', (tester) async {
+    final api = PolishApi()..taxpayer = {'filingStatus': 'single'};
+    await tester.pumpWidget(MycaApp(state: usState(api)));
+    await tester.pumpAndSettle();
+    expect(find.text('1 of 5 steps done'), findsOneWidget);
+    await scrollTap(tester, find.byKey(const Key('usHub.step.forms')));
+    await scrollTap(tester, find.byKey(const Key('usForms.none')));
+    expect(find.text('No tax forms for 2025?'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('usForms.confirmNone')));
+    await tester.pumpAndSettle();
+    expect(api.proposals.single.args, {'taxYear': 2025, 'id': 'noTaxForms', 'answer': true});
+    expect(find.text('2 of 5 steps done'), findsOneWidget);
+    expect(find.text('Next, step 3 of 5: A few questions'), findsOneWidget);
+  });
+
+  testWidgets('MyCA Plus is not on the filing hub; it is in the account menu', (tester) async {
+    final api = PolishApi();
+    await tester.pumpWidget(MycaApp(state: usState(api)));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).first, const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    expect(find.text('MyCA Plus'), findsNothing);
+    await tester.tap(find.byTooltip('Your account'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('usAccount.plus')), findsOneWidget);
   });
 }

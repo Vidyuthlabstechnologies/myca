@@ -172,6 +172,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
             children: [
               item('people', 'Share with your spouse or tax pro', 'They see this return; only you can sign it', const PeopleScreen()),
               item('plan', 'Plan and billing', '', const PlanScreen()),
+              item('plus', 'MyCA Plus', 'IRS letters, withholding checks and quarterly estimates, all year', UsPlusScreen(taxYear: _year!)),
               item('invite', 'Invite a friend', 'Share your invite code, or use one you were sent', const InviteScreen()),
               item('security', 'Security', 'App lock and two-step sign-in', const SecurityScreen()),
               item('switch', 'Switch or add', 'Another return, or books for a business', const BusinessesScreen()),
@@ -445,6 +446,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
                           ),
                       ],
                     ),
+                    if (hub.efile.status == 'not_filed' || stateHasIncomeTax(hub.state)) ...[
                     const SizedBox(height: 14),
                     Panel(
                       children: [
@@ -466,16 +468,9 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
                             trailing: const Chevron(),
                             onTap: () => _open(UsStateSheetScreen(taxYear: year, state: hub.state)),
                           ),
-                        RowCard(
-                          key: const Key('usHub.plus'),
-                          leading: const TintTile(tint: Tint.taxes, mark: Mark.ask),
-                          title: 'MyCA Plus',
-                          subtitle: 'IRS letters, withholding checks and quarterly estimates, all year',
-                          trailing: const Chevron(),
-                          onTap: () => _open(UsPlusScreen(taxYear: year)),
-                        ),
                       ],
                     ),
+                    ],
                   ],
                 ],
               );

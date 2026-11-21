@@ -111,6 +111,29 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
     }
   }
 
+  Future<void> _noForms() async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text('No tax forms for ${widget.taxYear}?'),
+        content: const Text('That means no W-2 from a job and no 1099 or 1098 from a bank, broker, client, school or lender. You can still add one later if it arrives.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: const Text('Go back')),
+          TextButton(key: const Key('usForms.confirmNone'), onPressed: () => Navigator.of(dialog).pop(true), child: const Text('I have none')),
+        ],
+      ),
+    );
+    if (sure != true || !mounted) return;
+    try {
+      final reply = await saveAndConfirm(_api, 'answer_us_interview', {'taxYear': widget.taxYear, 'id': 'noTaxForms', 'answer': true});
+      if (!mounted) return;
+      if (reply.posted) return Navigator.of(context).pop();
+      setState(() => _note = reply.reply.isEmpty ? 'Not saved. Check your connection and try again.' : reply.reply);
+    } on MycaApiException catch (err) {
+      if (mounted) setState(() => _note = err.message);
+    }
+  }
+
   Future<void> _remove(UsTaxForm form) async {
     final sure = await showDialog<bool>(
       context: context,
@@ -211,11 +234,18 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
                   if (forms.isNotEmpty)
                     Text('Got another one? Add it the same way. When every form is in, go back to your return for the next step.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
                   const SizedBox(height: 10),
-                  OutlinedButton(
-                    key: const Key('usForms.done'),
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(forms.isEmpty ? 'Back to my return' : 'Done adding forms'),
-                  ),
+                  if (forms.isEmpty)
+                    OutlinedButton(
+                      key: const Key('usForms.none'),
+                      onPressed: _reading ? null : _noForms,
+                      child: const Text('I have no tax forms'),
+                    )
+                  else
+                    OutlinedButton(
+                      key: const Key('usForms.done'),
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Done adding forms'),
+                    ),
                 ],
               ],
             );
