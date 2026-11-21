@@ -115,7 +115,7 @@ export const RULES = [
     ...year(2026),
     act: 'New Jersey Health Insurance Market Preservation Act (P.L.2018, c.31)',
     section: 'N.J.S.A. 54A:11-1 to 54A:11-6',
-    source: 'The flat amounts and the bronze plan caps are reset each year from the federal penalty amounts and the statewide average bronze premium; New Jersey has not published the 2026 Worksheet L amounts as of 2026-11-21, so the 2025 amounts are carried and the record is provisional',
+    source: 'The flat amounts and the bronze plan caps are reset each year from the federal penalty amounts and the statewide average bronze premium; New Jersey has not published the 2026 Worksheet L amounts (nj.gov/treasury/taxation/pdf/current/1040i.pdf still carries the 2025 Worksheet L, read 2026-11-21), so the 2025 amounts are carried and the record is provisional',
     attestations: []
   },
   ...[2025, 2026].map((y) => ({
