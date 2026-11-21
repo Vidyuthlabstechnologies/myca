@@ -196,7 +196,47 @@ function buyerDetailsNeeded(state, input, { date, reg, exportSale, rawLines, spe
   return { missing, thresholdRupees: rupees, rule: found.record.id, hint: `A tax invoice to an unregistered buyer with a taxable value of ₹${rupees.toLocaleString('en-IN')} or more must carry the buyer's name and address with the state (rule 46(e)). Add the buyer's ${missing.map((field) => (field === 'partyName' ? 'name' : 'address with the state')).join(' and ')} before you give out this invoice.` };
 }
 
-export function createInvoice(state, input) {
+export function invoiceFigures(rawLines, specs, { supplierState, pos, exportSale = null, supplyType = '' }) {
+  const lines = rawLines.map((l, i) => {
+    const { qty, rate: foreignRate, gstRate } = specs[i];
+    const rateAmt = exportSale ? Math.round(foreignRate * exportSale.exchangeRate * 100) / 100 : foreignRate;
+    const taxable = Math.round(qty * rateAmt * 100) / 100;
+    const computed = gstSplit({
+      taxable,
+      rate: gstRate,
+      supplierState,
+      partyState: pos,
+      interState: supplyType === 'SEZWP',
+    });
+    const untaxed = (exportSale && !exportSale.withTax) || supplyType === 'SEZWOP';
+    const split = untaxed ? { intra: false, cgst: 0, sgst: 0, igst: 0, tax: 0 } : computed;
+    const cess = cessFields(l, taxable, qty, !untaxed);
+    return {
+      description: l.description,
+      hsn: String(l.hsn ?? '').trim(),
+      qty,
+      ...(String(l.unit ?? '').trim() ? { unit: String(l.unit).trim() } : {}),
+      rate: rateAmt,
+      ...(exportSale && exportSale.currency !== 'INR' ? { foreignRate, foreignAmount: Math.round(qty * foreignRate * 100) / 100 } : {}),
+      gstRate,
+      ...(gstRate === 0 && l.supply ? { supply: String(l.supply) } : {}),
+      taxable,
+      ...split,
+      ...(cess || {}),
+      amount: Math.round((taxable + split.tax + (cess ? cess.cess : 0)) * 100) / 100,
+    };
+  });
+  const taxable = sumOf(lines, 'taxable');
+  const cgst = sumOf(lines, 'cgst');
+  const sgst = sumOf(lines, 'sgst');
+  const igst = sumOf(lines, 'igst');
+  const withCess = lines.some((l) => l.cess != null);
+  const cessTotal = sumOf(lines, 'cess');
+  const total = Math.round((taxable + cgst + sgst + igst + cessTotal) * 100) / 100;
+  return { lines, taxable, cgst, sgst, igst, withCess, cessTotal, total };
+}
+
+export function planInvoice(state, input) {
   const company = state.company;
   if (company?.setupNeeded) return { ok: false, error: 'SETUP_REQUIRED' };
   const regd = regArg(state, input.registrationGstin);
@@ -239,49 +279,23 @@ export function createInvoice(state, input) {
   if (supplyOnRated >= 0) return { ok: false, error: 'SUPPLY_TYPE_NEEDS_ZERO_RATE', line: supplyOnRated + 1 };
   const grossTaxable = specs.reduce((sum, s) => sum + Math.round(s.qty * s.rate * 100) / 100, 0);
   if (grossTaxable <= 0) return { ok: false, error: 'ZERO_AMOUNT' };
-
   const partyName = String(input.partyName ?? '').trim() || 'Walk-in';
   const buyerDetails = buyerDetailsNeeded(state, input, { date, reg, exportSale, rawLines, specs });
   const terms = invoiceTerms(state, { name: partyName, gstin: input.partyGstin, override: input.paymentTermsDays });
   if (terms.error) return { ok: false, error: terms.error };
+  const pos = exportSale ? FOREIGN_POS : stateCodeOf(input.partyState) || partyStateOf(normGstin(input.partyGstin)) || reg.state;
+  const figures = invoiceFigures(rawLines, specs, { supplierState: reg.state, pos, exportSale, supplyType });
+  return { ok: true, date, reg, supplyType, exportSale, rawLines, specs, partyName, buyerDetails, terms, pos, figures };
+}
+
+export function createInvoice(state, input) {
+  const plan = planInvoice(state, input);
+  if (!plan.ok) return plan;
+  const { date, reg, supplyType, exportSale, rawLines, partyName, buyerDetails, terms } = plan;
   const party = ensureParty(state, { name: partyName, gstin: input.partyGstin, stateCode: exportSale ? FOREIGN_POS : input.partyState, address: input.partyAddress });
-  const pos = exportSale ? FOREIGN_POS : placeOfSupply(input, party, { ...company, state: reg.state });
-  const lines = rawLines.map((l, i) => {
-    const { qty, rate: foreignRate, gstRate } = specs[i];
-    const rateAmt = exportSale ? Math.round(foreignRate * exportSale.exchangeRate * 100) / 100 : foreignRate;
-    const taxable = Math.round(qty * rateAmt * 100) / 100;
-    const computed = gstSplit({
-      taxable,
-      rate: gstRate,
-      supplierState: reg.state,
-      partyState: pos,
-      interState: supplyType === 'SEZWP',
-    });
-    const untaxed = (exportSale && !exportSale.withTax) || supplyType === 'SEZWOP';
-    const split = untaxed ? { intra: false, cgst: 0, sgst: 0, igst: 0, tax: 0 } : computed;
-    const cess = cessFields(l, taxable, qty, !untaxed);
-    return {
-      description: l.description,
-      hsn: String(l.hsn ?? '').trim(),
-      qty,
-      ...(String(l.unit ?? '').trim() ? { unit: String(l.unit).trim() } : {}),
-      rate: rateAmt,
-      ...(exportSale && exportSale.currency !== 'INR' ? { foreignRate, foreignAmount: Math.round(qty * foreignRate * 100) / 100 } : {}),
-      gstRate,
-      ...(gstRate === 0 && l.supply ? { supply: String(l.supply) } : {}),
-      taxable,
-      ...split,
-      ...(cess || {}),
-      amount: Math.round((taxable + split.tax + (cess ? cess.cess : 0)) * 100) / 100,
-    };
-  });
-  const taxable = sumOf(lines, 'taxable');
-  const cgst = sumOf(lines, 'cgst');
-  const sgst = sumOf(lines, 'sgst');
-  const igst = sumOf(lines, 'igst');
-  const withCess = lines.some((l) => l.cess != null);
-  const cessTotal = sumOf(lines, 'cess');
-  const total = Math.round((taxable + cgst + sgst + igst + cessTotal) * 100) / 100;
+  const pos = exportSale ? FOREIGN_POS : placeOfSupply(input, party, { ...state.company, state: reg.state });
+  const figures = pos === plan.pos ? plan.figures : invoiceFigures(rawLines, plan.specs, { supplierState: reg.state, pos, exportSale, supplyType });
+  const { lines, taxable, cgst, sgst, igst, withCess, cessTotal, total } = figures;
   const assignedSeq = !input.id;
   const seqBefore = state.invoiceSeq || 0;
   const seqByFyBefore = JSON.stringify(state.invoiceSeqByFy || {});

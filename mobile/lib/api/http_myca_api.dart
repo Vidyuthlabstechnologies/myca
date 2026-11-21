@@ -29,6 +29,7 @@ class HttpMycaApi implements MycaApi {
     } on Exception {
       throw const MycaApiException(
         'Cannot reach MyCA. Check your connection and try again.',
+        code: 'UNREACHABLE',
       );
     }
     Object? body;

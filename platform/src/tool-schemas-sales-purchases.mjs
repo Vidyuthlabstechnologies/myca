@@ -1,4 +1,4 @@
-import { noArgs, lineSchema, tdsProperties, documentSchema } from './tool-schema-parts.mjs';
+import { noArgs, lineSchema, tdsProperties, documentSchema, INVOICE_ID, invoiceIdOr } from './tool-schema-parts.mjs';
 
 export const SALES_PURCHASE_TOOL_SCHEMAS = {
   share_invoice: {
@@ -44,20 +44,20 @@ export const SALES_PURCHASE_TOOL_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     required: ['id'],
-    properties: { id: { type: 'string', pattern: '^(INV|BILL)-[0-9]{4,}$' } },
+    properties: { id: invoiceIdOr(['BILL']) },
   },
   invoice_document: {
     type: 'object',
     additionalProperties: false,
     required: ['id'],
-    properties: { id: { type: 'string', pattern: '^INV-[0-9]{4,}$' } },
+    properties: { id: INVOICE_ID },
   },
   create_credit_note: {
     type: 'object',
     additionalProperties: false,
     required: ['invoiceId', 'reason'],
     properties: {
-      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      invoiceId: INVOICE_ID,
       amount: { type: 'number', exclusiveMinimum: 0 },
       date: { type: 'string' },
       reason: { type: 'string', minLength: 1, maxLength: 200 },
@@ -85,7 +85,7 @@ export const SALES_PURCHASE_TOOL_SCHEMAS = {
     additionalProperties: false,
     required: ['invoiceId', 'amount', 'reason'],
     properties: {
-      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      invoiceId: INVOICE_ID,
       amount: { type: 'number', exclusiveMinimum: 0 },
       date: { type: 'string' },
       reason: { type: 'string', minLength: 1, maxLength: 200 },
@@ -124,7 +124,7 @@ export const SALES_PURCHASE_TOOL_SCHEMAS = {
     additionalProperties: false,
     required: ['invoiceId'],
     properties: {
-      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      invoiceId: INVOICE_ID,
       date: { type: 'string' },
       reason: { type: 'string', maxLength: 200 },
     },
@@ -265,7 +265,7 @@ export const SALES_PURCHASE_TOOL_SCHEMAS = {
     additionalProperties: false,
     required: ['invoiceId', 'distanceKm'],
     properties: {
-      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      invoiceId: INVOICE_ID,
       vehicleNo: { type: 'string', maxLength: 12 },
       distanceKm: { type: 'integer', minimum: 1, maximum: 4000 },
       transporterName: { type: 'string', maxLength: 100 },
@@ -280,7 +280,7 @@ export const SALES_PURCHASE_TOOL_SCHEMAS = {
     additionalProperties: false,
     required: ['invoiceId'],
     properties: {
-      invoiceId: { type: 'string', pattern: '^(INV|QT)-[0-9]{4,}$' },
+      invoiceId: invoiceIdOr(['QT']),
       channel: { type: 'string', maxLength: 40 },
       outcome: { type: 'string', enum: ['shared', 'printed', 'cancelled'] },
       to: { type: 'string', maxLength: 120 },
@@ -349,7 +349,7 @@ export const SALES_PURCHASE_TOOL_SCHEMAS = {
     properties: {
       text: { type: 'string', minLength: 1, maxLength: 200 },
       due: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
-      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      invoiceId: INVOICE_ID,
       billId: { type: 'string', pattern: '^BILL-[0-9]{4,}$' },
       documentSha256: { type: 'string', pattern: '^[a-f0-9]{64}$' },
       documentName: { type: 'string', maxLength: 120 },
@@ -458,7 +458,7 @@ export const SALES_PURCHASE_TOOL_SCHEMAS = {
     additionalProperties: false,
     required: ['invoiceId'],
     properties: {
-      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      invoiceId: INVOICE_ID,
       amount: { type: 'number', exclusiveMinimum: 0 },
       mode: { type: 'string', enum: ['bank', 'cash'] },
       date: { type: 'string' },

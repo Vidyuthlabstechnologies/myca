@@ -63,7 +63,7 @@ const UNDO_REPLY = 'A TDS entry cannot be reversed from chat yet, so nothing was
 const INDIA_ONLY = 'TDS withheld by customers is for India books, so I have recorded nothing.';
 
 const UNDO_WORDS = /\b(?:undo|undone|undoing|reverse|reversed|reversing|reversal|revert|reverted|reverting|remove|removed|removing|delete|deleted|deleting|erase|erased|wrong|wrongly|mistake|mistaken|mistakenly|incorrect|incorrectly|cancel|cancelled|canceled|cancelling|canceling|rollback|roll\s+back|take\s+back|taken\s+back)\b/i;
-const INVOICE_ACTION = /\b(?:cancel(?:l?ed|l?ing)?|delete|remove|void)\s+(?:the\s+|this\s+|that\s+)?(?:invoice\s+)?INV-\d+\b(?!['\u2019]?s?[\s,:-]*(?:(?:the|its|their|a)\s+)?tds\b)(?:\s*(?:[:-]|\b(?:because|since|reason|as|due\s+to)\b)[\s\S]*)?/gi;
+const INVOICE_ACTION = /\b(?:cancel(?:l?ed|l?ing)?|delete|remove|void)\s+(?:the\s+|this\s+|that\s+)?(?:invoice\s+)?INV-(?:[A-Z]{2}\d{4}-)?\d+\b(?!['\u2019]?s?[\s,:-]*(?:(?:the|its|their|a)\s+)?tds\b)(?:\s*(?:[:-]|\b(?:because|since|reason|as|due\s+to)\b)[\s\S]*)?/gi;
 const PAYMENT_ACTION = /\b(?:cancel(?:l?ed|l?ing)?|undo|reverse|revert|remove|delete)\s+(?:the\s+|my\s+|our\s+|that\s+|this\s+|a\s+)?(?:payment|bill|expense|purchase|salary|payroll)\b/gi;
 const REVERSE_CHARGE = /\b(?:reverse[\s-]+charge|rcm)\b/gi;
 const UNDO_NEAR_TDS = /\b(?:undo|undoing|reverse|reversing|revert|reverting|remove|removing|delete|deleting|erase|erasing|cancel|cancelling|canceling|rollback|roll\s+back|take\s+back)\b(?:\s+(?:the|my|our|that|this|those|these|last|latest|previous|recent|customer|customers|entry|entries|of|a|an|any|all|for|from|on|to)){0,4}\s+tds\b/i;
@@ -175,7 +175,7 @@ export function withTdsFromText(plan, text) {
 export function planTdsFromChat(text) {
   const raw = normalizeChat(text);
   if (!/\btds\b/i.test(raw) || isNegated(raw)) return null;
-  if (/\b(?:tds\s+(?:withheld|deducted)|(?:withheld|deducted)\s+(?:the\s+)?tds)\b[\s\S]*\bINV-\d{4,}\b|\btds\s+credit\s+check\b/i.test(raw)) return null;
+  if (/\b(?:tds\s+(?:withheld|deducted)|(?:withheld|deducted)\s+(?:the\s+)?tds)\b[\s\S]*\bINV-(?:[A-Z]{2}\d{4}-)?\d{4,}\b|\btds\s+credit\s+check\b/i.test(raw)) return null;
   if (/\b(?:we|i)\s+(?:also\s+)?deduct\s+tds\b|\btds\s+deductor\b|\bour\s+tan\b|\btan\s+is\b/i.test(raw)) {
     const tan = (raw.match(TAN) || [])[1];
     if (!tan) return { kind: 'reply', reply: 'Say the TAN as well, for example "we deduct TDS, TAN MUMA12345B". I have recorded nothing.', tools: [] };
@@ -289,8 +289,9 @@ export function planBillTdsFromChat(state, text) {
 
 function readEntry(raw, today) {
   const ids = [];
-  let body = raw.replace(/\bINV-(\d{4,})\b/gi, (_hit, digits) => {
-    if (!ids.includes(`INV-${digits}`)) ids.push(`INV-${digits}`);
+  let body = raw.replace(/\bINV-((?:[A-Z]{2}\d{4}-)?\d{4,})\b/gi, (_hit, digits) => {
+    const id = `INV-${digits.toUpperCase()}`;
+    if (!ids.includes(id)) ids.push(id);
     return ' ';
   });
   const shortId = SHORT_INVOICE.test(body);
@@ -348,14 +349,14 @@ function paidByCustomer(state, text) {
 }
 
 function businessSide(state, text) {
-  if ((GST_RATE_SAID.test(text) && !/\bINV-\d+\b/i.test(text)) || NOTE_WORDS.test(text) || PURCHASE_DOC.test(text) || WE_DEDUCT.test(text) || isPurchaseIntent(text)) return true;
+  if ((GST_RATE_SAID.test(text) && !/\bINV-(?:[A-Z]{2}\d{4}-)?\d+\b/i.test(text)) || NOTE_WORDS.test(text) || PURCHASE_DOC.test(text) || WE_DEDUCT.test(text) || isPurchaseIntent(text)) return true;
   if (suppliersIn(state, text).length && !customersIn(state, text).length) return true;
-  if (STARTS_PAID_OUT.test(text) && !paidByCustomer(state, text) && !(/\bINV-\d+\b/i.test(text) && !PAID_OUT.test(text))) return true;
+  if (STARTS_PAID_OUT.test(text) && !paidByCustomer(state, text) && !(/\bINV-(?:[A-Z]{2}\d{4}-)?\d+\b/i.test(text) && !PAID_OUT.test(text))) return true;
   return !paidByCustomer(state, text) && planExpenseFromChat(state, text) !== null;
 }
 
 function customerNamed(state, text) {
-  return /\bINV-\d+\b/i.test(text) || /\b(?:customer|client)\b/i.test(text) || customersIn(state, text).length > 0;
+  return /\bINV-(?:[A-Z]{2}\d{4}-)?\d+\b/i.test(text) || /\b(?:customer|client)\b/i.test(text) || customersIn(state, text).length > 0;
 }
 
 function gotMoney(text) {

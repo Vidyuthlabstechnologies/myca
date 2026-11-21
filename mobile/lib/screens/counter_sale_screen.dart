@@ -9,7 +9,9 @@ import '../pos/escpos.dart';
 import '../pos/printer.dart';
 import '../pos/receipt.dart';
 import '../pos/scan_screen.dart';
+import '../offline/gstin.dart';
 import '../registers.dart';
+import 'offline_bills_screen.dart';
 
 class CartLine {
   CartLine({required this.sku, required this.name, required this.price, required this.gstRate, this.hsn = '', this.qty = 1});
@@ -40,10 +42,27 @@ num billTaxable(List<CartLine> cart) => cart.fold<num>(0, (sum, line) => sum + l
 
 bool needsBuyerDetails(List<CartLine> cart) => billTaxable(cart) >= buyerDetailsFromRupees;
 
-Map<String, Object?> counterSaleArgs(List<CartLine> cart, {String customer = '', String address = ''}) => {
+Map<String, Object?> counterSaleArgs(List<CartLine> cart, {String customer = '', String address = '', String gstin = ''}) => {
   'partyName': customer.trim().isEmpty ? 'Walk-in customer' : customer.trim(),
+  if (gstin.trim().isNotEmpty) 'partyGstin': normalGstin(gstin),
   if (address.trim().isNotEmpty) 'partyAddress': address.trim(),
   'lines': [for (final line in cart) line.toLine()],
+};
+
+const counterPayModes = ['cash', 'upi', 'card', 'credit'];
+
+String payModeLabel(String mode) => switch (mode) {
+  'cash' => 'Cash',
+  'upi' => 'UPI',
+  'card' => 'Card',
+  _ => 'Pay later',
+};
+
+String payModeWords(BuildContext context, String mode) => switch (mode) {
+  'cash' => inText(context, 'Cash'),
+  'upi' => inText(context, 'UPI'),
+  'card' => inText(context, 'Card'),
+  _ => inText(context, 'Pay later'),
 };
 
 class CounterSaleScreen extends StatefulWidget {
@@ -60,6 +79,9 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
   final _code = TextEditingController();
   final _customer = TextEditingController();
   final _address = TextEditingController();
+  final _gstin = TextEditingController();
+  String _pay = 'cash';
+  bool _offlineBill = false;
   final cart = <CartLine>[];
   String _message = '';
   bool _busy = false;
@@ -73,6 +95,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
     _code.dispose();
     _customer.dispose();
     _address.dispose();
+    _gstin.dispose();
     super.dispose();
   }
 
@@ -156,7 +179,12 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
 
   Future<void> _makeBill() async {
     if (cart.isEmpty) return;
-    if (needsBuyerDetails(cart) && (_customer.text.trim().isEmpty || _address.text.trim().isEmpty)) {
+    final gstinIssue = gstinProblem(_gstin.text);
+    if (gstinIssue != null) {
+      setState(() => _message = gstinIssue);
+      return;
+    }
+    if (needsBuyerDetails(cart) && _gstin.text.trim().isEmpty && (_customer.text.trim().isEmpty || _address.text.trim().isEmpty)) {
       setState(() => _message = inText(context, 'A bill of ₹50,000 or more before GST must carry the customer\'s name and address with the state. Add both, then make the bill.'));
       return;
     }
@@ -165,7 +193,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
       _message = '';
     });
     try {
-      final reply = await api.propose('create_invoice', counterSaleArgs(cart, customer: _customer.text, address: _address.text));
+      final reply = await api.propose('create_invoice', counterSaleArgs(cart, customer: _customer.text, address: _address.text, gstin: _gstin.text));
       if (!mounted) return;
       setState(() {
         _preview = reply.preview;
@@ -186,18 +214,27 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
       final reply = await api.confirm(preview.token);
       if (!mounted) return;
       Map<String, dynamic>? invoice;
+      var offline = false;
       for (final tool in reply.tools) {
         final result = tool['result'];
-        if (tool['name'] == 'create_invoice' && result is Map && result['invoice'] is Map) invoice = Map<String, dynamic>.from(result['invoice'] as Map);
+        if (tool['name'] == 'create_invoice' && result is Map && result['invoice'] is Map) {
+          invoice = Map<String, dynamic>.from(result['invoice'] as Map);
+          offline = result['offline'] == true;
+        }
       }
+      var said = reply.reply;
+      if (reply.posted && invoice != null && _pay != 'credit') said = '$said ${await _takePayment(invoice)}'.trim();
+      if (!mounted) return;
       setState(() {
         _preview = null;
         _posted = invoice;
-        _message = reply.posted ? reply.reply : reply.reply;
+        _offlineBill = offline;
+        _message = said;
         if (reply.posted) {
           cart.clear();
           _customer.clear();
           _address.clear();
+          _gstin.clear();
         }
       });
       if (reply.posted) await AppScope.of(context).refresh();
@@ -205,6 +242,25 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
       if (mounted) setState(() => _message = err.message);
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<String> _takePayment(Map<String, dynamic> invoice) async {
+    final total = invoice['total'];
+    final args = <String, Object?>{
+      'invoiceId': '${invoice['id']}',
+      if (total is num) 'amount': total,
+      'mode': _pay,
+      'date': '${invoice['date'] ?? isoDate(AppScope.of(context).now())}',
+    };
+    try {
+      final proposed = await api.propose('record_receipt', args);
+      final preview = proposed.preview;
+      if (preview == null) return proposed.reply.isEmpty ? 'The payment was not recorded; record it from the customer\'s thread.' : proposed.reply;
+      final done = await api.confirm(preview.token);
+      return done.posted ? 'Paid by ${payModeLabel(_pay)}.' : done.reply;
+    } on MycaApiException catch (err) {
+      return 'The bill is made, but the payment was not recorded: ${err.message}';
     }
   }
 
@@ -249,8 +305,11 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
       setState(() => _message = 'Could not load bill ${invoice['id']} to print. Try again.');
       return;
     }
+    final books = AppScope.of(context).offline;
     final bytes = receiptBytes(invoice: document, businessName: company?.name ?? '', gstin: company?.gstin ?? '', paper: await widget.printer.paper());
     final problem = await widget.printer.print(printer, bytes);
+    final bill = _offlineBill ? books?.billById('${invoice['id']}') : null;
+    if (problem == null && bill != null) await books!.markPrinted(bill.ref);
     if (mounted) setState(() => _message = problem ?? 'Receipt sent to ${printer!.name}.');
   }
 
@@ -259,7 +318,18 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
     final text = Theme.of(context).textTheme;
     final subtotal = cart.fold<num>(0, (sum, line) => sum + line.amount);
     return Scaffold(
-      appBar: AppBar(title: Text(inText(context, 'Counter sale'))),
+      appBar: AppBar(
+        title: Text(inText(context, 'Counter sale')),
+        actions: [
+          if (AppScope.of(context).offline != null)
+            IconButton(
+              key: const Key('counter-offline-bills'),
+              tooltip: inText(context, 'Offline bills'),
+              icon: const Icon(Icons.cloud_sync_outlined),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const OfflineBillsScreen())),
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
@@ -308,10 +378,21 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
             Text('Before GST: ${rupees(subtotal)}', style: text.titleMedium, key: const Key('counter-subtotal')),
             const SizedBox(height: 8),
             TextField(key: const Key('counter-customer'), controller: _customer, decoration: InputDecoration(labelText: needsBuyerDetails(cart) ? inText(context, 'Customer name') : inText(context, 'Customer (optional)'), hintText: needsBuyerDetails(cart) ? null : inText(context, 'Walk-in customer'))),
-            if (needsBuyerDetails(cart)) ...[
+            const SizedBox(height: 8),
+            TextField(key: const Key('counter-gstin'), controller: _gstin, onChanged: (_) => setState(() {}), textCapitalization: TextCapitalization.characters, maxLength: 15, decoration: InputDecoration(labelText: inText(context, 'Customer GSTIN (optional)'), helperText: inText(context, 'For a business buyer who claims input tax credit'))),
+            if (needsBuyerDetails(cart) && _gstin.text.trim().isEmpty) ...[
               const SizedBox(height: 8),
               TextField(key: const Key('counter-address'), controller: _address, maxLength: 200, decoration: InputDecoration(labelText: inText(context, 'Customer address with state'), helperText: inText(context, 'Needed on bills of ₹50,000 or more before GST'))),
             ],
+            const SizedBox(height: 12),
+            Text(inText(context, 'Payment'), style: text.labelLarge),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final mode in counterPayModes)
+                  ChoiceChip(key: Key('counter-pay-$mode'), label: Text(payModeWords(context, mode)), selected: _pay == mode, onSelected: (_) => setState(() => _pay = mode)),
+              ],
+            ),
             const SizedBox(height: 12),
             if (_preview == null) FilledButton(key: const Key('counter-make'), onPressed: _busy ? null : _makeBill, child: Text(inText(context, 'Make bill'))),
           ],

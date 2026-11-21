@@ -8,6 +8,7 @@ import { importSettlement, settlementStatus } from './settlements.mjs';
 import { importMarketplaceOrders, postSettlement } from './marketplace-orders.mjs';
 import { setChannelIdentity, importTcsStatement, import26asCredits, marketplaceCredits } from './marketplace-credits.mjs';
 import { recordTdsWithheld, tdsCreditCheck } from './tds-credits.mjs';
+import { offlineKit, registerOfflineDevice, postOfflineSales } from './offline-sales.mjs';
 import { findItem, setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins, stockMoves } from './sku-margins.mjs';
 import { dailyClose } from './daily-close.mjs';
 import { regArg, companyAs, forRegistration, setRegistration, retireRegistration, listRegistrations } from './registrations.mjs';
@@ -2224,6 +2225,27 @@ export const TOOLS = [
     description: 'Look up a product by its scanned barcode or its SKU: name, selling price, HSN, GST rate and stock on hand, for counter billing. Read-only.',
     args: ['code'],
     run: (state, args = {}) => findItem(state, args),
+  },
+  {
+    name: 'offline_kit',
+    title: 'Offline billing kit',
+    description: 'Everything a phone needs to bill without a connection: the business, the lock date, items with price, GST rate and stock, parties, open invoices, the rule 46(e) limit and the phone\'s own invoice series. India only; for the app, never the assistant. Read-only.',
+    args: ['deviceId'],
+    run: (state, args = {}) => offlineKit(state, args),
+  },
+  {
+    name: 'register_offline_device',
+    title: 'Give a phone its invoice series',
+    description: 'Give a phone its own invoice series (MA, MB, ...) for bills made without a connection. The same device always gets the same series back. India only; for the app, never the assistant.',
+    args: ['deviceId', 'deviceName'],
+    run: (state, args = {}) => registerOfflineDevice(state, args),
+  },
+  {
+    name: 'post_offline_sales',
+    title: 'Sync offline bills',
+    description: 'Post bills, receipts and new items made on a phone without a connection, at most 20 at a time. The GST is worked out again and a bill whose figures differ from what was printed is not posted; one already synced is not posted again. India only; for the app, never the assistant.',
+    args: ['deviceId', 'sales', 'receipts', 'items'],
+    run: (state, args = {}) => postOfflineSales(state, args),
   },
   {
     name: 'import_sku_costs',

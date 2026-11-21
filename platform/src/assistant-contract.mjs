@@ -414,7 +414,7 @@ export function planLocalToolCall(state, message) {
     if (/\bgst/i.test(text)) return otherEditionReply();
   }
 
-  const cancelMatch = text.match(/\bcancel\s+(?:invoice\s+)?(INV-\d{4,})\b(?:\s*(?:because|reason|:|-)?\s*(.+))?$/i);
+  const cancelMatch = text.match(/\bcancel\s+(?:invoice\s+)?(INV-(?:[A-Z]{2}\d{4}-)?\d{4,})\b(?:\s*(?:because|reason|:|-)?\s*(.+))?$/i);
   if (cancelMatch && !isQuestion(text) && !/\b(?:do\s*not|don'?t|never)\b/i.test(text) && !/\b(?:irn|e-?invoice)\b/i.test(text)) {
     const reason = String(cancelMatch[2] || '').trim();
     return { kind: 'tool', name: 'cancel_invoice', args: { invoiceId: cancelMatch[1].toUpperCase(), date: receiptDate(text, localToday()), ...(reason ? { reason: reason.slice(0, 200) } : {}) } };
@@ -439,7 +439,7 @@ export function planLocalToolCall(state, message) {
     if (!reason.trim()) return { kind: 'reply', reply: `Say why, for example "debit note for ${supplierNote[1].toUpperCase()} 1000 - goods returned". I have recorded nothing.`, tools: [] };
     return { kind: 'tool', name: 'create_purchase_note', args: { billId: supplierNote[1].toUpperCase(), amount, date: receiptDate(text, localToday()), reason: reason.trim().slice(0, 200) } };
   }
-  const debitMatch = text.match(/\bdebit\s+note\b.*?\b(INV-\d{4,})\b/i);
+  const debitMatch = text.match(/\bdebit\s+note\b.*?\b(INV-(?:[A-Z]{2}\d{4}-)?\d{4,})\b/i);
   if (debitMatch && !isQuestion(text) && !isNegated(text)) {
     const amount = receiptAmount(text);
     const afterInvoice = text.slice(text.toUpperCase().indexOf(debitMatch[1].toUpperCase()) + debitMatch[1].length);
@@ -448,7 +448,7 @@ export function planLocalToolCall(state, message) {
     if (!reason.trim()) return { kind: 'reply', reply: `Say why, for example "debit note for ${debitMatch[1].toUpperCase()} 2000 - price revised". I have recorded nothing.`, tools: [] };
     return { kind: 'tool', name: 'create_debit_note', args: { invoiceId: debitMatch[1].toUpperCase(), amount, date: receiptDate(text, localToday()), reason: reason.trim().slice(0, 200) } };
   }
-  const creditMatch = text.match(/\bcredit\s+note\b.*?\b(INV-\d{4,})\b/i);
+  const creditMatch = text.match(/\bcredit\s+note\b.*?\b(INV-(?:[A-Z]{2}\d{4}-)?\d{4,})\b/i);
   if (creditMatch && !isQuestion(text) && !isNegated(text)) {
     const amount = receiptAmount(text);
     if (amount == null && saidNonPositiveAmount(text)) return { kind: 'reply', reply: `A credit note has to be a positive amount, for example "credit note for ${creditMatch[1].toUpperCase()} 2000 - goods returned". I have recorded nothing.`, tools: [] };
@@ -477,17 +477,17 @@ export function planLocalToolCall(state, message) {
     };
   }
 
-  const printId = text.match(/\b(INV-\d+|BILL-\d+)\b/i);
+  const printId = text.match(/\b(INV-(?:[A-Z]{2}\d{4}-)?\d+|BILL-\d+)\b/i);
   if (printId && /print|show/i.test(text) && !/irn|einvoice|e-invoice/i.test(text)) {
     return { kind: 'tool', name: 'print_invoice', args: { id: printId[1].toUpperCase() } };
   }
 
-  const mockIrnId = text.match(/\b((?:INV|CN|DN)-\d+)\b/i);
+  const mockIrnId = text.match(/\b((?:INV-(?:[A-Z]{2}\d{4}-)?|CN-|DN-)\d+)\b/i);
   if (mockIrnId && /\bmock\s*(irn|einvoice|e-invoice)\b/i.test(text)) {
     return { kind: 'tool', name: 'govt_nic_mock', args: { invoiceId: mockIrnId[1].toUpperCase() } };
   }
 
-  const irnId = text.match(/\b((?:INV|CN|DN)-\d+)\b/i);
+  const irnId = text.match(/\b((?:INV-(?:[A-Z]{2}\d{4}-)?|CN-|DN-)\d+)\b/i);
   if (irnId && /\birn\b|e-?invoice/i.test(text)) {
     const invoiceId = irnId[1].toUpperCase();
     if (/\bcancel/i.test(text)) return { kind: 'tool', name: 'govt_nic_cancel_irn', args: { invoiceId } };
@@ -499,7 +499,7 @@ export function planLocalToolCall(state, message) {
     return { kind: 'tool', name: 'govt_generate_irn', args: { invoiceId } };
   }
 
-  const paidId = text.match(/\b(INV-\d+)\b/i);
+  const paidId = text.match(/\b(INV-(?:[A-Z]{2}\d{4}-)?\d+)\b/i);
   if (paidId && /\b(paid|receipt|received)\b/i.test(text)) {
     const invoiceId = paidId[1].toUpperCase();
     if (isQuestion(text) || isNegated(text)) {

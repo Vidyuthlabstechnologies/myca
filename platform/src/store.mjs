@@ -89,6 +89,7 @@ export function createState() {
     skus: {},
     stockMoves: [],
     inventoryValuations: [],
+    offlineSeries: [],
     portalSaves: {},
     gstr3bPortal: {},
     tdsFvuJobs: [],
@@ -204,6 +205,7 @@ export function serialize(state) {
     skus: state.skus || {},
     stockMoves: state.stockMoves || [],
     inventoryValuations: state.inventoryValuations || [],
+    offlineSeries: state.offlineSeries || [],
     portalSaves: state.portalSaves || {},
     gstr3bPortal: state.gstr3bPortal || {},
     tdsFvuJobs: state.tdsFvuJobs || [],
@@ -400,6 +402,7 @@ export function deserialize(raw) {
   state.skus = raw.skus && typeof raw.skus === 'object' ? raw.skus : {};
   state.stockMoves = Array.isArray(raw.stockMoves) ? raw.stockMoves : [];
   state.inventoryValuations = Array.isArray(raw.inventoryValuations) ? raw.inventoryValuations : [];
+  state.offlineSeries = Array.isArray(raw.offlineSeries) ? raw.offlineSeries : [];
   state.portalSaves = raw.portalSaves && typeof raw.portalSaves === 'object' ? raw.portalSaves : {};
   state.gstr3bPortal = raw.gstr3bPortal && typeof raw.gstr3bPortal === 'object' ? raw.gstr3bPortal : {};
   state.tdsFvuJobs = Array.isArray(raw.tdsFvuJobs) ? raw.tdsFvuJobs : [];
