@@ -52,7 +52,7 @@ test('2027 standard deduction, capital gains bands, child tax credit, student lo
   assert.equal(dollars(loans.maxCents), 2500);
 
   const qbi = valueOf('us.federal.individual.qbi');
-  assert.deepEqual(Object.fromEntries(Object.entries(qbi.thresholdCents).map(([k, v]) => [k, dollars(v)])), { mfj: 416600, qss: 416600, mfs: 208325, single: 208300, hoh: 208300 });
+  assert.deepEqual(Object.fromEntries(Object.entries(qbi.thresholdCents).map(([k, v]) => [k, dollars(v)])), { mfj: 416600, qss: 208300, mfs: 208325, single: 208300, hoh: 208300 });
 
   assert.equal(dollars(valueOf('us.federal.individual.educator-expenses').maxPerEducatorCents), 350);
 

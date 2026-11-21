@@ -296,7 +296,7 @@ export function coerceFields(kind, fields, problems) {
     if (item.type === 'money') {
       const number = Number(value);
       if (!Number.isFinite(number) || Math.abs(number) > MAX_AMOUNT) problems.push(`${item.label} must be an amount.`);
-      else if (number < 0 && !item.negative && kind !== '1099-B') problems.push(`${item.label} cannot be negative.`);
+      else if (number < 0 && !item.negative && !(kind === '1099-B' && item.key === 'proceeds')) problems.push(`${item.label} cannot be negative.`);
       else out[item.key] = Math.round(number * 100) / 100;
     } else if (item.type === 'yesno') out[item.key] = value === true || ['yes', 'y', 'true', '1'].includes(String(value).trim().toLowerCase());
     else if (item.type === 'days') {
@@ -407,17 +407,20 @@ export function planUsTaxForm(state, args = {}) {
   if (kind === '1099-SA' || kind === '5498-SA') problems.push(...savingsAccountProblems(kind, fields));
   if (problems.length) return fail('US_TAX_FORM_INVALID', { problems });
   const source = ['upload', 'payroll'].includes(args.source) ? args.source : 'manual';
-  return { ok: true, taxYear, form: { kind, owner, payer, payerTin: payerTin.replace(/^(\d{2})-?(\d{7})$/, '$1-$2'), fields, source, documentId: text(args.documentId, 80) } };
+  return { ok: true, taxYear, form: { kind, owner, payer, payerTin: payerTin.replace(/^(\d{2})-?(\d{7})$/, '$1-$2'), fields, source, documentId: text(args.documentId || args.documentSha256, 80) } };
 }
 
 export function addUsTaxForm(state, args = {}) {
   const plan = planUsTaxForm(state, args);
   if (!plan.ok) return plan;
   const ret = returnOf(state, plan.taxYear, true);
-  const form = { id: `usf-${plan.taxYear}-${ret.nextFormNumber++}`, ...plan.form, addedOn: localToday() };
-  ret.forms.push(form);
+  const index = args.id ? ret.forms.findIndex((item) => item.id === String(args.id)) : -1;
+  if (args.id && index < 0) return fail('US_TAX_FORM_NOT_FOUND', { id: args.id, taxYear: plan.taxYear });
+  const form = index >= 0 ? { id: ret.forms[index].id, ...plan.form, addedOn: ret.forms[index].addedOn, updatedOn: localToday() } : { id: `usf-${plan.taxYear}-${ret.nextFormNumber++}`, ...plan.form, addedOn: localToday() };
+  if (index >= 0) ret.forms[index] = form;
+  else ret.forms.push(form);
   ret.updatedAt = new Date().toISOString();
-  audit(state, 'us_tax_form_added', { taxYear: plan.taxYear, id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, source: form.source });
+  audit(state, index >= 0 ? 'us_tax_form_updated' : 'us_tax_form_added', { taxYear: plan.taxYear, id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, source: form.source });
   return { ok: true, data: formView(form) };
 }
 
@@ -635,8 +638,9 @@ function efileShape(ret, data, input) {
     taxpayer: person(input.taxpayer),
     spouse: person(input.spouse),
     address: ret.address,
-    dependents: input.dependents.map((item, index) => ({ firstName: item.firstName, lastName: item.lastName, ssn: item.ssn, relationship: item.relationship, ctcEligible: data.dependents[index]?.ctcEligible || false, odcEligible: data.dependents[index]?.odcEligible || false, months: item.months })),
+    dependents: input.dependents.map((item, index) => ({ firstName: item.firstName, lastName: item.lastName, ssn: item.ssn, dob: item.dateOfBirth, relationship: item.relationship, ctcEligible: data.dependents[index]?.ctcEligible || false, odcEligible: data.dependents[index]?.odcEligible || false, months: item.months })),
     digitalAssets: ret.answers.digitalAssets === true,
+    answers: { ...ret.answers },
     lines: data.lines,
     schedules: data.schedules.C ? { ...data.schedules, C: data.schedules.C.map((item) => ({ ...item, businessName: item.name, activityCode: ret.answers.businessActivityCode || '' })) } : data.schedules,
     forms: ret.forms.map((form) => ({ id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, payerTin: form.payerTin, fields: form.fields })),
@@ -716,7 +720,7 @@ export function usTaxFormPreview(state, args) {
   const f = plan.form;
   const main = FORM_SPECS[f.kind].fields.find((item) => item.required && item.type === 'money');
   const amount = main && f.fields[main.key] !== undefined ? ` ${main.label.toLowerCase()} $${Number(f.fields[main.key]).toLocaleString('en-US')}` : '';
-  return { blockers: [], summary: `${f.kind} from ${f.payer || 'the payer'}${f.owner === 'spouse' ? ' (spouse)' : ''}:${amount}${f.fields.federalWithheld ? `, federal tax withheld $${Number(f.fields.federalWithheld).toLocaleString('en-US')}` : ''}.`, effects: [`Added to the ${plan.taxYear} return.`], figures: { taxYear: plan.taxYear, kind: f.kind } };
+  return { blockers: [], summary: `${f.kind} from ${f.payer || 'the payer'}${f.owner === 'spouse' ? ' (spouse)' : ''}:${amount}${f.fields.federalWithheld ? `, federal tax withheld $${Number(f.fields.federalWithheld).toLocaleString('en-US')}` : ''}.`, effects: [args.id ? `Replaces ${args.id} on the ${plan.taxYear} return.` : `Added to the ${plan.taxYear} return.`], figures: { taxYear: plan.taxYear, kind: f.kind } };
 }
 
 export function removeUsTaxFormPreview(state, args) {
