@@ -3,6 +3,7 @@ import { createMemoryBooksStore, createMemoryDocumentStore } from '../../platfor
 import { refreshIfDue, shareNow } from './ca-sync.mjs';
 import { redactTinsDeepFor } from '../../platform/src/us-identity.mjs';
 import { countryOf } from '../../platform/src/country.mjs';
+import { storeWatch, settleStore } from './store-front.mjs';
 
 const SHA256 = /^[a-f0-9]{64}$/;
 
@@ -107,8 +108,10 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
       const auditedBefore = session.state.auditEvents.length;
       const demo = (await q('select demo from businesses where id = $1', [businessId])).rows[0]?.demo === true;
       const identity = demo ? identityOf(session.state) : '';
+      const watched = storeWatch(session.state);
       const out = await run(session, q);
       if (demo && identityOf(session.state) !== identity) throw demoIdentityFixed();
+      await settleStore(q, businessId, session, watched);
       await q('update books set state = $2::jsonb, version = version + 1, updated_at = now() where business_id = $1', [
         businessId,
         storedState(booksKey, businessId, books.stored()),
