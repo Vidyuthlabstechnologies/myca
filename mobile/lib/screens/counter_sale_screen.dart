@@ -12,23 +12,31 @@ import '../pos/receipt.dart';
 import '../pos/scan_screen.dart';
 import '../registers.dart';
 import 'loyalty_screen.dart';
+import 'stock_alerts_screen.dart';
+
+const counterUnits = ['NOS', 'PCS', 'KGS', 'GMS', 'LTR', 'MLT', 'MTR', 'BOX', 'PAC', 'BTL', 'TBS', 'DOZ', 'SET', 'BAG', 'CTN', 'PRS'];
 
 class CartLine {
-  CartLine({required this.sku, required this.name, required this.price, required this.gstRate, this.hsn = '', this.qty = 1});
+  CartLine({required this.sku, required this.name, required this.price, required this.gstRate, this.hsn = '', this.unit = '', this.qty = 1, this.lowStock = false, this.onHand});
 
   final String sku;
   final String name;
   final num price;
   final num gstRate;
   final String hsn;
+  final String unit;
+  final bool lowStock;
+  final num? onHand;
   num qty;
 
   num get amount => (price * qty * 100).round() / 100;
 
   Map<String, Object?> toLine() => {
     'description': name,
+    if (sku.isNotEmpty) 'sku': sku,
     if (hsn.isNotEmpty) 'hsn': hsn,
     'qty': qty,
+    if (unit.isNotEmpty) 'unit': unit,
     'rate': price,
     'gstRate': gstRate,
   };
@@ -108,7 +116,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
         await _newItem(clean, sku: '${data['sku']}', name: '${data['name']}');
         return;
       }
-      _put(CartLine(sku: '${data['sku']}', name: '${data['name']}', price: price, gstRate: gstRate, hsn: '${data['hsn'] ?? ''}'));
+      _put(CartLine(sku: '${data['sku']}', name: '${data['name']}', price: price, gstRate: gstRate, hsn: '${data['hsn'] ?? ''}', unit: '${data['unit'] ?? ''}', lowStock: data['lowStock'] == true, onHand: data['tracked'] == true && data['onHand'] is num ? data['onHand'] as num : null));
       _code.clear();
     } on MycaApiException catch (err) {
       if (mounted) setState(() => _message = err.message);
@@ -131,24 +139,24 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
   }
 
   Future<void> _newItem(String code, {String sku = '', String name = ''}) async {
-    final result = await showModalBottomSheet<CartLine>(
+    final item = await showModalBottomSheet<NewItem>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _NewItemSheet(code: code, sku: sku, name: name),
+      builder: (_) => NewItemSheet(code: code, sku: sku, name: name),
     );
-    if (result == null || !mounted) return;
+    if (item == null || !mounted) return;
+    final result = item.line;
     setState(() => _busy = true);
     try {
-      final reply = await api.propose('set_sku_cost', {
-        'sku': result.sku,
-        'name': result.name,
-        'price': result.price,
-        'gstRate': result.gstRate,
-        if (result.hsn.isNotEmpty) 'hsn': result.hsn,
-        if (RegExp(r'^[0-9A-Za-z-]{4,32}$').hasMatch(code) && code.toUpperCase() != result.sku) 'barcode': code,
-      });
+      final reply = await api.propose('set_sku_cost', newItemArgs(item, code));
       final preview = reply.preview;
       if (preview != null) await api.confirm(preview.token);
+      final stockIn = stockInArgs(item);
+      if (stockIn != null) {
+        final stocked = await api.propose('record_stock', stockIn);
+        final held = stocked.preview;
+        if (held != null) await api.confirm(held.token);
+      }
       _put(result);
       _code.clear();
     } on MycaApiException catch (err) {
@@ -274,6 +282,12 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
               icon: const Icon(Icons.loyalty_outlined),
               onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AppScope(state: AppScope.of(context), child: const LoyaltyScreen()))),
             ),
+          IconButton(
+            key: const Key('counter-alerts'),
+            tooltip: inText(context, 'Expiring soon and low stock'),
+            icon: const Icon(Icons.inventory_2_outlined),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const StockAlertsScreen())),
+          ),
         ],
       ),
       body: ListView(
@@ -301,7 +315,10 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
             Card(
               child: ListTile(
                 title: Text(line.name),
-                subtitle: Text('${rupees(line.price)} + GST ${line.gstRate}%'),
+                subtitle: Text([
+                  '${rupees(line.price)}${line.unit.isEmpty ? '' : ' / ${line.unit}'} + GST ${line.gstRate}%',
+                  if (line.lowStock) '${inText(context, 'Low stock')}: ${line.onHand ?? 0}',
+                ].join(' · ')),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -373,30 +390,71 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
   }
 }
 
-class _NewItemSheet extends StatefulWidget {
-  const _NewItemSheet({required this.code, required this.sku, required this.name});
+class NewItem {
+  const NewItem({required this.line, this.reorderLevel, this.stockQty, this.batch = '', this.expiry = '', this.unitCost});
+
+  final CartLine line;
+  final num? reorderLevel;
+  final num? stockQty;
+  final String batch;
+  final String expiry;
+  final num? unitCost;
+}
+
+Map<String, Object?> newItemArgs(NewItem item, String code) => {
+  'sku': item.line.sku,
+  'name': item.line.name,
+  'price': item.line.price,
+  'gstRate': item.line.gstRate,
+  if (item.line.hsn.isNotEmpty) 'hsn': item.line.hsn,
+  if (item.line.unit.isNotEmpty) 'unit': item.line.unit,
+  if (item.reorderLevel != null) 'reorderLevel': item.reorderLevel,
+  if (RegExp(r'^[0-9A-Za-z-]{4,32}$').hasMatch(code) && code.toUpperCase() != item.line.sku) 'barcode': code,
+};
+
+Map<String, Object?>? stockInArgs(NewItem item) {
+  final qty = item.stockQty;
+  if (qty == null || qty <= 0) return null;
+  return {
+    'sku': item.line.sku,
+    'qty': qty,
+    if (item.unitCost != null) 'unitCost': item.unitCost,
+    if (item.batch.isNotEmpty) 'batch': item.batch,
+    if (item.expiry.isNotEmpty) 'expiry': item.expiry,
+  };
+}
+
+final _expiryPattern = RegExp(r'^((0[1-9]|1[0-2])/\d{4}|\d{4}-(0[1-9]|1[0-2])(-\d{2})?)$');
+
+class NewItemSheet extends StatefulWidget {
+  const NewItemSheet({super.key, required this.code, required this.sku, required this.name});
 
   final String code;
   final String sku;
   final String name;
 
   @override
-  State<_NewItemSheet> createState() => _NewItemSheetState();
+  State<NewItemSheet> createState() => _NewItemSheetState();
 }
 
-class _NewItemSheetState extends State<_NewItemSheet> {
+class _NewItemSheetState extends State<NewItemSheet> {
   late final _name = TextEditingController(text: widget.name);
   final _price = TextEditingController();
   final _gst = TextEditingController();
   final _hsn = TextEditingController();
+  final _reorder = TextEditingController();
+  final _stock = TextEditingController();
+  final _batch = TextEditingController();
+  final _expiry = TextEditingController();
+  final _cost = TextEditingController();
+  String _unit = 'NOS';
   String _error = '';
 
   @override
   void dispose() {
-    _name.dispose();
-    _price.dispose();
-    _gst.dispose();
-    _hsn.dispose();
+    for (final field in [_name, _price, _gst, _hsn, _reorder, _stock, _batch, _expiry, _cost]) {
+      field.dispose();
+    }
     super.dispose();
   }
 
@@ -406,28 +464,54 @@ class _NewItemSheetState extends State<_NewItemSheet> {
     if (_name.text.trim().isEmpty) return setState(() => _error = inText(context, 'Give the item a name.'));
     if (price == null) return setState(() => _error = inText(context, 'Enter the selling price before GST.'));
     if (gst == null) return setState(() => _error = inText(context, 'Enter the GST rate, for example 5 or 18. Use 0 if there is none.'));
+    final reorder = _reorder.text.trim().isEmpty ? null : parseAmount(_reorder.text);
+    if (_reorder.text.trim().isNotEmpty && reorder == null) return setState(() => _error = inText(context, 'The low-stock level is a number, for example 10.'));
+    final stock = _stock.text.trim().isEmpty ? null : parseAmount(_stock.text);
+    if (_stock.text.trim().isNotEmpty && (stock == null || stock <= 0)) return setState(() => _error = inText(context, 'The stock you have now is a number above zero.'));
+    final expiry = _expiry.text.trim();
+    if (expiry.isNotEmpty && !_expiryPattern.hasMatch(expiry)) return setState(() => _error = inText(context, 'Write the expiry as on the pack, for example 03/2027.'));
+    final batch = _batch.text.trim().toUpperCase();
+    if (expiry.isNotEmpty && batch.isEmpty) return setState(() => _error = inText(context, 'An expiry goes with a batch number; add the batch printed on the pack.'));
+    final cost = _cost.text.trim().isEmpty ? null : parseAmount(_cost.text);
     final sku = widget.sku.isNotEmpty ? widget.sku : widget.code.toUpperCase();
-    Navigator.of(context).pop(CartLine(sku: sku.length > 64 ? sku.substring(0, 64) : sku, name: _name.text.trim(), price: price, gstRate: gst, hsn: _hsn.text.trim()));
+    final line = CartLine(sku: sku.length > 64 ? sku.substring(0, 64) : sku, name: _name.text.trim(), price: price, gstRate: gst, hsn: _hsn.text.trim(), unit: _unit);
+    Navigator.of(context).pop(NewItem(line: line, reorderLevel: reorder, stockQty: stock, batch: batch, expiry: expiry, unitCost: cost));
   }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('New item ${widget.code}', style: Theme.of(context).textTheme.titleLarge),
-          Text(inText(context, 'Saved once; the next scan fills the bill.')),
-          TextField(key: const Key('item-name'), controller: _name, decoration: InputDecoration(labelText: inText(context, 'Name'))),
-          TextField(key: const Key('item-price'), controller: _price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: inText(context, 'Selling price before GST'))),
-          TextField(key: const Key('item-gst'), controller: _gst, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: inText(context, 'GST %'))),
-          TextField(controller: _hsn, decoration: InputDecoration(labelText: inText(context, 'HSN (optional)'))),
-          if (_error.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error, style: TextStyle(color: Theme.of(context).colorScheme.error))),
-          const SizedBox(height: 12),
-          FilledButton(key: const Key('item-save'), onPressed: _save, child: Text(inText(context, 'Save and add'))),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('New item ${widget.code}', style: Theme.of(context).textTheme.titleLarge),
+            Text(inText(context, 'Saved once; the next scan fills the bill.')),
+            TextField(key: const Key('item-name'), controller: _name, decoration: InputDecoration(labelText: inText(context, 'Name'))),
+            TextField(key: const Key('item-price'), controller: _price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: inText(context, 'Selling price before GST'))),
+            TextField(key: const Key('item-gst'), controller: _gst, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: inText(context, 'GST %'))),
+            TextField(controller: _hsn, decoration: InputDecoration(labelText: inText(context, 'HSN (optional)'))),
+            DropdownButtonFormField<String>(
+              key: const Key('item-unit'),
+              initialValue: _unit,
+              decoration: InputDecoration(labelText: inText(context, 'Unit (GST UQC)')),
+              items: [for (final code in counterUnits) DropdownMenuItem(value: code, child: Text(code))],
+              onChanged: (value) => setState(() => _unit = value ?? 'NOS'),
+            ),
+            TextField(key: const Key('item-reorder'), controller: _reorder, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: inText(context, 'Low-stock alert at (optional)'))),
+            const SizedBox(height: 12),
+            Text(inText(context, 'Stock you have now (optional)'), style: Theme.of(context).textTheme.titleSmall),
+            TextField(key: const Key('item-stock'), controller: _stock, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: inText(context, 'Quantity'))),
+            TextField(key: const Key('item-cost'), controller: _cost, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: inText(context, 'Cost per unit (optional)'))),
+            TextField(key: const Key('item-batch'), controller: _batch, decoration: InputDecoration(labelText: inText(context, 'Batch no. (optional)'))),
+            TextField(key: const Key('item-expiry'), controller: _expiry, keyboardType: TextInputType.datetime, decoration: InputDecoration(labelText: inText(context, 'Expiry MM/YYYY (optional)'))),
+            if (_error.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error, key: const Key('item-error'), style: TextStyle(color: Theme.of(context).colorScheme.error))),
+            const SizedBox(height: 12),
+            FilledButton(key: const Key('item-save'), onPressed: _save, child: Text(inText(context, 'Save and add'))),
+          ],
+        ),
       ),
     );
   }
