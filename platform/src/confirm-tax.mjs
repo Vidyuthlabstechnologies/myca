@@ -17,6 +17,7 @@ import { filingRows } from './deadline-run.mjs';
 import { money, REVIEW_REASONS } from './confirm-words.mjs';
 
 export function gstPaymentPreview(state, args) {
+  if (countryOf(state) !== 'IN') return { blockers: ['That is for a different country edition, so nothing was posted.'], summary: '', effects: [], figures: {} };
   const plan = planGstPayment(state, args);
   if (!plan.ok) {
     const reason = { INVALID_PERIOD: 'Say the month as YYYY-MM, for example 2026-09.', INVALID_DATE: 'That is not a date I can read.', FUTURE_DATE: 'That date has not come yet.', PERIOD_LOCKED: `That date is in a locked period (through ${plan.lockThrough}).`, ALREADY_RECORDED: `The GST payment for ${plan.period} is already recorded (paid ${plan.paidOn}).`, BAD_CPIN: 'A CPIN is the fourteen-digit challan number from the GST portal.', NOTHING_DUE: `Nothing is due for ${plan.period}: no tax to pay and no credit to set off.` }[plan.error] || plan.error;
