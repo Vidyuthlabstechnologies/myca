@@ -11,6 +11,8 @@ const _fields = <(String, String, String)>[
   ('overpaymentApplied', 'Refund applied to this year', 'Form 1040 line 36'),
   ('shortTermLossCarryover', 'Short-term capital loss carried over', 'Capital loss carryover worksheet'),
   ('longTermLossCarryover', 'Long-term capital loss carried over', 'Capital loss carryover worksheet'),
+  ('qbiLossCarryforward', 'Qualified business loss carried forward', 'Form 8995 line 16 (line 18 from 2026)'),
+  ('qbiReitPtpLossCarryforward', 'REIT and PTP loss carried forward', 'Form 8995 line 17 (line 19 from 2026)'),
 ];
 
 Map<String, Object?> priorYearArgs(int taxYear, Map<String, String> typed) {
