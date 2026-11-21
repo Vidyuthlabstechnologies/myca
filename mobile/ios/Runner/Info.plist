@@ -49,6 +49,8 @@
 	</array>
 	<key>GIDClientID</key>
 	<string>REPLACE_WITH_GOOGLE_IOS_CLIENT_ID.apps.googleusercontent.com</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>

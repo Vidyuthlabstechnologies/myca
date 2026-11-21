@@ -15,7 +15,7 @@ Rules for store text (from the brand kit and the store policies):
 - No competitor names anywhere in store text or keywords (Apple rejects them in keywords).
 - No "IRS-approved", "#1", "maximum refund", ratings, user counts or testimonials.
 - Federal only; say so. Expert Review is not mentioned until it can be bought.
-- Filing goes through our IRS-authorized e-file partner; MyCA is not itself called an e-file provider.
+- Filing goes through our e-file partner; MyCA is not itself called an e-file provider.
 
 Character counts below were measured with `[...text].length` (Unicode code points), the way both
 stores count.
@@ -53,7 +53,7 @@ A return you can understand
 Every line of your Form 1040 shows where it came from: which form, which answer, or which rule. Checks that need fixing link straight to the step that fixes them. Download a PDF of your return for your records.
 
 E-file with confidence
-When your return is ready, MyCA hands it to our IRS-authorized e-file partner with your details already filled in. You review it, sign, and file there, and MyCA shows you when the IRS accepts it. If the IRS sends it back, MyCA says what went wrong and how to fix it.
+When your return is ready, MyCA hands it to our e-file partner with your details already filled in. You review it, sign, and file there, and MyCA shows you when the IRS accepts it. If the IRS sends it back, MyCA says what went wrong and how to fix it.
 
 Our accuracy promise
 If a mistake in MyCA's calculations means your federal return needs to be corrected, we fix it and you file the correction at no extra charge. This promise does not cover IRS penalties or interest.

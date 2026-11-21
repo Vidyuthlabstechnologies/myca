@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createState, serialize, deserialize } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
@@ -8,6 +8,8 @@ import { listAccounts, trialBalance } from '../src/ledger.mjs';
 import { planUsFromChat } from '../src/us-intent.mjs';
 import { periodsOf, rangeOf, periodContaining } from '../src/us-sales-tax.mjs';
 import { localToday } from '../src/dates.mjs';
+
+mock.timers.enable({ apis: ['Date'], now: new Date(2026, 9, 13, 12).getTime() });
 
 const acc = (state, code) => listAccounts(state.ledger).find((a) => a.code === code);
 

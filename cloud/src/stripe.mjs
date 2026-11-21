@@ -38,10 +38,10 @@ export function stripeSignatureValid(secret, payload, header, nowSeconds) {
 }
 
 export function createStripe({ secretKey, fetchImpl = (...args) => globalThis.fetch(...args) }) {
-  async function call(method, path, params) {
+  async function call(method, path, params, idempotencyKey = '') {
     const res = await fetchImpl(`${STRIPE_API}/${path}`, {
       method,
-      headers: { authorization: `Bearer ${secretKey}`, 'content-type': 'application/x-www-form-urlencoded', 'stripe-version': '2024-06-20' },
+      headers: { authorization: `Bearer ${secretKey}`, 'content-type': 'application/x-www-form-urlencoded', 'stripe-version': '2024-06-20', ...(idempotencyKey ? { 'idempotency-key': idempotencyKey } : {}) },
       body: method === 'GET' ? undefined : stripeForm(params || {}),
       signal: AbortSignal.timeout(15000),
     });
@@ -53,5 +53,6 @@ export function createStripe({ secretKey, fetchImpl = (...args) => globalThis.fe
     getCheckout: (id) => call('GET', `checkout/sessions/${encodeURIComponent(id)}`),
     getSubscription: (id) => call('GET', `subscriptions/${encodeURIComponent(id)}`),
     cancelAtPeriodEnd: (id) => call('POST', `subscriptions/${encodeURIComponent(id)}`, { cancel_at_period_end: true }),
+    refundPayment: (paymentIntent, reason) => call('POST', 'refunds', { payment_intent: paymentIntent, reason, 'metadata[myca_reason]': 'us_return_duplicate_payment' }, `myca-duplicate-${paymentIntent}`),
   };
 }

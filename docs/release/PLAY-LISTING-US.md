@@ -7,8 +7,9 @@ checks the three fields against Play's limits.
 
 What the text may and may not promise:
 
-- E-filing goes through MyCA's IRS-authorized e-file partner (Column Tax or April) for 2027. Do not
-  say MyCA itself is an IRS e-file provider until MyCA's own EFIN is in place.
+- E-filing goes through MyCA's e-file partner (Column Tax or April) for 2027. Say "our e-file partner";
+  add "IRS-authorized" only once the partner contract is signed and the partner has approved the wording.
+  Do not say MyCA itself is an IRS e-file provider until MyCA's own EFIN is in place.
 - Federal return only. State returns are not filed; MyCA gives the numbers for the state's own site.
 - Forms MyCA cannot handle (for example rental income on Schedule E) are named in the app before any
   payment; the listing must not claim "every situation".
@@ -43,7 +44,7 @@ A return you can understand
 Every line of your Form 1040 shows where it came from: which form, which answer, or which rule. Checks that need fixing link straight to the step that fixes them. Download a PDF of your return for your records.
 
 E-file with confidence
-When your return is ready, MyCA hands it to our IRS-authorized e-file partner with your details already filled in. You review it, sign, and file there, and MyCA shows you when the IRS accepts it. If the IRS sends it back, MyCA says what went wrong and how to fix it.
+When your return is ready, MyCA hands it to our e-file partner with your details already filled in. You review it, sign, and file there, and MyCA shows you when the IRS accepts it. If the IRS sends it back, MyCA says what went wrong and how to fix it.
 
 Our accuracy promise
 If a mistake in MyCA's calculations means your federal return needs to be corrected, we fix it and you file the correction at no extra charge. This promise does not cover IRS penalties or interest.
@@ -95,7 +96,7 @@ Target audience: 18 and over. Not designed for children.
 ## Financial features declaration (Play)
 
 There is no tax-filing category. Choose *Support services > Other* and describe it: "The app prepares
-personal income tax returns and hands them to an IRS-authorized e-file provider to file." It does not lend
+personal income tax returns and hands them to an e-file partner to file." It does not lend
 money, hold deposits or move money; refunds are paid by the IRS directly to the filer.
 
 ## Payments (Play)
