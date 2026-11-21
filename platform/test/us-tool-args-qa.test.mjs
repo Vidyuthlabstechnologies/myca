@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateAssistantToolCall } from '../src/assistant-tools.mjs';
 import { addUsTaxForm, coerceFields } from '../src/us-return.mjs';
+import { createState } from '../src/store.mjs';
+import { planLocalToolCall } from '../src/assistant-contract.mjs';
 
 test('answer_us_interview accepts a yes/no, an amount, a choice or a cleared answer', () => {
   for (const answer of [false, true, 1250.5, 'auto', null]) assert.equal(validateAssistantToolCall('answer_us_interview', { taxYear: '2025', id: 'digitalAssets', answer }).ok, true, String(answer));
@@ -36,4 +38,14 @@ test('a typed "no" on a yes/no box is saved as no, and 1099-B basis or withholdi
   const problems = [];
   coerceFields('1099-B', { proceeds: 100, costBasis: -5000, federalWithheld: -300, term: 'short' }, problems);
   assert.equal(problems.length, 2);
+});
+
+test('chat keeps the tax year the person names for the 1099 file, Schedule SE and the CPA pack', async () => {
+  const state = createState();
+  state.company = { name: 'Maple Street Bakery', country: 'US', gstin: '', state: '' };
+  assert.deepEqual(planLocalToolCall(state, 'prepare the 1099 file for 2026'), { kind: 'tool', name: 'contractor_1099_file', args: { year: '2026' } });
+  assert.deepEqual(planLocalToolCall(state, 'schedule SE for 2025').args, { year: '2025' });
+  assert.deepEqual(planLocalToolCall(state, 'make the CPA pack for 2025').args, { year: '2025' });
+  assert.deepEqual(planLocalToolCall(state, 'prepare the 1099 file').args, {});
+  assert.deepEqual(planLocalToolCall(state, '1099-NEC file for 2025').args, { year: '2025' });
 });
