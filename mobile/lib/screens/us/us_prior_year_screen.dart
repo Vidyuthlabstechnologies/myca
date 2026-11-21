@@ -13,6 +13,7 @@ const _fields = <(String, String, String)>[
   ('longTermLossCarryover', 'Long-term capital loss carried over', 'Capital loss carryover worksheet'),
   ('qbiLossCarryforward', 'Qualified business loss carried forward', 'Form 8995 line 16 (line 18 from 2026)'),
   ('qbiReitPtpLossCarryforward', 'REIT and PTP loss carried forward', 'Form 8995 line 17 (line 19 from 2026)'),
+  ('iraBasis', 'Basis in traditional IRAs', 'Form 8606 line 14'),
 ];
 
 Map<String, Object?> priorYearArgs(int taxYear, Map<String, String> typed) {
