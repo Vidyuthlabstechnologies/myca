@@ -181,7 +181,7 @@ void main() {
       'partyName': 'Meera Rao',
       'partyAddress': '12 MG Road, Pune, Maharashtra 411001',
       'lines': [
-        {'description': 'Fridge', 'qty': 1, 'rate': 50000, 'gstRate': 18},
+        {'description': 'Fridge', 'sku': 'B', 'qty': 1, 'rate': 50000, 'gstRate': 18},
       ],
     });
     expect(counterSaleArgs(small).containsKey('partyAddress'), isFalse);
@@ -196,7 +196,7 @@ void main() {
     final args = counterSaleArgs([CartLine(sku: 'A', name: 'Soap', price: 40, gstRate: 18, hsn: '3401', qty: 3)]);
     expect(args['partyName'], 'Walk-in customer');
     expect(args['lines'], [
-      {'description': 'Soap', 'hsn': '3401', 'qty': 3, 'rate': 40, 'gstRate': 18},
+      {'description': 'Soap', 'sku': 'A', 'hsn': '3401', 'qty': 3, 'rate': 40, 'gstRate': 18},
     ]);
   });
 
@@ -225,10 +225,13 @@ void main() {
     await tester.enterText(find.byKey(const Key('item-name')), 'Tata Salt 1kg');
     await tester.enterText(find.byKey(const Key('item-price')), '28');
     await tester.enterText(find.byKey(const Key('item-gst')), '0');
+    await tester.ensureVisible(find.byKey(const Key('item-save')));
     await tester.tap(find.byKey(const Key('item-save')));
     await tester.pumpAndSettle();
     expect(api.saved.single['sku'], '8906000000017');
     expect(api.saved.single['price'], 28);
+    expect(api.saved.single['unit'], 'NOS');
+    expect(api.proposals.where((proposal) => proposal.tool == 'record_stock'), isEmpty);
     expect(find.text('Tata Salt 1kg'), findsOneWidget);
 
     await tester.ensureVisible(find.byKey(const Key('counter-make')));

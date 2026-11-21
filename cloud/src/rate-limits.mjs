@@ -16,6 +16,9 @@ export const LIMITS = Object.freeze({
   quickoUser: { max: 200, windowSeconds: 3600 },
   portalSignInBusiness: { max: 10, windowSeconds: 3600 },
   portalSignInSubject: { max: 5, windowSeconds: 3600 },
+  storeView: { max: 600, windowSeconds: 3600 },
+  storeOrderIp: { max: 20, windowSeconds: 3600 },
+  storeOrderStore: { max: 300, windowSeconds: 86400 },
 });
 
 function keyOf(kind, who) {

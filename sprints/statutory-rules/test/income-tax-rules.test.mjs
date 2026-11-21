@@ -32,6 +32,9 @@ const RULE_IDS = [
   'income-tax.cess.health-education',
   'income-tax.deduction.80c.cap',
   'income-tax.deduction.80d.caps',
+  'income-tax.deduction.80ttb.cap',
+  'income-tax.advance-tax.senior-exemption',
+  'income-tax.specified-senior-citizen',
   'income-tax.rounding.total-income',
   'income-tax.rounding.tax-payable'
 ].sort();
@@ -47,6 +50,9 @@ const SECTIONS = {
     'income-tax.old-regime.standard-deduction': '16(ia)',
     'income-tax.deduction.80c.cap': '80C',
     'income-tax.deduction.80d.caps': '80D',
+    'income-tax.deduction.80ttb.cap': '80TTB',
+    'income-tax.advance-tax.senior-exemption': '207(2)',
+    'income-tax.specified-senior-citizen': '194P',
     'income-tax.rounding.total-income': '288A',
     'income-tax.rounding.tax-payable': '288B'
   },
@@ -58,6 +64,9 @@ const SECTIONS = {
     'income-tax.old-regime.standard-deduction': '19(1) Table Sl. No. 2',
     'income-tax.deduction.80c.cap': '123',
     'income-tax.deduction.80d.caps': '126',
+    'income-tax.deduction.80ttb.cap': '153',
+    'income-tax.advance-tax.senior-exemption': '403(3)',
+    'income-tax.specified-senior-citizen': '393(1) Table Sl. No. 8(iii)',
     'income-tax.rounding.total-income': '516',
     'income-tax.rounding.tax-payable': '516'
   }
@@ -346,4 +355,12 @@ test('a computation reports the rule versions it used, all unverified until atte
   for (const id of RULE_IDS) context.rule(id, fyStart('2026-27'));
   assert.deepEqual(context.rulesUsed(), RULE_IDS.map((id) => `${id}@2026-04-01`));
   assert.deepEqual(context.unverifiedRules('firm-a'), context.rulesUsed());
+});
+
+test('senior-citizen rules: 80TTB Rs 50,000 from 60, no advance tax at 60 without business income, specified senior citizen from 75', () => {
+  for (const fy of FINANCIAL_YEARS) {
+    assert.deepEqual(valueOn('income-tax.deduction.80ttb.cap', fy), { maxPaise: 50000 * RUPEE, minAgeYears: 60 });
+    assert.deepEqual(valueOn('income-tax.advance-tax.senior-exemption', fy), { minAgeYears: 60, residentIndividual: true, noBusinessOrProfessionIncome: true });
+    assert.equal(valueOn('income-tax.specified-senior-citizen', fy).minAgeYears, 75);
+  }
 });

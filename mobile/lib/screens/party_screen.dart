@@ -6,6 +6,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/loyalty_points.dart';
 import '../proposal_flow.dart';
 import '../registers.dart';
 import '../theme.dart';
@@ -67,6 +68,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   String _formError = '';
   bool _postedHere = false;
   String _proposedTool = '';
+  int? _redeem;
   Map<String, String> _riskByBill = const {};
   bool _risksLoaded = false;
   Map<String, SupplierDueBill>? _dues;
@@ -394,10 +396,12 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
           supplierInvoiceNo: _sales ? '' : _billNo.text,
         ),
         if (!_sales) ..._tds.args(),
+        if (_sales && _redeem != null && loyaltyEdition(context)) 'redeemPoints': _redeem,
       },
     );
     _billNo.clear();
     _tds.reset();
+    _redeem = null;
   }
 
   Future<void> _submitQuote() async {
@@ -1074,6 +1078,15 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
         ),
       ],
     ),
+    if (_sales && _repeat.isEmpty && loyaltyEdition(context))
+      ValueListenableBuilder<TextEditingValue>(
+        valueListenable: _amount,
+        builder: (context, value, child) => LoyaltyPointsField(
+          partyName: widget.partyName,
+          billBeforeGst: parseAmount(value.text) ?? 0,
+          onChanged: (points) => _redeem = points,
+        ),
+      ),
     if (rates.isNotEmpty) ...[
       const SizedBox(height: 8),
       Wrap(

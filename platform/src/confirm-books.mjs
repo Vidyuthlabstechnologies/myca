@@ -11,7 +11,10 @@ import { planPosImport } from './import-pos.mjs';
 import { planSettlement, settlementWords } from './settlements.mjs';
 import { planOrderImport, settlementInvoices } from './marketplace-orders.mjs';
 import { planChannelIdentity } from './marketplace-credits.mjs';
-import { planSkuCost, parseSkuCostsCsv } from './sku-margins.mjs';
+import { planSkuCost, parseSkuCostsCsv, planStock } from './sku-margins.mjs';
+import { planCatalogueSettings, planCatalogueItems, planStoreOrderAction } from './catalogue.mjs';
+import { planLoyaltySettings, planLoyaltyAdjust, loyaltySettingsWords, pointsValue } from './loyalty.mjs';
+import { planCostingMethod, warningWords, COSTING_WORDS, COSTING_BASIS } from './inventory-costing.mjs';
 import { planInventoryValuation } from './inventory.mjs';
 import { planStockTransfer } from './stock-transfers.mjs';
 import { tally, bank } from './sprint-load.mjs';
@@ -363,7 +366,7 @@ export function inventoryValuationPreview(state, args) {
   const { plan } = planned;
   return {
     blockers: [],
-    summary: `Inventory at ${plan.asOf}: ${money(plan.value)} across ${plan.lines.length === 1 ? '1 SKU' : `${plan.lines.length} SKUs`} at recorded cost${plan.previousAsOf ? `, ${money(plan.before)} posted on ${plan.previousAsOf}` : ''}; change ${money(plan.delta)}.`,
+    summary: `Inventory at ${plan.asOf}: ${money(plan.value)} across ${plan.lines.length === 1 ? '1 SKU' : `${plan.lines.length} SKUs`} at ${plan.method ? `${plan.methodWords} cost` : 'recorded cost'}${plan.previousAsOf ? `, ${money(plan.before)} posted on ${plan.previousAsOf}` : ''}; change ${money(plan.delta)}.`,
     effects: [
       plan.delta > 0 ? `${money(plan.delta)} goes into Inventory against Change in inventory, so cost of goods this period falls by that much.` : plan.delta < 0 ? `${money(-plan.delta)} comes out of Inventory, so cost of goods this period rises by that much.` : 'Nothing posts; the value is unchanged.',
       ...(plan.uncosted.length ? [`Left out, no cost set: ${plan.uncosted.map((row) => `${row.sku} (${row.qty})`).join(', ')}. Set their costs and value again for the full figure.`] : []),
@@ -374,11 +377,11 @@ export function inventoryValuationPreview(state, args) {
 
 export function skuCostPreview(state, args) {
   const planned = planSkuCost(state, args);
-  if (!planned.ok) return { blockers: [{ SKU_REQUIRED: 'Say which SKU.', BAD_AMOUNT: 'The cost is zero or more per unit.', BAD_RATE: 'A GST rate is 0 to 28.', NOTHING_TO_CHANGE: 'Give a cost, a name, an HSN, a GST rate, a barcode or a selling price.', BAD_BARCODE: 'A barcode is 4 to 32 letters or digits.', BARCODE_IN_USE: 'Another item already has this barcode.', INVALID_DATE: 'That is not a date I can read.' }[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  if (!planned.ok) return { blockers: [{ SKU_REQUIRED: 'Say which SKU.', BAD_AMOUNT: 'The cost is zero or more per unit.', BAD_RATE: 'A GST rate is 0 to 28.', NOTHING_TO_CHANGE: 'Give a cost, a name, an HSN, a GST rate, a barcode, a selling price, a unit or a reorder level.', BAD_UNIT: planned.hint, BAD_QTY: planned.hint, BAD_BARCODE: 'A barcode is 4 to 32 letters or digits.', BARCODE_IN_USE: 'Another item already has this barcode.', INVALID_DATE: 'That is not a date I can read.' }[planned.error] || planned.error], summary: '', effects: [], figures: {} };
   const { plan } = planned;
   return {
     blockers: [],
-    summary: `${plan.sku}${plan.next.name ? ` (${plan.next.name})` : ''}: cost ${plan.next.cost == null ? 'not set' : money(plan.next.cost)} per unit${plan.next.price != null ? `, sells at ${money(plan.next.price)}` : ''}${plan.next.gstRate != null ? `, GST ${plan.next.gstRate}%` : ''}${plan.next.barcode ? `, barcode ${plan.next.barcode}` : ''}${plan.before?.cost != null && plan.before.cost !== plan.next.cost ? ` (was ${money(plan.before.cost)})` : ''}.`,
+    summary: `${plan.sku}${plan.next.name ? ` (${plan.next.name})` : ''}: cost ${plan.next.cost == null ? 'not set' : money(plan.next.cost)} per unit${plan.next.price != null ? `, sells at ${money(plan.next.price)}` : ''}${plan.next.gstRate != null ? `, GST ${plan.next.gstRate}%` : ''}${plan.next.barcode ? `, barcode ${plan.next.barcode}` : ''}${plan.next.unit ? `, unit ${plan.next.unit}` : ''}${plan.next.reorderLevel != null ? `, reorder at ${plan.next.reorderLevel}` : ''}${plan.before?.cost != null && plan.before.cost !== plan.next.cost ? ` (was ${money(plan.before.cost)})` : ''}.`,
     effects: ['Margins and stock values use it from now; nothing posts to the ledger.'],
     figures: { cost: plan.next.cost },
   };
@@ -418,18 +421,41 @@ export function stockTransferPreview(state, args) {
   };
 }
 
+const STOCK_REASONS = { SKU_REQUIRED: 'Say which SKU.', BAD_QTY: 'A quantity is a number other than zero.', INVALID_DATE: 'That is not a date I can read.', UNKNOWN_BATCH: 'No stock of that batch has come in.' };
+
 export function stockPreview(state, args) {
-  const sku = String(args.sku || '').trim().toUpperCase();
-  const qty = Number(args.qty);
-  const blockers = [];
-  if (!sku) blockers.push('Say which SKU.');
-  if (!Number.isFinite(qty) || qty === 0) blockers.push('A quantity is a number other than zero.');
-  const location = String(args.location || 'own').trim().toLowerCase();
+  const planned = planStock(state, args);
+  if (!planned.ok) return { blockers: [STOCK_REASONS[planned.error] || planned.hint || planned.error], summary: '', effects: [], figures: {} };
+  const { plan } = planned;
+  const unit = state.skus?.[plan.sku]?.unit ? ` ${state.skus[plan.sku].unit}` : '';
+  const summary = plan.toLocation
+    ? `Move ${plan.qty}${unit} of ${plan.sku} from ${plan.location} to ${plan.toLocation}${args.date ? ` on ${plan.date}` : ''}.`
+    : `${plan.qty > 0 ? `Stock in: ${plan.qty}` : `Stock out: ${-plan.qty}`}${unit} of ${plan.sku} at ${plan.location}${args.date ? ` on ${plan.date}` : ''}${plan.unitCost != null ? ` at ${money(plan.unitCost)} each` : ''}${plan.batch ? `, batch ${plan.batch}` : ''}${plan.expiry ? `, expiry ${plan.expiry}` : ''}.`;
   return {
-    blockers,
-    summary: blockers.length ? '' : `${qty > 0 ? `Stock in: ${qty}` : `Stock out: ${-qty}`} of ${sku} at ${location}${args.date ? ` on ${args.date}` : ''}.`,
-    effects: ['Only the stock count changes; nothing posts to the ledger.'],
-    figures: { qty, sku, location },
+    blockers: [],
+    summary,
+    effects: [...plan.warnings.map(warningWords), 'Only the stock count changes; nothing posts to the ledger.'],
+    figures: { qty: plan.qty, sku: plan.sku, location: plan.location },
+  };
+}
+
+export function costingMethodPreview(state, args) {
+  const planned = planCostingMethod(state, args);
+  if (!planned.ok) {
+    const reason = { METHOD_REQUIRED: 'Say FIFO or weighted average.', METHOD_NOT_ALLOWED: `${String(args.method || '').toUpperCase()} is not allowed: ${COSTING_BASIS}`, ALREADY_SET: `Inventory is already costed by ${COSTING_WORDS[planned.method]}.`, REASON_REQUIRED: planned.hint }[planned.error] || planned.error;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  const { plan } = planned;
+  return {
+    blockers: [],
+    summary: `Cost inventory by ${COSTING_WORDS[plan.method]} from ${plan.on}${plan.previous ? `, in place of ${COSTING_WORDS[plan.previous]}` : ''}.`,
+    effects: [
+      'Stock already on hand stays at its recorded cost as the opening lot; each stock-in from now carries its own cost.',
+      `Stock values, cost of goods, SKU margins and the next inventory valuation use ${COSTING_WORDS[plan.method]}.`,
+      plan.previous ? `This is a change of accounting policy (reason: ${plan.reason}); it is kept in the audit trail and should be disclosed in the accounts.` : 'Choose once: a later change needs a reason and is kept in the audit trail.',
+      COSTING_BASIS,
+    ],
+    figures: {},
   };
 }
 
@@ -521,5 +547,102 @@ export function exceptionPreview(state, args) {
       ? ['The exception stays in the books as waived, with your reason and your name against it.', 'It will not come back to the open queue while it is still detected.']
       : ['The queue is updated and the decision is written to the audit trail.'],
     figures: { severity: entry.severity, moneyAtRisk: entry.moneyAtRisk },
+  };
+}
+
+const STORE_REASONS = {
+  INDIA_ONLY: 'The online store is for businesses in India.',
+  BAD_FLAG: 'Say yes or no.',
+  BAD_WHATSAPP: 'The WhatsApp number must be a 10-digit Indian mobile number.',
+  BAD_SLUG: 'A store link name is 3 to 40 lowercase letters, digits and single hyphens, starting and ending with a letter or digit.',
+  SLUG_RESERVED: 'That link name is kept for MyCA. Choose another.',
+  STORE_NAME_REQUIRED: 'Give the store a name.',
+  WHATSAPP_REQUIRED: 'Give the WhatsApp number orders should go to before switching the store on.',
+  NOTHING_TO_CHANGE: 'Nothing would change.',
+  NO_ITEMS: 'Say which items to publish or hide.',
+  TOO_MANY_ITEMS: 'Change at most 200 items at a time.',
+  SKU_REQUIRED: 'Say which item.',
+  SKU_NOT_FOUND: 'That item is not saved yet. Save it with its name, price and GST rate first.',
+  DUPLICATE_SKU: 'An item is listed twice.',
+  ORDER_NOT_FOUND: 'There is no store order with that number.',
+  BAD_ACTION: 'Accept, decline or mark the order fulfilled.',
+  ORDER_CLOSED: 'That order is already closed.',
+  ORDER_ALREADY_ANSWERED: 'That order was already answered.',
+  PRICE_REQUIRED: 'An item in the order has no selling price or GST rate. Set it first.',
+};
+
+function storeBlocked(planned) {
+  return { blockers: [planned.hint || STORE_REASONS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+}
+
+export function catalogueSettingsPreview(state, args) {
+  const planned = planCatalogueSettings(state, args);
+  if (!planned.ok) return storeBlocked(planned);
+  const { next, slug } = planned.plan;
+  const shows = [next.showPrices ? 'prices with GST' : 'no prices', next.showStock ? 'in stock or out of stock' : 'no stock', next.showGstin ? 'your GSTIN' : 'no GSTIN'].join(', ');
+  return {
+    blockers: [],
+    summary: `Online store ${next.enabled ? 'on' : 'off'}: ${next.storeName}, link /s/${slug}, orders to WhatsApp ${next.whatsapp || 'not set'}; shows ${shows}.`,
+    effects: [next.enabled ? 'Anyone with the link sees the published items. Costs, quantities and your books are never shown.' : 'The link stops working until you switch the store on again.', 'Nothing posts to your books.'],
+    figures: {},
+  };
+}
+
+export function catalogueItemsPreview(state, args) {
+  const planned = planCatalogueItems(state, args);
+  if (!planned.ok) return storeBlocked(planned);
+  const { changes, published, hidden } = planned.plan;
+  const names = changes.slice(0, 5).map((c) => `${c.name}${c.next.published ? '' : ' (hidden)'}`).join(', ');
+  return {
+    blockers: [],
+    summary: `Online store: ${published} item${published === 1 ? '' : 's'} published, ${hidden} hidden: ${names}${changes.length > 5 ? ` and ${changes.length - 5} more` : ''}.`,
+    effects: ['Buyers see the name, price with GST, category and description. Nothing posts to your books.'],
+    figures: { published, hidden },
+  };
+}
+
+export function storeOrderActionPreview(state, args) {
+  const planned = planStoreOrderAction(state, args);
+  if (!planned.ok) return storeBlocked(planned);
+  const { order, action, quote } = planned.plan;
+  if (action === 'accept') {
+    return {
+      blockers: [],
+      summary: `Accept ${order.id} from ${order.buyerName}: quote of ${money(quote.total)} (taxable ${money(quote.taxable)}) at today's saved prices.`,
+      effects: ['A quote is made for the buyer; it posts nothing until it becomes an invoice.', 'GST is worked out as a sale within your state; change the quote if the buyer is in another state.'],
+      figures: { total: quote.total },
+    };
+  }
+  return { blockers: [], summary: `${order.id} from ${order.buyerName}: ${action === 'decline' ? 'declined' : 'fulfilled'}.`, effects: ['Nothing posts to your books.'], figures: {} };
+}
+export function loyaltySettingsPreview(state, args) {
+  const planned = planLoyaltySettings(state, args);
+  if (!planned.ok) return { blockers: [planned.hint || planned.error], summary: '', effects: [], figures: {} };
+  const { next, changed, firstTime } = planned.plan;
+  return {
+    blockers: [],
+    summary: loyaltySettingsWords(next, money),
+    effects: [
+      firstTime ? 'These are the first loyalty settings for this business.' : `Changes: ${changed.length ? changed.join(', ') : 'nothing'}.`,
+      'Points already earned keep the expiry date they were given; new rules apply to bills from now on.',
+      'Points used on a bill are a discount on that bill: GST is charged on the lower value (CGST Act s.15(3)(a)).',
+    ],
+    figures: { ...next },
+  };
+}
+
+export function loyaltyAdjustPreview(state, args) {
+  const planned = planLoyaltyAdjust(state, args);
+  if (!planned.ok) return { blockers: [planned.hint || planned.error], summary: '', effects: [], figures: {} };
+  const { party, points, reason, date, expiresOn, balanceBefore, balanceAfter, settings } = planned.plan;
+  return {
+    blockers: [],
+    summary: `${points > 0 ? `Add ${points}` : `Take away ${-points}`} loyalty ${Math.abs(points) === 1 ? 'point' : 'points'} ${points > 0 ? 'to' : 'from'} ${party.name} on ${date}: ${reason}.`,
+    effects: [
+      `${party.name} goes from ${balanceBefore} to ${balanceAfter} points (worth ${money(pointsValue(settings, balanceAfter))}).`,
+      expiresOn ? `The added points expire on ${expiresOn}.` : points > 0 ? 'The added points never expire.' : 'The oldest points are taken first.',
+      'Nothing posts to the ledger; the change is kept in the points book and the audit trail.',
+    ],
+    figures: { points, balanceBefore, balanceAfter },
   };
 }
