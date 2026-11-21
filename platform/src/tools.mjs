@@ -1217,7 +1217,7 @@ export const TOOLS = [
       const docs = documentsForPeriod(state, args.period, '', regd.gstin);
       if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
       const salesText = invoicesToSalesCsv(docs.invoices);
-      const result = filingPrep({ salesText, supplierState: regd.registration.state, fy: state.company.fy });
+      const result = filingPrep({ salesText, supplierState: regd.registration.state });
       return ok({ period: docs.period, periods: docs.periods, gstin: regd.gstin, salesText, gstr1: result.gstr1, eInvoice: result.summary });
     },
   },
@@ -1672,7 +1672,7 @@ export const TOOLS = [
       if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
       const salesText = invoicesToSalesCsv(docs.invoices);
       const inwardText = purchasesToInwardCsv(docs.purchases);
-      const filed = filingPrep({ salesText, inwardText, supplierState: regd.registration.state, fy: state.company.fy });
+      const filed = filingPrep({ salesText, inwardText, supplierState: regd.registration.state });
       const payment = paymentFor(state, docs.period, { gstin: regd.gstin });
       if (!payment.ok) return fail(payment.error, payment);
       return ok({
@@ -2049,12 +2049,12 @@ export const TOOLS = [
           }
         }
       }
-      const result = filingPrep({
-        aisText: ais,
-        tds26Text: tds26,
-        incomeText: income,
-        fy: state.company.fy,
-      });
+      let result;
+      try {
+        result = filingPrep({ aisText: ais, tds26Text: tds26, incomeText: income, fy: state.company.fy });
+      } catch {
+        return fail('NO_RULES_FOR_FY', { fy: state.company.fy, hint: 'No income-tax rules are recorded for this financial year yet; nothing was computed.' });
+      }
       return ok(result.itr);
     },
   },
@@ -2074,7 +2074,12 @@ export const TOOLS = [
           }
         }
       }
-      const result = filingPrep({ paymentsText: payments, fy: state.company.fy });
+      let result;
+      try {
+        result = filingPrep({ paymentsText: payments, fy: state.company.fy });
+      } catch {
+        return fail('NO_RULES_FOR_FY', { fy: state.company.fy, hint: 'No TDS rules are recorded for this financial year yet; nothing was computed.' });
+      }
       return ok(result.tds);
     },
   },
