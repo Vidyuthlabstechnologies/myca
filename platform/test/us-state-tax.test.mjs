@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createState } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
-import { usStateTax, usStateTaxWords } from '../src/us-state-tax.mjs';
+import { usStateTax, usStateEstimate, usStateTaxWords } from '../src/us-state-tax.mjs';
 import { validateAssistantToolCall } from '../src/assistant-contract.mjs';
 import { isRemoteQuery } from '../src/remote-contract.mjs';
 
@@ -22,17 +22,17 @@ async function household(code, { filingStatus = 'single', dateOfBirth = '1988-04
 
 test('a state with no individual income tax needs no state return', async () => {
   const state = await household('TX');
-  const result = usStateTax(state, { taxYear: '2025' });
+  const result = usStateEstimate(state, { taxYear: '2025' });
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.equal(result.data.kind, 'no-income-tax');
   assert.equal(result.data.returnNeeded, false);
   assert.match(usStateTaxWords(result.data), /Texas levies no individual income tax/);
-  assert.equal(usStateTax(state, { taxYear: '2025', state: 'wa' }).data.kind, 'capital-gains-only');
+  assert.equal(usStateEstimate(state, { taxYear: '2025', state: 'wa' }).data.kind, 'capital-gains-only');
 });
 
 test('Illinois: federal AGI less $2,850 a person at 4.95%, against the W-2 withholding', async () => {
   const state = await household('IL', { stateWithheld: 2900 });
-  const result = usStateTax(state, { taxYear: '2025' });
+  const result = usStateEstimate(state, { taxYear: '2025' });
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.equal(result.data.federalAgi, 60000);
   assert.equal(result.data.exemption, 2850);
@@ -48,22 +48,22 @@ test('Illinois: federal AGI less $2,850 a person at 4.95%, against the W-2 withh
 });
 
 test('Illinois gives $1,000 more at 65 and no exemption above $250,000 of federal AGI', async () => {
-  const senior = usStateTax(await household('IL', { dateOfBirth: '1950-01-15' }), { taxYear: '2025' });
+  const senior = usStateEstimate(await household('IL', { dateOfBirth: '1950-01-15' }), { taxYear: '2025' });
   assert.equal(senior.data.exemption, 3850);
-  const high = usStateTax(await household('IL', { wages: 300000 }), { taxYear: '2025' });
+  const high = usStateEstimate(await household('IL', { wages: 300000 }), { taxYear: '2025' });
   assert.equal(high.data.exemption, 0);
   assert.equal(high.data.tax, Math.round(high.data.federalAgi * 0.0495));
 });
 
 test('Michigan: $5,800 a person at 4.25%', async () => {
-  const result = usStateTax(await household('MI'), { taxYear: '2025' });
+  const result = usStateEstimate(await household('MI'), { taxYear: '2025' });
   assert.equal(result.data.exemption, 5800);
   assert.equal(result.data.tax, 2304);
   assert.equal(result.data.owed, 2304);
 });
 
 test('North Carolina: the state standard deduction at 4.25%', async () => {
-  const result = usStateTax(await household('NC', { filingStatus: 'single' }), { taxYear: '2025' });
+  const result = usStateEstimate(await household('NC', { filingStatus: 'single' }), { taxYear: '2025' });
   assert.equal(result.data.standardDeduction, 12750);
   assert.equal(result.data.exemption, 0);
   assert.equal(result.data.taxableIncome, 47250);
@@ -72,7 +72,7 @@ test('North Carolina: the state standard deduction at 4.25%', async () => {
 });
 
 test('Colorado: 4.4% of federal taxable income', async () => {
-  const result = usStateTax(await household('CO', { stateWithheld: 2000 }), { taxYear: '2025' });
+  const result = usStateEstimate(await household('CO', { stateWithheld: 2000 }), { taxYear: '2025' });
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.equal(result.data.start, 'federal taxable income');
   assert.equal(result.data.startAmount, 44250);
@@ -86,12 +86,12 @@ test('Colorado: 4.4% of federal taxable income', async () => {
 });
 
 test('Georgia: the $12,000 standard deduction and $4,000 a dependent at 5.19%', async () => {
-  const alone = usStateTax(await household('GA'), { taxYear: '2025' });
+  const alone = usStateEstimate(await household('GA'), { taxYear: '2025' });
   assert.equal(alone.data.standardDeduction, 12000);
   assert.equal(alone.data.exemption, 0);
   assert.equal(alone.data.taxableIncome, 48000);
   assert.equal(alone.data.tax, 2491);
-  const parent = usStateTax(await household('GA', { filingStatus: 'hoh', dependents: [DEPENDENT] }), { taxYear: '2025' });
+  const parent = usStateEstimate(await household('GA', { filingStatus: 'hoh', dependents: [DEPENDENT] }), { taxYear: '2025' });
   assert.equal(parent.ok, true, JSON.stringify(parent));
   assert.equal(parent.data.standardDeduction, 12000);
   assert.equal(parent.data.exemption, 4000);
@@ -100,14 +100,14 @@ test('Georgia: the $12,000 standard deduction and $4,000 a dependent at 5.19%', 
 });
 
 test('Kentucky: one $3,270 standard deduction at 4%', async () => {
-  const result = usStateTax(await household('KY'), { taxYear: '2025' });
+  const result = usStateEstimate(await household('KY'), { taxYear: '2025' });
   assert.equal(result.data.standardDeduction, 3270);
   assert.equal(result.data.taxableIncome, 56730);
   assert.equal(result.data.tax, 2269);
 });
 
 test('Arizona: the federal-sized standard deduction at a flat 2.5%, with a surviving spouse as head of household, 2025 only', async () => {
-  const single = usStateTax(await household('AZ'), { taxYear: '2025' });
+  const single = usStateEstimate(await household('AZ'), { taxYear: '2025' });
   assert.equal(single.ok, true, JSON.stringify(single));
   assert.equal(single.data.start, 'federal AGI');
   assert.equal(single.data.standardDeduction, 15750);
@@ -115,25 +115,25 @@ test('Arizona: the federal-sized standard deduction at a flat 2.5%, with a survi
   assert.equal(single.data.tax, Math.round(44250 * 0.025));
   assert.equal(single.data.form, '140');
   assert.match(usStateTaxWords(single.data), /age 65 or over/);
-  const widow = usStateTax(await household('AZ', { filingStatus: 'qss', dependents: [DEPENDENT] }), { taxYear: '2025' });
+  const widow = usStateEstimate(await household('AZ', { filingStatus: 'qss', dependents: [DEPENDENT] }), { taxYear: '2025' });
   assert.equal(widow.data.standardDeduction, 23625);
-  const next = usStateTax(await household('AZ', { taxYear: '2026' }), { taxYear: '2026' });
+  const next = usStateEstimate(await household('AZ', { taxYear: '2026' }), { taxYear: '2026' });
   assert.equal(next.error, 'STATE_YEAR_NOT_SUPPORTED_YET');
 });
 
 test('Iowa: 3.8% of federal taxable income, 2025 only', async () => {
-  const result = usStateTax(await household('IA'), { taxYear: '2025' });
+  const result = usStateEstimate(await household('IA'), { taxYear: '2025' });
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.equal(result.data.start, 'federal taxable income');
   assert.equal(result.data.standardDeduction, 0);
   assert.equal(result.data.tax, Math.round((result.data.startAmount * 380) / 10000));
   assert.equal(result.data.form, 'IA 1040');
   assert.match(usStateTaxWords(result.data), /alternate tax calculation/);
-  assert.equal(usStateTax(await household('IA', { taxYear: '2026' }), { taxYear: '2026' }).error, 'STATE_YEAR_NOT_SUPPORTED_YET');
+  assert.equal(usStateEstimate(await household('IA', { taxYear: '2026' }), { taxYear: '2026' }).error, 'STATE_YEAR_NOT_SUPPORTED_YET');
 });
 
 test('Louisiana: the $12,500 standard deduction at a flat 3%', async () => {
-  const result = usStateTax(await household('LA'), { taxYear: '2025' });
+  const result = usStateEstimate(await household('LA'), { taxYear: '2025' });
   assert.equal(result.data.standardDeduction, 12500);
   assert.equal(result.data.exemption, 0);
   assert.equal(result.data.taxableIncome, 47500);
@@ -142,7 +142,7 @@ test('Louisiana: the $12,500 standard deduction at a flat 3%', async () => {
 });
 
 test('2026 uses each state\'s announced 2026 figures and says they are provisional', async () => {
-  const at = async (code, more = {}) => usStateTax(await household(code, { taxYear: '2026', ...more }), { taxYear: '2026' });
+  const at = async (code, more = {}) => usStateEstimate(await household(code, { taxYear: '2026', ...more }), { taxYear: '2026' });
   const il = await at('IL');
   assert.equal(il.ok, true, JSON.stringify(il));
   assert.equal(il.data.exemption, 2925);
@@ -167,22 +167,40 @@ test('2026 uses each state\'s announced 2026 figures and says they are provision
   assert.equal(co.data.ratePercent, 4.4);
   assert.equal(co.data.tax, Math.round(co.data.startAmount * 0.044));
   assert.equal((await at('TX')).data.kind, 'no-income-tax');
-  assert.equal(usStateTax(await household('IL'), { taxYear: '2025' }).data.provisional, false);
+  assert.equal(usStateEstimate(await household('IL'), { taxYear: '2025' }).data.provisional, false);
 });
 
 test('other states and years are refused plainly, and the tool is read-only', async () => {
   const state = await household('CA');
-  const result = usStateTax(state, { taxYear: '2025' });
+  const result = usStateEstimate(state, { taxYear: '2025' });
   assert.equal(result.error, 'STATE_NOT_SUPPORTED_YET');
   assert.ok(result.supported.includes('IL'));
-  assert.equal(usStateTax(state, { taxYear: '2024' }).error, 'TAX_YEAR_NOT_SUPPORTED');
+  assert.equal(usStateEstimate(state, { taxYear: '2024' }).error, 'TAX_YEAR_NOT_SUPPORTED');
   assert.equal(usStateTax(createState(), { taxYear: '2025' }).error, 'US_RETURN_NOT_STARTED');
   assert.equal(isRemoteQuery('us_state_tax'), true);
   assert.equal(validateAssistantToolCall('us_state_tax', { taxYear: '2025', state: 'IL' }).ok, true);
-  const noYear = usStateTax(await household('MI'), {});
+  const noYear = usStateEstimate(await household('MI'), {});
   assert.equal(noYear.ok, true, JSON.stringify(noYear));
   assert.equal(noYear.data.taxYear, '2025');
   assert.equal(usStateTax(createState(), {}).error, 'US_RETURN_NOT_STARTED');
   const viaTool = await runTool(await household('MI'), 'us_state_tax', { taxYear: '2025' });
   assert.equal(viaTool.ok, true, JSON.stringify(viaTool));
+});
+
+test('a state with a full return answers from that return, and a state without one keeps the estimate', async () => {
+  const state = await household('IL', { stateWithheld: 2900 });
+  const result = usStateTax(state, { taxYear: '2025' });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.data.kind, 'return');
+  assert.equal(result.data.form, 'IL-1040');
+  const full = await runTool(state, 'us_state_returns', { taxYear: '2025' });
+  const il = full.data.returns.find((item) => item.state === 'IL');
+  assert.equal(result.data.tax, il.totalTax);
+  assert.equal(result.data.refund, il.refund);
+  assert.equal(result.data.owed, il.owed);
+  assert.match(usStateTaxWords(result.data), /From the full state return, Form IL-1040/);
+  const louisiana = usStateTax(await household('LA'), { taxYear: '2025' });
+  assert.equal(louisiana.ok, true, JSON.stringify(louisiana));
+  assert.equal(louisiana.data.kind, 'estimate');
+  assert.equal(usStateTax(await household('TX'), { taxYear: '2025' }).data.kind, 'no-income-tax');
 });
