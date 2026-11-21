@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../cloud/cloud_session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -16,8 +17,13 @@ const _roleHelp = {
   'accountant': 'Works in the books like staff. For your CA or bookkeeper.',
 };
 
-String _roleWords(BuildContext context, String role) =>
-    uaeEdition(context) ? UaeStrings.of(context).roleHelp(role) : (_roleHelp[role] ?? 'Can do everything, including deleting the business and inviting others.');
+String _roleWords(BuildContext context, String role) => uaeEdition(context)
+    ? UaeStrings.of(context).roleHelp(role)
+    : switch (role) {
+        'staff' => inText(context, 'Records sales, bills, payments and expenses.'),
+        'accountant' => inText(context, 'Works in the books like staff. For your CA or bookkeeper.'),
+        _ => inText(context, 'Can do everything, including deleting the business and inviting others.'),
+      };
 
 const caSyncChoices = [
   ('live', 'As things happen', 'Your accountant sees every entry at once.'),
@@ -26,6 +32,42 @@ const caSyncChoices = [
   ('month_close', 'At month end', 'The books as they stood when the month closed.'),
   ('manual', 'Only when I share', 'The books as they were when you last pressed Share now.'),
 ];
+
+String _syncTitle(BuildContext context, String mode, String english) => switch (mode) {
+  'live' => inText(context, 'As things happen'),
+  'daily' => inText(context, 'Once a day'),
+  'weekly' => inText(context, 'Once a week'),
+  'month_close' => inText(context, 'At month end'),
+  'manual' => inText(context, 'Only when I share'),
+  _ => english,
+};
+
+String _syncHelp(BuildContext context, String mode, String english) => switch (mode) {
+  'live' => inText(context, 'Your accountant sees every entry at once.'),
+  'daily' => inText(context, 'The books as they stood at midnight.'),
+  'weekly' => inText(context, 'The books as they stood at midnight on Monday.'),
+  'month_close' => inText(context, 'The books as they stood when the month closed.'),
+  'manual' => inText(context, 'The books as they were when you last pressed Share now.'),
+  _ => english,
+};
+
+String _roleName(BuildContext context, String role) => UaeStrings.of(context).ar
+    ? UaeStrings.of(context).role(role)
+    : switch (role) {
+        'owner' => inText(context, 'Owner'),
+        'staff' => inText(context, 'Staff'),
+        'accountant' => inText(context, 'Accountant'),
+        _ => role,
+      };
+
+String _isRole(BuildContext context, String name, String role) => UaeStrings.of(context).ar
+    ? UaeStrings.of(context).isRole(name, role)
+    : switch (role) {
+        'owner' => inFormat(context, '{name} is owner', {'name': name}),
+        'staff' => inFormat(context, '{name} is staff', {'name': name}),
+        'accountant' => inFormat(context, '{name} is accountant', {'name': name}),
+        _ => '$name is $role',
+      };
 
 String sharedWhen(String iso) {
   final at = DateTime.tryParse(iso)?.toUtc().add(const Duration(hours: 5, minutes: 30));
@@ -96,8 +138,8 @@ class _PeopleScreenState extends State<PeopleScreen> {
         for (final (mode, title, help) in caSyncChoices)
           RowCard(
             leading: ChoiceDot(selected: sync.mode == mode),
-            title: ae ? s.syncTitle(mode) : title,
-            subtitle: ae ? s.syncHelp(mode) : help,
+            title: ae ? s.syncTitle(mode) : _syncTitle(context, mode, title),
+            subtitle: ae ? s.syncHelp(mode) : _syncHelp(context, mode, help),
             onTap: sync.mode == mode ? null : () => _setSync(mode),
           ),
         if (sync.mode != 'live')
@@ -108,12 +150,14 @@ class _PeopleScreenState extends State<PeopleScreen> {
                 Expanded(
                   child: Text(
                     sync.sharedAsOf.isEmpty
-                        ? s.notSharedYet
-                        : s.accountantSeesAsOf(ae ? s.gulfTime(sync.sharedAsOf, withTime: true) : sharedWhen(sync.sharedAsOf)),
+                        ? (s.ar ? s.notSharedYet : inText(context, 'Not shared yet.'))
+                        : s.ar
+                        ? s.accountantSeesAsOf(s.gulfTime(sync.sharedAsOf, withTime: true))
+                        : inFormat(context, 'Your accountant sees the books as of {when}.', {'when': ae ? s.gulfTime(sync.sharedAsOf, withTime: true) : sharedWhen(sync.sharedAsOf)}),
                     style: text.bodyMedium,
                   ),
                 ),
-                Flexible(child: TextButton(onPressed: _shareNow, child: Text(s.shareNow))),
+                Flexible(child: TextButton(onPressed: _shareNow, child: Text(s.ar ? s.shareNow : inText(context, 'Share now')))),
               ],
             ),
           ),
@@ -167,8 +211,15 @@ class _PeopleScreenState extends State<PeopleScreen> {
   Future<void> _remove(MemberRef member) async {
     final cloud = AppScope.of(context).cloud!;
     final s = UaeStrings.of(context);
-    final name = member.name.isEmpty ? s.thisPerson : member.name;
-    if (!await _sure(s.removeWho(name), s.removeBody, s.removePerson)) return;
+    final name = member.name.isEmpty ? (s.ar ? s.thisPerson : inText(context, 'this person')) : member.name;
+    final sure = s.ar
+        ? _sure(s.removeWho(name), s.removeBody, s.removePerson)
+        : _sure(
+            inFormat(context, 'Remove {name}?', {'name': name}),
+            inText(context, 'They lose access to these books at once. What they recorded stays.'),
+            inText(context, 'Remove'),
+          );
+    if (!await sure) return;
     await _do(() => cloud.removeMember(member.id));
   }
 
@@ -185,11 +236,14 @@ class _PeopleScreenState extends State<PeopleScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
-              child: Text(s.isRole(member.name.isEmpty ? s.thisPersonTitle : member.name, member.role), style: Theme.of(sheet).textTheme.titleMedium),
+              child: Text(
+                _isRole(sheet, member.name.isEmpty ? (s.ar ? s.thisPersonTitle : inText(sheet, 'This person')) : member.name, member.role),
+                style: Theme.of(sheet).textTheme.titleMedium,
+              ),
             ),
             for (final role in const ['owner', 'staff', 'accountant'])
               ListTile(
-                title: Text(s.role(role)),
+                title: Text(_roleName(sheet, role)),
                 subtitle: Text(_roleWords(context, role)),
                 trailing: role == member.role ? const Icon(Icons.check) : null,
                 onTap: () => Navigator.of(sheet).pop(role),
@@ -207,7 +261,10 @@ class _PeopleScreenState extends State<PeopleScreen> {
     final state = AppScope.of(context);
     final navigator = Navigator.of(context);
     final s = UaeStrings.of(context);
-    if (!await _sure(s.leaveBusiness, s.leaveBody, s.leave)) return;
+    final sure = s.ar
+        ? _sure(s.leaveBusiness, s.leaveBody, s.leave)
+        : _sure(inText(context, 'Leave this business?'), inText(context, 'You lose access to these books at once.'), inText(context, 'Leave'));
+    if (!await sure) return;
     try {
       await state.cloud!.leaveBusiness(myId);
       await state.refresh();
@@ -229,7 +286,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
           ? FloatingActionButton.extended(
               onPressed: _invite,
               icon: const Icon(Icons.add, size: 20),
-              label: Text(s.inviteSomeone),
+              label: Text(s.ar ? s.inviteSomeone : inText(context, 'Invite someone')),
             )
           : null,
       body: FutureBuilder<People>(
@@ -249,26 +306,32 @@ class _PeopleScreenState extends State<PeopleScreen> {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Text(s.cloudSaid(_error), style: TextStyle(color: paletteOf(context).danger, fontWeight: FontWeight.w500)),
                 ),
-              SectionLabel(s.inThisBusiness),
+              SectionLabel(s.ar ? s.inThisBusiness : inText(context, 'In this business')),
               Panel(
                 children: [
                   for (final member in people.members)
                     RowCard(
                       leading: TintTile(tint: Tint.ask, letter: member.name.isEmpty ? '?' : member.name[0].toUpperCase()),
-                      title: member.id == me?.userId ? s.you(member.name) : (member.name.isEmpty ? s.noNameYet : member.name),
-                      subtitle: s.role(member.role),
+                      title: member.id == me?.userId
+                          ? (s.ar
+                                ? s.you(member.name)
+                                : member.name.isEmpty
+                                ? inText(context, 'You (you)')
+                                : inFormat(context, '{name} (you)', {'name': member.name}))
+                          : (member.name.isEmpty ? (s.ar ? s.noNameYet : inText(context, 'No name yet')) : member.name),
+                      subtitle: _roleName(context, member.role),
                       onTap: owner && member.id != me?.userId ? () => _changeRole(member) : null,
                       trailing: member.id == me?.userId
-                          ? (owner ? null : TextButton(onPressed: () => _leave(member.id), child: Text(s.leave)))
+                          ? (owner ? null : TextButton(onPressed: () => _leave(member.id), child: Text(s.ar ? s.leave : inText(context, 'Leave'))))
                           : (owner && member.role != 'owner'
-                              ? TextButton(onPressed: () => _remove(member), child: Text(s.removePerson))
+                              ? TextButton(onPressed: () => _remove(member), child: Text(s.ar ? s.removePerson : inText(context, 'Remove')))
                               : null),
                     ),
                 ],
               ),
               if (owner) ...[
                 const SizedBox(height: 26),
-                SectionLabel(s.whatAccountantSees),
+                SectionLabel(s.ar ? s.whatAccountantSees : inText(context, 'What your accountant sees')),
                 FutureBuilder<CaSync>(
                   future: _sync,
                   builder: (context, sync) => sync.data == null
@@ -278,14 +341,14 @@ class _PeopleScreenState extends State<PeopleScreen> {
               ],
               if (people.invites.isNotEmpty) ...[
                 const SizedBox(height: 26),
-                SectionLabel(s.invitedNotJoined),
+                SectionLabel(s.ar ? s.invitedNotJoined : inText(context, 'Invited, not joined yet')),
                 Panel(
                   children: [
                     for (final invite in people.invites)
                       RowCard(
                         leading: const TintTile(tint: Tint.ask, letter: '…'),
-                        title: s.numberEnding(invite.phoneHint.replaceAll('x', '')),
-                        subtitle: s.role(invite.role),
+                        title: s.ar ? s.numberEnding(invite.phoneHint.replaceAll('x', '')) : inFormat(context, 'Number ending {digits}', {'digits': invite.phoneHint.replaceAll('x', '')}),
+                        subtitle: _roleName(context, invite.role),
                         trailing: TextButton(
                           onPressed: () => _do(() => AppScope.of(context).cloud!.revokeInvitation(invite.id)),
                           child: Text(s.cancel),
@@ -358,10 +421,10 @@ class _InviteSheetState extends State<_InviteSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(s.inviteSomeone, style: text.headlineSmall),
+            Text(s.ar ? s.inviteSomeone : inText(context, 'Invite someone'), style: text.headlineSmall),
             const SizedBox(height: 4),
             Text(
-              s.inviteSheetNote,
+              s.ar ? s.inviteSheetNote : inText(context, 'They sign in to MyCA with this number and choose to join. No message is sent yet, so tell them.'),
               style: text.bodyMedium,
             ),
             const SizedBox(height: 16),
@@ -370,7 +433,7 @@ class _InviteSheetState extends State<_InviteSheet> {
               autofocus: true,
               keyboardType: TextInputType.phone,
               inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]'))],
-              decoration: InputDecoration(labelText: s.theirMobile, prefixText: ae ? s.uaePrefix : '+91  '),
+              decoration: InputDecoration(labelText: s.ar ? s.theirMobile : inText(context, 'Their mobile number'), prefixText: ae ? s.uaePrefix : '+91  '),
             ),
             const SizedBox(height: 14),
             Wrap(
@@ -378,7 +441,7 @@ class _InviteSheetState extends State<_InviteSheet> {
               children: [
                 for (final role in _roleHelp.keys)
                   ChoiceChip(
-                    label: Text(s.role(role)),
+                    label: Text(_roleName(context, role)),
                     selected: _role == role,
                     selectedColor: paletteOf(context).sunken,
                     showCheckmark: false,
@@ -393,7 +456,16 @@ class _InviteSheetState extends State<_InviteSheet> {
               Text(s.cloudSaid(_error), style: TextStyle(color: paletteOf(context).danger, fontWeight: FontWeight.w500)),
             ],
             const SizedBox(height: 18),
-            FilledButton(onPressed: _busy ? null : _send, child: Text(_busy ? s.inviting : s.invite)),
+            FilledButton(
+              onPressed: _busy ? null : _send,
+              child: Text(
+                s.ar
+                    ? (_busy ? s.inviting : s.invite)
+                    : _busy
+                    ? inText(context, 'Inviting…')
+                    : inText(context, 'Invite'),
+              ),
+            ),
           ],
         ),
       ),
