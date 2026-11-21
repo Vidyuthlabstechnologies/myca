@@ -40,7 +40,7 @@ import { CA_SYNC_MODES, syncOf } from './ca-sync.mjs';
 import { inWords } from '../../platform/src/words.mjs';
 import { createInbound, INBOUND_HEADER, relayTokenMatches } from './inbound.mjs';
 import { createWhatsApp } from './whatsapp.mjs';
-import { chatText } from './chat-text.mjs';
+import { chatText, withChatLanguage } from './chat-text.mjs';
 import { htmlEscape } from '../../platform/src/text-safe.mjs';
 import { DEMO_BLOCKED_ACTIONS, seedDemo } from './demo.mjs';
 import { createRateLimits, LIMITS } from './rate-limits.mjs';
@@ -57,7 +57,7 @@ export const INBOUND_RELAY_HEADER = 'x-myca-relay-token';
 export const PLAY_NOTIFY_HEADER = 'x-myca-notify-token';
 export const STRIPE_SIGNATURE_HEADER = 'stripe-signature';
 export const US_SUPPORTED_FORMS = Object.freeze({
-  supported: ['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule E', 'Schedule SE', 'Form 2441', 'Form 4562', 'Form 8582', 'Form 8949', 'Form 8812', 'Form 8863', 'Form 8959', 'Form 8960', 'Form 8962', 'Form 8995', 'Form 1040-X', 'W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T', '1095-A'],
+  supported: ['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule E', 'Schedule SE', 'Form 2441', 'Form 4562', 'Form 5695', 'Form 8582', 'Form 8949', 'Form 8812', 'Form 8863', 'Form 8880', 'Form 8959', 'Form 8889', 'Form 8960', 'Form 8962', 'Form 8995', 'Form 1040-X', 'Form 5329', 'Form 8606', 'W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T', '1095-A', '1099-SA', '5498-SA', '5498'],
   coming: ['Form 8995-A', 'Form 2210'],
   notThisSeason: ['State returns', 'Form 1040-NR', 'Dual-status returns', 'FBAR (FinCEN 114)', 'Form 8938', 'Form 1116'],
 });
@@ -965,8 +965,9 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         if (action === 'ask') {
           const message = chatText(body.message);
           if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
+          const asker = withChatLanguage(actor, body.lang);
           return runner.withSharedBooks(businessId, context, async (session, { asOf }) => {
-            const out = await session.chat(message, actor);
+            const out = await session.chat(message, asker);
             if (!out.preview && !out.awaitingConfirmation) return out;
             return { reply: `These books are shared with you as they stood on ${inWords(indiaDate(asOf.getTime()))}, so nothing can be posted from here. Ask the owner to make the change, or to share the books again.`, tools: [] };
           });
@@ -1080,9 +1081,10 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (action === 'ask') {
         const message = chatText(body.message);
         if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
+        const asker = withChatLanguage(actor, body.lang);
         const canPost = await billing.allows(businessId, 'post');
         return withBooks(businessId, context, async (session) => {
-          if (!canPost.ok) return readOnlyChat(session, message, actor);
+          if (!canPost.ok) return readOnlyChat(session, message, asker);
           if (await unpaidFiling(businessId, session)) await session.discard(actor);
           const unprotected = await secondStepMissing(user.userId, session.state.pendingChatAction?.name);
           if (unprotected && confirmationIntent(message) && confirmationIntent(message) !== 'cancel') {
@@ -1091,7 +1093,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           }
           await withServerFactors(user.userId, session.state.pendingChatAction, clientAddress(req));
           // A "yes" in chat can confirm a pending US filing, which must reach the partner the same way.
-          const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, user.userId, () => session.chat(message, actor)) : await session.chat(message, actor);
+          const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, user.userId, () => session.chat(message, asker)) : await session.chat(message, asker);
           const unpaid = await unpaidFiling(businessId, session);
           if (!unpaid) return out;
           await session.discard(actor);

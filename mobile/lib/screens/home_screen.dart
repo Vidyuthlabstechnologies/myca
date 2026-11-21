@@ -6,6 +6,7 @@ import '../api/models.dart';
 import '../notifications.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import '../india/india_language_picker.dart';
 import '../india/india_strings.dart';
 import '../attention.dart';
 import '../brand.dart';
@@ -147,6 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Wordmark(size: 18),
         actions: [
+          if (state.edition == 'IN') const IndiaLanguageButton(),
           Padding(
             padding: const EdgeInsets.only(right: 9),
             child: Tooltip(
@@ -707,7 +709,7 @@ class _TodayPanel extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'TAX ON SALES, ${monthLabel(gst.period).toUpperCase()}',
+                            inFormat(context, 'TAX ON SALES, {month}', {'month': monthLabel(gst.period).toUpperCase()}),
                             style: text.labelSmall,
                           ),
                           const SizedBox(height: 4),
@@ -727,9 +729,7 @@ class _TodayPanel extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            gst.salesCount == 1
-                                ? '1 sale'
-                                : '${gst.salesCount} sales',
+                            inCount(context, gst.salesCount, '1 sale', '{n} sales'),
                             textAlign: TextAlign.end,
                             style: text.bodySmall?.copyWith(
                               fontFeatures: moneyFigures,
@@ -737,7 +737,7 @@ class _TodayPanel extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Credit on purchases ${rupees(gst.inputCredit.total)}',
+                            inFormat(context, 'Credit on purchases {amount}', {'amount': rupees(gst.inputCredit.total)}),
                             textAlign: TextAlign.end,
                             style: text.bodySmall?.copyWith(
                               fontFeatures: moneyFigures,
@@ -1069,12 +1069,11 @@ class _MsmePanel extends StatelessWidget {
     final position = dues.msme;
     final count = position.count;
     final overdue = position.overdue;
-    final bills = count == 1 ? 'bill' : 'bills';
     final next = dues.bills.where((bill) => bill.msme).firstOrNull;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionLabel('MSME suppliers'),
+        SectionLabel(inText(context, 'MSME suppliers')),
         Panel(
           children: [
             RowCard(
@@ -1083,13 +1082,13 @@ class _MsmePanel extends StatelessWidget {
                   ? const TintTile(tint: Tint.urgent, mark: Mark.urgent)
                   : const TintTile(tint: Tint.taxes, mark: Mark.comingUp),
               title: overdue > 0
-                  ? '$overdue ${overdue == 1 ? 'bill' : 'bills'} past the MSMED limit'
-                  : '$count MSME $bills to pay inside the limit',
+                  ? inCount(context, overdue, '1 bill past the MSMED limit', '{n} bills past the MSMED limit')
+                  : inCount(context, count, '1 MSME bill to pay inside the limit', '{n} MSME bills to pay inside the limit'),
               subtitle: overdue > 0
-                  ? '${rupees(position.overdueOutstanding)} not deductible until paid · $count MSME $bills open'
+                  ? inCount(context, count, '{amount} not deductible until paid · 1 MSME bill open', '{amount} not deductible until paid · {n} MSME bills open', {'amount': rupees(position.overdueOutstanding)})
                   : (next == null
-                        ? '${rupees(position.outstanding)} open'
-                        : 'Next: ${next.supplier} by ${longDate(next.payBy)} · ${rupees(position.outstanding)} open'),
+                        ? inFormat(context, '{amount} open', {'amount': rupees(position.outstanding)})
+                        : inFormat(context, 'Next: {name} by {date} · {amount} open', {'name': next.supplier, 'date': longDate(next.payBy), 'amount': rupees(position.outstanding)})),
               trailing: const Chevron(),
               onTap: onTap,
             ),
@@ -1105,7 +1104,7 @@ class _WeekPanel extends StatelessWidget {
 
   final List<Map<String, dynamic>> items;
 
-  static String _title(Map<String, dynamic> item, UaeStrings s) {
+  static String _title(BuildContext context, Map<String, dynamic> item, UaeStrings s) {
     final title = '${item['title']}';
     final amount = item['amount'];
     if (item['kind'] == 'receivable') {
@@ -1114,7 +1113,8 @@ class _WeekPanel extends StatelessWidget {
     if (item['kind'] != 'payable' || amount is! num) return title;
     final supplier = RegExp(r'^Pay (.+) \S+ on \S+?(?: \(MSME\))?$').firstMatch(title)?.group(1);
     if (supplier == null) return title;
-    return 'Pay $supplier ${rupees(amount)} on ${item['billId'] ?? ''}${item['msme'] == true ? ' (MSME)' : ''}';
+    final parts = {'name': supplier, 'amount': rupees(amount), 'bill': '${item['billId'] ?? ''}'};
+    return item['msme'] == true ? inFormat(context, 'Pay {name} {amount} on {bill} (MSME)', parts) : inFormat(context, 'Pay {name} {amount} on {bill}', parts);
   }
 
   @override
@@ -1130,7 +1130,7 @@ class _WeekPanel extends StatelessWidget {
             for (final item in items.take(6))
               RowCard(
                 leading: TintTile(tint: item['overdue'] == true ? Tint.urgent : Tint.taxes, mark: item['overdue'] == true ? Mark.urgent : Mark.comingUp),
-                title: _title(item, s),
+                title: _title(context, item, s),
                 subtitle: '${item['detail'] ?? ''}',
               ),
           ],

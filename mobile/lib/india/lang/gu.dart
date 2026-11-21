@@ -1,0 +1,2 @@
+const gujarati = <String, String>{
+};

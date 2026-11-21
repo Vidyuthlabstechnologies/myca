@@ -1,0 +1,2 @@
+const bengali = <String, String>{
+};

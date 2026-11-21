@@ -10,3 +10,9 @@ export function chatText(value) {
   }
   return text.slice(0, LIMIT).replace(LONG_RUN, (run) => run[0]);
 }
+
+export function withChatLanguage(actor, lang) {
+  const code = typeof lang === 'string' ? lang.trim().toLowerCase() : '';
+  if (!/^[a-z]{2,3}$/.test(code) || code === 'en') return actor;
+  return { ...actor, lang: code };
+}

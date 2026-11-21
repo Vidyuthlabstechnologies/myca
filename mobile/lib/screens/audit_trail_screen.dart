@@ -4,6 +4,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../excel.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../theme.dart';
 import '../uae/uae_edition.dart';
@@ -113,7 +114,7 @@ class _AuditTrailScreenState extends State<AuditTrailScreen> {
     if (!trail.ledgerOk) ...[
       const SizedBox(height: 4),
       Text(
-        uaeEdition(context) ? s.ledgerFailsAccountant : 'The record of entries fails its integrity check. Ask your CA before recording more.',
+        uaeEdition(context) ? s.ledgerFailsAccountant : inText(context, 'The record of entries fails its integrity check. Ask your CA before recording more.'),
         style: text.bodyMedium?.copyWith(color: Palette.danger, fontWeight: FontWeight.w600),
       ),
     ],

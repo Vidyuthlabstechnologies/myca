@@ -43,7 +43,8 @@ class MyTestApi implements MycaApi {
   Future<void> signOut() => books.signOut();
 
   @override
-  Future<ChatReply> chat(String message) => books.chat(message);
+  Future<ChatReply> chat(String message, {String lang = 'en'}) =>
+      books.chat(message, lang: lang);
 
   @override
   Future<ChatReply> propose(String name, Map<String, Object?> args) async {

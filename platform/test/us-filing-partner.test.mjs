@@ -87,6 +87,8 @@ test('prefill carries names, address, dependents, W-2s and other forms; SSNs onl
   assert.equal(withTins.taxpayer.ssn, '400011234');
   assert.equal(withTins.dependents[0].ssn, '400039012');
   assert.equal(withTins.taxpayer.email, 'maya@example.com');
+  assert.equal(plain.prior_year, undefined);
+  assert.deepEqual(partnerPrefill(computed1040(), { priorYear: { agi: 80000.4, joint: true } }).prior_year, { adjusted_gross_income: 80000, filed_jointly: true });
 });
 
 test('session responses are read leniently and only an https link is kept', () => {

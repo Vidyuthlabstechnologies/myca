@@ -1,0 +1,2 @@
+const tamil = <String, String>{
+};

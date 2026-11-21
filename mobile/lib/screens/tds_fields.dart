@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../india/india_strings.dart';
+
 class TdsOption {
   const TdsOption(
     this.key,
@@ -62,6 +64,17 @@ const customerTdsSections = [
   '206AB',
 ];
 
+String _optionLabel(BuildContext context, TdsOption option) => switch (option.key) {
+  'none' => inText(context, 'No TDS'),
+  '194C' => inText(context, 'Contractor work (194C)'),
+  '194J-professional' => inText(context, 'Professional fees (194J)'),
+  '194J-technical' => inText(context, 'Technical services (194J)'),
+  '194I-building' => inText(context, 'Rent of land, building or furniture (194I)'),
+  '194I-plant' => inText(context, 'Rent of plant or machinery (194I)'),
+  '194A' => inText(context, 'Interest (194A)'),
+  _ => option.label,
+};
+
 class TdsChoice {
   TdsOption option = tdsOptions.first;
   final pan = TextEditingController();
@@ -77,11 +90,11 @@ class TdsChoice {
         }
       : const {};
 
-  String? problem() {
+  String? problem([String lang = 'en']) {
     if (!chosen) return null;
     final value = pan.text.replaceAll(RegExp(r'\s+'), '').toUpperCase();
     if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$').hasMatch(value)) {
-      return 'Enter the payee\'s PAN: five letters, four digits and a letter.';
+      return inLine(lang, 'Enter the payee\'s PAN: five letters, four digits and a letter.');
     }
     return null;
   }
@@ -113,12 +126,12 @@ class _TdsFieldsState extends State<TdsFields> {
         DropdownButtonFormField<TdsOption>(
           initialValue: choice.option,
           isExpanded: true,
-          decoration: const InputDecoration(labelText: 'TDS to deduct'),
+          decoration: InputDecoration(labelText: inText(context, 'TDS to deduct')),
           items: [
             for (final option in tdsOptions)
               DropdownMenuItem(
                 value: option,
-                child: Text(option.label, overflow: TextOverflow.ellipsis),
+                child: Text(_optionLabel(context, option), overflow: TextOverflow.ellipsis),
               ),
           ],
           onChanged: (value) =>
@@ -133,10 +146,9 @@ class _TdsFieldsState extends State<TdsFields> {
               FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9 ]')),
             ],
             maxLength: 12,
-            decoration: const InputDecoration(
-              labelText: 'Payee\'s PAN',
-              helperText:
-                  'MyCA works out the TDS and shows it before anything is posted.',
+            decoration: InputDecoration(
+              labelText: inText(context, 'Payee\'s PAN'),
+              helperText: inText(context, 'MyCA works out the TDS and shows it before anything is posted.'),
               counterText: '',
             ),
           ),

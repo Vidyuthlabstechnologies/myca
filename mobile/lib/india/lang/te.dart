@@ -1,0 +1,2 @@
+const telugu = <String, String>{
+};

@@ -6,6 +6,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../india/loyalty_points.dart';
 import '../proposal_flow.dart';
 import '../registers.dart';
@@ -256,12 +257,12 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     final amount = parseAmount(_amount.text);
     final billId = _invoiceId;
     final reason = _noteReason.text.trim();
-    if (billId == null) return setState(() => _formError = 'Choose the bill.');
-    if (amount == null || amount <= 0) return setState(() => _formError = 'Enter how much less you owe.');
-    if (reason.isEmpty) return setState(() => _formError = 'Say why: goods returned, price reduced.');
+    if (billId == null) return setState(() => _formError = inText(context, 'Choose the bill.'));
+    if (amount == null || amount <= 0) return setState(() => _formError = inText(context, 'Enter how much less you owe.'));
+    if (reason.isEmpty) return setState(() => _formError = inText(context, 'Say why: goods returned, price reduced.'));
     setState(() => _composer = _Composer.none);
     await propose(
-      'Debit note of ${rupees(amount)} against $billId: $reason',
+      inFormat(context, 'Debit note of {amount} against {bill}: {reason}', {'amount': rupees(amount), 'bill': billId, 'reason': reason}),
       'create_purchase_note',
       {'billId': billId, 'amount': amount, 'date': isoDate(AppScope.of(context).now()), 'reason': reason},
     );
@@ -271,7 +272,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     DropdownButtonFormField<String>(
       initialValue: _invoiceId,
       isExpanded: true,
-      decoration: const InputDecoration(labelText: 'Against bill'),
+      decoration: InputDecoration(labelText: inText(context, 'Against bill')),
       items: [
         for (final doc in party.documents.where((d) => !d.cancelled))
           DropdownMenuItem(value: doc.id, child: Text('${doc.id} · ${rupees(doc.total)}', overflow: TextOverflow.ellipsis)),
@@ -283,13 +284,13 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       controller: _amount,
       autofocus: true,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: InputDecoration(labelText: 'Reduce the bill by', prefixText: moneyPrefix),
+      decoration: InputDecoration(labelText: inText(context, 'Reduce the bill by'), prefixText: moneyPrefix),
     ),
     const SizedBox(height: 10),
     TextField(
       controller: _noteReason,
       textCapitalization: TextCapitalization.sentences,
-      decoration: const InputDecoration(labelText: 'Reason', hintText: 'Goods returned, price reduced'),
+      decoration: InputDecoration(labelText: inText(context, 'Reason'), hintText: inText(context, 'Goods returned, price reduced')),
     ),
   ];
 
@@ -347,18 +348,19 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     if (_us) return _submitUsDocument(amount);
     final rate = parseRate(_rate.text);
     if (amount == null) {
-      return setState(() => _formError = 'Enter the amount before $salesTaxName.');
+      return setState(() => _formError = inFormat(context, 'Enter the amount before {tax}.', {'tax': salesTaxName}));
     }
     if (rate == null) {
       return setState(
         () => _formError =
-            _uk ? 'Enter the VAT rate, for example 20 or 5. Use 0 if there is none.' : 'Enter the GST rate, for example 5 or 18. Use 0 if there is none.',
+            _uk ? 'Enter the VAT rate, for example 20 or 5. Use 0 if there is none.' : inText(context, 'Enter the GST rate, for example 5 or 18. Use 0 if there is none.'),
       );
     }
     final tdsProblem = _sales ? null : _tds.problem();
     if (tdsProblem != null) return setState(() => _formError = tdsProblem);
     setState(() => _composer = _Composer.none);
-    final what = _sales ? 'Sale' : 'Bill';
+    final s = UaeStrings.of(context);
+    final said = {'amount': rupees(amount), 'tax': salesTaxName, 'rate': rateLabel(rate)};
     if (_repeat.isNotEmpty) {
       final args = documentArgs(
         partyName: widget.partyName,
@@ -370,7 +372,9 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       if ((args['partyGstin'] as String).isEmpty) args.remove('partyGstin');
       args.remove('supplierInvoiceNo');
       await propose(
-        '$what: ${rupees(amount)} + $salesTaxName at ${rateLabel(rate)}%, ${(repeatEveryLabels[_repeat] ?? _repeat).toLowerCase()}',
+        _sales
+            ? inFormat(context, 'Sale: {amount} + {tax} at {rate}%, {every}', {...said, 'every': s.repeatEvery(_repeat).toLowerCase()})
+            : inFormat(context, 'Bill: {amount} + {tax} at {rate}%, {every}', {...said, 'every': s.repeatEvery(_repeat).toLowerCase()}),
         'add_recurring',
         {
           ...args,
@@ -384,7 +388,11 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       return;
     }
     await propose(
-      '$what: ${rupees(amount)} + $salesTaxName at ${rateLabel(rate)}%${!_sales && _tds.chosen ? ', TDS ${_tds.option.section}' : ''}',
+      _sales
+          ? inFormat(context, 'Sale: {amount} + {tax} at {rate}%', said)
+          : _tds.chosen
+          ? inFormat(context, 'Bill: {amount} + {tax} at {rate}%, TDS {section}', {...said, 'section': _tds.option.section})
+          : inFormat(context, 'Bill: {amount} + {tax} at {rate}%', said),
       _sales ? 'create_invoice' : 'create_purchase',
       {
         ...documentArgs(
@@ -428,12 +436,12 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     }
     final rate = parseRate(_rate.text);
     if (amount == null) {
-      return setState(() => _formError = 'Enter the amount before $salesTaxName.');
+      return setState(() => _formError = inFormat(context, 'Enter the amount before {tax}.', {'tax': salesTaxName}));
     }
     if (rate == null) {
       return setState(
         () => _formError =
-            _uk ? 'Enter the VAT rate, for example 20 or 5. Use 0 if there is none.' : 'Enter the GST rate, for example 5 or 18. Use 0 if there is none.',
+            _uk ? 'Enter the VAT rate, for example 20 or 5. Use 0 if there is none.' : inText(context, 'Enter the GST rate, for example 5 or 18. Use 0 if there is none.'),
       );
     }
     setState(() => _composer = _Composer.none);
@@ -447,8 +455,11 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     if ((args['partyGstin'] as String).isEmpty) args.remove('partyGstin');
     if (_docKind != 'quote') args['kind'] = _docKind;
     if (_docKind == 'challan') args['reason'] = _challanReason;
+    final said = {'what': _kindLabel(context, _docKind), 'amount': rupees(amount), 'tax': salesTaxName, 'rate': rateLabel(rate)};
     await propose(
-      '${salesDocumentLabel(_docKind)}: ${rupees(amount)} + $salesTaxName at ${rateLabel(rate)}%${_docKind == 'challan' ? ' (${(challanReasonLabels[_challanReason] ?? _challanReason).toLowerCase()})' : ''}',
+      _docKind == 'challan'
+          ? inFormat(context, '{what}: {amount} + {tax} at {rate}% ({reason})', {...said, 'reason': _challanLabel(context, _challanReason).toLowerCase()})
+          : inFormat(context, '{what}: {amount} + {tax} at {rate}%', said),
       'create_quote',
       args,
     );
@@ -500,7 +511,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     );
     if (draft == null || !mounted) return;
     await propose(
-      'TDS withheld ${rupees(draft.amount)} against ${draft.invoiceId} (section ${draft.section})',
+      inFormat(context, 'TDS withheld {amount} against {invoice} (section {section})', {'amount': rupees(draft.amount), 'invoice': draft.invoiceId, 'section': draft.section}),
       'record_tds_withheld',
       {
         'invoiceId': draft.invoiceId,
@@ -545,7 +556,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                   children: [
                     for (final choice in const [0, 7, 15, 30, 45, 60, 90])
                       ChoiceChip(
-                        label: Text(s.termsLabel(choice)),
+                        label: Text(s.ar ? s.termsLabel(choice) : _termsWords(sheet, choice)),
                         selected: choice == current,
                         selectedColor: Palette.sunken,
                         showCheckmark: false,
@@ -560,7 +571,8 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       },
     );
     if (days == null || !mounted || days == current) return;
-    await propose('${party.name}: ${UaeStrings.of(context).termsLabel(days)}', 'set_payment_terms', {
+    final terms = UaeStrings.of(context).ar ? UaeStrings.of(context).termsLabel(days) : _termsWords(context, days);
+    await propose('${party.name}: $terms', 'set_payment_terms', {
       'partyName': party.name,
       if (party.gstin.isNotEmpty) 'partyGstin': party.gstin,
       'days': days,
@@ -576,9 +588,9 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     if (draft == null || !mounted) return;
     final days = draft.days;
     final said = [
-      draft.msme ? 'MSME supplier' : 'Not MSME',
-      if (draft.category.isNotEmpty) draft.category,
-      if (days != null) termsLabel(days),
+      draft.msme ? inText(context, 'MSME supplier') : inText(context, 'Not MSME'),
+      if (draft.category.isNotEmpty) _msmeCategory(context, draft.category).toLowerCase(),
+      if (days != null) _termsWords(context, days),
     ].join(', ');
     await propose(
       '${party.name}: $said',
@@ -615,11 +627,11 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
           quote.date,
           [
             Bubble(
-              text: '${quote.label} ${quote.id}',
+              text: '${_kindLabel(context, quote.kind)} ${quote.id}',
               amount: rupees(quote.total),
               tone: BubbleTone.plain,
               label: quote.date,
-              stamp: switch (quote.stateOn(today)) {
+              stamp: s.stamp(switch (quote.stateOn(today)) {
                 'accepted' => 'Accepted',
                 'declined' => 'Declined',
                 'invoiced' => 'Invoiced',
@@ -627,13 +639,13 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                 'cancelled' => 'Cancelled',
                 'returned' => 'Came back',
                 _ => 'Open',
-              },
+              }),
               footnotes: [
                 if (quote.stateOn(today) == 'open' && quote.expires)
-                  'Valid until ${longDate(quote.validUntil)}',
+                  inFormat(context, 'Valid until {date}', {'date': longDate(quote.validUntil)}),
                 if (quote.kind == 'challan' && quote.reason.isNotEmpty)
-                  challanReasonLabels[quote.reason] ?? quote.reason,
-                if (quote.invoiceId.isNotEmpty) 'Became ${quote.invoiceId}',
+                  _challanLabel(context, quote.reason),
+                if (quote.invoiceId.isNotEmpty) inFormat(context, 'Became {id}', {'id': quote.invoiceId}),
                 s.tapToView,
               ],
               onTap: () => Navigator.of(context).push(
@@ -661,17 +673,19 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     return [
       ...[
         Bubble(
-          text: s.ar ? (_sales ? s.invoiceTitle(doc.id) : s.billTitle(doc.id)) : '$what ${doc.id}',
+          text: _sales ? s.invoiceTitle(doc.id) : s.billTitle(doc.id),
           amount: rupees(doc.total),
           tone: BubbleTone.plain,
           label: doc.date,
-          stamp: doc.cancelled
-              ? 'Cancelled'
-              : doc.paid
-              ? 'Paid'
-              : (!_sales && doc.partial)
-              ? 'Part paid'
-              : 'Unpaid',
+          stamp: s.stamp(
+            doc.cancelled
+                ? 'Cancelled'
+                : doc.paid
+                ? 'Paid'
+                : (!_sales && doc.partial)
+                ? 'Part paid'
+                : 'Unpaid',
+          ),
           footnotes: _sales
               ? [
                   if (s.dueWords(
@@ -688,8 +702,11 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                 ]
               : [
                   if (doc.partial) s.stillOwed(rupees(doc.owed)),
-                  if (payBy != null) 'Pay by ${longDate(payBy.date)}${payBy.msme ? ' (MSME)' : ''}',
-                  if (_riskByBill.containsKey(doc.id)) 'Credit at risk: ${_riskByBill[doc.id]}',
+                  if (payBy != null)
+                    payBy.msme
+                        ? inFormat(context, 'Pay by {date} (MSME)', {'date': longDate(payBy.date)})
+                        : inFormat(context, 'Pay by {date}', {'date': longDate(payBy.date)}),
+                  if (_riskByBill.containsKey(doc.id)) inFormat(context, 'Credit at risk: {why}', {'why': _riskByBill[doc.id]}),
                 ],
           onTap: _sales
               ? () => Navigator.of(context).push(
@@ -719,7 +736,9 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
         for (final receipt in doc.receipts)
           Bubble(
             text: receipt.tds
-                ? 'TDS withheld${receipt.section.isEmpty ? '' : ' (${receipt.section})'} against ${doc.id}'
+                ? (receipt.section.isEmpty
+                      ? inFormat(context, 'TDS withheld against {doc}', {'doc': doc.id})
+                      : inFormat(context, 'TDS withheld ({section}) against {doc}', {'section': receipt.section, 'doc': doc.id}))
                 : s.receivedAgainst(receipt.mode, doc.id),
             amount: rupees(receipt.amount),
             tone: BubbleTone.plain,
@@ -773,7 +792,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                     _ae
                         ? _aeSubtitle(party)
                         : party.gstin.isEmpty
-                        ? (_sales ? 'Customer' : 'Supplier')
+                        ? (_sales ? s.customer : s.supplier)
                         : party.gstin,
                     style: Theme.of(
                       context,
@@ -800,7 +819,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
             ),
           if (_sales && !_us && !_ae)
             IconButton(
-              tooltip: 'Remind customer',
+              tooltip: inText(context, 'Remind customer'),
               icon: const Icon(Icons.notifications_active_outlined),
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
@@ -832,7 +851,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
               busy: busy,
               onPost: postPending,
               onDiscard: discardPending,
-              postLabel: _proposedTool == 'set_supplier_terms' ? s.yes : 'Post it',
+              postLabel: _proposedTool == 'set_supplier_terms' ? s.yes : s.postIt,
             )
           else if (_composer == _Composer.none)
             _ActionChips(
@@ -858,10 +877,10 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
               title: _composer == _Composer.payment
                   ? s.paymentTitle(_sales)
                   : _composer == _Composer.quote
-                  ? 'New ${salesDocumentLabel(_docKind).toLowerCase()}'
+                  ? _newKindTitle(context, _docKind)
                   : _composer == _Composer.purchaseNote
-                  ? 'Debit note to supplier'
-                  : (_sales ? 'New sale' : 'New bill'),
+                  ? inText(context, 'Debit note to supplier')
+                  : (_sales ? inText(context, 'New sale') : inText(context, 'New bill')),
               error: _formError,
               onCancel: () => setState(() => _composer = _Composer.none),
               onSubmit: _composer == _Composer.payment
@@ -894,7 +913,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
         for (final kind in salesDocumentKinds)
           ChoiceChip(
             key: ValueKey('kind.$kind'),
-            label: Text(salesDocumentLabel(kind)),
+            label: Text(_kindLabel(context, kind)),
             selected: _docKind == kind,
             onSelected: (_) => setState(() => _docKind = kind),
           ),
@@ -906,10 +925,10 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
         key: const ValueKey('challan.reason'),
         isExpanded: true,
         initialValue: _challanReason,
-        decoration: const InputDecoration(labelText: 'Why the goods are moving'),
+        decoration: InputDecoration(labelText: inText(context, 'Why the goods are moving')),
         items: [
           for (final entry in challanReasonLabels.entries)
-            DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+            DropdownMenuItem(value: entry.key, child: Text(_challanLabel(context, entry.key))),
         ],
         onChanged: (value) => setState(() => _challanReason = value ?? 'other'),
       ),
@@ -923,15 +942,15 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       key: const ValueKey('repeat.every'),
       isExpanded: true,
       initialValue: _repeat,
-      decoration: const InputDecoration(
-        labelText: 'Repeat',
-        helperText: 'From today, posted on each date',
+      decoration: InputDecoration(
+        labelText: inText(context, 'Repeat'),
+        helperText: inText(context, 'From today, posted on each date'),
         helperMaxLines: 2,
       ),
       items: [
-        const DropdownMenuItem(value: '', child: Text('Does not repeat')),
+        DropdownMenuItem(value: '', child: Text(inText(context, 'Does not repeat'))),
         for (final entry in repeatEveryLabels.entries)
-          DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+          DropdownMenuItem(value: entry.key, child: Text(UaeStrings.of(context).repeatEvery(entry.key))),
       ],
       onChanged: (value) => setState(() => _repeat = value ?? ''),
     ),
@@ -1042,8 +1061,8 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
         textCapitalization: TextCapitalization.characters,
         inputFormatters: const [Utf16LengthLimit(16)],
         decoration: InputDecoration(
-          labelText: 'Supplier\'s bill number',
-          helperText: _uk ? 'As printed on the bill.' : 'As printed on the bill. It is how the bill is found in GSTR-2B.',
+          labelText: inText(context, 'Supplier\'s bill number'),
+          helperText: _uk ? 'As printed on the bill.' : inText(context, 'As printed on the bill. It is how the bill is found in GSTR-2B.'),
           counterText: '',
         ),
       ),
@@ -1059,7 +1078,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             textInputAction: TextInputAction.next,
             decoration: InputDecoration(
-              labelText: 'Amount before $salesTaxName',
+              labelText: inFormat(context, 'Amount before {tax}', {'tax': salesTaxName}),
               prefixText: moneyPrefix,
             ),
           ),
@@ -1094,7 +1113,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Text(
-            'Used before',
+            inText(context, 'Used before'),
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: Palette.muted),
@@ -1114,8 +1133,8 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       textCapitalization: TextCapitalization.sentences,
       decoration: InputDecoration(
         labelText: _sales
-            ? 'What was sold (optional)'
-            : 'What was bought (optional)',
+            ? inText(context, 'What was sold (optional)')
+            : inText(context, 'What was bought (optional)'),
       ),
     ),
   ];
@@ -1160,7 +1179,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       children: [
         for (final mode in const ['bank', 'cash'])
           ChoiceChip(
-            label: Text(mode == 'bank' ? (_ae ? UaeStrings.of(context).bank : 'Bank or UPI') : UaeStrings.of(context).cash),
+            label: Text(mode == 'bank' ? (_ae ? UaeStrings.of(context).bank : inText(context, 'Bank or UPI')) : UaeStrings.of(context).cash),
             selected: _mode == mode,
             selectedColor: Palette.sunken,
             showCheckmark: false,
@@ -1170,3 +1189,36 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     ),
   ];
 }
+
+String _kindLabel(BuildContext context, String kind) => switch (kind) {
+  'proforma' => inText(context, 'Proforma invoice'),
+  'order' => inText(context, 'Sales order'),
+  'challan' => inText(context, 'Delivery challan'),
+  _ => inText(context, 'Quote'),
+};
+
+String _newKindTitle(BuildContext context, String kind) => switch (kind) {
+  'proforma' => inText(context, 'New proforma invoice'),
+  'order' => inText(context, 'New sales order'),
+  'challan' => inText(context, 'New delivery challan'),
+  _ => inText(context, 'New quote'),
+};
+
+String _challanLabel(BuildContext context, String reason) => switch (reason) {
+  'job-work' => inText(context, 'Sent for job work'),
+  'approval' => inText(context, 'Supply on approval'),
+  'line-sale' => inText(context, 'Line sale'),
+  'exhibition' => inText(context, 'For an exhibition'),
+  'own-use' => inText(context, 'Own use'),
+  'other' => inText(context, 'Other'),
+  _ => reason,
+};
+
+String _termsWords(BuildContext context, int days) => days == 0 ? inText(context, 'Due on receipt') : inFormat(context, 'Net {days}', {'days': days});
+
+String _msmeCategory(BuildContext context, String category) => switch (category) {
+  'micro' => inText(context, 'Micro'),
+  'small' => inText(context, 'Small'),
+  'medium' => inText(context, 'Medium'),
+  _ => category,
+};

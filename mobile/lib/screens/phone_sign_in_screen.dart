@@ -5,6 +5,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../brand.dart';
 import '../cloud/cloud_session.dart';
+import '../india/india_strings.dart';
 import '../my/my_strings.dart';
 import '../secure_window.dart';
 import '../theme.dart';
@@ -303,8 +304,8 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> with SecureWindow
                               prefixText: s.uaePrefix,
                               hintText: '050 123 4567',
                             )
-                          : const InputDecoration(
-                              labelText: 'Mobile number',
+                          : InputDecoration(
+                              labelText: inText(context, 'Mobile number'),
                               prefixText: '+91  ',
                             ),
                       onSubmitted: (_) => _sendCode(),

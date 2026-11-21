@@ -1244,9 +1244,9 @@ export function discardPending(state) {
   return spoken(discardCore(state));
 }
 
-export async function chat(state, said) {
+export async function chat(state, said, { lang } = {}) {
   const message = redactTinsFor(setCurrentCountry(state), said);
-  const out = await throughLanguage(message, async (english, how) => spoken(await chatCore(state, english, how)));
+  const out = await throughLanguage(message, async (english, how) => spoken(await chatCore(state, english, how)), { lang });
   rememberTurn(state, message, out.reply);
   logEvalEvent(state, { input: message, toolName: out.tools?.[0]?.name || out.preview?.tool || out.pending?.name || out.pending?.tool || '', outcome: out.blocked ? 'blocked' : out.awaitingConfirmation || out.pending ? 'held' : out.tools?.length ? 'ran' : 'answered', viaModel: Boolean(out.viaModel), blocked: Boolean(out.blocked), reply: out.reply });
   return out;
