@@ -29,13 +29,13 @@ test('Form 5329 and 8606 are supported, no longer coming', () => {
 });
 
 for (const year of ['2025', '2026']) {
-  test(`${year} Part I: code 1 early IRA distribution of 10,000 with no exception: line 3 10,000, line 4 10% = 1,000 to Schedule 2 line 8, Form 5329 not required`, () => {
+  test(`${year} Part I: code 1 early IRA distribution of 10,000 with no exception: line 3 10,000, line 4 10% = 1,000 to Schedule 2 line 8 (line 5 from 2026), Form 5329 not required`, () => {
     const data = run([ira(10000, '1')], {}, year);
     const f = form5329(data);
     assert.deepEqual([f.lines['1'], f.lines['2'], f.lines['3'], f.lines['4']], [10000, 0, 10000, 1000]);
     assert.equal(f.fileRequired, false);
     assert.equal(data.schedules['5329'], undefined, 'the tax goes straight to Schedule 2 line 8 without Form 5329');
-    assert.equal(data.schedules['2']['8'], 1000);
+    assert.equal(data.schedules['2'][year === '2025' ? '8' : '5'], 1000);
     assert.equal(data.lines['23'], 1000);
     assert.ok(codes(data).includes('EARLY_DISTRIBUTION'));
     assert.deepEqual(required(data), []);
@@ -48,7 +48,7 @@ for (const year of ['2025', '2026']) {
     assert.equal(f.exceptionNumber, '08');
     assert.equal(f.fileRequired, true);
     assert.deepEqual(data.schedules['5329'].map((item) => item.owner), ['taxpayer']);
-    assert.equal(data.schedules['2']['8'], 800);
+    assert.equal(data.schedules['2'][year === '2025' ? '8' : '5'], 800);
   });
 
   test(`${year} Part I: exception with no amount covers the whole taxable distribution, so no additional tax`, () => {
@@ -110,7 +110,7 @@ test('exception 01 (separation from service at 55) does not apply to an IRA; exc
 
 test('medical exception 05 covers only medical expenses above 7.5% of AGI: AGI 60,000 + 10,000 = 70,000, floor 5,250, expenses 9,000 leave 3,750; tax 10% x 6,250 = 625', () => {
   const data = run([ira(10000, '1', { exceptionCode: '05' })], { medicalExpenses: 9000 });
-  assert.equal(data.lines['11'], 70000);
+  assert.equal(data.lines['11b'], 70000);
   assert.deepEqual([form5329(data).lines['2'], form5329(data).lines['3'], form5329(data).lines['4']], [3750, 6250, 625]);
 });
 
@@ -172,7 +172,7 @@ for (const year of ['2025', '2026']) {
     const waived = run([], { ...base, rmdWaiverAmount: 3000 }, year);
     assert.equal(form5329(waived).lines['55'], 1250);
     assert.ok(codes(waived).includes('RMD_WAIVER_REQUESTED'));
-    assert.equal(waived.schedules['2']['8'], 1250);
+    assert.equal(waived.schedules['2'][year === '2025' ? '8' : '18'], 1250);
   });
 }
 

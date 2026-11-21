@@ -62,9 +62,14 @@ List<int> receiptBytes({
     out.text('${line['description'] ?? 'Item'}');
     if (_textOf(line['hsn']).isNotEmpty) out.text('  HSN ${line['hsn']}');
     final gst = _num(line['gstRate']);
-    out.row('  ${_qty(_num(line['qty']))} x ${_money(_num(line['rate']))}${gst > 0 ? ' +${_qty(gst)}%' : ''}', _money(_num(line['taxable'])));
+    out.row('  ${_qty(_num(line['qty']))} x ${_money(_num(line['rate']))}${gst > 0 ? ' +${_qty(gst)}%' : ''}', _money(_num(line['grossTaxable'] ?? line['taxable'])));
   }
   out.rule();
+  final discounts = invoice['discounts'] is List ? invoice['discounts'] as List : const [];
+  for (final raw in discounts) {
+    final discount = raw is Map ? raw : const {};
+    out.row(discount['points'] == null ? 'Points redeemed' : 'Points redeemed (${discount['points']})', '-${_money(_num(discount['amount']))}');
+  }
   out.row('Taxable value', _money(_num(invoice['taxable'])));
   if (_num(invoice['cgst']) > 0) out.row('CGST', _money(_num(invoice['cgst'])));
   if (_num(invoice['sgst']) > 0) out.row('SGST', _money(_num(invoice['sgst'])));

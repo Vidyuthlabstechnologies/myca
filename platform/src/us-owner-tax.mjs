@@ -21,7 +21,7 @@ const SCHEDULE_C_LINES = {
   5220: { line: '15', label: 'Insurance (other than health)' },
   5230: { line: '18', label: 'Office expense (software and subscriptions)' },
   5240: { line: '22', label: 'Supplies' },
-  5250: { line: '24b', label: 'Deductible meals', note: 'Business meals are generally limited to 50%; the full amount is shown and your CPA applies the limit.' },
+  5250: { line: '24b', label: 'Deductible meals', note: 'Business meals are limited to 50% (IRC 274(n)); line 24b shows the deductible half and paid shows the full amount.' },
   5260: { line: '27a', label: 'Other expenses (gifts and staff welfare)', note: 'Business gifts are limited per recipient; your CPA applies the limit.' },
   5270: { line: '', label: 'Club and fitness memberships', note: 'Club dues are not deductible; shown for completeness and excluded from the total.' },
   5280: { line: '9', label: 'Car and truck expenses', note: 'Only the business-use share is deductible; your CPA decides between actual cost and the standard mileage rate.' },
@@ -58,6 +58,12 @@ export function scheduleCSummary(state, args = {}) {
     row.amount = round2(row.amount + payrollTaxes);
     row.heads.add('Employer payroll taxes');
     byHead.set(key, row);
+  }
+  const meals = rules.rule('us.federal.business-meals', `${year}-12-31`);
+  const mealsShare = meals.ok ? meals.value.deductibleBasisPoints : 10000;
+  for (const row of byHead.values()) if (SCHEDULE_C_LINES[5250].line === row.line && row.label === SCHEDULE_C_LINES[5250].label) {
+    row.paid = row.amount;
+    row.amount = round2((row.amount * mealsShare) / 10000);
   }
   const expenses = [...byHead.values()].map((row) => ({ ...row, heads: [...row.heads].sort(), deductible: row.line !== '' })).sort((a, b) => (a.line || 'zz').localeCompare(b.line || 'zz', undefined, { numeric: true }));
   const totalExpenses = round2(expenses.filter((row) => row.deductible).reduce((sum, row) => sum + row.amount, 0));

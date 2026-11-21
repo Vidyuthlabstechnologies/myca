@@ -43,7 +43,12 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | Thermal (58/80 mm) receipt printing | yes (Bluetooth ESC/POS, engine figures only) | Built |
 | Full offline billing on the phone | partial (desktop is local) | Gap on Android (Vyapar) |
 | **App in Hindi and regional languages** | Hindi on a Hindi phone for home, new entry, counter sale and the fixed wording of the shared screens: cash, bank, reports, statements, repeating entries, reminders, expenses, parties and entry forms (`mobile/lib/india/india_strings.dart`) | **Partly built**: lines with a name or amount inside them, the taxes and payroll screens, server replies, a language switch in the app and other languages are still open; the Hindi needs a native review |
-| Loyalty points, online catalogue/store link | no | Gap (myBillBook, Vyapar) |
+| Loyalty points | yes (earn, redeem before GST, expiry, reversal on credit notes, liability, WhatsApp balance) | Built |
+| Online catalogue/store link | yes (`catalogue_settings`, shareable `/s/<link>` page with cart, WhatsApp order and Place order; orders become quotes; Online store screen) | Built |
+| Inventory costing and batches | FIFO or weighted average (`set_costing_method`, no LIFO per AS 2), GST units on lines and e-invoice, reorder levels feeding restock, batch and expiry with `stock_alerts` | Built (Vyapar, Tally parity) |
+| E-invoice timing and HSN rules by turnover | AATO stored or estimated; 30-day IRN window above ₹10 crore; 4 or 6 HSN digits by AATO (Notification 78/2020-CT) | Built |
+| Credit note and GSTR-1 amendment deadlines | s.34(2) and s.37(3): 30 November after the year or the GSTR-9 date | Built |
+| Senior citizens in income tax | date of birth; 60+/80+ slabs, 80TTB, no advance tax under s.207(2), s.194P note | Built |
 
 ## United States (rivals: TurboTax, H&R Block, FreeTaxUSA, Cash App Taxes)
 

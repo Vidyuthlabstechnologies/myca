@@ -20,6 +20,7 @@ export const SALES_PURCHASE_TOOL_SCHEMAS = {
       exemptionReason: { type: 'string', maxLength: 120 },
       partyAddress: { type: 'string', maxLength: 200 },
       supplyType: { type: 'string', enum: ['SEZWP', 'SEZWOP', 'DEXP', 'sezwp', 'sezwop', 'dexp'] },
+      redeemPoints: { type: 'integer', minimum: 1, maximum: 10000000 },
       exportSale: {
         type: 'object',
         additionalProperties: false,

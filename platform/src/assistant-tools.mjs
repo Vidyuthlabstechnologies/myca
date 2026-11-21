@@ -130,8 +130,19 @@ const TOOL_RISK = {
   register_offline_device: 'internal_workflow',
   post_offline_sales: 'writes_books',
   find_item: 'read_only',
+  catalogue_settings: 'writes_books',
+  catalogue_items: 'writes_books',
+  catalogue_view: 'read_only',
+  store_orders: 'read_only',
+  store_order_action: 'writes_books',
+  loyalty_settings: 'writes_books',
+  loyalty_balance: 'read_only',
+  loyalty_adjust: 'writes_books',
   import_sku_costs: 'writes_books',
   record_stock: 'writes_books',
+  set_costing_method: 'writes_books',
+  inventory_costing: 'read_only',
+  stock_alerts: 'read_only',
   stock_position: 'read_only',
   stock_moves: 'read_only',
   value_inventory: 'writes_books',
@@ -257,8 +268,19 @@ function valueType(value) {
   return typeof value;
 }
 
+function typeMatches(type, value) {
+  if (type === 'integer') return Number.isInteger(value);
+  if (type === 'null') return value === null;
+  return valueType(value) === type;
+}
+
 function checkScalar(schema, value, path) {
   if (!schema) return null;
+  if (Array.isArray(schema.type)) {
+    const type = schema.type.find((item) => typeMatches(item, value));
+    if (!type) return `${path} must be ${schema.type.join(',')}`;
+    return checkScalar({ ...schema, type }, value, path);
+  }
   if (schema.type === 'integer') {
     if (!Number.isInteger(value)) return `${path} must be integer`;
   } else if (schema.type && valueType(value) !== schema.type) return `${path} must be ${schema.type}`;

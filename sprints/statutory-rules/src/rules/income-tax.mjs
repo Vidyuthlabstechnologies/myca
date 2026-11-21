@@ -136,6 +136,25 @@ export const RULES = [
       ['126', `${ACT_2025_TEXT}, s.126(2) Rs 25,000 per group, s.126(3) Rs 5,000 preventive check-up, s.126(4) Rs 50,000 per group aggregate, s.126(7) medical expenditure only for an uninsured senior citizen, s.126(8) Rs 50,000 for a senior citizen`]
     ]),
 
+  ...acrossYears('income-tax.deduction.80ttb.cap', 'interest on deposits with a banking company, co-operative bank or post office of a resident individual aged 60 years or more at any time during the year; old regime only; the lower of this amount and the interest',
+    sameEachYear({ maxPaise: 50000 * RUPEE, minAgeYears: 60 }), [
+      ['80TTB', `Income-tax Act, 1961 s.80TTB (incometaxindia.gov.in Act text): deduction of the interest on deposits with a banking company, a co-operative society engaged in banking or a Post Office, up to fifty thousand rupees, for an individual resident in India of the age of sixty years or more at any time during the previous year; ${PORTAL_AY_2025_26}`],
+      ['80TTB', `Income-tax Act, 1961 s.80TTB (incometaxindia.gov.in Act text): fifty thousand rupees for a resident senior citizen; ${PORTAL_AY_2026_27}`],
+      ['153', 'Income-tax Act, 2025 (30 of 2025) s.153 "Deduction for interest on deposits" (incometaxindia.gov.in Act text, tax year 2026): Rs 50,000 of interest on deposits in any account, time deposits included, for a senior citizen; Rs 10,000 on savings deposits only for others']
+    ]),
+  ...acrossYears('income-tax.advance-tax.senior-exemption', 'advance tax of a resident individual aged 60 years or more at any time during the year who has no income chargeable under the head profits and gains of business or profession',
+    sameEachYear({ minAgeYears: 60, residentIndividual: true, noBusinessOrProfessionIncome: true }), [
+      ['207(2)', 'Income-tax Act, 1961 s.207(2) (incometaxindia.gov.in Act text): advance tax under s.207(1) is not payable by an individual resident in India who has no income chargeable under the head "Profits and gains of business or profession" and is of the age of sixty years or more at any time during the previous year; incometaxindia.gov.in FAQ on advance tax'],
+      ['207(2)', 'Income-tax Act, 1961 s.207(2) (incometaxindia.gov.in Act text): resident individual aged sixty years or more with no business or profession income pays no advance tax; incometaxindia.gov.in FAQ on advance tax'],
+      ['403(3)', 'Income-tax Act, 2025 (30 of 2025) s.403(3) (incometaxindia.gov.in Act text, tax year 2026): s.403(1) does not apply to an individual resident in India who has no income under the head "Profits and gains of business or profession" and is of the age of sixty years or more at any time during the tax year']
+    ]),
+  ...acrossYears('income-tax.specified-senior-citizen', 'resident individual aged 75 years or more at any time during the year whose income is only pension and interest from the specified bank that pays the pension; on a declaration to that bank the bank deducts the tax and no return of income is required',
+    sameEachYear({ minAgeYears: 75, residentIndividual: true, incomeLimitedTo: ['pension', 'interest-from-the-same-specified-bank'] }), [
+      ['194P', 'Income-tax Act, 1961 s.194P inserted by the Finance Act, 2021 (incometaxindia.gov.in Act text): resident individual of the age of seventy-five years or more at any time during the previous year, pension and interest from an account in the same specified bank, declaration in Form No. 12BBA; s.139 does not apply for that assessment year once tax is deducted'],
+      ['194P', 'Income-tax Act, 1961 s.194P (incometaxindia.gov.in Act text and "Deduction of tax in case of specified senior citizen"): seventy-five years or more, resident, pension and interest only from the specified bank, Form No. 12BBA, no return under s.139 for that year'],
+      ['393(1) Table Sl. No. 8(iii)', 'Income-tax Act, 2025 (30 of 2025) s.393(1) Table Sl. No. 8(iii), s.402(39) "specified senior citizen" (resident, 75 years or older, pension and interest through a specified bank) and s.263(8)(b) (no return where Form No. 125 is given); CBDT FAQs on Form No. 125 (incometaxindia.gov.in), which replaces Form No. 12BBA and s.194P']
+    ]),
+
   ...acrossYears('income-tax.rounding.total-income', 'total_income',
     sameEachYear({ ignorePaise: true, multiplePaise: 10 * RUPEE, roundUpFromLastRupeeDigit: 5 }), [
       ['288A', 'Income-tax Act, 1961 s.288A: total income rounded off to the nearest multiple of ten rupees, paise ignored, last figure five or more rounded up'],

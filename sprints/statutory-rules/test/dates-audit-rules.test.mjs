@@ -150,6 +150,19 @@ test('advance tax instalments follow section 408 of the Income-tax Act 2025', ()
   assert.equal(presumptive.record.section, '408(2)');
 });
 
+test('advance tax instalments for FY 2024-25 and FY 2025-26 follow section 211 of the Income-tax Act 1961', () => {
+  for (const onDate of ['2024-04-01', '2025-04-01', '2026-03-31']) {
+    const found = valueOn('due-date.income-tax.advance-tax', onDate);
+    assert.deepEqual(found.value.instalments.map((item) => [item.month, item.day, item.cumulativePercent]), [[6, 15, 15], [9, 15, 45], [12, 15, 75], [3, 15, 100]]);
+    assert.equal(found.record.act, 'IT-1961');
+    assert.equal(found.record.section, '211(1)(a)');
+    const presumptive = valueOn('due-date.income-tax.advance-tax.presumptive', onDate);
+    assert.deepEqual(presumptive.value.instalments, [{ month: 3, day: 15, cumulativePercent: 100 }]);
+    assert.equal(presumptive.record.section, '211(1)(b)');
+  }
+  assert.equal(rule('due-date.income-tax.advance-tax', '2024-03-31').ok, false);
+});
+
 test('return-of-income due dates carry the Finance Act 2026 31 August row for FY 2025-26 and tax year 2026-27', () => {
   const expected = {
     'due-date.income-tax.return.transfer-pricing': { monthsAfterPeriodEnd: 8, day: 30 },

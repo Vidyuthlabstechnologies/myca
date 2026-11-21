@@ -40,6 +40,12 @@ export { TOOL_ARG_SCHEMAS } from './tool-schemas.mjs';
 export { assistantTools, modelTools, validateAssistantToolCall } from './assistant-tools.mjs';
 
 const PERIOD_TOOLS = new Set(['gst_payable', 'export_tally', 'export_gstr1_json', 'prepare_gstr1', 'filing_pack', 'prepare_gstr3b']);
+const YEAR_TOOLS = new Set(['contractor_1099_file', 'schedule_se', 'cpa_pack']);
+
+function saidTaxYear(text) {
+  const found = String(text).match(/(?<![\d$₹.,])\b(20[0-9]{2})\b(?![\d.,])/);
+  return found ? found[1] : '';
+}
 
 export function pendingFileContent(state) {
   const pending = state.pendingFile;
@@ -570,6 +576,10 @@ export function planLocalToolCall(state, message) {
   {
     const cost = /^(?:cost\s+of\s+|set\s+cost\s+(?:of\s+)?)([A-Za-z0-9][A-Za-z0-9_./-]{0,63})\s+(?:is|=|:|to|at)?\s*(?:₹|rs\.?\s*)?([\d,]+(?:\.\d+)?)(?:\s+(?:at|gst)\s+(\d{1,2})%)?\s*$/i.exec(text.trim());
     if (cost && !isNegated(text)) return { kind: 'tool', name: 'set_sku_cost', args: { sku: cost[1].toUpperCase(), cost: Number(cost[2].replace(/,/g, '')), ...(cost[3] ? { gstRate: Number(cost[3]) } : {}) } };
+    const costing = /\b(?:cost|value)\s+(?:the\s+)?(?:inventory|stock)\s+(?:by|on|at|using)\s+(fifo|weighted\s+average|average|lifo)\b|\b(?:use|switch\s+to|choose)\s+(fifo|weighted\s+average|lifo)\b/i.exec(text);
+    if (costing && !isNegated(text) && !isQuestion(text)) return { kind: 'tool', name: 'set_costing_method', args: { method: (costing[1] || costing[2]).toLowerCase().replace(/\s+/g, '') } };
+    if (/\b(?:expiring|expired)\s+(?:soon|stock|items?|batch(?:es)?|medicines?|products?|goods)\b|\bwhat\s+(?:is|'s)\s+expiring\b|\blow\s+stock\b|\bbelow\s+(?:the\s+)?reorder\b|\bstock\s+alerts?\b/i.test(text)) return { kind: 'tool', name: 'stock_alerts', args: {} };
+    if (/\b(?:costing\s+method|inventory\s+costing|stock\s+lots?|cost\s+of\s+goods\s+(?:sold|out))\b/i.test(text)) return { kind: 'tool', name: 'inventory_costing', args: {} };
     const stock = /^stock\s+(in|out)\s+([A-Za-z0-9][A-Za-z0-9_./-]{0,63})\s+([\d.]+)(?:\s+(?:at|to|from|in)\s+([A-Za-z0-9][A-Za-z0-9 _-]{0,39}))?\s*$/i.exec(text.trim());
     if (stock && !isNegated(text)) return { kind: 'tool', name: 'record_stock', args: { sku: stock[2].toUpperCase(), qty: stock[1].toLowerCase() === 'in' ? Number(stock[3]) : -Number(stock[3]), ...(stock[4] ? { location: stock[4].trim().toLowerCase() } : {}) } };
     if (/\bimport\s+(?:sku\s+)?costs?\b|\bsku\s+costs?\s+(?:file|csv|sheet)\b/i.test(text) && !isQuestion(text)) {
@@ -676,6 +686,10 @@ export function planLocalToolCall(state, message) {
 
   for (const route of ROUTES) {
     if (!route.re.test(text)) continue;
+    if (YEAR_TOOLS.has(route.tool)) {
+      const year = saidTaxYear(text);
+      return { kind: 'tool', name: route.tool, args: year ? { year } : {} };
+    }
     const period = PERIOD_TOOLS.has(route.tool) ? saidPeriod(text) : '';
     return { kind: 'tool', name: route.tool, args: period ? { period } : {} };
   }

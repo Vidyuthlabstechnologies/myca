@@ -127,6 +127,8 @@ class OfflineFirstApi implements MycaApi {
   ChatReply _localPreview(String name, Map<String, Object?> args) {
     final token = '$offlineTokenPrefix${now().microsecondsSinceEpoch}-${_tokens++}';
     if (name == 'create_invoice') {
+      final points = args['redeemPoints'];
+      if (points is num && points > 0) return _blocked('Loyalty points need a connection. Bill without using points, or wait until you are back online.');
       final draft = offline.draftSale(args);
       if (!draft.ok) return _blocked(draft.problem);
       final figures = draft.figures!;

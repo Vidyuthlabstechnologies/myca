@@ -19,6 +19,7 @@ import { performExternalAction } from './action-gate.mjs';
 import { normalizeClientId } from './books.mjs';
 import { appendAuditEvent, stateDigest } from './ca-api.mjs';
 import { figuresOf1040 } from './us-1040x.mjs';
+import { form1040Amount } from './us-line-map.mjs';
 
 export const PARTNERS = Object.freeze({
   'column-tax': Object.freeze({ label: 'Column Tax', site: 'https://www.columntax.com' }),
@@ -121,7 +122,7 @@ function person(item, sendTins) {
  * in the partner's own flow.
  */
 export function partnerPrefill(computed, { sendTins = false, contact = {}, priorYear = null } = {}) {
-  const lines = computed.lines || {};
+  const amount = (name) => money(form1040Amount(computed, name));
   const forms = Array.isArray(computed.forms) ? computed.forms : [];
   return {
     tax_year: computed.taxYear,
@@ -146,7 +147,10 @@ export function partnerPrefill(computed, { sendTins = false, contact = {}, prior
     })),
     other_forms: forms.filter((f) => f.kind !== 'W-2').map((f) => ({ kind: f.kind, owner: f.owner, payer: f.payer || '', payer_tin: f.payerTin || '', fields: f.fields || {} })),
     digital_assets: computed.digitalAssets === true,
-    myca_estimate: { adjusted_gross_income: money(lines['11']), total_tax: money(lines['24']), refund: money(lines['35a']), amount_owed: money(lines['37']) },
+    businesses: (computed.schedules?.C || []).map((item) => ({ owner: item.owner, name: item.businessName || item.name || '', activity_code: item.activityCode || '', gross_receipts: money(item.lines?.['1']), cost_of_goods_sold: money(item.lines?.['4']), total_expenses: money(item.lines?.['28']), net_profit: money(item.lines?.['31']) })),
+    answers: computed.answers && typeof computed.answers === 'object' ? { ...computed.answers } : {},
+    estimated_tax_paid: amount('estimatedPayments'),
+    myca_estimate: { adjusted_gross_income: amount('agi'), total_tax: amount('totalTax'), refund: amount('refund'), amount_owed: amount('owed') },
     ...(priorYear && Number.isFinite(Number(priorYear.agi)) ? { prior_year: { adjusted_gross_income: money(priorYear.agi), filed_jointly: priorYear.joint === true } } : {}),
   };
 }

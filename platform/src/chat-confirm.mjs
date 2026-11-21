@@ -20,16 +20,35 @@ import { salesTaxRatePreview, contractorPreview, nexusPreview, salesTaxReviewAns
 import { gstPaymentPreview, advanceTaxPreview, creditOpeningPreview, deductorPreview, tdsDepositPreview, filingPreview, reviewAnswerPreview, tdsReviewAnswerPreview, gstr2bPreview, imsPreview, registrationPreview, retireRegistrationPreview, tcsStatementPreview, credits26asPreview, tdsWithheldPreview, billTdsPreview, irnPreview } from './confirm-tax.mjs';
 import { amendmentPreview, documentPreview, receiptPreview, paymentPreview, paymentRunPreview, supplierBankPreview, purchaseOrderPreview, collectionReminderPreview, supplierReminderPreview, expensePreview, creditNotePreview, debitNotePreview, purchaseNotePreview, supplierNotePreview, reminderPreview, completeReminderPreview, invoiceTemplatePreview, invoiceNumberingPreview, transportPreview, businessAddressPreview, addressPreview, termsPreview, supplierTermsPreview, recurringPreview, stopRecurringPreview, quotePreview, markQuotePreview, convertPreview } from './confirm-sales-purchases.mjs';
 import { payrollApprovalPreview, salaryPaymentPreview, employeePreview, salaryChangePreview, leavingPreview } from './confirm-payroll.mjs';
-import { yearClosePreview, tallyPushPreview, attachDocumentPreview, skuSupplyPreview, monthClosePreview, cashReadingPreview, askPreview, replyPreview, closePreview, tallyPreview, matchPreview, unmatchPreview, chargesPreview, addRulePreview, removeRulePreview, runRulesPreview, setAccountPreview, transferPreview, bankPreview, zohoPreview, inventoryValuationPreview, skuCostPreview, skuCostsImportPreview, channelIdentityPreview, stockTransferPreview, stockPreview, ordersPreview, settlementPreview, posImportPreview, xmlPreview, exceptionPreview } from './confirm-books.mjs';
+import { yearClosePreview, tallyPushPreview, attachDocumentPreview, skuSupplyPreview, monthClosePreview, cashReadingPreview, askPreview, replyPreview, closePreview, tallyPreview, matchPreview, unmatchPreview, chargesPreview, addRulePreview, removeRulePreview, runRulesPreview, setAccountPreview, transferPreview, bankPreview, zohoPreview, inventoryValuationPreview, skuCostPreview, skuCostsImportPreview, catalogueSettingsPreview, catalogueItemsPreview, storeOrderActionPreview, channelIdentityPreview, stockTransferPreview, stockPreview, ordersPreview, settlementPreview, posImportPreview, xmlPreview, exceptionPreview, loyaltySettingsPreview, loyaltyAdjustPreview, costingMethodPreview } from './confirm-books.mjs';
+
+import { documentStockPlan, withItemUnits } from './document-stock.mjs';
+import { checkConvert, invoiceArgsFromQuote } from './quotes.mjs';
 
 import { offlineDevicePreview, offlineSalesPreview } from './offline-sales.mjs';
 
 export { TDS_REASONS, rowsCounted } from './confirm-tax.mjs';
 
+function withDocumentStock(state, args, kind) {
+  const india = countryOf(state) === 'IN';
+  const preview = documentPreview(state, india ? withItemUnits(state, args) : args, kind);
+  if (!india || !preview || !Array.isArray(preview.effects)) return preview;
+  const stock = documentStockPlan(state, args, kind);
+  return { ...preview, blockers: [...(preview.blockers || []), ...stock.blockers], effects: [...preview.effects, ...stock.effects] };
+}
+
+function withQuoteStock(state, args, preview) {
+  const checked = countryOf(state) === 'IN' ? checkConvert(state, args) : null;
+  if (!checked?.ok || !preview || !Array.isArray(preview.effects)) return preview;
+  const stock = documentStockPlan(state, invoiceArgsFromQuote(checked.quote, args), 'sale');
+  return { ...preview, blockers: [...(preview.blockers || []), ...stock.blockers], effects: [...preview.effects, ...stock.effects] };
+}
+
 export const CONFIRM_TOOLS = new Set([
   'sign_us_return', 'file_us_return', 'import_payroll_tax_forms',
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'attach_document', 'push_tally', 'import_payroll_summary', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'ims_decide', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_business_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'add_recurring', 'stop_recurring', 'amend_invoice', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'attach_document', 'push_tally', 'import_payroll_summary', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'ims_decide', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_business_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'record_stock', 'set_costing_method', 'record_stock_transfer', 'set_sku_cost', 'loyalty_settings', 'loyalty_adjust', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'add_recurring', 'stop_recurring', 'amend_invoice', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer',
   'set_invoice_template', 'set_invoice_numbering', 'set_supplier_terms',
+  'catalogue_settings', 'catalogue_items', 'store_order_action',
   'set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'import_us_prior_year', 'start_us_amended_return', 'set_us_amended_return',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
@@ -52,8 +71,8 @@ const PREVIEWERS = {
   sign_us_return: signPreview,
   file_us_return: filePreview,
   import_payroll_tax_forms: importPayrollTaxFormsPreview,
-  create_invoice: (state, args) => documentPreview(state, args, 'sale'),
-  create_purchase: (state, args) => documentPreview(state, args, 'purchase'),
+  create_invoice: (state, args) => withDocumentStock(state, args, 'sale'),
+  create_purchase: (state, args) => withDocumentStock(state, args, 'purchase'),
   record_receipt: receiptPreview,
   record_payment: paymentPreview,
   record_filing: filingPreview,
@@ -117,7 +136,7 @@ const PREVIEWERS = {
   ask_ca: askPreview,
   create_quote: quotePreview,
   mark_quote: markQuotePreview,
-  convert_quote: convertPreview,
+  convert_quote: (state, args) => withQuoteStock(state, args, convertPreview(state, args)),
   add_recurring: recurringPreview,
   match_bank_line: matchPreview,
   unmatch_bank_line: unmatchPreview,
@@ -139,8 +158,14 @@ const PREVIEWERS = {
   import_marketplace_orders: ordersPreview,
   import_tcs_statement: tcsStatementPreview,
   record_stock: stockPreview,
+  set_costing_method: costingMethodPreview,
   record_stock_transfer: stockTransferPreview,
   set_sku_cost: skuCostPreview,
+  catalogue_settings: catalogueSettingsPreview,
+  catalogue_items: catalogueItemsPreview,
+  store_order_action: storeOrderActionPreview,
+  loyalty_settings: loyaltySettingsPreview,
+  loyalty_adjust: loyaltyAdjustPreview,
   value_inventory: inventoryValuationPreview,
   import_sku_costs: skuCostsImportPreview,
   set_registration: registrationPreview,

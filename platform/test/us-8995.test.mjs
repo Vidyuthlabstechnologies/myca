@@ -117,20 +117,20 @@ test('2026 minimum, two businesses, one active: Studio 2000 - 35 SE deduction = 
   assert.equal(form['15'], 93);
   assert.equal(form['16'], 400);
   assert.equal(form['17'], 400);
-  assert.equal(out.data.lines['13a'], 400);
+  assert.equal(out.data.lines['13b'], 400);
   assert.ok(!codes(out).includes('QBI_MINIMUM_NEEDS_ANSWER'));
 });
 
 test('2026 minimum: when only the loss business is active, active QBI is -1500 and line 17 = line 15 = 93', () => {
   const out = run('single', [w2(30000)], { businesses: activeAndNot('no', 'yes') }, '2026');
   assert.equal(out.data.schedules['8995']['16'], 0);
-  assert.equal(out.data.lines['13a'], 93);
+  assert.equal(out.data.lines['13b'], 93);
   assert.ok(!codes(out).includes('QBI_MINIMUM_NEEDS_ANSWER'));
 });
 
 test('2026 minimum: the single answer does not cover two businesses, so it warns naming the unanswered ones', () => {
   const out = run('single', [w2(30000)], { businesses: activeAndNot(), answers: { qbiMaterialParticipation: 'yes' } }, '2026');
-  assert.equal(out.data.lines['13a'], 93);
+  assert.equal(out.data.lines['13b'], 93);
   const warning = out.data.checks.find((item) => item.code === 'QBI_MINIMUM_NEEDS_ANSWER');
   assert.equal(warning.level, 'warning');
   assert.match(warning.message, /Studio, Shop/);
@@ -140,7 +140,7 @@ test('2026 minimum: the single answer does not cover two businesses, so it warns
 
 test('2026 minimum: one business keeps the single answer working', () => {
   const out = run('single', [w2(30000)], { businesses: [business('studio', 'Studio', 2000, 0)], answers: { qbiMaterialParticipation: 'yes' } }, '2026');
-  assert.equal(out.data.lines['13a'], 400);
+  assert.equal(out.data.lines['13b'], 400);
 });
 
 test('2026 minimum: the spouse answer covers the spouse 1099-NEC business; spouse 3000 - 212 = 2788 active, taxpayer 1500 - 106 = 1394 not active', () => {
@@ -153,7 +153,7 @@ test('2026 minimum: the spouse answer covers the spouse 1099-NEC business; spous
   assert.equal(rows['business-1099-nec-spouse'].active, true);
   assert.equal(out.data.schedules['8995']['2'], 4182);
   assert.equal(out.data.schedules['8995']['16'], 400);
-  assert.equal(out.data.lines['13a'], 836);
+  assert.equal(out.data.lines['13b'], 836);
 });
 
 test('2026 minimum: safe-harbor rental QBI is passive and never counts as active (draft 2026 Form 8995 instructions, line 16)', () => {
@@ -161,7 +161,7 @@ test('2026 minimum: safe-harbor rental QBI is passive and never counts as active
   const out = run('single', [w2(30000), rental], { answers: { rentalQbiSafeHarbor: true, qbiMaterialParticipation: 'yes' } }, '2026');
   assert.equal(out.data.schedules['8995']['2'], 1500);
   assert.equal(out.data.schedules['8995']['16'], 0);
-  assert.equal(out.data.lines['13a'], 300);
+  assert.equal(out.data.lines['13b'], 300);
   assert.ok(!codes(out).includes('QBI_MINIMUM_NEEDS_ANSWER'));
 });
 

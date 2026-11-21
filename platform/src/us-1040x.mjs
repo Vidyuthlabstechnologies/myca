@@ -1,18 +1,19 @@
 import { rules } from './sprint-load.mjs';
+import { form1040Amount } from './us-line-map.mjs';
 
 export const ORIGINAL_FIGURES = Object.freeze({
-  agi: { line: '1', label: 'Adjusted gross income (Form 1040 line 11)', negative: true },
-  deduction: { line: '2', label: 'Standard or itemized deduction (line 12)' },
-  qbiDeduction: { line: '4a', label: 'Qualified business income deduction (line 13a)' },
-  schedule1ADeduction: { line: '4b', label: 'Schedule 1-A deductions (line 13b)' },
+  agi: { line: '1', label: 'Adjusted gross income (Form 1040 line 11; 11b from 2025)', negative: true },
+  deduction: { line: '2', label: 'Standard or itemized deduction (line 12; 12e from 2025, with 12f from 2026)' },
+  qbiDeduction: { line: '4a', label: 'Qualified business income deduction (line 13a; 13b from 2026)' },
+  schedule1ADeduction: { line: '4b', label: 'Schedule 1-A deductions (line 13b; 13a from 2026)' },
   taxableIncome: { line: '5', label: 'Taxable income (line 15)' },
   tax: { line: '6', label: 'Tax (line 18)' },
   credits: { line: '7', label: 'Nonrefundable credits (line 21)' },
   otherTaxes: { line: '10', label: 'Other taxes (line 23)' },
-  totalTax: { line: '11', label: 'Total tax (line 24)' },
+  totalTax: { line: '11', label: 'Total tax (line 24; 24c from 2026)' },
   withholding: { line: '12', label: 'Federal tax withheld and excess social security (lines 25d and Schedule 3 line 11)' },
   estimatedPayments: { line: '13', label: 'Estimated tax payments (line 26)' },
-  eic: { line: '14', label: 'Earned income credit (line 27)' },
+  eic: { line: '14', label: 'Earned income credit (line 27; 27a from 2025)' },
   refundableCredits: { line: '15', label: 'Other refundable credits (lines 28, 29 and Schedule 3)' },
   refund: { line: '', label: 'Refund (line 35a)' },
   appliedToNextYear: { line: '', label: 'Applied to next year\'s estimated tax (line 36)' },
@@ -67,28 +68,27 @@ export function dependentCounts(people = []) {
 }
 
 export function figuresOf1040(data, people) {
-  const lines = data?.lines || {};
-  const n = (key) => whole(lines[key]);
+  const n = (name) => whole(form1040Amount(data, name));
   const excessSocialSecurity = whole(data?.schedules?.['3']?.['11']);
   const dependents = dependentCounts(people || data?.dependents || []);
   return {
     filingStatus: data?.filingStatus || '',
-    agi: n('11'),
-    deduction: n('12'),
-    qbiDeduction: n('13a'),
-    schedule1ADeduction: n('13b'),
-    taxableIncome: n('15'),
-    tax: n('18'),
-    credits: n('21'),
-    otherTaxes: n('23'),
-    totalTax: n('24'),
-    withholding: n('25d') + excessSocialSecurity,
-    estimatedPayments: n('26'),
-    eic: n('27'),
-    refundableCredits: n('28') + n('29') + n('30') + n('31') - excessSocialSecurity,
-    refund: n('35a'),
-    appliedToNextYear: n('36'),
-    amountOwed: n('37'),
+    agi: n('agi'),
+    deduction: n('deduction') + n('nonItemizerCharity'),
+    qbiDeduction: n('qbiDeduction'),
+    schedule1ADeduction: n('additionalDeductions'),
+    taxableIncome: n('taxableIncome'),
+    tax: n('taxBeforeCredits'),
+    credits: n('totalCredits'),
+    otherTaxes: n('otherTaxes'),
+    totalTax: n('totalTax'),
+    withholding: n('withholding') + excessSocialSecurity,
+    estimatedPayments: n('estimatedPayments'),
+    eic: n('earnedIncomeCredit'),
+    refundableCredits: n('additionalChildTaxCredit') + n('aotcRefundable') + n('schedule3Payments') - excessSocialSecurity,
+    refund: n('refund'),
+    appliedToNextYear: n('appliedToNextYear'),
+    amountOwed: n('owed'),
     dependents: { children: dependents.children, other: dependents.other },
     dependentNames: dependents.list.map((row) => `${row.firstName} ${row.lastName}`.trim()),
   };

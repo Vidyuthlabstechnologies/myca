@@ -1,5 +1,7 @@
 import { isoDate, localToday, postingDate } from './dates.mjs';
 import { isReturnPeriod } from './return-period.mjs';
+import { uqcOf } from './gstr1-tables.mjs';
+import { batchKey, costingMethod, costLedger, costOfMovesBy, expiryDate, knownBatch, stockWarnings, batchesOf } from './inventory-costing.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const MAX_SKU = 64;
@@ -10,6 +12,7 @@ const COST_ALIASES = {
   name: ['name', 'product name', 'title', 'description', 'item', 'product'],
   hsn: ['hsn', 'hsn code', 'hsn/sac'],
   cost: ['cost', 'unit cost', 'cost price', 'landed cost', 'purchase price', 'cogs', 'cost per unit'],
+  unit: ['unit', 'uqc', 'uom'],
 };
 
 function split(text) {
@@ -47,6 +50,21 @@ export function skus(state) {
   return state.skus && typeof state.skus === 'object' ? state.skus : {};
 }
 
+export function unitCode(value) {
+  const text = String(value == null ? '' : value).trim();
+  if (!text) return { ok: true, unit: '' };
+  const code = uqcOf(text);
+  if (code === 'OTH' && text.toUpperCase() !== 'OTH') return { ok: false, error: 'BAD_UNIT', unit: text, hint: 'Use a GST unit (UQC) such as NOS, PCS, KGS, GMS, LTR, MLT, MTR, BOX, PAC, BTL, DOZ or SET, or a word like kg, litre or piece.' };
+  return { ok: true, unit: code };
+}
+
+function level(value, before) {
+  if (value === undefined) return { ok: true, value: before ?? null };
+  if (value === null || value === '') return { ok: true, value: null };
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? { ok: true, value: Math.round(n * 1000) / 1000 } : { ok: false };
+}
+
 export function planSkuCost(state, args = {}) {
   const sku = skuKey(args.sku);
   if (!sku) return { ok: false, error: 'SKU_REQUIRED' };
@@ -62,10 +80,16 @@ export function planSkuCost(state, args = {}) {
   const price = args.price == null || args.price === '' ? before?.price ?? null : round2(args.price);
   if (price != null && !(Number.isFinite(price) && price >= 0)) return { ok: false, error: 'BAD_AMOUNT' };
   if (barcode && Object.entries(skus(state)).some(([other, item]) => other !== sku && item?.barcode === barcode)) return { ok: false, error: 'BARCODE_IN_USE', barcode };
-  if (cost == null && !name && !hsn && args.gstRate == null && args.barcode == null && args.price == null) return { ok: false, error: 'NOTHING_TO_CHANGE' };
+  const unit = args.unit == null ? { ok: true, unit: before?.unit || '' } : unitCode(args.unit);
+  if (!unit.ok) return unit;
+  const reorderLevel = level(args.reorderLevel, before?.reorderLevel);
+  const reorderQty = level(args.reorderQty, before?.reorderQty);
+  if (!reorderLevel.ok || !reorderQty.ok) return { ok: false, error: 'BAD_QTY', hint: 'A reorder level or quantity is zero or more.' };
+  if (cost == null && !name && !hsn && args.gstRate == null && args.barcode == null && args.price == null && args.unit == null && args.reorderLevel === undefined && args.reorderQty === undefined) return { ok: false, error: 'NOTHING_TO_CHANGE' };
   const on = args.on ? postingDate(args.on) : localToday();
   if (args.on && !on) return { ok: false, error: 'INVALID_DATE', on: args.on };
-  return { ok: true, plan: { sku, next: { name, hsn, gstRate, cost: cost == null ? before?.cost ?? null : cost, costOn: cost == null ? before?.costOn || '' : on, ...(barcode ? { barcode } : {}), ...(price == null ? {} : { price }) }, before } };
+  const kept = before && typeof before === 'object' ? Object.fromEntries(Object.entries(before).filter(([key]) => !['name', 'hsn', 'gstRate', 'cost', 'costOn', 'barcode', 'price', 'unit', 'reorderLevel', 'reorderQty'].includes(key))) : {};
+  return { ok: true, plan: { sku, next: { ...kept, name, hsn, gstRate, cost: cost == null ? before?.cost ?? null : cost, costOn: cost == null ? before?.costOn || '' : on, ...(barcode ? { barcode } : {}), ...(price == null ? {} : { price }), ...(unit.unit ? { unit: unit.unit } : {}), ...(reorderLevel.value == null ? {} : { reorderLevel: reorderLevel.value }), ...(reorderQty.value == null ? {} : { reorderQty: reorderQty.value }) }, before } };
 }
 
 export function setSkuCost(state, args = {}) {
@@ -95,7 +119,9 @@ export function parseSkuCostsCsv(text) {
     if (!sku) { held.push({ row: n + 2, reason: 'SKU_REQUIRED' }); continue; }
     if (cost == null || cost < 0) { held.push({ row: n + 2, reason: 'BAD_AMOUNT', sku }); continue; }
     if (lines.length >= MAX_ROWS) { held.push({ row: n + 2, reason: 'TOO_MANY_ROWS', sku }); continue; }
-    lines.push({ sku, cost: round2(cost), name: idx.name == null ? '' : String(cells[idx.name] || '').trim().slice(0, 120), hsn: idx.hsn == null ? '' : String(cells[idx.hsn] || '').trim().slice(0, 8) });
+    const unit = idx.unit == null ? { ok: true, unit: '' } : unitCode(cells[idx.unit]);
+    if (!unit.ok) { held.push({ row: n + 2, reason: 'BAD_UNIT', sku }); continue; }
+    lines.push({ sku, cost: round2(cost), name: idx.name == null ? '' : String(cells[idx.name] || '').trim().slice(0, 120), hsn: idx.hsn == null ? '' : String(cells[idx.hsn] || '').trim().slice(0, 8), ...(unit.unit ? { unit: unit.unit } : {}) });
   }
   if (!lines.length) return { ok: false, error: 'NO_ROWS', held };
   return { ok: true, lines, held };
@@ -109,13 +135,13 @@ export function importSkuCosts(state, args = {}) {
   let updated = 0;
   for (const line of parsed.lines) {
     const before = state.skus[line.sku] || {};
-    state.skus[line.sku] = { name: line.name || before.name || '', hsn: line.hsn || before.hsn || '', cost: line.cost, costOn: on };
+    state.skus[line.sku] = { ...before, name: line.name || before.name || '', hsn: line.hsn || before.hsn || '', cost: line.cost, costOn: on, ...(line.unit ? { unit: line.unit } : {}) };
     updated += 1;
   }
   return { ok: true, updated, held: parsed.held };
 }
 
-export function recordStock(state, args = {}) {
+export function planStock(state, args = {}) {
   const sku = skuKey(args.sku);
   if (!sku) return { ok: false, error: 'SKU_REQUIRED' };
   const qty = Number(args.qty);
@@ -123,11 +149,39 @@ export function recordStock(state, args = {}) {
   const date = postingDate(args.date);
   if (!date) return { ok: false, error: 'INVALID_DATE', date: args.date };
   const location = String(args.location || 'own').trim().toLowerCase().slice(0, 40) || 'own';
+  const toLocation = String(args.toLocation || '').trim().toLowerCase().slice(0, 40);
+  if (toLocation && (qty <= 0 || toLocation === location)) return { ok: false, error: 'BAD_MOVE', hint: 'Moving stock between locations takes a positive quantity and two different locations.' };
+  const unitCost = args.unitCost == null || args.unitCost === '' ? null : Number(args.unitCost);
+  if (unitCost != null && !(Number.isFinite(unitCost) && unitCost >= 0)) return { ok: false, error: 'BAD_AMOUNT', hint: 'The cost per unit is zero or more.' };
+  if (unitCost != null && qty < 0) return { ok: false, error: 'COST_ON_STOCK_IN', hint: 'A cost goes with stock coming in; stock going out is costed by the inventory method.' };
+  const batch = batchKey(args.batch);
+  const expiry = expiryDate(args.expiry);
+  if (!expiry.ok) return { ok: false, error: 'INVALID_EXPIRY', expiry: args.expiry, hint: 'Give the expiry as YYYY-MM-DD, YYYY-MM or MM/YYYY.' };
+  if (expiry.expiry && qty < 0) return { ok: false, error: 'EXPIRY_ON_STOCK_IN', hint: 'The expiry is recorded when the batch comes in; to sell from it, name the batch.' };
+  if (expiry.expiry && !batch) return { ok: false, error: 'BATCH_REQUIRED', hint: 'An expiry belongs to a batch; give the batch number printed on the pack.' };
+  if (batch && qty < 0 && !knownBatch(state, sku, batch)) return { ok: false, error: 'UNKNOWN_BATCH', sku, batch, hint: 'No stock of that batch has come in.' };
+  const warnings = toLocation ? [] : stockWarnings(state, { sku, qty, batch: batch || null, date });
+  return { ok: true, plan: { sku, qty: Math.round(qty * 1000) / 1000, date, location, toLocation, unitCost: unitCost == null ? null : Math.round(unitCost * 10000) / 10000, batch, expiry: expiry.expiry, warnings } };
+}
+
+export function recordStock(state, args = {}) {
+  const planned = planStock(state, args);
+  if (!planned.ok) return planned;
+  const { plan } = planned;
   const note = String(args.note || '').trim().slice(0, 200);
+  const ref = String(args.ref || '').slice(0, 60);
   state.stockMoves = Array.isArray(state.stockMoves) ? state.stockMoves : [];
-  const move = { date, sku, qty: Math.round(qty * 1000) / 1000, location, kind: args.kind === 'adjust' ? 'adjust' : qty > 0 ? 'in' : 'out', ref: String(args.ref || '').slice(0, 60), note };
+  const extra = { ...(plan.unitCost != null ? { unitCost: plan.unitCost } : {}), ...(plan.batch ? { batch: plan.batch } : {}), ...(plan.expiry ? { expiry: plan.expiry } : {}), ...(args.internal ? { internal: true } : {}) };
+  if (plan.toLocation) {
+    const pair = { internal: true, ...(plan.batch ? { batch: plan.batch } : {}) };
+    state.stockMoves.push({ date: plan.date, sku: plan.sku, qty: -plan.qty, location: plan.location, kind: 'out', ref, note: note || `Moved to ${plan.toLocation}`, ...pair });
+    const move = { date: plan.date, sku: plan.sku, qty: plan.qty, location: plan.toLocation, kind: 'in', ref, note: note || `Moved from ${plan.location}`, ...pair };
+    state.stockMoves.push(move);
+    return { ok: true, move, from: plan.location, warnings: [], onHand: stockPosition(state, { sku: plan.sku }).data.rows.find((row) => row.location === plan.toLocation)?.qty ?? 0 };
+  }
+  const move = { date: plan.date, sku: plan.sku, qty: plan.qty, location: plan.location, kind: args.kind === 'adjust' ? 'adjust' : plan.qty > 0 ? 'in' : 'out', ref, note, ...extra };
   state.stockMoves.push(move);
-  return { ok: true, move, onHand: stockPosition(state, { sku }).data.rows.find((row) => row.sku === sku && row.location === location)?.qty ?? 0 };
+  return { ok: true, move, warnings: plan.warnings, onHand: stockPosition(state, { sku: plan.sku }).data.rows.find((row) => row.sku === plan.sku && row.location === plan.location)?.qty ?? 0 };
 }
 
 export function recordOrderStockMoves(state, { channel, invoiceId, date, orders, direction = 'out' }) {
@@ -156,8 +210,18 @@ export function stockPosition(state, { sku, location } = {}) {
     if (move.date > row.lastMove) row.lastMove = move.date;
     byKey.set(key, row);
   }
-  const rows = [...byKey.values()].map((row) => ({ ...row, name: skus(state)[row.sku]?.name || '', cost: skus(state)[row.sku]?.cost ?? null, value: skus(state)[row.sku]?.cost == null ? null : round2(row.qty * skus(state)[row.sku].cost) })).sort((a, b) => a.sku.localeCompare(b.sku) || a.location.localeCompare(b.location));
-  return { ok: true, data: { rows, negative: rows.filter((row) => row.qty < 0).map((row) => ({ sku: row.sku, location: row.location, qty: row.qty })), value: round2(rows.reduce((sum, row) => sum + (row.value || 0), 0)) } };
+  const method = costingMethod(state);
+  const pooled = method ? costLedger(state).bySku : null;
+  const unitOf = (sku) => {
+    if (!pooled) return skus(state)[sku]?.cost ?? null;
+    const row = pooled.get(sku);
+    return row && row.unitCost != null ? row.unitCost : skus(state)[sku]?.cost ?? null;
+  };
+  const rows = [...byKey.values()].map((row) => {
+    const cost = unitOf(row.sku);
+    return { ...row, name: skus(state)[row.sku]?.name || '', unit: skus(state)[row.sku]?.unit || '', cost, value: cost == null ? null : round2(row.qty * cost) };
+  }).sort((a, b) => a.sku.localeCompare(b.sku) || a.location.localeCompare(b.location));
+  return { ok: true, data: { method, rows, negative: rows.filter((row) => row.qty < 0).map((row) => ({ sku: row.sku, location: row.location, qty: row.qty })), value: round2(rows.reduce((sum, row) => sum + (row.value || 0), 0)) } };
 }
 
 export function stockMoves(state, { sku, location, limit = 50 } = {}) {
@@ -213,6 +277,16 @@ export function skuMargins(state, { period, channel } = {}) {
     return rows.get(key);
   };
   const fees = feesByOrder(state, wantedChannel, wanted);
+  const method = costingMethod(state);
+  const spentCache = new Map();
+  const unitCostFor = (ref, sku) => {
+    if (!method) return costs[sku]?.cost ?? null;
+    const key = `${ref}|${sku}`;
+    if (!spentCache.has(key)) spentCache.set(key, costOfMovesBy(state, ref, sku));
+    const spent = spentCache.get(key);
+    if (spent && spent.qty > spent.uncosted) return spent.cost / (spent.qty - spent.uncosted);
+    return costs[sku]?.cost ?? null;
+  };
   const orderSku = new Map();
   for (const inv of state.invoices || []) {
     if (inv.source !== 'marketplace' || inv.status === 'cancelled') continue;
@@ -224,7 +298,9 @@ export function skuMargins(state, { period, channel } = {}) {
       const row = rowFor(sku, inv.channel);
       row.units += Number(order.qty || 0);
       row.sales = round2(row.sales + Number(order.taxable || 0));
-      row.cogs = round2(row.cogs + (costs[sku]?.cost == null ? 0 : Number(order.qty || 0) * costs[sku].cost));
+      const unitCost = unitCostFor(inv.id, sku);
+      if (unitCost != null) row.costMissing = false;
+      row.cogs = round2(row.cogs + (unitCost == null ? 0 : Number(order.qty || 0) * unitCost));
       row.fees = round2(row.fees + (fees.get(order.orderId) || 0));
     }
   }
@@ -237,7 +313,8 @@ export function skuMargins(state, { period, channel } = {}) {
     const row = rowFor(sku, note.channel);
     row.returnedUnits += 1;
     row.returns = round2(row.returns + Number(note.taxable || 0));
-    if (costs[sku]?.cost != null) row.cogs = round2(row.cogs - costs[sku].cost);
+    const returnCost = unitCostFor(note.id, sku);
+    if (returnCost != null) row.cogs = round2(row.cogs - returnCost);
   }
   const list = [...rows.values()].map((row) => {
     const net = round2(row.sales - row.returns);
@@ -297,5 +374,8 @@ export function findItem(state, args = {}) {
   if (!sku) return { ok: true, data: { found: false, code, hint: 'No item has this barcode or SKU yet. Save it once with its name, price and GST rate, and later scans fill the bill.' } };
   const item = all[sku];
   const onHand = stockPosition(state, { sku }).data.rows.reduce((sum, row) => sum + row.qty, 0);
-  return { ok: true, data: { found: true, code, sku, name: item.name || sku, barcode: item.barcode || '', hsn: item.hsn || '', gstRate: item.gstRate ?? null, price: item.price ?? null, cost: item.cost ?? null, onHand: Math.round(onHand * 1000) / 1000, tracked: (state.stockMoves || []).some((move) => move.sku === sku) } };
+  const today = localToday();
+  const batches = (batchesOf(state).get(sku) || []).filter((row) => row.qty > 0 && row.batch).map((row) => ({ batch: row.batch, expiry: row.expiry, qty: row.qty, expired: Boolean(row.expiry && row.expiry < today) }));
+  const held = Math.round(onHand * 1000) / 1000;
+  return { ok: true, data: { found: true, code, sku, name: item.name || sku, barcode: item.barcode || '', hsn: item.hsn || '', gstRate: item.gstRate ?? null, price: item.price ?? null, cost: item.cost ?? null, unit: item.unit || '', reorderLevel: item.reorderLevel ?? null, onHand: held, lowStock: item.reorderLevel != null && held <= item.reorderLevel, batches, tracked: (state.stockMoves || []).some((move) => move.sku === sku) } };
 }

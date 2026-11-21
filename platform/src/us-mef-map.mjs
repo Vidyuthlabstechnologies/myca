@@ -23,12 +23,12 @@ export const FORM_1040_LINES = Object.freeze({
   '5b': 'TotalTaxablePensionsAmt',
   '6a': 'SocSecBnftAmt',
   '6b': 'TaxableSocSecAmt',
-  '7': 'CapitalGainLossAmt',
+  '7a': 'CapitalGainLossAmt',
   '8': 'TotalAdditionalIncomeAmt',
   '9': 'TotalIncomeAmt',
   '10': 'TotalAdjustmentsAmt',
-  '11': 'AdjustedGrossIncomeAmt',
-  '12': 'TotalItemizedOrStandardDedAmt',
+  '11a': 'AdjustedGrossIncomeAmt',
+  '12e': 'TotalItemizedOrStandardDedAmt',
   '13': 'QualifiedBusinessIncomeDedAmt',
   '13a': 'QualifiedBusinessIncomeDedAmt',
   '13b': 'TotalAdditionalDeductionsAmt',
@@ -48,7 +48,7 @@ export const FORM_1040_LINES = Object.freeze({
   '25c': 'TaxWithheldOtherAmt',
   '25d': 'WithholdingTaxAmt',
   '26': 'EstimatedTaxPaymentsAmt',
-  '27': 'EarnedIncomeCreditAmt',
+  '27a': 'EarnedIncomeCreditAmt',
   '28': 'AdditionalChildTaxCreditAmt',
   '29': 'RefundableAmerOppCreditAmt',
   '31': 'TotalOtherPaymentsRfdblCrAmt',
@@ -177,3 +177,32 @@ export const RELATIONSHIP_CODES = Object.freeze(new Set([
   'SON', 'DAUGHTER', 'STEPCHILD', 'FOSTER CHILD', 'GRANDCHILD', 'BROTHER', 'SISTER', 'HALF BROTHER', 'HALF SISTER',
   'STEPBROTHER', 'STEPSISTER', 'NIECE', 'NEPHEW', 'PARENT', 'GRANDPARENT', 'AUNT', 'UNCLE', 'OTHER',
 ]));
+
+const renamed = (lines, names) => Object.freeze(Object.fromEntries(Object.entries(lines).map(([key, element]) => [names[key] ?? key, element])));
+
+const FORM_1040_LINES_BY_YEAR = Object.freeze({
+  2025: FORM_1040_LINES,
+  2026: renamed(FORM_1040_LINES, { '13a': '13b', '13b': '13a', 24: '24a', 32: '32a' }),
+});
+
+const SCHEDULE_DOCUMENTS_BY_YEAR = Object.freeze({
+  2025: SCHEDULE_DOCUMENTS,
+  2026: Object.freeze({ ...SCHEDULE_DOCUMENTS, 2: Object.freeze({ ...SCHEDULE_DOCUMENTS[2], lines: renamed(SCHEDULE_DOCUMENTS[2].lines, { 12: '6' }) }) }),
+});
+
+const REPEATED_LINES = Object.freeze({
+  2025: Object.freeze({ 1040: Object.freeze(['11b']) }),
+  2026: Object.freeze({ 1040: Object.freeze(['11b', '24c', '32c']), 2: Object.freeze(['14', '15', '17d', '20']) }),
+});
+
+export function form1040MefLines(taxYear) {
+  return FORM_1040_LINES_BY_YEAR[String(taxYear)] || FORM_1040_LINES;
+}
+
+export function scheduleMefDocuments(taxYear) {
+  return SCHEDULE_DOCUMENTS_BY_YEAR[String(taxYear)] || SCHEDULE_DOCUMENTS;
+}
+
+export function repeatedLines(taxYear, form) {
+  return REPEATED_LINES[String(taxYear)]?.[form] || [];
+}
