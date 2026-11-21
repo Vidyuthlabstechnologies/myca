@@ -20,7 +20,7 @@ test('Form 1040 instructions, Tax Computation Worksheet: 2025 single taxable inc
 
 test('Tax Computation Worksheet: 2026 joint taxable income exactly at the 22%/24% boundary of $211,400', () => {
   const out = run('mfj', [w2(243600)], {}, '2026');
-  assert.equal(out.data.lines['12'], 32200);
+  assert.equal(out.data.lines['12e'], 32200);
   assert.equal(out.data.lines['15'], 211400);
   assert.equal(out.data.lines['16'], 35932);
 });
@@ -32,14 +32,14 @@ test('2025 Tax Table last row ($99,950 to $100,000) versus the Tax Computation W
 
 test('Head of household 2025: standard deduction $23,625 and HOH brackets', () => {
   const out = run('hoh', [w2(60000)], { dependents: [kid('Leo', '2005-01-01', { relationship: 'parent', months: 0 })] });
-  assert.equal(out.data.lines['12'], 23625);
+  assert.equal(out.data.lines['12e'], 23625);
   assert.equal(out.data.lines['15'], 36375);
   assert.equal(out.data.lines['16'], 4025);
 });
 
 test('Qualifying surviving spouse: joint brackets and standard deduction, but the $200,000 child tax credit threshold (IRC 24(b)(2), Schedule 8812 line 9)', () => {
   const out = run('qss', [w2(250000)], { dependents: [kid('Mia', '2015-03-01', { relationship: 'daughter' })] });
-  assert.equal(out.data.lines['12'], 31500);
+  assert.equal(out.data.lines['12e'], 31500);
   assert.equal(out.data.lines['15'], 218500);
   assert.equal(out.data.schedules['8812']['9'], 200000);
   assert.equal(out.data.schedules['8812']['12'], 0);
@@ -60,7 +60,7 @@ test('Qualifying surviving spouse: Schedule 1-A uses the non-joint thresholds an
   assert.equal(out.data.schedules['8863']['7'], 1250);
   const senior = computeForm1040({ filingStatus: 'qss', taxpayer: { ...adult, dateOfBirth: '1958-06-01' }, dependents: [kid('Mia', '2010-03-01', { relationship: 'daughter' })], forms: [w2(100000)] }, '2025');
   assert.equal(senior.data.schedules['1-A']['37'], 4500);
-  assert.equal(senior.data.lines['12'], 33100);
+  assert.equal(senior.data.lines['12e'], 33100);
 });
 
 test('Married filing separately: no student loan interest deduction, no education credit, no EIC while living together', () => {
@@ -68,7 +68,7 @@ test('Married filing separately: no student loan interest deduction, no educatio
   const out = run('mfs', [w2(20000), { kind: '1098-E', payer: 'Lender', fields: { studentLoanInterest: 2000 } }, { kind: '1098-T', payer: 'College', fields: { tuitionPaid: 4000, atLeastHalfTime: true } }], { dependents: kids });
   assert.equal(out.data.schedules['1']['21'], 0);
   assert.equal(out.data.lines['29'], 0);
-  assert.equal(out.data.lines['27'], 0);
+  assert.equal(out.data.lines['27a'], 0);
   assert.ok(codes(out).includes('STUDENT_LOAN_MFS'));
   assert.ok(codes(out).includes('EDUCATION_MFS'));
   assert.ok(out.data.schedules.EIC.notAllowed.length > 0);
@@ -76,14 +76,14 @@ test('Married filing separately: no student loan interest deduction, no educatio
 
 test('Married filing separately: the separated-spouse EIC rule (IRC 32(d)(2)) needs a qualifying child; 2025 EIC Table $20,000-$20,050 one child is $4,328', () => {
   const alone = run('mfs', [w2(20000)], { taxpayer: { ...adult, dateOfBirth: '1990-01-01' }, answers: { separatedFromSpouse: true } });
-  assert.equal(alone.data.lines['27'], 0);
+  assert.equal(alone.data.lines['27a'], 0);
   const withChild = run('mfs', [w2(20000)], { dependents: [kid('Leo', '2016-02-02')], answers: { separatedFromSpouse: true } });
-  assert.equal(withChild.data.lines['27'], 4328);
+  assert.equal(withChild.data.lines['27a'], 4328);
 });
 
 test('Married filing separately: capital loss limited to $1,500 (IRC 1211(b)) with the rest carried over', () => {
   const out = run('mfs', [w2(60000), st(-10000)]);
-  assert.equal(out.data.lines['7'], -1500);
+  assert.equal(out.data.lines['7a'], -1500);
   assert.deepEqual(out.data.capitalLossCarryover, { shortTerm: 8500, longTerm: 0 });
 });
 
@@ -93,15 +93,15 @@ test('Married filing separately: SALT cap is $20,000 (Schedule A line 5e)', () =
 });
 
 test('Standard deduction chart for people born before January 2, 1961 or blind: 2025 single, joint, HOH and QSS additional amounts', () => {
-  assert.equal(run('single', [w2(50000)], { taxpayer: { ...adult, dateOfBirth: '1960-03-01', blind: true } }).data.lines['12'], 19750);
-  assert.equal(run('single', [w2(50000)], { taxpayer: { ...adult, dateOfBirth: '1961-01-01' } }).data.lines['12'], 17750);
-  assert.equal(run('single', [w2(50000)], { taxpayer: { ...adult, dateOfBirth: '1961-01-02' } }).data.lines['12'], 15750);
-  assert.equal(computeForm1040({ filingStatus: 'mfj', taxpayer: { ...adult, dateOfBirth: '1955-01-01' }, spouse: { ...spouse, dateOfBirth: '1956-01-01' }, forms: [w2(50000)] }, '2025').data.lines['12'], 34700);
-  assert.equal(run('hoh', [w2(50000)], { taxpayer: { ...adult, dateOfBirth: '1955-01-01' }, dependents: [kid('Leo', '2016-02-02')] }).data.lines['12'], 25625);
+  assert.equal(run('single', [w2(50000)], { taxpayer: { ...adult, dateOfBirth: '1960-03-01', blind: true } }).data.lines['12e'], 19750);
+  assert.equal(run('single', [w2(50000)], { taxpayer: { ...adult, dateOfBirth: '1961-01-01' } }).data.lines['12e'], 17750);
+  assert.equal(run('single', [w2(50000)], { taxpayer: { ...adult, dateOfBirth: '1961-01-02' } }).data.lines['12e'], 15750);
+  assert.equal(computeForm1040({ filingStatus: 'mfj', taxpayer: { ...adult, dateOfBirth: '1955-01-01' }, spouse: { ...spouse, dateOfBirth: '1956-01-01' }, forms: [w2(50000)] }, '2025').data.lines['12e'], 34700);
+  assert.equal(run('hoh', [w2(50000)], { taxpayer: { ...adult, dateOfBirth: '1955-01-01' }, dependents: [kid('Leo', '2016-02-02')] }).data.lines['12e'], 25625);
 });
 
 test('Standard Deduction Worksheet for Dependents: greater of $1,350 or earned income plus $450, capped at the basic amount', () => {
-  const dep = (wages) => run('single', [w2(wages)], { taxpayer: { ...adult, canBeClaimedAsDependent: true } }).data.lines['12'];
+  const dep = (wages) => run('single', [w2(wages)], { taxpayer: { ...adult, canBeClaimedAsDependent: true } }).data.lines['12e'];
   assert.equal(dep(500), 1350);
   assert.equal(dep(3000), 3450);
   assert.equal(dep(20000), 15750);
@@ -113,7 +113,7 @@ test('Schedule A: itemizing only when larger than the standard deduction; equal 
   assert.equal(equal.data.summary.itemized, false);
   const larger = run('single', [w2(100000)], { answers: { otherItemizedDeductions: 15751 } });
   assert.equal(larger.data.summary.itemized, true);
-  assert.equal(larger.data.lines['12'], 15751);
+  assert.equal(larger.data.lines['12e'], 15751);
   const medical = run('single', [w2(100000)], { answers: { itemize: 'yes', medicalExpenses: 10000 } });
   assert.equal(medical.data.schedules.A['4'], 2500);
 });
@@ -152,13 +152,13 @@ test('Qualified dividends above ordinary dividends are capped at ordinary divide
 
 test('Capital Loss Carryover Worksheet: short- and long-term losses split the carryover', () => {
   const out = run('single', [w2(60000), st(-2000), lt(-5000)]);
-  assert.equal(out.data.lines['7'], -3000);
+  assert.equal(out.data.lines['7a'], -3000);
   assert.deepEqual(out.data.capitalLossCarryover, { shortTerm: 0, longTerm: 4000 });
 });
 
 test('Capital Loss Carryover Worksheet: when taxable income is negative the whole loss carries over', () => {
   const out = run('single', [{ kind: '1099-INT', payer: 'Bank', fields: { interest: 1000 } }, st(-10000)]);
-  assert.equal(out.data.lines['11'], -2000);
+  assert.equal(out.data.lines['11b'], -2000);
   assert.equal(out.data.lines['15'], 0);
   assert.deepEqual(out.data.capitalLossCarryover, { shortTerm: 10000, longTerm: 0 });
 });
@@ -166,7 +166,7 @@ test('Capital Loss Carryover Worksheet: when taxable income is negative the whol
 test('Schedule D line 6: a prior-year short-term carryover offsets this year\'s gains', () => {
   const out = run('single', [w2(60000), st(2000)], { answers: { shortTermLossCarryover: 5000 } });
   assert.equal(out.data.schedules.D['7'], -3000);
-  assert.equal(out.data.lines['7'], -3000);
+  assert.equal(out.data.lines['7a'], -3000);
 });
 
 test('Form 8959: Additional Medicare Tax thresholds $250,000 joint and $125,000 separate', () => {
@@ -179,7 +179,7 @@ test('Form 8959: Additional Medicare Tax thresholds $250,000 joint and $125,000 
 
 test('Form 8960: no net investment income tax with MAGI exactly at the $250,000 joint threshold', () => {
   const out = run('mfj', [w2(240000), { kind: '1099-INT', payer: 'Bank', fields: { interest: 10000 } }]);
-  assert.equal(out.data.lines['11'], 250000);
+  assert.equal(out.data.lines['11b'], 250000);
   assert.equal(out.data.schedules['8960'], undefined);
 });
 
@@ -230,13 +230,13 @@ test('Schedule 8812 Part II-A: refundable credit is 15% of earned income over $2
   assert.equal(out.data.schedules['8812']['17'], 1700);
   assert.equal(out.data.schedules['8812']['20'], 1125);
   assert.equal(out.data.lines['28'], 1125);
-  assert.equal(out.data.lines['27'], 3409);
+  assert.equal(out.data.lines['27a'], 3409);
 });
 
 test('Schedule 8812 Part II-B: three children and withheld social security and Medicare above 15% of earned income', () => {
   const kids = [kid('A', '2012-01-01'), kid('B', '2014-01-01'), kid('C', '2016-01-01')];
   const out = run('hoh', [w2(3000), { kind: '1099-INT', payer: 'Bank', fields: { interest: 12000 } }], { dependents: kids });
-  assert.equal(out.data.lines['27'], 0);
+  assert.equal(out.data.lines['27a'], 0);
   assert.equal(out.data.schedules['8812']['20'], 75);
   assert.equal(out.data.lines['28'], 230);
 });
@@ -252,26 +252,26 @@ test('Schedule 8812 instructions: from 2025 the filer needs an SSN valid for wor
 
 test('EIC Table 2025 by number of children, and the 25-64 age rule without a child', () => {
   const none = run('single', [w2(9000)], { taxpayer: { ...adult, dateOfBirth: '1995-01-01' } });
-  assert.equal(none.data.lines['27'], 649);
+  assert.equal(none.data.lines['27a'], 649);
   const young = run('single', [w2(9000)], { taxpayer: { ...adult, dateOfBirth: '2001-06-01' } });
-  assert.equal(young.data.lines['27'], 0);
+  assert.equal(young.data.lines['27a'], 0);
   const old = run('single', [w2(9000)], { taxpayer: { ...adult, dateOfBirth: '1960-06-01' } });
-  assert.equal(old.data.lines['27'], 0);
+  assert.equal(old.data.lines['27a'], 0);
   const two = run('hoh', [w2(25000)], { dependents: [kid('A', '2012-01-01'), kid('B', '2014-01-01')] });
-  assert.equal(two.data.lines['27'], 6799);
+  assert.equal(two.data.lines['27a'], 6799);
   const twoJoint = run('mfj', [w2(25000)], { dependents: [kid('A', '2012-01-01'), kid('B', '2014-01-01')] });
-  assert.equal(twoJoint.data.lines['27'], 7152);
+  assert.equal(twoJoint.data.lines['27a'], 7152);
 });
 
 test('EIC: investment income of exactly $11,950 is allowed, one dollar more is not (2025)', () => {
-  const at = (interest) => run('hoh', [w2(15000), { kind: '1099-INT', payer: 'Bank', fields: { interest } }], { dependents: [kid('Leo', '2016-02-02')] }).data.lines['27'];
+  const at = (interest) => run('hoh', [w2(15000), { kind: '1099-INT', payer: 'Bank', fields: { interest } }], { dependents: [kid('Leo', '2016-02-02')] }).data.lines['27a'];
   assert.ok(at(11950) > 0);
   assert.equal(at(11951), 0);
 });
 
 test('EIC: a joint return needs an SSN valid for work for both spouses', () => {
   const out = computeForm1040({ filingStatus: 'mfj', taxpayer: adult, spouse: { ...spouse, ssnValid: false }, dependents: [kid('Leo', '2016-02-02')], forms: [w2(20000)] }, '2025');
-  assert.equal(out.data.lines['27'], 0);
+  assert.equal(out.data.lines['27a'], 0);
 });
 
 test('EIC Worksheet B: a Schedule C loss reduces earned income', () => {
@@ -332,10 +332,10 @@ test('Zero income: a return with nothing on it computes to zero and asks for for
 
 test('Negative AGI from a Schedule C loss: taxable income and tax are zero, no EIC and no refund beyond withholding', () => {
   const out = run('single', [{ kind: '1099-INT', payer: 'Bank', fields: { interest: 1000, federalWithheld: 100 } }], { businesses: [{ name: 'Startup', grossReceipts: 10000, totalExpenses: 40000 }] });
-  assert.equal(out.data.lines['11'], -29000);
+  assert.equal(out.data.lines['11b'], -29000);
   assert.equal(out.data.lines['15'], 0);
   assert.equal(out.data.lines['16'], 0);
-  assert.equal(out.data.lines['27'], 0);
+  assert.equal(out.data.lines['27a'], 0);
   assert.equal(out.data.lines['35a'], 100);
   assert.equal(out.data.lines['23'], 0);
 });
@@ -476,12 +476,13 @@ test('Unsupported forms land in unsupported with required true: Form 1116, Form 
 });
 
 test('2026: non-itemizers deduct up to $1,000 of cash gifts ($2,000 joint, not QSS) and itemized gifts have a 0.5% of AGI floor', () => {
-  assert.equal(run('single', [w2(60000)], { answers: { charityCash: 1500 } }, '2026').data.schedules['1-A'].charity, 1000);
-  assert.equal(run('mfj', [w2(60000)], { answers: { charityCash: 3000 } }, '2026').data.schedules['1-A'].charity, 2000);
-  assert.equal(run('qss', [w2(60000)], { dependents: [kid('Mia', '2015-03-01', { relationship: 'daughter' })], answers: { charityCash: 3000 } }, '2026').data.schedules['1-A'].charity, 1000);
+  assert.equal(run('single', [w2(60000)], { answers: { charityCash: 1500 } }, '2026').data.lines['12f'], 1000);
+  assert.equal(run('mfj', [w2(60000)], { answers: { charityCash: 3000 } }, '2026').data.lines['12f'], 2000);
+  assert.equal(run('qss', [w2(60000)], { dependents: [kid('Mia', '2015-03-01', { relationship: 'daughter' })], answers: { charityCash: 3000 } }, '2026').data.lines['12f'], 1000);
   const itemized = run('single', [w2(100000)], { answers: { itemize: 'yes', charityCash: 5000 } }, '2026');
-  assert.equal(itemized.data.schedules.A['14'], 4500);
+  assert.equal(itemized.data.schedules.A['13'], 4500);
   assert.equal(run('single', [w2(60000)], { answers: { charityCash: 1500 } }, '2025').data.lines['13b'], 0);
+  assert.equal(run('single', [w2(60000)], { answers: { charityCash: 1500 } }, '2026').data.schedules['1-A'], undefined);
 });
 
 const smallBusiness = (net, participation) => ({ businesses: [{ name: 'Studio', grossReceipts: net + 500, totalExpenses: 500 }], ...(participation === undefined ? {} : { answers: { qbiMaterialParticipation: participation } }) });
@@ -494,30 +495,30 @@ test('IRC 199A(i) 2026: an active business with QBI of at least $1,000 gets the 
   assert.ok(form['15'] < 400);
   assert.equal(form['16'], 400);
   assert.equal(form['17'], 400);
-  assert.equal(yes.data.lines['13a'], 400);
+  assert.equal(yes.data.lines['13b'], 400);
   assert.ok(!codes(yes).includes('QBI_MINIMUM_NEEDS_ANSWER'));
-  assert.equal(run('single', [w2(30000)], smallBusiness(1500, true), '2026').data.lines['13a'], 400);
+  assert.equal(run('single', [w2(30000)], smallBusiness(1500, true), '2026').data.lines['13b'], 400);
   assert.ok(!yes.data.unsupported.some((item) => item.form === 'QBI minimum deduction'));
 });
 
 test('IRC 199A(i) 2026: no minimum without material participation, below $1,000 of QBI, or when 20% of QBI is already higher', () => {
   const no = run('single', [w2(30000)], smallBusiness(1500, 'no'), '2026');
-  assert.ok(no.data.lines['13a'] < 400);
-  assert.equal(no.data.lines['13a'], no.data.schedules[8995]['15']);
+  assert.ok(no.data.lines['13b'] < 400);
+  assert.equal(no.data.lines['13b'], no.data.schedules[8995]['15']);
   assert.equal(no.data.schedules[8995]['16'], 0);
   assert.ok(!codes(no).includes('QBI_MINIMUM_NEEDS_ANSWER'));
   const small = run('single', [w2(30000)], smallBusiness(1000, 'yes'), '2026');
   assert.ok(small.data.schedules[8995]['2'] < 1000);
-  assert.ok(small.data.lines['13a'] < 400);
+  assert.ok(small.data.lines['13b'] < 400);
   assert.ok(!codes(small).includes('QBI_MINIMUM_NEEDS_ANSWER'));
   const big = run('single', [w2(30000)], smallBusiness(8000, 'yes'), '2026');
-  assert.ok(big.data.lines['13a'] > 400);
-  assert.equal(big.data.lines['13a'], big.data.schedules[8995]['15']);
+  assert.ok(big.data.lines['13b'] > 400);
+  assert.equal(big.data.lines['13b'], big.data.schedules[8995]['15']);
 });
 
 test('IRC 199A(i) 2026: an unanswered participation question warns without blocking, and only when the minimum would help', () => {
   const unanswered = run('single', [w2(30000)], smallBusiness(1500), '2026');
-  assert.ok(unanswered.data.lines['13a'] < 400);
+  assert.ok(unanswered.data.lines['13b'] < 400);
   assert.ok(codes(unanswered).includes('QBI_MINIMUM_NEEDS_ANSWER'));
   assert.equal(unanswered.data.checks.find((item) => item.code === 'QBI_MINIMUM_NEEDS_ANSWER').level, 'warning');
   assert.deepEqual(needs(unanswered), []);
@@ -528,7 +529,7 @@ test('IRC 199A(i) 2026: an unanswered participation question warns without block
 test('IRC 199A(i): the minimum applies even when the taxable-income limit is lower, and taxable income never goes below zero', () => {
   const out = run('single', [], smallBusiness(1500, 'yes'), '2026');
   assert.equal(out.data.schedules[8995]['14'], 0);
-  assert.equal(out.data.lines['13a'], 400);
+  assert.equal(out.data.lines['13b'], 400);
   assert.equal(out.data.lines['15'], 0);
 });
 
@@ -541,7 +542,7 @@ test('IRC 199A(i): 2025 has no minimum and keeps the 2025 Form 8995 layout', () 
 
 test('IRC 199A(i) 2026: a net business loss is carried forward on line 18 with no minimum', () => {
   const out = run('single', [w2(30000)], { businesses: [{ name: 'Studio', grossReceipts: 1000, totalExpenses: 3000 }], answers: { qbiMaterialParticipation: 'yes' } }, '2026');
-  assert.equal(out.data.lines['13a'], 0);
+  assert.equal(out.data.lines['13b'], 0);
   assert.ok(out.data.schedules[8995]['18'] < 0);
   assert.equal(out.data.schedules[8995]['16'], 0);
 });
@@ -630,7 +631,7 @@ test('Schedule 1-A Parts II and III on a joint return: only the spouse who recei
 
 test('Schedule 1-A lines 2a to 3 and Schedule 8812 lines 2a to 3: excluded foreign or Puerto Rico income is added to AGI for the income limits', () => {
   const tips = run('single', [w2(140000)], { answers: { qualifiedTips: 10000, excludedForeignIncome: 11000 } });
-  assert.equal(tips.data.lines['11'], 140000);
+  assert.equal(tips.data.lines['11b'], 140000);
   assert.equal(tips.data.schedules['1-A']['13'], 9900);
   const ctc = run('single', [w2(195000)], { dependents: [kid('Leo', '2016-02-02')], answers: { excludedForeignIncome: 6000 } });
   assert.equal(ctc.data.schedules['8812']['10'], 1000);
@@ -659,12 +660,12 @@ test('Educator expenses: $300 (2025) and $350 (2026, Rev. Proc. 2025-32 section 
   assert.equal(y2025.data.schedules.A['16'], 0);
   const y2026 = run('single', [w2(60000)], { answers: { educatorExpenses: 1000, itemize: 'yes' } }, '2026');
   assert.equal(y2026.data.schedules['1']['11'], 350);
-  assert.equal(y2026.data.schedules.A['16'], 650);
-  assert.equal(y2026.data.schedules.A['17'], y2026.data.lines['12']);
+  assert.equal(y2026.data.schedules.A['17z'], 650);
+  assert.equal(y2026.data.schedules.A['18'], y2026.data.lines['12e']);
   const standard = run('single', [w2(60000)], { answers: { educatorExpenses: 1000 } }, '2026');
   assert.equal(standard.data.schedules['1']['11'], 350);
   assert.equal(standard.data.schedules.A, undefined);
   const joint = run('mfj', [w2(60000)], { answers: { educatorExpenses: 200, spouseEducatorExpenses: 500, itemize: 'yes' } }, '2026');
   assert.equal(joint.data.schedules['1']['11'], 550);
-  assert.equal(joint.data.schedules.A['16'], 150);
+  assert.equal(joint.data.schedules.A['17z'], 150);
 });

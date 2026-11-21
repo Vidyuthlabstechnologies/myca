@@ -1,3 +1,4 @@
+import { form1040Amount } from './us-line-map.mjs';
 import { computeForm1040, FILING_STATUSES, SUPPORTED_YEARS, US_FORMS_SUPPORTED, US_FORMS_COMING } from './us-1040.mjs';
 import { engineInput } from './us-return.mjs';
 import { rules } from './sprint-load.mjs';
@@ -9,7 +10,7 @@ const amount = (value) => {
 };
 const ofBasis = (value, basisPoints) => Math.round((value * basisPoints) / 10000);
 const fromCents = (cents) => Math.round(Number(cents || 0) / 100);
-const line = (data, key) => Number(data.lines[key] || 0);
+const line = (data, name) => form1040Amount(data, name);
 
 function planningYear(value) {
   const year = String(value || '').trim() || localToday().slice(0, 4);
@@ -25,7 +26,7 @@ function baseInput(state, taxYear, args) {
 }
 
 function netTax(data) {
-  return Math.max(0, line(data, '24') - line(data, '27') - line(data, '28') - line(data, '29'));
+  return Math.max(0, line(data, 'totalTax') - line(data, 'earnedIncomeCredit') - line(data, 'additionalChildTaxCredit') - line(data, 'aotcRefundable'));
 }
 
 function safeHarbor(taxYear, data, answers) {
@@ -68,8 +69,8 @@ export function usWithholdingCheck(state, args = {}) {
   if (!result.ok) return result;
   const data = result.data;
   const projectedTax = netTax(data);
-  const projectedWithholding = line(data, '25d');
-  const estimated = line(data, '26');
+  const projectedWithholding = line(data, 'withholding');
+  const estimated = line(data, 'estimatedPayments');
   const gap = projectedTax - projectedWithholding - estimated;
   const harbor = safeHarbor(taxYear, data, input.answers);
   const shortOfHarbor = harbor ? Math.max(0, harbor.requiredAnnualPayment - projectedWithholding - estimated) : 0;
@@ -122,7 +123,7 @@ export function usEstimatedPayments(state, args = {}) {
   if (!result.ok) return result;
   const data = result.data;
   const tax = netTax(data);
-  const withholding = line(data, '25d');
+  const withholding = line(data, 'withholding');
   const harbor = safeHarbor(taxYear, data, input.answers || {});
   const underMinimum = !harbor || tax - withholding < harbor.minimumUnderpayment;
   const annual = underMinimum ? 0 : Math.max(0, harbor.requiredAnnualPayment - withholding);

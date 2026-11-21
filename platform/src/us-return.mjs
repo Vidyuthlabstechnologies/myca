@@ -6,6 +6,7 @@ import { ENERGY_CATEGORIES, CLEAN_ENERGY_CATEGORIES, isQmid } from './us-form-56
 import { SAVERS_DEFERRAL_CODES } from './us-form-8880.mjs';
 import { sealTin, openTin, maskTin, tinShapeError, isSealedTin } from './us-identity.mjs';
 import { localToday } from './dates.mjs';
+import { lineLabels } from './us-line-map.mjs';
 import { appendAuditEvent } from './ca-api.mjs';
 import { figuresOf1040, form1040X } from './us-1040x.mjs';
 
@@ -75,7 +76,7 @@ const QUESTIONS = Object.freeze([
   { id: 'businessExpenses', text: 'Self-employment: total business expenses', help: 'Supplies, software, advertising, travel, the business part of your phone, and the like.', kind: 'amount', when: (ctx) => !ctx.usesBooks && ctx.manualBusiness },
   { id: 'estimatedTaxPayments', text: 'Federal estimated tax paid for the year (Form 1040-ES)', help: 'All four instalments together, including one paid in January.', kind: 'amount' },
   { id: 'priorYearTax', text: 'Last year\'s total federal tax (Form 1040 line 24)', help: 'Used to check whether an estimated tax penalty can apply. Leave empty if you did not file last year.', kind: 'amount' },
-  { id: 'priorYearAgi', text: 'Last year\'s adjusted gross income (Form 1040 line 11)', help: 'Above $150,000 ($75,000 separate) the safe harbor is 110% of last year\'s tax.', kind: 'amount', when: (ctx) => ctx.answers?.priorYearTax !== undefined },
+  { id: 'priorYearAgi', text: 'Last year\'s adjusted gross income (Form 1040 line 11, or line 11b from 2025)', help: 'Above $150,000 ($75,000 separate) the safe harbor is 110% of last year\'s tax.', kind: 'amount', when: (ctx) => ctx.answers?.priorYearTax !== undefined },
   { id: 'priorYearOverpaymentApplied', text: 'Last year\'s refund applied to this year', help: 'Only if you chose to apply it rather than receive it.', kind: 'amount' },
   { id: 'stateRefundTaxable', text: 'How much of the state refund on your 1099-G is taxable?', help: 'Zero if you took the standard deduction last year. If you itemized, the part that lowered your federal tax.', kind: 'amount', when: (ctx) => ctx.hasStateRefund },
   { id: 'qbiMaterialParticipation', text: 'Did you work in your business regularly, continuously and substantially this year?', help: 'This is material participation (IRC 469(h)), for example more than 500 hours, or most of the work in the business; on a joint return your spouse\'s work in it counts too. From 2026 it can give you a minimum business income deduction of $400 (IRC 199A(i)). It covers your one business; a business added with its own answer uses that answer.', kind: 'yesno', when: (ctx) => ctx.hasBusiness && (ctx.taxpayerBusiness || !ctx.spouseBusiness) && Number(ctx.taxYear) >= 2026 },
@@ -188,7 +189,7 @@ const QUESTIONS = Object.freeze([
   { id: 'useSalesTax', text: 'Deduct state and local general sales taxes instead of income taxes?', help: 'Usually better only in a state without an income tax (Schedule A line 5a).', kind: 'yesno', when: (ctx) => ctx.mayItemize },
   { id: 'generalSalesTax', text: 'State and local general sales taxes paid', help: 'Actual receipts or the IRS sales tax calculator amount, plus sales tax on a car or boat.', kind: 'amount', when: (ctx) => ctx.mayItemize && ctx.answers.useSalesTax === true },
   { id: 'otherMortgageInterest', text: 'Home mortgage interest not reported on a Form 1098', help: 'For example interest paid to a private lender or the seller (Schedule A line 8b).', kind: 'amount', when: (ctx) => ctx.mayItemize },
-  { id: 'otherItemizedDeductions', text: 'Other itemized deductions (Schedule A line 16)', help: 'Only the kinds listed in the Schedule A instructions for line 16, such as gambling losses up to your gambling winnings.', kind: 'amount', when: (ctx) => ctx.mayItemize },
+  { id: 'otherItemizedDeductions', text: 'Other itemized deductions (Schedule A line 16, line 17 from 2026)', help: 'Only the kinds listed in the Schedule A instructions for line 16, such as gambling losses up to your gambling winnings.', kind: 'amount', when: (ctx) => ctx.mayItemize },
   { id: 'medicalExpenses', text: 'Medical and dental expenses you paid', help: 'Only the part above 7.5% of your AGI counts, and only if you itemize.', kind: 'amount' },
   { id: 'realEstateTaxes', text: 'Property tax paid on your home (not through escrow)', help: '', kind: 'amount' },
   { id: 'personalPropertyTaxes', text: 'Personal property tax (for example on a car)', help: 'The part based on value.', kind: 'amount' },
@@ -203,14 +204,9 @@ const QUESTIONS = Object.freeze([
 ]);
 
 const LINE_LABELS = Object.freeze({
-  '1040': { '1a': 'Wages (W-2 box 1)', '1e': 'Taxable dependent care benefits (Form 2441)', '1z': 'Total wages', '2a': 'Tax-exempt interest', '2b': 'Taxable interest', '3a': 'Qualified dividends', '3b': 'Ordinary dividends', '4a': 'IRA distributions', '4b': 'IRA distributions, taxable', '5a': 'Pensions and annuities', '5b': 'Pensions and annuities, taxable', '6a': 'Social security benefits', '6b': 'Social security benefits, taxable', 7: 'Capital gain or loss', 8: 'Additional income (Schedule 1)', 9: 'Total income', 10: 'Adjustments to income (Schedule 1)', 11: 'Adjusted gross income', 12: 'Standard or itemized deduction', '13a': 'Qualified business income deduction', '13b': 'Additional deductions (Schedule 1-A)', 14: 'Total deductions', 15: 'Taxable income', 16: 'Tax', 17: 'Schedule 2, line 3', 18: 'Tax before credits', 19: 'Child tax credit and credit for other dependents', 20: 'Other credits (Schedule 3)', 21: 'Total credits', 22: 'Tax after credits', 23: 'Other taxes (Schedule 2)', 24: 'Total tax', '25a': 'Federal tax withheld, W-2', '25b': 'Federal tax withheld, 1099', '25c': 'Federal tax withheld, other', '25d': 'Total withholding', 26: 'Estimated tax payments', 27: 'Earned income credit', 28: 'Additional child tax credit', 29: 'American opportunity credit, refundable', 31: 'Other payments (Schedule 3)', 32: 'Total other payments and refundable credits', 33: 'Total payments', 34: 'Overpaid', '35a': 'Refund', 36: 'Applied to next year\'s estimated tax', 37: 'Amount you owe' },
   'Schedule 1': { 1: 'Taxable state and local refunds', 3: 'Business income (Schedule C)', 5: 'Rental real estate and royalties (Schedule E)', 7: 'Unemployment compensation', '8f': 'Income from Form 8889 (taxable HSA distributions)', '8z': 'Other income', 9: 'Total other income', 10: 'Total additional income', 11: 'Educator expenses', 13: 'HSA deduction', 15: 'Deductible part of self-employment tax', 16: 'SEP, SIMPLE and qualified plans', 17: 'Self-employed health insurance', 18: 'Penalty on early withdrawal of savings', 20: 'IRA deduction', 21: 'Student loan interest deduction', 26: 'Total adjustments' },
-  'Schedule 1-A': { 13: 'No tax on tips', 21: 'No tax on overtime', 30: 'Car loan interest', 37: 'Enhanced deduction for seniors', charity: 'Charitable gifts (non-itemizer)', 38: 'Total additional deductions' },
-  'Schedule 2': { '1a': 'Excess advance premium tax credit repayment (Form 8962)', 3: 'Total additions to tax (to Form 1040 line 17)', 4: 'Self-employment tax', 8: 'Additional tax on IRAs and other tax-favored accounts (Form 5329)', 11: 'Additional Medicare tax', 12: 'Net investment income tax', '17c': 'Additional 20% tax on HSA distributions (Form 8889)', '17d': 'Additional 10% tax for not remaining HSA-eligible (Form 8889)', 18: 'Total additional taxes', 21: 'Total other taxes' },
-  'Schedule 3': { 1: 'Foreign tax credit', 2: 'Child and dependent care credit (Form 2441)', 3: 'Education credits', 4: 'Retirement savings contributions credit (Form 8880)', '5a': 'Residential clean energy credit (Form 5695)', '5b': 'Energy efficient home improvement credit (Form 5695)', 8: 'Total nonrefundable credits', 9: 'Net premium tax credit (Form 8962)', 11: 'Excess social security tax withheld', 15: 'Total other payments' },
   'Form 8880': { 7: 'Contributions counted, up to $2,000 a person', 10: 'Credit before the tax limit', 11: 'Tax left after earlier credits', 12: 'Retirement savings contributions credit' },
   'Form 5695': { '6b': 'Clean energy property, 30% of cost', 11: 'Fuel cell credit', 12: 'Credit carried forward from last year', 13: 'Residential clean energy credit before the tax limit', 14: 'Tax left for the residential clean energy credit', 15: 'Residential clean energy credit', 16: 'Carried forward to next year', 28: 'Improvements, windows, doors and audits (at most $1,200)', '29h': 'Heat pumps and biomass (at most $2,000)', 30: 'Home improvement credit before the tax limit', 31: 'Tax left for the home improvement credit', 32: 'Energy efficient home improvement credit' },
-  'Schedule A': { 4: 'Medical and dental above 7.5% of AGI', '5d': 'State and local taxes before the cap', '5e': 'State and local taxes after the cap', '8a': 'Mortgage interest and points on Form 1098', '8b': 'Mortgage interest not on Form 1098', '8d': 'Mortgage insurance premiums', 10: 'Home mortgage interest', 14: 'Gifts to charity', 16: 'Other itemized deductions', 17: 'Total itemized deductions' },
   'Form 2441': { 3: 'Care expenses within the dollar limit', 4: 'Your earned income', 5: 'Spouse\'s earned income', 6: 'Smallest of expenses and earned incomes', '9a': 'Credit before the tax limit', 10: 'Tax liability limit', 11: 'Child and dependent care credit', 12: 'Dependent care benefits received', 25: 'Excluded dependent care benefits', 26: 'Taxable dependent care benefits' },
   'Schedule E': { '23a': 'Total rents received', '23b': 'Total royalties received', '23c': 'Total mortgage interest', '23d': 'Total depreciation and depletion', '23e': 'Total expenses', 24: 'Income', 25: 'Losses allowed', 26: 'Total rental real estate and royalty income or loss' },
   'Schedule D': { 7: 'Net short-term gain or loss', 13: 'Capital gain distributions', 15: 'Net long-term gain or loss', 16: 'Net gain or loss', 21: 'Loss allowed this year' },
@@ -673,9 +669,10 @@ function computedFor(state, taxYear, options = {}) {
 
 function reviewLines(data) {
   const rows = [];
+  const yearLabels = lineLabels(data.taxYear);
   const push = (form, values, sourceFor = () => 'computed') => {
-    const labels = LINE_LABELS[form] || {};
-    for (const [line, label] of Object.entries(labels)) {
+    const labels = yearLabels[form] || Object.entries(LINE_LABELS[form] || {});
+    for (const [line, label] of labels) {
       if (!Object.hasOwn(values, line)) continue;
       const amount = values[line];
       if (form !== '1040' && !amount) continue;

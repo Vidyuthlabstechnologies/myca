@@ -36,7 +36,7 @@ test('2025 self-only under the limit: contributions 3,000 below 4,300 are deduct
   assert.deepEqual([f['2'], f['3'], f['5'], f['6'], f['7'], f['8'], f['9'], f['11'], f['12'], f['13']], [3000, 4300, 4300, 4300, 0, 4300, 0, 0, 4300, 3000]);
   assert.equal(out.data.schedules['1']['13'], 3000);
   assert.equal(out.data.lines['10'], 3000);
-  assert.equal(out.data.lines['11'], 60000 - 3000);
+  assert.equal(out.data.lines['11b'], 60000 - 3000);
   assert.ok(!codes(out).some((code) => code.startsWith('HSA_')));
   assert.deepEqual(out.data.unsupported, []);
   assert.ok(!out.data.notCovered.some((item) => /taken as entered/.test(item) && /HSA/.test(item)));
@@ -101,8 +101,8 @@ test('failing the testing period: 2026 line 18 2,000 is income on Schedule 1 lin
   assert.deepEqual([f['18'], f['19'], f['20'], f['21']], [2000, 0, 2000, 200]);
   assert.equal(out.data.schedules['1']['8f'], 2000);
   assert.equal(out.data.schedules['1']['9'], 2000);
-  assert.equal(out.data.schedules['2']['17d'], 200);
-  assert.equal(out.data.schedules['2']['18'], 200);
+  assert.equal(out.data.schedules['2']['13d'], 200);
+  assert.equal(out.data.schedules['2']['14'], 200);
   assert.equal(out.data.schedules['2']['21'], 200);
   assert.equal(out.data.lines['23'], 200);
 });
@@ -211,6 +211,6 @@ test('1099-SA and 5498-SA are validated, and the interview asks for coverage, mo
   const review = usReturnReview(state, { taxYear: '2026' }).data;
   assert.ok(review.schedules.includes('8889'));
   assert.deepEqual(review.lines.filter((row) => row.form === 'Schedule 1' && row.line === '8f').map((row) => row.amount), [500]);
-  assert.deepEqual(review.lines.filter((row) => row.form === 'Schedule 2' && row.line === '17c').map((row) => row.amount), [100]);
+  assert.deepEqual(review.lines.filter((row) => row.form === 'Schedule 2' && row.line === '13c').map((row) => row.amount), [100]);
   assert.equal(review.checks.find((item) => item.code === 'HSA_TESTING_PERIOD'), undefined);
 });
