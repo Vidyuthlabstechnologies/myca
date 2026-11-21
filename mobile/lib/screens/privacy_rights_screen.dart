@@ -3,30 +3,33 @@ import 'package:flutter/material.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../cloud/cloud_session.dart';
+import '../india/india_strings.dart';
 import '../theme.dart';
 import '../uae/uae_cloud_strings.dart';
 import '../uae/uae_edition.dart';
 import '../uae/uae_strings.dart';
 import 'privacy_notice_screen.dart';
 
-const privacyRequestKinds = <String, (String, String)>{
-  'access': ('See what MyCA holds about me', 'A summary of your personal data and who it was shared with'),
-  'correction': ('Correct or complete my information', 'Tell us what is wrong'),
-  'erasure': ('Erase my information', 'Something you cannot delete yourself in the app'),
-  'withdraw': ('Withdraw my consent', 'We stop using your information; your account is closed'),
-  'nominate': ('Nominate someone to act for me', 'If you die or cannot act yourself'),
-  'grievance': ('Make a complaint', 'Goes to the Grievance Officer'),
-};
+const privacyRequestKinds = ['access', 'correction', 'erasure', 'withdraw', 'nominate', 'grievance'];
 
-const notTaxAdvice = 'MyCA is software by ML Dynamic Solutions Private Limited. It is not a firm of chartered accountants and does not give tax or legal advice. You approve every return before it is filed.';
+/// The title and help line of a privacy request, or null for a kind this app does not know.
+(String, String)? privacyRequestWords(BuildContext context, String kind) => switch (kind) {
+  'access' => (inText(context, 'See what MyCA holds about me'), inText(context, 'A summary of your personal data and who it was shared with')),
+  'correction' => (inText(context, 'Correct or complete my information'), inText(context, 'Tell us what is wrong')),
+  'erasure' => (inText(context, 'Erase my information'), inText(context, 'Something you cannot delete yourself in the app')),
+  'withdraw' => (inText(context, 'Withdraw my consent'), inText(context, 'We stop using your information; your account is closed')),
+  'nominate' => (inText(context, 'Nominate someone to act for me'), inText(context, 'If you die or cannot act yourself')),
+  'grievance' => (inText(context, 'Make a complaint'), inText(context, 'Goes to the Grievance Officer')),
+  _ => null,
+};
 
 String grievanceEmail(String line) => RegExp(r'[\w.+-]+@[\w-]+\.[\w.-]+').firstMatch(line)?.group(0) ?? '';
 
-String requestStatusWords(PrivacyRequest r) {
+String requestStatusWords(BuildContext context, PrivacyRequest r) {
   final due = r.dueAt.length >= 10 ? r.dueAt.substring(0, 10) : '';
-  if (r.status == 'open') return due.isEmpty ? 'Open' : 'Open, answer due by $due';
-  if (r.status == 'answered') return 'Answered';
-  return 'Closed';
+  if (r.status == 'open') return due.isEmpty ? inText(context, 'Open') : inFormat(context, 'Open, answer due by {date}', {'date': due});
+  if (r.status == 'answered') return inText(context, 'Answered');
+  return inText(context, 'Closed');
 }
 
 class PrivacyRightsScreen extends StatefulWidget {
@@ -61,7 +64,7 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
     final nomineeContact = TextEditingController();
     final s = UaeStrings.of(context);
     final ae = uaeEdition(context);
-    final title = ae ? s.privacyKind(kind) : privacyRequestKinds[kind]!.$1;
+    final title = ae ? s.privacyKind(kind) : privacyRequestWords(context, kind)!.$1;
     final send = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -71,9 +74,9 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (kind == 'nominate') ...[
-                TextField(key: const ValueKey('rights.nomineeName'), controller: nomineeName, decoration: const InputDecoration(labelText: 'Their name')),
+                TextField(key: const ValueKey('rights.nomineeName'), controller: nomineeName, decoration: InputDecoration(labelText: inText(context, 'Their name'))),
                 const SizedBox(height: 8),
-                TextField(key: const ValueKey('rights.nomineeContact'), controller: nomineeContact, decoration: const InputDecoration(labelText: 'Their phone number or email')),
+                TextField(key: const ValueKey('rights.nomineeContact'), controller: nomineeContact, decoration: InputDecoration(labelText: inText(context, 'Their phone number or email'))),
                 const SizedBox(height: 8),
               ],
               TextField(
@@ -110,13 +113,13 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
     final state = AppScope.of(context);
     final s = UaeStrings.of(context);
     final ae = uaeEdition(context);
-    final kinds = ae ? UaeCloudStrings.privacyKinds : privacyRequestKinds.keys.toList();
+    final kinds = ae ? UaeCloudStrings.privacyKinds : privacyRequestKinds;
     return Scaffold(
       appBar: AppBar(title: Text(s.yourPrivacyRights)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
-          Text(ae ? s.rightsIntro : 'Under the Digital Personal Data Protection Act, 2023. Every request gets a reference number and an answer within 30 days. If you are not satisfied, you can complain to the Data Protection Board of India.', style: text.bodyMedium),
+          Text(ae ? s.rightsIntro : inText(context, 'Under the Digital Personal Data Protection Act, 2023. Every request gets a reference number and an answer within 30 days. If you are not satisfied, you can complain to the Data Protection Board of India.'), style: text.bodyMedium),
           const SizedBox(height: 12),
           FutureBuilder<PrivacyNotice>(
             future: _notice,
@@ -130,7 +133,7 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
                       key: const ValueKey('rights.grievance'),
                       contentPadding: EdgeInsets.zero,
                       title: Text(notice.grievance),
-                      subtitle: grievanceEmail(notice.grievance).isEmpty ? null : const Text('Tap to write to them'),
+                      subtitle: grievanceEmail(notice.grievance).isEmpty ? null : Text(inText(context, 'Tap to write to them')),
                       onTap: grievanceEmail(notice.grievance).isEmpty ? null : () => state.openLink(Uri(scheme: 'mailto', path: grievanceEmail(notice.grievance))),
                     ),
                   ListTile(
@@ -140,7 +143,7 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
                     trailing: Icon(Icons.chevron_right, semanticLabel: s.open),
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyNoticeScreen(readOnly: true))),
                   ),
-                  for (final (key, label) in const [('terms', 'Terms of service'), ('refunds', 'Refunds and cancellation'), ('grievance', 'Grievance redressal')])
+                  for (final (key, label) in [('terms', inText(context, 'Terms of service')), ('refunds', inText(context, 'Refunds and cancellation')), ('grievance', inText(context, 'Grievance redressal'))])
                     if (notice != null && (notice.links[key] ?? '').isNotEmpty && !(ae && key == 'grievance'))
                       ListTile(
                         key: ValueKey('rights.link.$key'),
@@ -159,8 +162,8 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
             ListTile(
               key: ValueKey('rights.ask.$kind'),
               contentPadding: EdgeInsets.zero,
-              title: Text(ae ? s.privacyKind(kind) : privacyRequestKinds[kind]!.$1),
-              subtitle: Text(ae ? s.privacyKindHelp(kind) : privacyRequestKinds[kind]!.$2),
+              title: Text(ae ? s.privacyKind(kind) : privacyRequestWords(context, kind)!.$1),
+              subtitle: Text(ae ? s.privacyKindHelp(kind) : privacyRequestWords(context, kind)!.$2),
               onTap: () => _ask(kind),
             ),
           const SizedBox(height: 16),
@@ -178,15 +181,15 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
                   for (final r in rows)
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text('${ae ? s.privacyKind(r.kind) : privacyRequestKinds[r.kind]?.$1 ?? r.kind} · ${r.reference}'),
-                      subtitle: Text([ae ? s.requestStatus(r.status, r.dueAt.length >= 10 ? r.dueAt.substring(0, 10) : '') : requestStatusWords(r), if (r.reply.isNotEmpty) r.reply].join('\n')),
+                      title: Text('${ae ? s.privacyKind(r.kind) : privacyRequestWords(context, r.kind)?.$1 ?? r.kind} · ${r.reference}'),
+                      subtitle: Text([ae ? s.requestStatus(r.status, r.dueAt.length >= 10 ? r.dueAt.substring(0, 10) : '') : requestStatusWords(context, r), if (r.reply.isNotEmpty) r.reply].join('\n')),
                     ),
                 ],
               );
             },
           ),
           const SizedBox(height: 16),
-          Text(ae ? s.notTaxAdvice : notTaxAdvice, style: text.bodySmall?.copyWith(color: paletteOf(context).muted)),
+          Text(ae ? s.notTaxAdvice : inText(context, 'MyCA is software by ML Dynamic Solutions Private Limited. It is not a firm of chartered accountants and does not give tax or legal advice. You approve every return before it is filed.'), style: text.bodySmall?.copyWith(color: paletteOf(context).muted)),
         ],
       ),
     );
