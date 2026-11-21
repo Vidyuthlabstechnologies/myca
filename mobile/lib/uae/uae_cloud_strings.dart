@@ -5,8 +5,9 @@ import 'uae_strings.dart';
 extension UaeCloudStrings on UaeStrings {
   String _t(String en, String arabic) => ar ? arabic : inLine(india, en);
 
-  String _plural(int n, String one, String many, {required String arOne, required String arTwo, required String arFew, required String arMany}) {
-    if (!ar) return n == 1 ? '1 $one' : '$n $many';
+  String _f(String template, Map<String, Object?> parts, String arabic) => ar ? arabic : inFill(inLine(india, template), parts);
+
+  String _plural(int n, {required String arOne, required String arTwo, required String arFew, required String arMany}) {
     if (n == 1) return arOne;
     if (n == 2) return arTwo;
     if (n >= 3 && n <= 10) return '$n $arFew';
@@ -75,22 +76,22 @@ extension UaeCloudStrings on UaeStrings {
   };
 
   String get notSharedYet => _t('Not shared yet.', 'لم تُشارك بعد.');
-  String accountantSeesAsOf(String when) => _t('Your accountant sees the books as of $when.', 'يرى محاسبك الدفاتر كما كانت في $when.');
+  String accountantSeesAsOf(String when) => _f('Your accountant sees the books as of {when}.', {'when': when}, 'يرى محاسبك الدفاتر كما كانت في $when.');
   String get shareNow => _t('Share now', 'شارك الآن');
   String get thisPerson => _t('this person', 'هذا الشخص');
   String get thisPersonTitle => _t('This person', 'هذا الشخص');
-  String removeWho(String name) => _t('Remove $name?', 'أتزيل $name؟');
+  String removeWho(String name) => _f('Remove {name}?', {'name': name}, 'أتزيل $name؟');
   String get removeBody => _t('They lose access to these books at once. What they recorded stays.', 'يفقد الوصول إلى هذه الدفاتر فورًا، ويبقى ما سجّله.');
-  String isRole(String name, String role) => _t('$name is ${roleWord(role)}', '$name بصفة ${roleWord(role)}');
+  String isRole(String name, String role) => _f('{name} is {role}', {'name': name, 'role': roleWord(role)}, '$name بصفة ${roleWord(role)}');
   String get leaveBusiness => _t('Leave this business?', 'أتغادر هذه المنشأة؟');
   String get leaveBody => _t('You lose access to these books at once.', 'تفقد الوصول إلى هذه الدفاتر فورًا.');
   String get inviteSomeone => _t('Invite someone', 'ادعُ شخصًا');
   String get inThisBusiness => _t('In this business', 'في هذه المنشأة');
-  String you(String name) => _t('${name.isEmpty ? 'You' : name} (you)', '${name.isEmpty ? 'أنت' : name} (أنت)');
+  String you(String name) => _f('{name} (you)', {'name': name.isEmpty ? _t('You', 'أنت') : name}, '${name.isEmpty ? 'أنت' : name} (أنت)');
   String get noNameYet => _t('No name yet', 'بلا اسم بعد');
   String get whatAccountantSees => _t('What your accountant sees', 'ما يراه محاسبك');
   String get invitedNotJoined => _t('Invited, not joined yet', 'مدعوون لم ينضموا بعد');
-  String numberEnding(String digits) => _t('Number ending $digits', 'رقم ينتهي بـ\u2066$digits\u2069');
+  String numberEnding(String digits) => _f('Number ending {digits}', {'digits': digits}, 'رقم ينتهي بـ\u2066$digits\u2069');
   String get inviteSheetNote => _t(
     'They sign in to MyCA with this number and choose to join. No message is sent yet, so tell them.',
     'يسجّل الدخول إلى MyCA بهذا الرقم ثم يختار الانضمام. لا تُرسل أي رسالة بعد، فأخبره بنفسك.',
@@ -102,22 +103,25 @@ extension UaeCloudStrings on UaeStrings {
   String get enterUaeMobile => _t('Enter a UAE mobile number, like 050 123 4567.', 'أدخل رقم هاتف محمول إماراتيًا، مثل \u2066050 123 4567\u2069.');
 
   String invitedAs(String by, String role) => by.isEmpty
-      ? _t('You are invited as ${roleWord(role)}.', 'أنت مدعو بصفة ${roleWord(role)}.')
-      : _t('$by invited you as ${roleWord(role)}.', 'دعاك $by بصفة ${roleWord(role)}.');
+      ? _f('You are invited as {role}.', {'role': roleWord(role)}, 'أنت مدعو بصفة ${roleWord(role)}.')
+      : _f('{by} invited you as {role}.', {'by': by, 'role': roleWord(role)}, 'دعاك $by بصفة ${roleWord(role)}.');
   String get decline => _t('Decline', 'ارفض');
   String get join => _t('Join', 'انضم');
 
   String get inviteTitle => _t('Invite', 'الدعوة');
   String get knowAnOwner => _t('Know a business owner who still keeps books by hand?', 'أتعرف صاحب منشأة لا يزال يمسك دفاتره يدويًا؟');
   String get sendYourCode => _t('Send them your code. When they join with it, you see it here.', 'أرسل إليه رمزك. وعندما ينضم به، تراه هنا.');
-  String joinedWithCode(int invited, int converted) => _t(
-    '$invited joined with your code, $converted of them on a paid plan.',
+  String joinedWithCode(int invited, int converted) => _f(
+    '{invited} joined with your code, {converted} of them on a paid plan.',
+    {'invited': invited, 'converted': converted},
     'عدد من انضموا برمزك: $invited، منهم $converted على باقة مدفوعة.',
   );
-  String firmCredits(int credits) => _t(
-    'Each client who joins with your code and pays earns your firm a credit. ${credits == 1 ? '1 credit' : '$credits credits'} waiting for your next renewal.',
-    'كل عميل ينضم برمزك ويدفع يكسب مكتبك رصيدًا. الأرصدة التي تنتظر تجديدك القادم: $credits.',
-  );
+  String firmCredits(int credits) {
+    final arabic = 'كل عميل ينضم برمزك ويدفع يكسب مكتبك رصيدًا. الأرصدة التي تنتظر تجديدك القادم: $credits.';
+    return credits == 1
+        ? _t('Each client who joins with your code and pays earns your firm a credit. 1 credit waiting for your next renewal.', arabic)
+        : _f('Each client who joins with your code and pays earns your firm a credit. {n} credits waiting for your next renewal.', {'n': credits}, arabic);
+  }
   String get shareYourInvite => _t('Share your invite', 'شارك دعوتك');
   String get wereYouInvited => _t('Were you invited?', 'هل دُعيت؟');
   String get inviteCode => _t('Invite code', 'رمز الدعوة');
@@ -125,8 +129,9 @@ extension UaeCloudStrings on UaeStrings {
   String get useThisCode => _t('Use this code', 'استخدم هذا الرمز');
   String get claimThanks => _t('Thank you. The person who invited you will see that you joined.', 'شكرًا لك. سيرى من دعاك أنك انضممت.');
   String get codeCopied => _t('Code copied', 'تم نسخ الرمز');
-  String shareInvite(String? link, String code) => _t(
-    'I keep my books and VAT in MyCA. Get it at ${link ?? 'MyCA UAE on Google Play'} and use my invite code $code when you sign up.',
+  String shareInvite(String? link, String code) => _f(
+    'I keep my books and VAT in MyCA. Get it at {link} and use my invite code {code} when you sign up.',
+    {'link': link ?? 'MyCA UAE on Google Play', 'code': code},
     'أمسك دفاتري وضريبة القيمة المضافة في MyCA. حمّله من ${link ?? 'MyCA UAE على Google Play'} واستخدم رمز دعوتي $code عند التسجيل.',
   );
 
@@ -139,17 +144,17 @@ extension UaeCloudStrings on UaeStrings {
   String get makeNewCodes => _t('Make new recovery codes?', 'أتنشئ رموز استرداد جديدة؟');
   String get makeNew => _t('Make new', 'أنشئ رموزًا جديدة');
   String get signedOut => _t('Signed out.', 'تم تسجيل الخروج.');
-  String signedOutDevices(int n) => _t(
-    'Signed out ${n == 1 ? '1 device' : '$n devices'}.',
-    'تم تسجيل الخروج من ${_plural(n, '', '', arOne: 'جهاز واحد', arTwo: 'جهازين', arFew: 'أجهزة', arMany: 'جهازًا')}.',
-  );
-  String signedInWhen(String day) => _t('Signed in $day', 'سجّل الدخول في $day');
-  String lastActiveWhen(String day) => _t('last active $day', 'آخر نشاط في $day');
+  String signedOutDevices(int n) {
+    final arabic = 'تم تسجيل الخروج من ${_plural(n, arOne: 'جهاز واحد', arTwo: 'جهازين', arFew: 'أجهزة', arMany: 'جهازًا')}.';
+    return n == 1 ? _t('Signed out 1 device.', arabic) : _f('Signed out {n} devices.', {'n': n}, arabic);
+  }
+  String signedInWhen(String day) => _f('Signed in {day}', {'day': day}, 'سجّل الدخول في $day');
+  String lastActiveWhen(String day) => _f('last active {day}', {'day': day}, 'آخر نشاط في $day');
   String get twoStep => _t('Two-step sign-in', 'التحقق بخطوتين');
-  String twoStepOn(int left) => _t(
-    'On · $left recovery ${left == 1 ? 'code' : 'codes'} left',
-    'مفعّل · ${_plural(left, '', '', arOne: 'متبقٍ رمز استرداد واحد', arTwo: 'متبقٍ رمزا استرداد', arFew: 'رموز استرداد متبقية', arMany: 'رمز استرداد متبقٍ')}',
-  );
+  String twoStepOn(int left) {
+    final arabic = 'مفعّل · ${_plural(left, arOne: 'متبقٍ رمز استرداد واحد', arTwo: 'متبقٍ رمزا استرداد', arFew: 'رموز استرداد متبقية', arMany: 'رمز استرداد متبقٍ')}';
+    return left == 1 ? _t('On · 1 recovery code left', arabic) : _f('On · {n} recovery codes left', {'n': left}, arabic);
+  }
   String get twoStepOff => _t('Off · ask for an authenticator code at every sign-in', 'متوقف · فعّله ليُطلب رمز من تطبيق المصادقة عند كل تسجيل دخول');
   String get newRecoveryCodes => _t('New recovery codes', 'رموز استرداد جديدة');
   String get replacesCodes => _t('Replaces the ones you have', 'تحلّ محل الرموز التي لديك');
@@ -188,8 +193,8 @@ extension UaeCloudStrings on UaeStrings {
   String sourceHelp(String source) => source == 'pos'
       ? _t('A billing counter or POS posts each sale straight into the books. No confirmation per sale; you see the day\'s total here.', 'يسجّل جهاز الفوترة أو نقطة البيع كل عملية بيع في الدفاتر مباشرةً، دون تأكيد لكل عملية؛ وترى مجموع اليوم هنا.')
       : _t('A mail inbox or scanner drops bills and statements in. Nothing posts; you get a reminder to read each one.', 'يضع صندوق بريد أو ماسح ضوئي فواتير المشتريات والكشوف هنا. لا يُسجَّل شيء؛ وتصلك تذكرة لقراءة كل مستند.');
-  String copiedText(String text) => _t('Copied $text', 'تم نسخ $text');
-  String turnOffKey(String label) => _t('Turn off $label?', 'أتوقف $label؟');
+  String copiedText(String text) => _f('Copied {text}', {'text': text}, 'تم نسخ $text');
+  String turnOffKey(String label) => _f('Turn off {label}?', {'label': label}, 'أتوقف $label؟');
   String get turnOffKeyBody => _t('Anything it sends from now on is refused. What it already recorded stays in the books.', 'يُرفض كل ما يرسله من الآن. ويبقى ما سجّله في الدفاتر.');
   String get connectSomething => _t('Connect something', 'اربط نظامًا');
   String get connectionsIntro => _t(
@@ -200,16 +205,16 @@ extension UaeCloudStrings on UaeStrings {
   String get connected => _t('Connected', 'مرتبطة');
   String get turnedOff => _t('Turned off', 'متوقفة');
   String get off => _t('Off', 'متوقف');
-  String posToday(int count, String total) => _t(
-    'Today: ${count == 1 ? '1 sale' : '$count sales'}, $total',
-    'اليوم: ${_plural(count, '', '', arOne: 'عملية بيع واحدة', arTwo: 'عمليتا بيع', arFew: 'عمليات بيع', arMany: 'عملية بيع')}، $total',
-  );
-  String forwardBillsTo(String email) => _t('Forward bills to $email', 'أعد توجيه الفواتير إلى $email');
+  String posToday(int count, String total) {
+    final arabic = 'اليوم: ${_plural(count, arOne: 'عملية بيع واحدة', arTwo: 'عمليتا بيع', arFew: 'عمليات بيع', arMany: 'عملية بيع')}، $total';
+    return count == 1 ? _f('Today: 1 sale, {total}', {'total': total}, arabic) : _f('Today: {n} sales, {total}', {'n': count, 'total': total}, arabic);
+  }
+  String forwardBillsTo(String email) => _f('Forward bills to {email}', {'email': email}, 'أعد توجيه الفواتير إلى $email');
   String get nameTheSystem => _t('Name the system, for example "Counter till".', 'سمِّ النظام، مثل «صندوق البيع».');
   String get whatIsIt => _t('What is it?', 'ما هو؟');
   String get whatIsItHint => _t('Counter till, Mail inbox', 'صندوق البيع، صندوق البريد');
   String get createKey => _t('Create key', 'أنشئ مفتاحًا');
-  String isConnected(String label) => _t('$label is connected', 'تم ربط $label');
+  String isConnected(String label) => _f('{label} is connected', {'label': label}, 'تم ربط $label');
   String get giveKeyOnce => _t(
     'Give this key to the system once. It is shown only now; if it is lost, turn this connection off and make a new one.',
     'أعطِ هذا المفتاح للنظام مرة واحدة. لا يظهر إلا الآن؛ وإذا ضاع، أوقف هذا الربط وأنشئ ربطًا جديدًا.',
@@ -218,26 +223,28 @@ extension UaeCloudStrings on UaeStrings {
 
   String aboutWhere(String kind, String detail) => switch (kind) {
     'none' => _t('server not reached', 'تعذّر الوصول إلى الخادم'),
-    'test' => _t('test environment ($detail)', 'بيئة الاختبار ($detail)'),
-    'sandbox' => _t('sandbox mode ($detail)', 'الوضع التجريبي ($detail)'),
+    'test' => _f('test environment ({detail})', {'detail': detail}, 'بيئة الاختبار ($detail)'),
+    'sandbox' => _f('sandbox mode ({detail})', {'detail': detail}, 'الوضع التجريبي ($detail)'),
     _ => _t('live service', 'الخدمة الفعلية'),
   };
-  String deleteWho(String name) => _t('Delete $name?', 'أتحذف $name؟');
+  String deleteWho(String name) => _f('Delete {name}?', {'name': name}, 'أتحذف $name؟');
   String get deleteBusinessBody => _t(
     'Its books, documents and members go with it. Backups are kept for fourteen days, after which it cannot be recovered. UAE law expects the business to keep its tax records for at least five years, so download everything first.',
     'تُحذف معها دفاترها ومستنداتها وأعضاؤها. تُحفظ النسخ الاحتياطية أربعة عشر يومًا، ولا يمكن استعادتها بعد ذلك. يُلزم قانون الإمارات المنشأة بحفظ سجلاتها الضريبية خمس سنوات على الأقل، فنزّل كل البيانات أولًا.',
   );
-  String savedExport(String file) => _t('Saved $file: your books, every uploaded file, members, connections and the audit trail.', 'تم حفظ $file: دفاترك، وكل ملف رفعته، والأعضاء، والاتصالات، وسجل التدقيق.');
+  String savedExport(String file) => _f('Saved {file}: your books, every uploaded file, members, connections and the audit trail.', {'file': file}, 'تم حفظ $file: دفاترك، وكل ملف رفعته، والأعضاء، والاتصالات، وسجل التدقيق.');
   String get notAnExport => _t('That file is not a MyCA export or backup.', 'هذا الملف ليس تصديرًا أو نسخة احتياطية من MyCA.');
-  String replaceWith(String name, String file) => _t('Replace $name with $file?', 'أتستبدل $name بالملف $file؟');
-  String replaceBody(int invoices) => _t(
-    'The books on MyCA become the ones in this file (${invoices == 1 ? '1 invoice' : '$invoices invoices'}). What is on MyCA now is kept in the audit trail and the fourteen-day backups, but the screens will show the file.',
-    'تصبح الدفاتر على MyCA هي التي في هذا الملف (عدد الفواتير: $invoices). ويُحفظ ما على MyCA الآن في سجل التدقيق والنسخ الاحتياطية لأربعة عشر يومًا، لكن الشاشات ستعرض الملف.',
-  );
+  String replaceWith(String name, String file) => _f('Replace {name} with {file}?', {'name': name, 'file': file}, 'أتستبدل $name بالملف $file؟');
+  String replaceBody(int invoices) {
+    final arabic = 'تصبح الدفاتر على MyCA هي التي في هذا الملف (عدد الفواتير: $invoices). ويُحفظ ما على MyCA الآن في سجل التدقيق والنسخ الاحتياطية لأربعة عشر يومًا، لكن الشاشات ستعرض الملف.';
+    return invoices == 1
+        ? _t('The books on MyCA become the ones in this file (1 invoice). What is on MyCA now is kept in the audit trail and the fourteen-day backups, but the screens will show the file.', arabic)
+        : _f('The books on MyCA become the ones in this file ({n} invoices). What is on MyCA now is kept in the audit trail and the fourteen-day backups, but the screens will show the file.', {'n': invoices}, arabic);
+  }
   String get replace => _t('Replace', 'استبدل');
   String replacedFrom(String file, Object? invoices, Object? documents) => invoices == null
-      ? _t('Replaced from $file: done.', 'تم الاستبدال من $file.')
-      : _t('Replaced from $file: $invoices invoices, $documents documents.', 'تم الاستبدال من $file: الفواتير $invoices، والمستندات $documents.');
+      ? _f('Replaced from {file}: done.', {'file': file}, 'تم الاستبدال من $file.')
+      : _f('Replaced from {file}: {invoices} invoices, {documents} documents.', {'file': file, 'invoices': '$invoices', 'documents': '$documents'}, 'تم الاستبدال من $file: الفواتير $invoices، والمستندات $documents.');
   String get deleteAccountTitle => _t('Delete your account?', 'أتحذف حسابك؟');
   String get deleteAccountBody => _t(
     'You are signed out everywhere. Your name, number, email and Google link are erased after 30 days; signing in again before then cancels it. A business where you are the only owner is deleted with you; one with another owner stays with them.',
@@ -246,16 +253,16 @@ extension UaeCloudStrings on UaeStrings {
   String get deleteAccount => _t('Delete account', 'احذف الحساب');
   String get invitations => _t('Invitations', 'الدعوات');
   String get businesses => _t('Businesses', 'المنشآت');
-  String demoRole(String who) => _t('${role(who)} · Demo business, made-up figures', '${role(who)} · منشأة تجريبية بأرقام غير حقيقية');
+  String demoRole(String who) => _f('{role} · Demo business, made-up figures', {'role': role(who)}, '${role(who)} · منشأة تجريبية بأرقام غير حقيقية');
   String get openTag => _t('Open', 'مفتوحة');
   String get demoTag => _t('Demo', 'تجريبية');
   String get yourData => _t('Your data', 'بياناتك');
-  String downloadEverything(String name) => _t('Download everything about $name', 'نزّل كل ما يخص $name');
+  String downloadEverything(String name) => _f('Download everything about {name}', {'name': name}, 'نزّل كل ما يخص $name');
   String get downloadEverythingSubtitle => _t('One file with the books, documents, members and audit trail', 'ملف واحد فيه الدفاتر والمستندات والأعضاء وسجل التدقيق');
-  String restoreFrom(String name) => _t('Restore $name from a file', 'استعد $name من ملف');
+  String restoreFrom(String name) => _f('Restore {name} from a file', {'name': name}, 'استعد $name من ملف');
   String get restoreSubtitle => _t('A download from here, or a backup from the Windows app', 'ملف نزّلته من هنا، أو نسخة احتياطية من تطبيق Windows');
   String get leaving => _t('Leaving', 'المغادرة');
-  String deleteBusinessTitle(String name) => _t('Delete $name', 'احذف $name');
+  String deleteBusinessTitle(String name) => _f('Delete {name}', {'name': name}, 'احذف $name');
   String get deleteBusinessSubtitle => _t('Removes its books and documents for everyone', 'يزيل دفاترها ومستنداتها للجميع');
   String get deleteMyAccount => _t('Delete my account', 'احذف حسابي');
   String get deleteMyAccountSubtitle => _t('Signs you out everywhere; businesses you alone own go with it', 'يسجّل خروجك من كل الأجهزة، وتُحذف معه المنشآت التي تملكها وحدك');
@@ -296,12 +303,12 @@ extension UaeCloudStrings on UaeStrings {
   };
   String get whatHappenedLabel => _t('What happened', 'ماذا حدث');
   String get anythingToKnow => _t('Anything we should know (optional)', 'أي شيء يجب أن نعرفه (اختياري)');
-  String requestSent(String reference) => _t('Sent. Your reference is $reference. We reply within 30 days.', 'تم الإرسال. رقمك المرجعي $reference. نرد خلال 30 يومًا.');
+  String requestSent(String reference) => _f('Sent. Your reference is {reference}. We reply within 30 days.', {'reference': reference}, 'تم الإرسال. رقمك المرجعي $reference. نرد خلال 30 يومًا.');
   String get yourRequests => _t('Your requests', 'طلباتك');
   String get requestsNotLoaded => _t('Your requests could not be loaded.', 'تعذّر تحميل طلباتك.');
   String get noneYet => _t('None yet.', 'لا شيء بعد.');
   String requestStatus(String status, String due) => switch (status) {
-    'open' => due.isEmpty ? _t('Open', 'مفتوح') : _t('Open, answer due by $due', 'مفتوح، والرد مستحق بحلول ${longDate(due)}'),
+    'open' => due.isEmpty ? _t('Open', 'مفتوح') : _f('Open, answer due by {due}', {'due': due}, 'مفتوح، والرد مستحق بحلول ${longDate(due)}'),
     'answered' => _t('Answered', 'تمت الإجابة'),
     _ => _t('Closed', 'مغلق'),
   };
@@ -333,14 +340,14 @@ extension UaeCloudStrings on UaeStrings {
   String get enterTheCode => _t('Enter the code', 'أدخل الرمز');
   String get yourMobileNumber => _t('Your mobile number', 'رقم هاتفك المحمول');
   String get authenticatorNote => _t('Open your authenticator app and type the 6-digit code. A recovery code works too.', 'افتح تطبيق المصادقة واكتب الرمز المكوّن من 6 أرقام. ويصلح رمز الاسترداد أيضًا.');
-  String sentCodeTo(String phone) => _t('We sent a 6-digit code to $phone.', 'أرسلنا رمزًا من 6 أرقام إلى \u2066$phone\u2069.');
+  String sentCodeTo(String phone) => _f('We sent a 6-digit code to {phone}.', {'phone': phone}, 'أرسلنا رمزًا من 6 أرقام إلى \u2066$phone\u2069.');
   String get weWillText => _t('We will text you a code to sign in. No password to remember.', 'سنرسل إليك رمزًا في رسالة نصية لتسجيل الدخول، دون كلمة مرور تتذكرها.');
   String get readPrivacy => _t('Read how MyCA uses your data (privacy policy)', 'اقرأ كيف يستخدم MyCA بياناتك (سياسة الخصوصية)');
   String get continueWithGoogle => _t('Continue with Google', 'المتابعة باستخدام Google');
   String get continueWithApple => _t('Continue with Apple', 'المتابعة باستخدام Apple');
   String firmAccount(String host) => host.isEmpty
       ? _t('Sign in with your firm\'s account', 'سجّل الدخول بحساب جهة عملك')
-      : _t('Sign in with your firm\'s account ($host)', 'سجّل الدخول بحساب جهة عملك (\u2066$host\u2069)');
+      : _f('Sign in with your firm\'s account ({host})', {'host': host}, 'سجّل الدخول بحساب جهة عملك (\u2066$host\u2069)');
   String get orUseMobile => _t('Or use your mobile number', 'أو استخدم رقم هاتفك المحمول');
   String get signInUnavailable => _t('Sign-in is not available right now. Try again later.', 'تسجيل الدخول غير متاح الآن. حاول لاحقًا.');
   String get mobileNumber => _t('Mobile number', 'رقم الهاتف المحمول');
@@ -351,7 +358,7 @@ extension UaeCloudStrings on UaeStrings {
   String get welcomeBack => _t('Welcome back', 'مرحبًا بعودتك');
   String get noUsersYet => _t('No users are set up for this business yet.', 'لم يُضف أي مستخدم لهذه المنشأة بعد.');
   String get user => _t('User', 'المستخدم');
-  String signingInAs(String name) => _t('Signing in as $name', 'تسجيل الدخول باسم $name');
+  String signingInAs(String name) => _f('Signing in as {name}', {'name': name}, 'تسجيل الدخول باسم $name');
   String get pin => _t('PIN', 'الرمز السري');
   String get signingIn => _t('Signing in…', 'جارٍ تسجيل الدخول…');
   String pinProblem(String code) => switch (code) {
@@ -359,7 +366,7 @@ extension UaeCloudStrings on UaeStrings {
     'INVALID_PIN' => _t('Wrong PIN. Try again.', 'الرمز السري غير صحيح. حاول مرة أخرى.'),
     'PIN_NOT_SET' => _t('This user has no PIN yet. Set one in MyCA on Windows.', 'ليس لهذا المستخدم رمز سري بعد. اضبطه في MyCA على Windows.'),
     'USER_LOCKED_OUT' => _t('Too many wrong attempts. This user is locked.', 'محاولات خاطئة كثيرة. هذا المستخدم مقفل.'),
-    _ => _t('Could not sign in ($code).', 'تعذّر تسجيل الدخول (\u2066$code\u2069).'),
+    _ => _f('Could not sign in ({code}).', {'code': code}, 'تعذّر تسجيل الدخول (\u2066$code\u2069).'),
   };
 
   String serverBanner(bool sandbox) => sandbox
@@ -386,7 +393,7 @@ extension UaeCloudStrings on UaeStrings {
   String get pickClosest => _t('Pick the closest one. You can bring more in later.', 'اختر الأقرب. ويمكنك استيراد المزيد لاحقًا.');
   String get aboutTheBusiness => _t('Tell us about the business', 'أخبرنا عن المنشأة');
   String get onInvoices => _t('This goes on your invoices and returns.', 'يظهر هذا على فواتيرك وإقراراتك.');
-  String notAccepted(String error) => _t('MyCA did not accept that ($error).', 'لم يقبل MyCA ذلك (\u2066$error\u2069).');
+  String notAccepted(String error) => _f('MyCA did not accept that ({error}).', {'error': error}, 'لم يقبل MyCA ذلك (\u2066$error\u2069).');
   String get openMyBooks => _t('Open my books', 'افتح دفاتري');
   String get skipForNow => _t('Skip for now', 'تخطَّ الآن');
   String get allSet => _t('You are all set', 'كل شيء جاهز');
@@ -471,6 +478,6 @@ extension UaeCloudStrings on UaeStrings {
     final match = RegExp(r'^That code is not right\. (\d+) tr(y|ies) left\.$').firstMatch(message);
     if (match == null) return null;
     final left = int.parse(match.group(1)!);
-    return 'الرمز غير صحيح. ${_plural(left, '', '', arOne: 'متبقية محاولة واحدة', arTwo: 'متبقية محاولتان', arFew: 'محاولات متبقية', arMany: 'محاولة متبقية')}.';
+    return 'الرمز غير صحيح. ${_plural(left, arOne: 'متبقية محاولة واحدة', arTwo: 'متبقية محاولتان', arFew: 'محاولات متبقية', arMany: 'محاولة متبقية')}.';
   }
 }
