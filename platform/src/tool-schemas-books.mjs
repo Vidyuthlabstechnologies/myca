@@ -400,6 +400,42 @@ export const BOOKS_TOOL_SCHEMAS = {
     required: ['code'],
     properties: { code: { type: 'string', minLength: 1, maxLength: 64 } },
   },
+  loyalty_settings: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      enabled: { type: 'boolean' },
+      earnPoints: { type: 'integer', minimum: 1, maximum: 1000 },
+      earnPerRupees: { type: 'number', minimum: 1, maximum: 1000000 },
+      earnOn: { type: 'string', enum: ['taxable', 'total'] },
+      pointValue: { type: 'number', minimum: 0.01, maximum: 1000 },
+      minRedeemPoints: { type: 'integer', minimum: 0, maximum: 1000000 },
+      maxRedeemPercent: { type: 'number', exclusiveMinimum: 0, maximum: 100 },
+      expiryMonths: { type: 'integer', minimum: 0, maximum: 120 },
+    },
+  },
+  loyalty_balance: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      partyName: { type: 'string', maxLength: 120 },
+      partyGstin: { type: 'string', maxLength: 15 },
+      asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      limit: { type: 'integer', minimum: 1, maximum: 500 },
+    },
+  },
+  loyalty_adjust: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['partyName', 'points', 'reason'],
+    properties: {
+      partyName: { type: 'string', minLength: 1, maxLength: 120 },
+      partyGstin: { type: 'string', maxLength: 15 },
+      points: { type: 'integer', minimum: -10000000, maximum: 10000000 },
+      reason: { type: 'string', minLength: 1, maxLength: 200 },
+      date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
   import_sku_costs: {
     type: 'object',
     additionalProperties: false,

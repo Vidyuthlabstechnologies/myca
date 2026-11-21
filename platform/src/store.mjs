@@ -90,6 +90,7 @@ export function createState() {
     skus: {},
     stockMoves: [],
     inventoryValuations: [],
+    loyalty: { settings: null, entries: [], seq: 0 },
     portalSaves: {},
     gstr3bPortal: {},
     tdsFvuJobs: [],
@@ -206,6 +207,7 @@ export function serialize(state) {
     skus: state.skus || {},
     stockMoves: state.stockMoves || [],
     inventoryValuations: state.inventoryValuations || [],
+    loyalty: state.loyalty || { settings: null, entries: [], seq: 0 },
     portalSaves: state.portalSaves || {},
     gstr3bPortal: state.gstr3bPortal || {},
     tdsFvuJobs: state.tdsFvuJobs || [],
@@ -403,6 +405,7 @@ export function deserialize(raw) {
   state.skus = raw.skus && typeof raw.skus === 'object' ? raw.skus : {};
   state.stockMoves = Array.isArray(raw.stockMoves) ? raw.stockMoves : [];
   state.inventoryValuations = Array.isArray(raw.inventoryValuations) ? raw.inventoryValuations : [];
+  state.loyalty = raw.loyalty && typeof raw.loyalty === 'object' && Array.isArray(raw.loyalty.entries) ? { settings: raw.loyalty.settings && typeof raw.loyalty.settings === 'object' ? raw.loyalty.settings : null, entries: raw.loyalty.entries, seq: Number(raw.loyalty.seq || 0) } : { settings: null, entries: [], seq: 0 };
   state.portalSaves = raw.portalSaves && typeof raw.portalSaves === 'object' ? raw.portalSaves : {};
   state.gstr3bPortal = raw.gstr3bPortal && typeof raw.gstr3bPortal === 'object' ? raw.gstr3bPortal : {};
   state.tdsFvuJobs = Array.isArray(raw.tdsFvuJobs) ? raw.tdsFvuJobs : [];

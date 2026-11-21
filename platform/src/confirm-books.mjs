@@ -13,6 +13,7 @@ import { planOrderImport, settlementInvoices } from './marketplace-orders.mjs';
 import { planChannelIdentity } from './marketplace-credits.mjs';
 import { planSkuCost, parseSkuCostsCsv } from './sku-margins.mjs';
 import { planCatalogueSettings, planCatalogueItems, planStoreOrderAction } from './catalogue.mjs';
+import { planLoyaltySettings, planLoyaltyAdjust, loyaltySettingsWords, pointsValue } from './loyalty.mjs';
 import { planInventoryValuation } from './inventory.mjs';
 import { planStockTransfer } from './stock-transfers.mjs';
 import { tally, bank } from './sprint-load.mjs';
@@ -589,4 +590,35 @@ export function storeOrderActionPreview(state, args) {
     };
   }
   return { blockers: [], summary: `${order.id} from ${order.buyerName}: ${action === 'decline' ? 'declined' : 'fulfilled'}.`, effects: ['Nothing posts to your books.'], figures: {} };
+}
+export function loyaltySettingsPreview(state, args) {
+  const planned = planLoyaltySettings(state, args);
+  if (!planned.ok) return { blockers: [planned.hint || planned.error], summary: '', effects: [], figures: {} };
+  const { next, changed, firstTime } = planned.plan;
+  return {
+    blockers: [],
+    summary: loyaltySettingsWords(next, money),
+    effects: [
+      firstTime ? 'These are the first loyalty settings for this business.' : `Changes: ${changed.length ? changed.join(', ') : 'nothing'}.`,
+      'Points already earned keep the expiry date they were given; new rules apply to bills from now on.',
+      'Points used on a bill are a discount on that bill: GST is charged on the lower value (CGST Act s.15(3)(a)).',
+    ],
+    figures: { ...next },
+  };
+}
+
+export function loyaltyAdjustPreview(state, args) {
+  const planned = planLoyaltyAdjust(state, args);
+  if (!planned.ok) return { blockers: [planned.hint || planned.error], summary: '', effects: [], figures: {} };
+  const { party, points, reason, date, expiresOn, balanceBefore, balanceAfter, settings } = planned.plan;
+  return {
+    blockers: [],
+    summary: `${points > 0 ? `Add ${points}` : `Take away ${-points}`} loyalty ${Math.abs(points) === 1 ? 'point' : 'points'} ${points > 0 ? 'to' : 'from'} ${party.name} on ${date}: ${reason}.`,
+    effects: [
+      `${party.name} goes from ${balanceBefore} to ${balanceAfter} points (worth ${money(pointsValue(settings, balanceAfter))}).`,
+      expiresOn ? `The added points expire on ${expiresOn}.` : points > 0 ? 'The added points never expire.' : 'The oldest points are taken first.',
+      'Nothing posts to the ledger; the change is kept in the points book and the audit trail.',
+    ],
+    figures: { points, balanceBefore, balanceAfter },
+  };
 }

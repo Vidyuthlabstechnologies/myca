@@ -9,6 +9,7 @@ import { importSettlement, settlementStatus } from './settlements.mjs';
 import { importMarketplaceOrders, postSettlement } from './marketplace-orders.mjs';
 import { setChannelIdentity, importTcsStatement, import26asCredits, marketplaceCredits } from './marketplace-credits.mjs';
 import { recordTdsWithheld, tdsCreditCheck } from './tds-credits.mjs';
+import { loyaltyInvoice, loyaltyAfterInvoice, loyaltyAfterCreditNote, setLoyaltySettings, loyaltyBalance, loyaltyAdjust } from './loyalty.mjs';
 import { findItem, setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins, stockMoves } from './sku-margins.mjs';
 import { dailyClose } from './daily-close.mjs';
 import { setCatalogueSettings, setCatalogueItems, catalogueView, storeOrders, storeOrderAction } from './catalogue.mjs';
@@ -623,9 +624,9 @@ export const TOOLS = [
   {
     name: 'create_invoice',
     title: 'Create invoice',
-    description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the UAE 5% VAT by emirate; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here. In India set supplyType SEZWP (supply to an SEZ unit or developer with IGST), SEZWOP (to an SEZ under LUT or bond, no tax) or DEXP (deemed export, taxed as usual; buyer GSTIN required); SEZ supplies are always IGST. A line may carry compensation cess as cessRate (percent of the taxable value) and/or cessPerUnit (rupees per unit).',
-    args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'partyAddress', 'exportSale', 'supplyType'],
-    run: (state, args) => (engineBooks(countryOf(state), 'create_invoice')?.(state, args) ?? (countryOf(state) === 'US' ? createUsInvoice(state, args) : createInvoice(state, args))),
+    description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the UAE 5% VAT by emirate; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here. In India set supplyType SEZWP (supply to an SEZ unit or developer with IGST), SEZWOP (to an SEZ under LUT or bond, no tax) or DEXP (deemed export, taxed as usual; buyer GSTIN required); SEZ supplies are always IGST. A line may carry compensation cess as cessRate (percent of the taxable value) and/or cessPerUnit (rupees per unit). In India, when loyalty points are on, a sale to a named customer earns points; redeemPoints uses that customer\'s points as a discount on the bill, which lowers the value GST is charged on.',
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'partyAddress', 'exportSale', 'supplyType', 'redeemPoints'],
+    run: (state, args) => (engineBooks(countryOf(state), 'create_invoice')?.(state, args) ?? (countryOf(state) === 'US' ? createUsInvoice(state, args) : loyaltyInvoice(state, args))),
   },
   {
     name: 'create_purchase',
@@ -653,14 +654,14 @@ export const TOOLS = [
     title: 'Credit note',
     description: 'Reduce a posted sales invoice by a credit note (goods returned, price reduced, or the whole invoice) with reversing entries. Never edits the invoice.',
     args: ['invoiceId', 'amount', 'date', 'reason'],
-    run: (state, args) => (engineBooks(countryOf(state), 'create_credit_note')?.(state, args) ?? createCreditNote(state, args)),
+    run: (state, args) => (engineBooks(countryOf(state), 'create_credit_note')?.(state, args) ?? loyaltyAfterCreditNote(state, createCreditNote(state, args))),
   },
   {
     name: 'cancel_invoice',
     title: 'Cancel invoice',
     description: 'Cancel a posted sales invoice by a credit note for its full value; the invoice stays in the journal and the return of its period.',
     args: ['invoiceId', 'date', 'reason'],
-    run: (state, args) => (engineBooks(countryOf(state), 'cancel_invoice')?.(state, args) ?? cancelInvoice(state, args)),
+    run: (state, args) => (engineBooks(countryOf(state), 'cancel_invoice')?.(state, args) ?? loyaltyAfterCreditNote(state, cancelInvoice(state, args))),
   },
   {
     name: 'create_debit_note',
@@ -1333,7 +1334,7 @@ export const TOOLS = [
     title: 'Invoice from quote, proforma, order or challan',
     description: 'Raise the tax invoice for a quote, proforma, sales order or delivery challan with the same lines, linked both ways. A declined, cancelled, returned or already-invoiced document is refused, and so is a job-work challan, which is not a sale.',
     args: ['id', 'date'],
-    run: (state, args = {}) => convertQuote(state, args),
+    run: (state, args = {}) => loyaltyAfterInvoice(state, convertQuote(state, args)),
   },
   {
     name: 'list_quotes',
@@ -2302,6 +2303,25 @@ export const TOOLS = [
     description: 'Answer an order request from the online store: accept it, which makes a quote for the buyer at the items\' saved prices and GST rates, decline it, or mark it fulfilled. Owner only.',
     args: ['id', 'action'],
     run: (state, args = {}) => storeOrderAction(state, args),
+    name: 'loyalty_settings',
+    title: 'Loyalty points settings',
+    description: 'Turn customer loyalty points on or off and set the rules: points earned per rupees of the bill (on the value before GST or the total), the value of one point, the fewest points used at a time, the most of a bill points can pay (percent of the value before GST) and the months until points expire (0 never). Owner only. Indian shops.',
+    args: ['enabled', 'earnPoints', 'earnPerRupees', 'earnOn', 'pointValue', 'minRedeemPoints', 'maxRedeemPercent', 'expiryMonths'],
+    run: (state, args = {}) => setLoyaltySettings(state, args),
+  },
+  {
+    name: 'loyalty_balance',
+    title: 'Loyalty points balance',
+    description: 'One customer\'s loyalty points (balance, value, points expiring soon, recent history and a WhatsApp line to send), or every customer ranked by points with the shop\'s outstanding points liability in rupees. Read-only.',
+    args: ['partyName', 'partyGstin', 'asOf', 'limit'],
+    run: (state, args = {}) => loyaltyBalance(state, args),
+  },
+  {
+    name: 'loyalty_adjust',
+    title: 'Adjust loyalty points',
+    description: 'Add bonus points to a customer or take points away by hand, with the reason, kept in the points book and the audit trail. Owner only.',
+    args: ['partyName', 'partyGstin', 'points', 'reason', 'date'],
+    run: (state, args = {}) => loyaltyAdjust(state, args),
   },
   {
     name: 'import_sku_costs',
