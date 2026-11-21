@@ -2,6 +2,9 @@
 // Needs a native speaker's review before launch: see docs/product/INDIA-LANGUAGES.md.
 
 const hiCore = <String, String>{
+  'Not posted yet': 'अभी दर्ज नहीं हुआ',
+  'Posted': 'दर्ज हो गया',
+  'Not posted': 'दर्ज नहीं हुआ',
   'Language': 'भाषा',
   'Same as my phone': 'फ़ोन वाली भाषा',
   '1 thing needs you': '1 काम आपका इंतज़ार कर रहा है',
