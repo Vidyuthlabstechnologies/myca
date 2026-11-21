@@ -5,7 +5,7 @@ process.env.APPDATA = mkdtempSync(join(tmpdir(), 'myca-brief-'));
 process.env.HOME = process.env.APPDATA;
 process.env.MYCA_MOCK_MODE = '1';
 
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createState } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
@@ -14,6 +14,7 @@ import { weeklyBrief } from '../src/weekly-brief.mjs';
 import { REMOTE_QUERY_TOOLS } from '../src/remote-contract.mjs';
 import { localToday } from '../src/dates.mjs';
 
+mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 15, 12).getTime() });
 const TODAY = localToday();
 function shift(days) {
   const d = new Date(`${TODAY}T00:00:00Z`);

@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createState, serialize, deserialize } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
@@ -6,6 +6,7 @@ import { chat, propose } from '../src/router.mjs';
 import { trialBalance, listAccounts } from '../src/ledger.mjs';
 import { localToday } from '../src/dates.mjs';
 
+mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 15, 12).getTime() });
 const TODAY = localToday();
 const PAID_ON = '2026-10-18';
 
