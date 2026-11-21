@@ -244,8 +244,10 @@ export function planRedemption(state, input = {}, date = postingDate(input.date)
   return { ok: true, redemption: { points, valuePaise, value: valuePaise / 100, party, balanceBefore: available.balance, balanceAfter: available.balance - points, settings } };
 }
 
+export const STORE_NO_POINTS = 'It earns no loyalty points: the buyer name came from the public store and may not be your customer of that name. Once you know who it is, add them by hand with a loyalty points adjustment (loyalty_adjust).';
+
 function earnFor(state, invoice) {
-  if (!loyaltyServes(state)) return null;
+  if (!loyaltyServes(state) || invoice?.source === 'store') return null;
   const settings = loyaltySettings(state);
   if (!settings.enabled || !invoice || !isNamedCustomer(invoice.partyName)) return null;
   const points = pointsEarnedOn(settings, earnBase(settings, invoice));

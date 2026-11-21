@@ -214,3 +214,26 @@ test('a quote made by hand with item codes moves stock when it becomes an invoic
   assert.equal(invoiced.ok, true, JSON.stringify(invoiced));
   assert.deepEqual(state.stockMoves.filter((move) => move.ref === invoiced.invoice.id).map((move) => move.qty), [-1]);
 });
+
+test('a store order invoiced from its quote earns no points for a customer who happens to share the buyer name', async () => {
+  const state = await openShop();
+  await runTool(state, 'loyalty_settings', { enabled: true, earnPoints: 1, earnPerRupees: 10, pointValue: 1, minRedeemPoints: 0, maxRedeemPercent: 50, expiryMonths: 0 });
+  const regular = await runTool(state, 'create_invoice', { partyName: 'Meena', lines: [{ description: 'Neem soap', hsn: '3401', qty: 5, rate: 40, gstRate: 18 }] });
+  assert.equal(regular.loyalty.earned, 20);
+  const priced = priceStoreOrder(publicCatalogue(state), { buyerName: 'Meena', buyerPhone: '9820012345', lines: [{ id: itemId('TEA-250'), qty: 2 }] });
+  receiveStoreOrder(state, priced.order, { ref: 'r1', receivedAt: '2026-11-21T10:00:00Z' });
+  const acceptPreview = previewOf(state, 'store_order_action', { id: 'ORD-0001', action: 'accept' });
+  assert.ok(acceptPreview.effects.some((line) => /no loyalty points/i.test(line) && /loyalty_adjust|add them by hand/i.test(line)), JSON.stringify(acceptPreview.effects));
+  const accepted = await runTool(state, 'store_order_action', { id: 'ORD-0001', action: 'accept' });
+  const quote = state.quotes.find((q) => q.id === accepted.quoteId);
+  assert.equal(quote.source, 'store');
+  const convertPreviewed = previewOf(state, 'convert_quote', { id: quote.id });
+  assert.doesNotMatch(convertPreviewed.summary, /earns/);
+  assert.ok(convertPreviewed.effects.some((line) => /no loyalty points/i.test(line)), JSON.stringify(convertPreviewed.effects));
+  const before = state.loyalty.entries.length;
+  const made = await runTool(state, 'convert_quote', { id: quote.id });
+  assert.equal(made.ok, true, JSON.stringify(made));
+  assert.equal(made.invoice.source, 'store');
+  assert.equal(made.loyalty, undefined);
+  assert.equal(state.loyalty.entries.length, before);
+});

@@ -218,6 +218,7 @@ export function convertQuote(state, args = {}) {
   const made = quote.country === 'US' ? createUsInvoice(state, invoiceArgsFromQuote(quote, args)) : createInvoice(state, invoiceArgsFromQuote(quote, args));
   if (made.ok === false) return made;
   made.invoice.quoteId = quote.id;
+  if (quote.source === 'store') made.invoice.source = 'store';
   quote.status = 'invoiced';
   quote.invoiceId = made.invoice.id;
   return { ...made, quote };

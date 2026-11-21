@@ -13,7 +13,7 @@ import { planOrderImport, settlementInvoices } from './marketplace-orders.mjs';
 import { planChannelIdentity } from './marketplace-credits.mjs';
 import { planSkuCost, parseSkuCostsCsv, planStock } from './sku-margins.mjs';
 import { planCatalogueSettings, planCatalogueItems, planStoreOrderAction } from './catalogue.mjs';
-import { planLoyaltySettings, planLoyaltyAdjust, loyaltySettingsWords, pointsValue } from './loyalty.mjs';
+import { planLoyaltySettings, planLoyaltyAdjust, loyaltySettingsWords, pointsValue, loyaltySettings } from './loyalty.mjs';
 import { planCostingMethod, warningWords, COSTING_WORDS, COSTING_BASIS } from './inventory-costing.mjs';
 import { planInventoryValuation } from './inventory.mjs';
 import { planStockTransfer } from './stock-transfers.mjs';
@@ -609,7 +609,7 @@ export function storeOrderActionPreview(state, args) {
     return {
       blockers: [],
       summary: `Accept ${order.id} from ${order.buyerName}: quote of ${money(quote.total)} (taxable ${money(quote.taxable)}) at today's saved prices.`,
-      effects: ['A quote is made for the buyer; it posts nothing until it becomes an invoice.', 'GST is worked out as a sale within your state; change the quote if the buyer is in another state.'],
+      effects: ['A quote is made for the buyer; it posts nothing until it becomes an invoice.', 'GST is worked out as a sale within your state; change the quote if the buyer is in another state.', ...(loyaltySettings(state).enabled ? ['When it becomes an invoice it earns no loyalty points: the buyer name came from the public store and may not be your customer of that name. Once you know who it is, add them by hand with a loyalty points adjustment (loyalty_adjust).'] : [])],
       figures: { total: quote.total },
     };
   }

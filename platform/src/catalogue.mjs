@@ -379,6 +379,7 @@ export function storeOrderAction(state, args = {}) {
   if (plan.action === 'accept') {
     const made = createQuote(state, plan.quoteArgs);
     if (!made.ok) return made;
+    made.quote.source = 'store';
     quoteId = made.quote.id;
   }
   const catalogue = ensureCatalogue(state);

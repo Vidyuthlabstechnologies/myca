@@ -18,7 +18,7 @@ import { cessLineNotInForce, chargesCess } from './compensation-cess.mjs';
 import { engineBooks } from './countries/engines.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { lastGstRateFor, lastHsnFor, planPayment, allocateDiscount } from './invoice.mjs';
-import { redemptionPreviewWords, earnPreview } from './loyalty.mjs';
+import { redemptionPreviewWords, earnPreview, loyaltySettings, STORE_NO_POINTS } from './loyalty.mjs';
 import { planSupplierReminder } from './supplier-reminders.mjs';
 import { planTds, tdsWords, wantsTds } from './tds-deduction.mjs';
 import { reverseChargeOf } from './reverse-charge.mjs';
@@ -69,7 +69,7 @@ function plusYear(iso) {
   return `${Number(iso.slice(0, 4)) + 1}${iso.slice(4)}`;
 }
 
-export function documentPreview(state, args, kind) {
+export function documentPreview(state, args, kind, { earnsPoints = true } = {}) {
   const own = engineBooks(countryOf(state), kind === 'sale' ? 'create_invoice' : 'create_purchase', 'preview');
   if (own) return own(state, args, kind);
   if (countryOf(state) === 'US') return usDocumentPreview(state, args, kind);
@@ -158,7 +158,7 @@ export function documentPreview(state, args, kind) {
     if (planned.ok) tds = planned.tds;
     else blockers.push((TDS_REASONS[planned.error] || (() => planned.error))(planned));
   }
-  const earning = sale && !blockers.length ? earnPreview(state, args, { taxable, total: Math.round((taxable + tax) * 100) / 100 }) : 0;
+  const earning = sale && earnsPoints && !blockers.length ? earnPreview(state, args, { taxable, total: Math.round((taxable + tax) * 100) / 100 }) : 0;
   const pointsWords = redemption ? ` Loyalty points redeemed: ${redemption.points} points, ${money(redemption.value)} off before GST (GST is on the lower value, CGST Act s.15(3)(a)); ${party} has ${redemption.balanceAfter} left.` : '';
   const earnWords = earning > 0 ? ` ${party} earns ${earning} loyalty ${earning === 1 ? 'point' : 'points'}.` : '';
   return {
@@ -721,7 +721,9 @@ export function markQuotePreview(state, args) {
 export function convertPreview(state, args) {
   const checked = checkConvert(state, args);
   if (!checked.ok) return { blockers: [QUOTE_REASONS[checked.error] || checked.error], summary: '', effects: [], figures: {} };
-  const invoice = documentPreview(state, invoiceArgsFromQuote(checked.quote, args), 'sale');
+  const fromStore = checked.quote.source === 'store';
+  const invoice = documentPreview(state, invoiceArgsFromQuote(checked.quote, args), 'sale', { earnsPoints: !fromStore });
   const note = checked.expired ? ` The quote expired on ${checked.quote.validUntil}.` : '';
-  return { ...invoice, summary: `From ${kindTitle(checked.quote).toLowerCase()} ${checked.quote.id}: ${invoice.summary}${note}` };
+  const effects = fromStore && loyaltySettings(state).enabled ? [...invoice.effects, STORE_NO_POINTS] : invoice.effects;
+  return { ...invoice, effects, summary: `From ${kindTitle(checked.quote).toLowerCase()} ${checked.quote.id}: ${invoice.summary}${note}` };
 }
