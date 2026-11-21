@@ -162,7 +162,7 @@ export async function readUsTaxDocument(state, args = {}) {
   return { ok: true, data: { documentId: sha, kind, taxYear, payer, payerTin, fields, confidence, warnings: problems, proposal: { tool: 'add_us_tax_form', args: { taxYear, kind, payer, payerTin, fields, source: 'upload', documentId: sha } }, note: 'A model read the form; nothing is saved until you confirm the boxes.' } };
 }
 
-const LETTER_AMOUNT_FIELD = Object.freeze({ 'W-2': 'wages', '1099-INT': 'interest', '1099-DIV': 'ordinaryDividends', '1099-B': 'proceeds', '1099-NEC': 'nonemployeeCompensation', '1099-MISC': 'otherIncome', '1099-G': 'unemployment', '1099-R': 'taxableAmount', 'SSA-1099': 'netBenefits', '1098': 'mortgageInterest', '1098-E': 'studentLoanInterest', '1098-T': 'tuitionPaid' });
+const LETTER_AMOUNT_FIELD = Object.freeze({ 'W-2': 'wages', '1099-INT': 'interest', '1099-DIV': 'ordinaryDividends', '1099-B': 'proceeds', '1099-NEC': 'nonemployeeCompensation', '1099-MISC': 'otherIncome', '1099-G': 'unemployment', '1099-R': 'taxableAmount', 'SSA-1099': 'netBenefits', '1098': 'mortgageInterest', '1098-E': 'studentLoanInterest', '1098-T': 'tuitionPaid', '1095-A': 'advancePaymentAnnual' });
 const TIN_LIKE = /\b\d{3}[- ]?\d{2}[- ]?\d{4}\b/g;
 const cleanText = (value, limit) => String(value || '').replace(/[\u0000-\u0008\u000b-\u001f]/g, ' ').replace(TIN_LIKE, '***-**-****').trim().slice(0, limit);
 const isoDate = (value) => (/^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : '');

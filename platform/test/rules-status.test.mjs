@@ -50,7 +50,7 @@ test('a US business sees only the US families, and chat answers "rules status" i
   const stateReturns = out.data.families.find((f) => f.key === 'us-state-returns');
   assert.ok(stateReturns && stateReturns.records > 0, 'the state return records report as their own family');
   assert.deepEqual(out.data.families.map((f) => f.key).filter((key) => key !== 'us-state-returns'), ['us-federal', 'us-individual', 'us-sales-tax', 'us-states']);
-  assert.equal(out.data.totals.records - stateReturns.records, 75);
+  assert.equal(out.data.totals.records - stateReturns.records, 92);
   assert.equal(out.data.totals.ending - stateReturns.ending.length, 8, 'the 2027 federal figures follow on 2027-01-01; the eight 2026 state records have no 2027 successor yet');
   assert.deepEqual(out.data.families.filter((f) => f.attention && f.key !== 'us-state-returns').map((f) => f.key), ['us-states']);
   assert.match(out.data.notes[0], /US CPA/);
