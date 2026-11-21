@@ -199,3 +199,17 @@ test('India stores are served only by a deployment that hosts India', async () =
   }
   assert.equal((await api.call('GET', '/v1/store/resident-traders', { headers: ip(7) })).status, 200);
 });
+
+test('replacing the books from a backup refreshes the public store', async () => {
+  const owner = await shop('Restored Traders');
+  const exported = (await api.call('GET', at(owner, 'export'), { token: owner.token })).body;
+  await posted(owner, 'catalogue_settings', { enabled: false });
+  assert.equal((await linkOf(owner)).enabled, false);
+  assert.equal((await api.call('GET', '/v1/store/restored-traders', { headers: ip(8) })).status, 404);
+  const replaced = await api.call('POST', at(owner, 'replace'), { token: owner.token, body: exported });
+  assert.equal(replaced.status, 200, replaced.text);
+  const link = await linkOf(owner);
+  assert.equal(link.enabled, true);
+  assert.equal(link.snapshot.enabled, true);
+  assert.equal((await api.call('GET', '/v1/store/restored-traders', { headers: ip(8) })).status, 200);
+});

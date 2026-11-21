@@ -128,8 +128,10 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
       const row = await lockLive(q, businessId, context);
       const { books, documents, session } = await open(q, businessId, row.state, row.version);
       const before = { invoices: session.state.invoices.length, version: Number(row.version) };
+      const watched = storeWatch(session.state) || { snapshot: '', chosen: '', statuses: new Map() };
       const out = await session.restore({ ...payload, confirm: true });
       if (out.ok === false) return out;
+      await settleStore(q, businessId, session, watched);
       await q('update books set state = $2::jsonb, version = version + 1, updated_at = now() where business_id = $1', [businessId, storedState(booksKey, businessId, books.stored())]);
       let stored = 0;
       for (const doc of documents.added()) {
