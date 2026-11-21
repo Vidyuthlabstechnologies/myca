@@ -351,7 +351,7 @@ function fmtToolResultCore(name, result, args) {
     if (i.country === 'US') {
       return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (${money(i.subtotal)}${i.taxExempt ? `, exempt from sales tax: ${i.exemptionReason}` : ` plus ${money(i.salesTax)} sales tax`}).`;
     }
-    return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (${money(i.taxable)} plus ${money(i.cgst + i.sgst + i.igst)} GST).${result.buyerDetails ? ` ${result.buyerDetails.hint}` : ''}`;
+    return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (${money(i.taxable)} plus ${money(i.cgst + i.sgst + i.igst)} GST).${result.buyerDetails ? ` ${result.buyerDetails.hint}` : ''}${result.hsnWarnings?.length ? ` ${result.hsnWarnings.map((item) => item.words).join(' ')}` : ''}`;
   }
   if (name === 'can_make_payroll' && result.data) {
     const d = result.data;

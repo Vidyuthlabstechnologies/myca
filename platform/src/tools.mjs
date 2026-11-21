@@ -122,6 +122,7 @@ import { clearIntegrationConnection, integrationReadiness, setIntegrationConnect
 import { listClients, registerClient, setActiveClient, listDocuments, uploadDocument, getDocumentContent } from './ca-api.mjs';
 import { lockPeriod, unlockPeriod, isPeriodLocked, lockThrough } from './period-lock.mjs';
 import { localToday, postingDate } from './dates.mjs';
+import { booksAatoOpts, fyLabelOf, isFyLabel, previousFyLabel } from './aato.mjs';
 import { documentsForPeriod, fpOf, taxByHead } from './return-period.mjs';
 import { buildInvoiceShare, shareLink, queueNotification, listOutbox, sendNotification } from './notifications.mjs';
 import { providerDoctor } from './provider-doctor.mjs';
@@ -198,8 +199,8 @@ export const TOOLS = [
   {
     name: 'set_company',
     title: 'Set business profile',
-    description: 'Set this book\'s own business identity (name, GSTIN, PAN, state, FY, address; country and EIN before anything is posted). Affects future postings only; history is untouched.',
-    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType', 'country', 'ein', 'invoiceNumbering', 'composition', 'lutNumber'],
+    description: 'Set this book\'s own business identity (name, GSTIN, PAN, state, FY, address; country and EIN before anything is posted). In India also aggregate turnover (aato, rupees) for a financial year (aatoFy, default the last one), which sets HSN digits and the 30-day e-invoice window, and the owner\'s date of birth for a proprietor\'s income tax. Affects future postings only; history is untouched.',
+    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType', 'country', 'ein', 'invoiceNumbering', 'composition', 'lutNumber', 'aato', 'aatoFy', 'ownerDateOfBirth'],
     run: (state, args = {}) => {
       const company = state.company;
       const patch = {};
@@ -270,6 +271,19 @@ export const TOOLS = [
       }
       if (args.lutNumber != null) {
         patch.lutNumber = String(args.lutNumber).trim().toUpperCase().replace(/[^A-Z0-9/-]/g, '').slice(0, 20);
+      }
+      if (args.aato != null && args.aato !== '') {
+        const amount = Number(args.aato);
+        if (!Number.isFinite(amount) || amount < 0) return fail('BAD_AATO', { hint: 'Aggregate turnover of the year in rupees, 0 or more.' });
+        const aatoFy = args.aatoFy == null || args.aatoFy === '' ? previousFyLabel(fyLabelOf(localToday())) : String(args.aatoFy).trim();
+        if (!isFyLabel(aatoFy)) return fail('INVALID_FY', { aatoFy, hint: 'A financial year like 2025-26.' });
+        if (aatoFy > fyLabelOf(localToday())) return fail('FUTURE_FY', { aatoFy });
+        patch.aatoByFy = { ...(company.aatoByFy || {}), [aatoFy]: Math.round(amount * 100) / 100 };
+      } else if (args.aatoFy != null && args.aatoFy !== '') return fail('AATO_REQUIRED', { hint: 'Give the aggregate turnover with its year.' });
+      if (args.ownerDateOfBirth != null) {
+        const dob = String(args.ownerDateOfBirth).trim();
+        if (dob && (!postingDate(dob) || dob > localToday())) return fail('INVALID_DATE', { ownerDateOfBirth: dob, hint: 'YYYY-MM-DD, not in the future.' });
+        patch.ownerDateOfBirth = dob;
       }
       Object.assign(company, patch);
       if (company.name && company.setupNeeded) delete company.setupNeeded;
@@ -1234,6 +1248,7 @@ export const TOOLS = [
         channels: state.channels,
         grossTurnover: args.grossTurnover,
         currentGrossTurnover: args.currentGrossTurnover,
+        ...booksAatoOpts(state, args.fp),
       });
       return json.error ? fail(json.error, { hint: json.hint }) : ok(json);
     },
@@ -3056,14 +3071,14 @@ export const TOOLS = [
     name: 'tax_plan',
     title: 'Plan income tax: old or new regime',
     description: 'For a resident individual or proprietor: tax for a financial year under both regimes from the dated rules, which is cheaper and by how much, the extra old-regime deductions that would break even, unused 80C and 80D limits, the 87A rebate edge, and presumptive income under 44AD or 44ADA from turnover (6% on digital receipts, 8% on the rest, or 50% for a profession) against actual profit. Amounts in rupees. Headed "for your CA to confirm". Read-only.',
-    args: ['fy', 'ageBand', 'salary', 'businessIncome', 'otherIncome', 'section80C', 'health80DSelf', 'health80DParents', 'selfSenior', 'parentsSenior', 'turnover', 'digitalReceipts', 'cashReceipts', 'profession', 'actualProfit', 'asOf'],
+    args: ['fy', 'ageBand', 'dateOfBirth', 'depositInterest', 'salary', 'businessIncome', 'otherIncome', 'section80C', 'health80DSelf', 'health80DParents', 'selfSenior', 'parentsSenior', 'turnover', 'digitalReceipts', 'cashReceipts', 'profession', 'actualProfit', 'asOf'],
     run: (state, args = {}) => taxPlan(state, args),
   },
   {
     name: 'review_income_tax',
     title: 'Review a prepared income tax return',
     description: "Check the figures of an income tax return someone prepared (regime, income, deductions, and the standard deduction, total income, rebate, tax and TDS the return shows) against MyCA's own computation from the dated rules, and list errors, risks and money left on the table with the rule behind each: deductions not allowed or over the limit, a missed 87A rebate or marginal relief, the other regime being cheaper, TDS in the books or Form 26AS not claimed, profit below the presumptive rate, and turnover that does not match the year's GST sales in the books. Amounts in rupees. Read-only.",
-    args: ['fy', 'regime', 'ageBand', 'salary', 'businessIncome', 'otherIncome', 'section80C', 'health80DSelf', 'health80DParents', 'selfSenior', 'parentsSenior', 'presumptive', 'turnover', 'digitalReceipts', 'cashReceipts', 'profession', 'nonGstReceipts', 'claimedStandardDeduction', 'claimedDeductions', 'claimedTotalIncome', 'claimedRebate', 'claimedTaxPayable', 'claimedTds', 'asOf'],
+    args: ['fy', 'regime', 'ageBand', 'dateOfBirth', 'depositInterest', 'salary', 'businessIncome', 'otherIncome', 'section80C', 'health80DSelf', 'health80DParents', 'selfSenior', 'parentsSenior', 'presumptive', 'turnover', 'digitalReceipts', 'cashReceipts', 'profession', 'nonGstReceipts', 'claimedStandardDeduction', 'claimedDeductions', 'claimedTotalIncome', 'claimedRebate', 'claimedTaxPayable', 'claimedTds', 'asOf'],
     run: (state, args = {}) => reviewIncomeTaxReturn(state, args),
   },
   {
@@ -3171,7 +3186,7 @@ export const TOOLS = [
     name: 'advance_tax',
     title: 'Advance tax to set aside',
     description: 'For an individual or proprietor: profit for the financial year to date scaled to twelve months (both figures shown), tax under the chosen regime from the dated rules, less TDS credit from Form 26AS or marketplace settlements, split into the instalments due 15 June, 15 September, 15 December and 15 March (or the whole by 15 March when presumptive), with what is met, missed or next. Headed "for your CA to confirm" with its assumptions. Read-only.',
-    args: ['regime', 'presumptive', 'otherIncome', 'asOf'],
+    args: ['regime', 'presumptive', 'otherIncome', 'dateOfBirth', 'asOf'],
     run: (state, args = {}) => advanceTax(state, args),
   },
   {

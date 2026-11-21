@@ -11,7 +11,7 @@ import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-de
 import { gstin as gstinRules, rules } from './sprint-load.mjs';
 import { needsSelfInvoice, reverseChargeOf } from './reverse-charge.mjs';
 import { cessLineNotInForce, chargesCess } from './compensation-cess.mjs';
-import { COMPOSITION_DECLARATION, documentTitleOf, exportEndorsementOf, hsnShownOn, reverseChargeLineOf } from './invoice-compliance.mjs';
+import { COMPOSITION_DECLARATION, documentTitleOf, exportEndorsementOf, hsnDigitIssues, hsnShownOn, reverseChargeLineOf } from './invoice-compliance.mjs';
 
 function badGstin(value) {
   const said = String(value || '').trim();
@@ -375,7 +375,8 @@ export function createInvoice(state, input) {
   };
   state.invoices = state.invoices || [];
   state.invoices.push(invoice);
-  return { ok: true, invoice, posted, ...(buyerDetails ? { buyerDetails } : {}) };
+  const hsnWarnings = hsnDigitIssues(state, invoice);
+  return { ok: true, invoice, posted, ...(buyerDetails ? { buyerDetails } : {}), ...(hsnWarnings.length ? { hsnWarnings } : {}) };
 }
 
 export function planReceipt(state, { invoiceId, amount, date, mode, advance } = {}) {

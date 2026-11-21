@@ -5,6 +5,7 @@ import { encryptSecret, decryptSecret, vaultBackend } from './credential-vault.m
 import { providerContext } from './provider-context.mjs';
 import { rcmSupplyType, selfInvoiceById } from './reverse-charge.mjs';
 import { localToday } from './dates.mjs';
+import { aatoFor, aatoWords, hsnDigitsNeeded, irnReportingWindow } from './aato.mjs';
 
 export const GOVT_SITES = {
   gstHome: 'https://www.gst.gov.in/',
@@ -265,8 +266,26 @@ export function nicPartyFor(state, inv) {
   return parties.find((party) => (inv?.partyAccountId && party.accountId === inv.partyAccountId)) || parties.find((party) => party.name === inv?.partyName) || null;
 }
 
+export function irnTurnoverProblems(state, inv, today = localToday()) {
+  const problems = [];
+  const window = irnReportingWindow(state, inv, today);
+  if (window.status === 'closed') problems.push({ code: 'IRN_REPORTING_WINDOW_PASSED', lastDay: window.lastDay, words: `${inv.id} is dated ${inv.date}; with ${aatoWords(window.aato)}, at or above ₹${window.thresholdRupees.toLocaleString('en-IN')}, the IRP takes a document only within ${window.days} days of its date (last day ${window.lastDay}). It cannot get an IRN now: talk to your CA about issuing a fresh document.` });
+  const need = hsnDigitsNeeded(aatoFor(state, inv?.date).rupees, inv?.date || today);
+  if (need && need.digits > 4) {
+    const short = (inv?.lines || []).map((line, at) => ({ at: at + 1, hsn: hsnOf(line) })).filter((line) => /^[0-9]+$/.test(line.hsn) && line.hsn.length < need.digits);
+    if (short.length) problems.push({ code: 'HSN_DIGITS_FOR_TURNOVER', lines: short.map((line) => line.at), need: need.digits, words: `Line ${short.map((line) => line.at).join(', ')} needs an HSN or SAC code of at least ${need.digits} digits: aggregate turnover in the preceding year is above ₹5 crore (Notification 78/2020-Central Tax).` });
+  }
+  return problems;
+}
+
+export function irnWarnings(state, inv, today = localToday()) {
+  const window = irnReportingWindow(state, inv, today);
+  if (window.status !== 'unknown') return [];
+  return [`${inv.id} is dated ${inv.date}, more than ${window.days} days ago, and ${aatoWords(window.aato)}. If aggregate turnover is ₹${window.thresholdRupees.toLocaleString('en-IN')} or more the IRP will refuse it (last day was ${window.lastDay}). Enter last year's turnover in the business profile.`];
+}
+
 export function nicPayloadRefusal(state, inv) {
-  const problems = nicPayloadProblems(state.company || {}, inv, nicPartyFor(state, inv));
+  const problems = [...nicPayloadProblems(state.company || {}, inv, nicPartyFor(state, inv)), ...irnTurnoverProblems(state, inv)];
   return problems.length ? { ok: false, error: 'IRN_PAYLOAD_INVALID', invoiceId: inv.id, problems, hint: problems.map((problem) => problem.words).join(' ') } : null;
 }
 
