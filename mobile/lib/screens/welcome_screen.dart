@@ -3,6 +3,8 @@ import 'package:myca_design/myca_design.dart' show Bahi;
 
 import '../app_state.dart';
 import '../brand.dart';
+import '../india/india_language_picker.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../theme.dart';
 import '../tour/tour.dart';
@@ -11,10 +13,10 @@ import '../uae/uae_strings.dart';
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
-  static const _points = [
-    (Mark.sales, 'Log a sale the way you would send a message'),
-    (Mark.taxes, 'GST and due dates worked out for you'),
-    (Mark.confirm, 'Nothing reaches your books until you say so'),
+  static List<(Mark, String)> _points(BuildContext context) => [
+    (Mark.sales, inText(context, 'Log a sale the way you would send a message')),
+    (Mark.taxes, inText(context, 'GST and due dates worked out for you')),
+    (Mark.confirm, inText(context, 'Nothing reaches your books until you say so')),
   ];
 
   static const _ukPoints = [
@@ -42,8 +44,9 @@ class WelcomeScreen extends StatelessWidget {
         ? _ukPoints
         : ae != null
         ? [(Mark.sales, ae.welcomeSale), (Mark.taxes, ae.welcomeTaxes), (Mark.confirm, ae.welcomeConfirm)]
-        : _points;
+        : _points(context);
     final tour = us || uk || ae != null ? null : TourScope.maybeOf(context);
+    final india = state.edition == 'IN';
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -58,7 +61,12 @@ class WelcomeScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Wordmark(),
+                        Row(
+                          children: [
+                            const Wordmark(),
+                            if (india) ...[const Spacer(), const IndiaLanguageButton()],
+                          ],
+                        ),
                         const Spacer(flex: 2),
                         const Align(
                           alignment: Alignment.centerLeft,
@@ -66,7 +74,7 @@ class WelcomeScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          us ? 'Your taxes,\ndone as easily\nas a conversation.' : ae?.welcomeTitle ?? 'Your books,\nkept as easily\nas a conversation.',
+                          us ? 'Your taxes,\ndone as easily\nas a conversation.' : ae?.welcomeTitle ?? inFormat(context, 'Your books,{br}kept as easily{br}as a conversation.', {'br': '\n'}),
                           style: text.displaySmall,
                         ),
                         const SizedBox(height: 14),
@@ -75,7 +83,7 @@ class WelcomeScreen extends StatelessWidget {
                               ? 'Your federal return, Form 1040, prepared from your forms and your answers, and e-filed with the IRS.'
                               : uk
                               ? 'VAT, Self Assessment and Making Tax Digital for Income Tax, kept right without the paperwork.'
-                              : ae?.welcomeLine ?? 'Sales, purchases and GST for your business, kept right without the paperwork.',
+                              : ae?.welcomeLine ?? inText(context, 'Sales, purchases and GST for your business, kept right without the paperwork.'),
                           style: text.bodyLarge?.copyWith(color: paletteOf(context).muted),
                         ),
                         const SizedBox(height: 28),
@@ -98,7 +106,7 @@ class WelcomeScreen extends StatelessWidget {
                           width: double.infinity,
                           child: FilledButton(
                             onPressed: state.finishWelcome,
-                            child: Text(ae?.getStarted ?? 'Get started'),
+                            child: Text(ae?.getStarted ?? inText(context, 'Get started')),
                           ),
                         ),
                         if (tour != null) ...[
@@ -107,14 +115,14 @@ class WelcomeScreen extends StatelessWidget {
                             width: double.infinity,
                             child: OutlinedButton(
                               onPressed: tour.start,
-                              child: const Text('Take a 2-minute tour first'),
+                              child: Text(inText(context, 'Take a 2-minute tour first')),
                             ),
                           ),
                         ],
                         const SizedBox(height: 12),
                         Center(
                           child: Text(
-                            us ? 'Most returns take about 20 minutes' : ae?.setupMinutes ?? 'About two minutes to set up',
+                            us ? 'Most returns take about 20 minutes' : ae?.setupMinutes ?? inText(context, 'About two minutes to set up'),
                             style: text.bodySmall,
                           ),
                         ),

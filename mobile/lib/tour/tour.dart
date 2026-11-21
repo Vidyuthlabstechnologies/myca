@@ -6,6 +6,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_services.dart';
 import '../app_state.dart';
+import '../india/india_strings.dart';
 import 'package:myca_design/myca_design.dart' show Bahi, BahiMood;
 import '../registers.dart';
 import '../screens/ask_screen.dart';
@@ -27,17 +28,21 @@ class TourStep {
     this.place = TourPlace.bottom,
     this.open,
     this.showMe,
-    this.nextLabel = 'Next',
+    this.nextLabel = _next,
   });
 
   final BahiMood mood;
-  final String say;
+
+  /// What Bahi says, in the owner's language.
+  final String Function(BuildContext context) say;
   final TourWait wait;
   final TourPlace place;
   final Widget Function()? open;
   final Widget Function()? showMe;
-  final String nextLabel;
+  final String Function(BuildContext context) nextLabel;
 }
+
+String _next(BuildContext context) => inText(context, 'Next');
 
 const sampleCustomer = 'Gujarat Weaves';
 const sampleCustomerGstin = '24AAACG1234F1Z5';
@@ -50,64 +55,64 @@ Widget _saleComposer() => const PartyScreen(
 );
 
 final tourSteps = <TourStep>[
-  const TourStep(
+  TourStep(
     mood: BahiMood.wave,
-    say: 'Namaste! I\'m ${Bahi.name}. This is Nalanda Textiles, a sample shop. Everything here is pretend, so tap anything you like. Your own books are not touched.',
-    nextLabel: 'Show me around',
+    say: (c) => inFormat(c, 'Namaste! I\'m {name}. This is Nalanda Textiles, a sample shop. Everything here is pretend, so tap anything you like. Your own books are not touched.', {'name': Bahi.name}),
+    nextLabel: (c) => inText(c, 'Show me around'),
   ),
-  const TourStep(
+  TourStep(
     mood: BahiMood.thinking,
-    say: 'The top card is your day at a glance: GST you owe this month, and anything that needs you before a filing.',
+    say: (c) => inText(c, 'The top card is your day at a glance: GST you owe this month, and anything that needs you before a filing.'),
   ),
   TourStep(
     mood: BahiMood.happy,
-    say: 'Let\'s log a sale. Tap New entry, then I sold something, and pick $sampleCustomer.',
+    say: (c) => inFormat(c, 'Let\'s log a sale. Tap New entry, then I sold something, and pick {customer}.', {'customer': sampleCustomer}),
     wait: TourWait.sale,
     place: TourPlace.top,
     showMe: _saleComposer,
   ),
   TourStep(
     mood: BahiMood.thinking,
-    say: 'Type an amount, say 8000, choose 18% GST, then tap Preview. MyCA works out the tax.',
+    say: (c) => inText(c, 'Type an amount, say 8000, choose 18% GST, then tap Preview. MyCA works out the tax.'),
     wait: TourWait.sale,
     place: TourPlace.top,
     showMe: _saleComposer,
   ),
-  const TourStep(
+  TourStep(
     mood: BahiMood.happy,
-    say: 'This is only a preview. Nothing reaches your books until you tap Post it.',
+    say: (c) => inText(c, 'This is only a preview. Nothing reaches your books until you tap Post it.'),
     wait: TourWait.posted,
     place: TourPlace.top,
   ),
-  const TourStep(
+  TourStep(
     mood: BahiMood.celebrate,
-    say: 'Posted! The invoice is in the customer\'s thread, and GST is already counted for this month.',
+    say: (c) => inText(c, 'Posted! The invoice is in the customer\'s thread, and GST is already counted for this month.'),
     place: TourPlace.top,
   ),
   TourStep(
     mood: BahiMood.thinking,
-    say: 'Here is what you owe. Tax on sales, less credit on purchases, and the due date for each filing.',
+    say: (c) => inText(c, 'Here is what you owe. Tax on sales, less credit on purchases, and the due date for each filing.'),
     open: () => const TaxesScreen(),
   ),
   TourStep(
     mood: BahiMood.happy,
-    say: 'Rent, fuel, tea for the staff: log expenses here. MyCA picks the head and tells you why.',
+    say: (c) => inText(c, 'Rent, fuel, tea for the staff: log expenses here. MyCA picks the head and tells you why.'),
     open: () => const ExpensesScreen(),
   ),
   TourStep(
     mood: BahiMood.worried,
-    say: 'When something looks off, like a bank line that matches nothing, it shows up here with the reason.',
+    say: (c) => inText(c, 'When something looks off, like a bank line that matches nothing, it shows up here with the reason.'),
     open: () => const BooksCheckScreen(),
   ),
   TourStep(
     mood: BahiMood.happy,
-    say: 'And you can just ask, in English or Hinglish. Try "Who owes me?"',
+    say: (c) => inText(c, 'And you can just ask, in English or Hinglish. Try "Who owes me?"'),
     open: () => const AskScreen(first: 'How is business?'),
   ),
-  const TourStep(
+  TourStep(
     mood: BahiMood.celebrate,
-    say: 'That\'s MyCA! Ready to set up your own books? It takes about two minutes.',
-    nextLabel: 'Start my books',
+    say: (c) => inText(c, 'That\'s MyCA! Ready to set up your own books? It takes about two minutes.'),
+    nextLabel: (c) => inText(c, 'Start my books'),
   ),
 ];
 
