@@ -50,7 +50,7 @@ const { auditRun } = audit;
 import { listAccounts, journal, trialBalance, verifyChain, createTransfers, paise } from './ledger.mjs';
 import { createInvoice, recordReceipt, recordPayment, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice, addBillTds } from './invoice.mjs';
 import { invoiceDocument, quoteDocument } from './invoice-document.mjs';
-import { createQuote, markQuote, convertQuote, listQuotes } from './quotes.mjs';
+import { createQuote, markQuote, convertQuote, listQuotes, invoiceArgsFromQuote } from './quotes.mjs';
 import { addRecurring, stopRecurring, listRecurring, runRecurring } from './recurring.mjs';
 import { postExpense, retagExpense, listExpenses, expenseHeads } from './expenses.mjs';
 import { businessSummary } from './business-summary.mjs';
@@ -1349,7 +1349,7 @@ export const TOOLS = [
     title: 'Quote, proforma, sales order or delivery challan',
     description: 'Make a sales document for a customer with GST worked out as on an invoice: a quotation (kind quote, the default, QT-), a proforma invoice (proforma, PI-), a sales order (order, SO-) or a delivery challan for goods moved without a sale (challan, DC-, with the reason: job-work, approval, line-sale, exhibition, own-use or other). Quotes and proformas are valid for a number of days (30 unless given). It posts nothing to the books and is not in any return until it becomes an invoice.',
     args: ['partyName', 'partyGstin', 'lines', 'date', 'validDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'kind', 'reason'],
-    run: (state, args = {}) => createQuote(state, args),
+    run: (state, args = {}) => createQuote(state, countryOf(state) === 'IN' ? withItemUnits(state, args) : args),
   },
   {
     name: 'mark_quote',
@@ -1363,7 +1363,14 @@ export const TOOLS = [
     title: 'Invoice from quote, proforma, order or challan',
     description: 'Raise the tax invoice for a quote, proforma, sales order or delivery challan with the same lines, linked both ways. A declined, cancelled, returned or already-invoiced document is refused, and so is a job-work challan, which is not a sale.',
     args: ['id', 'date'],
-    run: (state, args = {}) => loyaltyAfterInvoice(state, convertQuote(state, args)),
+    run: (state, args = {}) => {
+      const result = loyaltyAfterInvoice(state, convertQuote(state, args));
+      if (result.ok && result.invoice && countryOf(state) === 'IN') {
+        const stockWarnings = moveDocumentStock(state, result.invoice, invoiceArgsFromQuote(result.quote, args), 'sale');
+        if (stockWarnings.length) result.stockWarnings = stockWarnings;
+      }
+      return result;
+    },
   },
   {
     name: 'list_quotes',

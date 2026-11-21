@@ -184,3 +184,33 @@ test('the store survives a save and load', async () => {
   const again = deserialize(JSON.parse(JSON.stringify(serialize(state))));
   assert.equal(publicCatalogue(again).items.length, 3);
 });
+
+test('an accepted store order invoiced from its quote takes the goods out of stock, with the unit', async () => {
+  const state = await openShop();
+  await runTool(state, 'set_sku_cost', { sku: 'TEA-250', unit: 'pcs' });
+  const priced = priceStoreOrder(publicCatalogue(state), { buyerName: 'Meena', buyerPhone: '9820012345', lines: [{ id: itemId('TEA-250'), qty: 2 }] });
+  receiveStoreOrder(state, priced.order, { ref: 'r1', receivedAt: '2026-11-21T10:00:00Z' });
+  const accepted = await runTool(state, 'store_order_action', { id: 'ORD-0001', action: 'accept' });
+  const quote = state.quotes.find((q) => q.id === accepted.quoteId);
+  assert.equal(quote.lines[0].sku, 'TEA-250');
+  assert.equal(quote.lines[0].unit, 'PCS');
+  const preview = previewOf(state, 'convert_quote', { id: quote.id });
+  assert.ok(preview.effects.some((line) => /Stock out: 2 PCS of TEA-250/.test(line)), JSON.stringify(preview.effects));
+  const made = await runTool(state, 'convert_quote', { id: quote.id });
+  assert.equal(made.ok, true, JSON.stringify(made));
+  assert.equal(made.invoice.lines[0].sku, 'TEA-250');
+  assert.equal(made.invoice.lines[0].unit, 'PCS');
+  const out = state.stockMoves.filter((move) => move.ref === made.invoice.id);
+  assert.deepEqual(out.map((move) => [move.sku, move.qty]), [['TEA-250', -2]]);
+  assert.equal((await runTool(state, 'stock_position', { sku: 'TEA-250' })).data.rows[0].qty, 1);
+});
+
+test('a quote made by hand with item codes moves stock when it becomes an invoice', async () => {
+  const state = await shop();
+  const made = await runTool(state, 'create_quote', { partyName: 'Kiran Stores', lines: [{ description: 'Assam tea 250 g', sku: 'tea-250', qty: 1, rate: 100, gstRate: 5 }] });
+  assert.equal(made.ok, true, JSON.stringify(made));
+  assert.equal(made.quote.lines[0].sku, 'TEA-250');
+  const invoiced = await runTool(state, 'convert_quote', { id: made.quote.id });
+  assert.equal(invoiced.ok, true, JSON.stringify(invoiced));
+  assert.deepEqual(state.stockMoves.filter((move) => move.ref === invoiced.invoice.id).map((move) => move.qty), [-1]);
+});

@@ -23,6 +23,7 @@ import { payrollApprovalPreview, salaryPaymentPreview, employeePreview, salaryCh
 import { yearClosePreview, tallyPushPreview, attachDocumentPreview, skuSupplyPreview, monthClosePreview, cashReadingPreview, askPreview, replyPreview, closePreview, tallyPreview, matchPreview, unmatchPreview, chargesPreview, addRulePreview, removeRulePreview, runRulesPreview, setAccountPreview, transferPreview, bankPreview, zohoPreview, inventoryValuationPreview, skuCostPreview, skuCostsImportPreview, catalogueSettingsPreview, catalogueItemsPreview, storeOrderActionPreview, channelIdentityPreview, stockTransferPreview, stockPreview, ordersPreview, settlementPreview, posImportPreview, xmlPreview, exceptionPreview, loyaltySettingsPreview, loyaltyAdjustPreview, costingMethodPreview } from './confirm-books.mjs';
 
 import { documentStockPlan, withItemUnits } from './document-stock.mjs';
+import { checkConvert, invoiceArgsFromQuote } from './quotes.mjs';
 
 export { TDS_REASONS, rowsCounted } from './confirm-tax.mjs';
 
@@ -31,6 +32,13 @@ function withDocumentStock(state, args, kind) {
   const preview = documentPreview(state, india ? withItemUnits(state, args) : args, kind);
   if (!india || !preview || !Array.isArray(preview.effects)) return preview;
   const stock = documentStockPlan(state, args, kind);
+  return { ...preview, blockers: [...(preview.blockers || []), ...stock.blockers], effects: [...preview.effects, ...stock.effects] };
+}
+
+function withQuoteStock(state, args, preview) {
+  const checked = countryOf(state) === 'IN' ? checkConvert(state, args) : null;
+  if (!checked?.ok || !preview || !Array.isArray(preview.effects)) return preview;
+  const stock = documentStockPlan(state, invoiceArgsFromQuote(checked.quote, args), 'sale');
   return { ...preview, blockers: [...(preview.blockers || []), ...stock.blockers], effects: [...preview.effects, ...stock.effects] };
 }
 
@@ -125,7 +133,7 @@ const PREVIEWERS = {
   ask_ca: askPreview,
   create_quote: quotePreview,
   mark_quote: markQuotePreview,
-  convert_quote: convertPreview,
+  convert_quote: (state, args) => withQuoteStock(state, args, convertPreview(state, args)),
   add_recurring: recurringPreview,
   match_bank_line: matchPreview,
   unmatch_bank_line: unmatchPreview,

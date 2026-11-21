@@ -349,7 +349,7 @@ function quoteArgsFor(state, order) {
   for (const line of order.lines) {
     const item = all[line.sku];
     if (!item || item.price == null || item.gstRate == null) return fail('PRICE_REQUIRED', { sku: line.sku, hint: `Set the selling price and GST rate of ${line.name} first.` });
-    lines.push({ description: item.name || line.name, hsn: item.hsn || '', qty: line.qty, rate: item.price, gstRate: item.gstRate });
+    lines.push({ description: item.name || line.name, hsn: item.hsn || '', sku: line.sku, ...(item.unit ? { unit: item.unit } : {}), qty: line.qty, rate: item.price, gstRate: item.gstRate });
   }
   return { ok: true, args: { partyName: order.buyerName, lines } };
 }
