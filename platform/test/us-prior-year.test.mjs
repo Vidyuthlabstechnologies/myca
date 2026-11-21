@@ -105,3 +105,13 @@ test('a refund applied to this year on last year\'s MyCA return comes in as the 
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.equal(result.data.answers.priorYearOverpaymentApplied, 400);
 });
+
+test('the return status carries the imported prior-year AGI so the app can fill it in at signing', async () => {
+  const state = await lastYear();
+  const review = await runTool(state, 'us_return_review', { taxYear: '2025' });
+  const before = await runTool(state, 'us_return_status', { taxYear: '2026' });
+  assert.equal(before.data.priorYear, undefined);
+  importUsPriorYear(state, { taxYear: '2026' });
+  const after = await runTool(state, 'us_return_status', { taxYear: '2026' });
+  assert.deepEqual(after.data.priorYear, { agi: Math.round(review.data.summary.agi), joint: false });
+});
