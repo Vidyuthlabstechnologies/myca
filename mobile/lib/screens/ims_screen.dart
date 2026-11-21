@@ -6,31 +6,75 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../excel.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../proposal_flow.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import '../widgets/utf16_limit.dart';
 
-const _filters = {
-  'all': 'All',
-  'undecided': 'Not decided',
-  'accept': 'Accept',
-  'reject': 'Reject',
-  'pending': 'Pending',
-  'missing': 'Not in books',
+const _filters = ['all', 'undecided', 'accept', 'reject', 'pending', 'missing'];
+
+String _filterWords(BuildContext context, String filter) => switch (filter) {
+  'undecided' => inText(context, 'Not decided'),
+  'accept' => inText(context, 'Accept'),
+  'reject' => inText(context, 'Reject'),
+  'pending' => inText(context, 'Pending'),
+  'missing' => inText(context, 'Not in books'),
+  _ => inText(context, 'All'),
 };
 
-const _emptyWords = {
-  'all': 'No invoices in this GSTR-2B.',
-  'undecided': 'Every invoice has a decision.',
-  'accept': 'Nothing is marked accept.',
-  'reject': 'Nothing is marked reject.',
-  'pending': 'Nothing is marked pending.',
-  'missing': 'Every invoice is in your books.',
+String _emptyWords(BuildContext context, String filter) => switch (filter) {
+  'undecided' => inText(context, 'Every invoice has a decision.'),
+  'accept' => inText(context, 'Nothing is marked accept.'),
+  'reject' => inText(context, 'Nothing is marked reject.'),
+  'pending' => inText(context, 'Nothing is marked pending.'),
+  'missing' => inText(context, 'Every invoice is in your books.'),
+  _ => inText(context, 'No invoices in this GSTR-2B.'),
 };
 
-const _choices = {'accept': 'Accept', 'reject': 'Reject', 'pending': 'Pending', 'clear': 'Clear'};
+const _choices = ['accept', 'reject', 'pending', 'clear'];
+
+String _choiceWords(BuildContext context, String choice) => switch (choice) {
+  'accept' => inText(context, 'Accept'),
+  'reject' => inText(context, 'Reject'),
+  'pending' => inText(context, 'Pending'),
+  _ => inText(context, 'Clear'),
+};
+
+String _statusWords(BuildContext context, ImsRow row) => switch (row.decision) {
+  'accept' => inText(context, 'Accepted'),
+  'reject' => inText(context, 'Rejected'),
+  'pending' => inText(context, 'Pending'),
+  _ => row.suggested == 'accept' ? inText(context, 'Suggest accept') : inText(context, 'Suggest pending'),
+};
+
+String _itcWords(BuildContext context, ImsRow row) => switch (row.itcAvailability) {
+  'Y' => inText(context, 'Credit available in 2B'),
+  'N' => inText(context, 'Credit not available in 2B'),
+  _ => '',
+};
+
+String _subtitle(BuildContext context, ImsRow row) => [
+  if (row.invoiceDate.isNotEmpty) longDate(row.invoiceDate),
+  row.credit < 0 ? inFormat(context, '{amount} less credit', {'amount': rupees(-row.credit)}) : inFormat(context, '{amount} credit', {'amount': rupees(row.credit)}),
+  switch (row.match) {
+    'matched' => inText(context, 'matched'),
+    'amount differs' => inText(context, 'amount differs'),
+    'date differs' => inText(context, 'date differs'),
+    'not in books' => inText(context, 'not in books'),
+    _ => row.match,
+  },
+  if (row.lines > 1) inFormat(context, '{n} lines', {'n': row.lines}),
+].where((part) => part.isNotEmpty).join(' · ');
+
+String _proposeWords(BuildContext context, String who, String decision) => switch (decision) {
+  'accept' => inFormat(context, '{who}: accept', {'who': who}),
+  'reject' => inFormat(context, '{who}: reject', {'who': who}),
+  'pending' => inFormat(context, '{who}: pending', {'who': who}),
+  'clear' => inFormat(context, '{who}: clear', {'who': who}),
+  _ => '$who: $decision',
+};
 
 bool _shown(ImsRow row, String filter) => switch (filter) {
   'undecided' => !row.decided,
@@ -52,8 +96,6 @@ TintTile _tile(ImsRow row) => switch (row.decision) {
   'pending' => const TintTile(tint: Tint.taxes, mark: Mark.dueSoon),
   _ => const TintTile(tint: Tint.purchases, mark: Mark.paper),
 };
-
-String _countWords(int count, String one, String many) => '$count ${count == 1 ? one : many}';
 
 typedef _Numbered = ({ImsRow row, String id});
 
@@ -130,7 +172,7 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
     _toEnd(8);
   }
 
-  Future<void> _acceptMatched() => propose('Accept all matched invoices', 'ims_decide', {
+  Future<void> _acceptMatched() => propose(inText(context, 'Accept all matched invoices'), 'ims_decide', {
     'period': widget.period,
     'select': 'matched',
     'decision': 'accept',
@@ -144,7 +186,7 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
     );
     if (choice == null || !mounted) return;
     final who = [row.supplierName, row.invoiceNo].where((part) => part.isNotEmpty).join(' ');
-    await propose('$who: ${choice.decision}', 'ims_decide', {
+    await propose(_proposeWords(context, who, choice.decision), 'ims_decide', {
       'period': widget.period,
       'keys': [row.key],
       'decision': choice.decision,
@@ -177,22 +219,26 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${_countWords(counts.total, 'invoice', 'invoices')} · ${counts.accept} accepted · ${counts.reject} rejected · ${counts.pending} pending · ${counts.undecided} not decided',
+          inCount(
+            context,
+            counts.total,
+            '{n} invoice · {accept} accepted · {reject} rejected · {pending} pending · {undecided} not decided',
+            '{n} invoices · {accept} accepted · {reject} rejected · {pending} pending · {undecided} not decided',
+            {'accept': counts.accept, 'reject': counts.reject, 'pending': counts.pending, 'undecided': counts.undecided},
+          ),
           key: const ValueKey('ims.counts'),
           style: text.bodyMedium,
         ),
         const SizedBox(height: 4),
         Text(
-          'Credit not decided ${rupees(review.creditUndecided)} · accepted ${rupees(review.creditAccepted)}',
+          inFormat(context, 'Credit not decided {undecided} · accepted {accepted}', {'undecided': rupees(review.creditUndecided), 'accepted': rupees(review.creditAccepted)}),
           key: const ValueKey('ims.credit'),
           style: text.bodySmall,
         ),
         if (review.orphaned > 0) ...[
           const SizedBox(height: 4),
           Text(
-            review.orphaned == 1
-                ? '1 earlier decision is for an invoice that is no longer in this GSTR-2B.'
-                : '${review.orphaned} earlier decisions are for invoices that are no longer in this GSTR-2B.',
+            inCount(context, review.orphaned, '1 earlier decision is for an invoice that is no longer in this GSTR-2B.', '{n} earlier decisions are for invoices that are no longer in this GSTR-2B.'),
             style: text.bodySmall,
           ),
         ],
@@ -205,11 +251,11 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
     runSpacing: 8,
     children: [
       ActionChip(
-        label: const Text('Accept all matched'),
+        label: Text(inText(context, 'Accept all matched')),
         onPressed: busy || review.acceptableRows == 0 ? null : _acceptMatched,
       ),
       ActionChip(
-        label: const Text('Save as Excel'),
+        label: Text(inText(context, 'Save as Excel')),
         onPressed: busy || _saving ? null : _saveExcel,
       ),
     ],
@@ -219,13 +265,13 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
     spacing: 8,
     runSpacing: 8,
     children: [
-      for (final entry in _filters.entries)
+      for (final filter in _filters)
         ChoiceChip(
-          label: Text(entry.value),
-          selected: _filter == entry.key,
+          label: Text(_filterWords(context, filter)),
+          selected: _filter == filter,
           selectedColor: Palette.sunken,
           showCheckmark: false,
-          onSelected: (_) => setState(() => _filter = entry.key),
+          onSelected: (_) => setState(() => _filter = filter),
         ),
     ],
   );
@@ -234,13 +280,13 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
     key: ValueKey('ims.${item.id}'),
     leading: _tile(item.row),
     title: item.row.title,
-    subtitle: item.row.subtitle,
+    subtitle: _subtitle(context, item.row),
     trailing: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 124),
       child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerRight,
-        child: StatusTag(key: ValueKey('ims.status.${item.id}'), text: item.row.statusWords, color: _decisionColor(item.row)),
+        child: StatusTag(key: ValueKey('ims.status.${item.id}'), text: _statusWords(context, item.row), color: _decisionColor(item.row)),
       ),
     ),
     onTap: busy ? null : () => _openRow(item.row),
@@ -257,7 +303,7 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
     const SizedBox(height: 16),
     _filterChips(),
     const SizedBox(height: 12),
-    if (noRows) Text(_emptyWords[_filter]!, style: text.bodyMedium),
+    if (noRows) Text(_emptyWords(context, _filter), style: text.bodyMedium),
   ];
 
   Widget _edged(int index, int count, Widget row) {
@@ -295,7 +341,7 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: Text('IMS · ${monthLabel(widget.period)}')),
+      appBar: AppBar(title: Text(inFormat(context, 'IMS · {month}', {'month': monthLabel(widget.period)}))),
       body: FutureBuilder<ImsReview?>(
         future: _review,
         builder: (context, snap) {
@@ -315,9 +361,9 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
                           if (loading)
                             const Center(child: CircularProgressIndicator())
                           else if (review == null)
-                            const EmptyNote(text: 'Could not load the IMS decisions. Try again in a moment.')
+                            EmptyNote(text: inText(context, 'Could not load the IMS decisions. Try again in a moment.'))
                           else if (!review.hasStatement)
-                            const EmptyNote(text: 'Add the GSTR-2B for this month first (Taxes → GST → Add 2B).')
+                            EmptyNote(text: inText(context, 'Add the GSTR-2B for this month first (Taxes → GST → Add 2B).'))
                           else
                             ..._head(review, rows.isEmpty, text),
                         ],
@@ -409,39 +455,46 @@ class _ImsSheetState extends State<_ImsSheet> {
               child: ListView(
                 shrinkWrap: true,
                 children: [
-                  if (row.invoiceDate.isNotEmpty) _Fact(label: 'Invoice date', value: longDate(row.invoiceDate)),
-                  _Fact(label: 'Taxable value', value: rupees(row.taxableValue)),
-                  _Fact(label: 'Invoice total', value: rupees(row.totalValue)),
-                  _Fact(label: row.credit < 0 ? 'Credit taken back' : 'Input credit', value: rupees(row.credit.abs())),
-                  _Fact(label: 'In your books', value: row.inBooks ? row.billId : 'Not found'),
-                  if (row.itcWords.isNotEmpty) ...[
+                  if (row.invoiceDate.isNotEmpty) _Fact(label: inText(context, 'Invoice date'), value: longDate(row.invoiceDate)),
+                  _Fact(label: inText(context, 'Taxable value'), value: rupees(row.taxableValue)),
+                  _Fact(label: inText(context, 'Invoice total'), value: rupees(row.totalValue)),
+                  _Fact(label: row.credit < 0 ? inText(context, 'Credit taken back') : inText(context, 'Input credit'), value: rupees(row.credit.abs())),
+                  _Fact(label: inText(context, 'In your books'), value: row.inBooks ? row.billId : inText(context, 'Not found')),
+                  if (_itcWords(context, row).isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text(row.itcWords, style: text.bodySmall),
+                    Text(_itcWords(context, row), style: text.bodySmall),
                   ],
                   const SizedBox(height: 10),
                   if (row.why.isNotEmpty) Text(row.why, style: text.bodyMedium),
                   const SizedBox(height: 6),
                   Text(
-                    row.suggested == 'accept' ? 'MyCA suggests accepting it.' : 'MyCA suggests leaving it pending until you have checked it.',
+                    row.suggested == 'accept' ? inText(context, 'MyCA suggests accepting it.') : inText(context, 'MyCA suggests leaving it pending until you have checked it.'),
                     style: text.bodyMedium,
                   ),
                   if (row.decided) ...[
                     const SizedBox(height: 6),
-                    Text('Your decision so far: ${row.decisionWords.toLowerCase()}.', style: text.bodyMedium),
+                    Text(
+                      switch (row.decision) {
+                        'accept' => inText(context, 'Your decision so far: accepted.'),
+                        'reject' => inText(context, 'Your decision so far: rejected.'),
+                        _ => inText(context, 'Your decision so far: pending.'),
+                      },
+                      style: text.bodyMedium,
+                    ),
                   ],
                   const SizedBox(height: 14),
-                  const SectionLabel('Your decision'),
+                  SectionLabel(inText(context, 'Your decision')),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      for (final entry in _choices.entries)
+                      for (final choice in _choices)
                         ChoiceChip(
-                          label: Text(entry.value),
-                          selected: _decision == entry.key,
+                          label: Text(_choiceWords(context, choice)),
+                          selected: _decision == choice,
                           selectedColor: Palette.sunken,
                           showCheckmark: false,
-                          onSelected: entry.key == 'clear' && !row.decided ? null : (_) => setState(() => _decision = entry.key),
+                          onSelected: choice == 'clear' && !row.decided ? null : (_) => setState(() => _decision = choice),
                         ),
                     ],
                   ),
@@ -452,8 +505,8 @@ class _ImsSheetState extends State<_ImsSheet> {
                     textCapitalization: TextCapitalization.sentences,
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
-                      labelText: 'Note (optional)',
-                      helperText: 'Kept with the decision and listed in the Excel sheet',
+                      labelText: inText(context, 'Note (optional)'),
+                      helperText: inText(context, 'Kept with the decision and listed in the Excel sheet'),
                       counterText: '${_note.text.length}/200',
                     ),
                   ),
@@ -461,7 +514,7 @@ class _ImsSheetState extends State<_ImsSheet> {
               ),
             ),
             const SizedBox(height: 10),
-            FilledButton(onPressed: _changed ? _save : null, child: const Text('Save')),
+            FilledButton(onPressed: _changed ? _save : null, child: Text(inText(context, 'Save'))),
           ],
         ),
       ),
