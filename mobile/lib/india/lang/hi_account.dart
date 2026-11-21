@@ -1,14 +1,9 @@
-// Hindi wording for the account screens of the India app, keyed by the English line (or template with {names}).
-// Needs a native speaker's review before launch: see docs/product/INDIA-LANGUAGES.md.
-
 const hiAccount = <String, String>{
-  // Welcome
   'GST and due dates worked out for you': 'GST और आखिरी तारीख़ें, सब आपके लिए तैयार',
   'Your books,{br}kept as easily{br}as a conversation.': 'आपका हिसाब-किताब,{br}बातचीत जितना{br}आसान।',
   'Sales, purchases and GST for your business, kept right without the paperwork.': 'आपके कारोबार की बिक्री, खरीद और GST, बिना कागज़ी झंझट के सही-सही।',
   'Take a 2-minute tour first': 'पहले 2 मिनट का टूर देखें',
 
-  // Sign in
   'That user does not exist.': 'यह यूज़र मौजूद नहीं है।',
   'Wrong PIN. Try again.': 'PIN गलत है। फिर से कोशिश करें।',
   'This user has no PIN yet. Set one in MyCA on Windows.': 'इस यूज़र का अभी कोई PIN नहीं है। Windows वाले MyCA में PIN बनाएँ।',
@@ -16,7 +11,6 @@ const hiAccount = <String, String>{
   'Could not sign in ({code}).': 'साइन इन नहीं हो सका ({code})।',
   'Mobile number': 'मोबाइल नंबर',
 
-  // Business set-up
   'Choose the state your business is in.': 'चुनें कि आपका कारोबार किस राज्य में है।',
   'You have been invited': 'आपको बुलाया गया है',
   'This goes on your invoices and returns.': 'यह आपके बिलों और रिटर्न पर छपेगा।',
@@ -28,7 +22,6 @@ const hiAccount = <String, String>{
       'एक नकली व्यापारी, जिसके तीन महीने के बिल, खरीद और खर्चे भरे हैं। यह GST पोर्टल, बैंक या किसी और तक नहीं पहुँच सकता, और आप इसे कभी भी हटा सकते हैं।',
   'MyCA did not accept that ({error}). Check the GSTIN.': 'MyCA ने इसे नहीं माना ({error})। GSTIN जाँच लें।',
 
-  // Business sheet
   'Not registered for GST': 'GST में रजिस्टर नहीं',
   'Plan and billing': 'प्लान और पेमेंट',
   'Your plan, trial and what it includes': 'आपका प्लान, ट्रायल और उसमें क्या-क्या मिलता है',
@@ -37,12 +30,10 @@ const hiAccount = <String, String>{
   'Only what went wrong in the app. Names, amounts, GSTINs and phone numbers are removed before it leaves the phone.':
       'सिर्फ़ ऐप में क्या गड़बड़ हुई। फ़ोन से जाने से पहले नाम, रकम, GSTIN और फ़ोन नंबर हटा दिए जाते हैं।',
 
-  // Your businesses
   'Its books, documents and members go with it. Backups are kept for fourteen days, after which it cannot be recovered.':
       'इसके खाते, कागज़ात और सदस्य भी साथ में हट जाएँगे। बैकअप चौदह दिन तक रखा जाता है, उसके बाद इसे वापस नहीं लाया जा सकता।',
   'Privacy notice, terms, Grievance Officer, and requests to see, correct or erase your data': 'प्राइवेसी नोटिस, शर्तें, शिकायत अधिकारी, और अपना डेटा देखने, सुधारने या मिटाने की अर्ज़ी',
 
-  // Plan and billing
   'Google Play is processing the payment. The plan starts as soon as it clears.': 'Google Play पेमेंट पूरा कर रहा है। पेमेंट होते ही प्लान शुरू हो जाएगा।',
   'Google Play did not complete the payment. Nothing was charged.': 'Google Play पर पेमेंट पूरा नहीं हुआ। कोई पैसा नहीं कटा।',
   'Thank you. The plan is on for this business.': 'धन्यवाद। इस कारोबार के लिए प्लान चालू हो गया है।',
@@ -98,7 +89,6 @@ const hiAccount = <String, String>{
   'You are on {plan}.': 'आप {plan} पर हैं।',
   'You are on {plan}, renews {date}.': 'आप {plan} पर हैं, {date} को आगे बढ़ेगा।',
 
-  // Privacy
   'Off unless you tick it. Only what went wrong in the app, with names, amounts, GSTINs and phone numbers removed. You can change this later under Your business.':
       'जब तक आप टिक न करें, बंद रहेगा। सिर्फ़ ऐप में क्या गड़बड़ हुई, नाम, रकम, GSTIN और फ़ोन नंबर हटाकर। इसे बाद में "आपका कारोबार" में बदल सकते हैं।',
   'See what MyCA holds about me': 'MyCA के पास मेरी क्या जानकारी है, देखें',
@@ -125,7 +115,6 @@ const hiAccount = <String, String>{
       'MyCA, ML Dynamic Solutions Private Limited का सॉफ़्टवेयर है। यह चार्टर्ड अकाउंटेंट की फ़र्म नहीं है और टैक्स या कानूनी सलाह नहीं देता। हर रिटर्न फ़ाइल होने से पहले आप ही उसे मंज़ूर करते हैं।',
   'Open, answer due by {date}': 'खुला, जवाब {date} तक',
 
-  // Connections to banks and apps
   'Seller Central → Apps and Services → Develop apps: create a private SP-API app, note the LWA client id and secret, and authorise it to get the refresh token. Marketplace id is A21TJRUUN4KGV for India; region IN.':
       'Seller Central → Apps and Services → Develop apps: एक private SP-API ऐप बनाएँ, LWA client id और secret लिख लें, और refresh token पाने के लिए उसे मंज़ूरी दें। भारत के लिए Marketplace id A21TJRUUN4KGV है; region IN।',
   'Shopify admin → Settings → Apps and sales channels → Develop apps: create an app with read_orders and read_shopify_payments_payouts, install it, and copy the Admin API access token. Shop domain is the myshopify.com host.':
@@ -159,7 +148,6 @@ const hiAccount = <String, String>{
   'Nothing was pulled for {name}.': '{name} से कुछ नहीं आया।',
   'Pulled to {date}': '{date} तक लाया गया',
 
-  // Home
   'MSME suppliers': 'MSME सप्लायर',
   'TAX ON SALES, {month}': 'बिक्री पर टैक्स, {month}',
   'Credit on purchases {amount}': 'खरीद पर क्रेडिट {amount}',
@@ -176,7 +164,6 @@ const hiAccount = <String, String>{
   '{amount} not deductible until paid · 1 MSME bill open': '{amount} चुकाने तक खर्च में नहीं गिना जाएगा · 1 MSME बिल बाकी',
   '{amount} not deductible until paid · {n} MSME bills open': '{amount} चुकाने तक खर्च में नहीं गिना जाएगा · {n} MSME बिल बाकी',
 
-  // Tour
   'Next': 'आगे',
   'Show me around': 'मुझे घुमाइए',
   'Namaste! I\'m {name}. This is Nalanda Textiles, a sample shop. Everything here is pretend, so tap anything you like. Your own books are not touched.':

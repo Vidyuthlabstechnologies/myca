@@ -1,8 +1,4 @@
-// Hindi wording for the entries screens of the India app, keyed by the English line (or template with {names}).
-// Needs a native speaker's review before launch: see docs/product/INDIA-LANGUAGES.md.
-
 const hiEntries = <String, String>{
-  // Invoice screen
   'Invoice': 'इनवॉइस',
   'Quotation': 'कोटेशन',
   'Proforma invoice {id}': 'प्रोफ़ॉर्मा इनवॉइस {id}',
@@ -122,7 +118,6 @@ const hiEntries = <String, String>{
   '{name} has paid {amount}; that becomes due back to them.': '{name} {amount} दे चुके हैं; यह रकम उन्हें लौटानी होगी।',
   'A credit note for the full {amount} will be posted. You will see it before anything changes.': 'पूरे {amount} का क्रेडिट नोट दर्ज होगा। कुछ भी बदलने से पहले आप इसे देखेंगे।',
 
-  // Read a bill
   'Read a bill': 'बिल पढ़ें',
   'Pick a photo, PDF or text of a supplier bill. MyCA reads the supplier, number, date and lines, then previews the purchase; nothing is posted until you confirm, and every figure is yours to correct.':
       'सप्लायर के बिल की फ़ोटो, PDF या टेक्स्ट चुनें। MyCA सप्लायर, नंबर, तारीख़ और लाइनें पढ़कर खरीद पहले दिखाता है; आपकी पुष्टि तक कुछ दर्ज नहीं होता, और हर आँकड़ा आप ठीक कर सकते हैं।',
@@ -150,7 +145,6 @@ const hiEntries = <String, String>{
       'बिल पढ़ने के लिए आपका MyCA चलाने वाले को मॉडल चालू करना होगा। तब तक खरीद में जाकर बिल खुद जोड़ें।',
   'The bill could not be read. Add it by hand from Purchases.': 'बिल पढ़ा नहीं जा सका। खरीद में जाकर इसे खुद जोड़ें।',
 
-  // Expenses
   'Give the GST rate only if the bill shows GST. Credit is taken only when the supplier GSTIN is on the bill; add it later from the Purchases chat if you need it.':
       'GST रेट तभी डालें जब बिल पर GST लिखा हो। क्रेडिट तभी मिलता है जब बिल पर सप्लायर का GSTIN हो; ज़रूरत हो तो बाद में खरीद वाली चैट से जोड़ें।',
   'The {tax} rate must be a number, or leave it blank.': '{tax} रेट अंकों में डालें, या खाली छोड़ दें।',
@@ -163,7 +157,6 @@ const hiEntries = <String, String>{
   'Including any {tax}': '{tax} हो तो उसे मिलाकर',
   '{tax} rate inside the amount (optional)': 'रकम में शामिल {tax} रेट (ज़रूरी नहीं)',
 
-  // Input credit against GSTR-2B
   'INPUT CREDIT AGAINST GSTR-2B, {month}': 'GSTR-2B से इनपुट क्रेडिट का मिलान, {month}',
   'Could not check.': 'जाँच नहीं हो सकी।',
   'Checking…': 'जाँच हो रही है…',
@@ -185,7 +178,6 @@ const hiEntries = <String, String>{
   'Added. Your bills are checked against it below.': 'जुड़ गया। नीचे आपके बिल इससे मिलाए गए हैं।',
   'Not added.': 'नहीं जोड़ा।',
 
-  // Counter sale and receipt printer
   'Before GST: {amount}': 'GST से पहले: {amount}',
   'New item {code}': 'नया आइटम {code}',
   'Could not load bill {id} to print. Try again.': 'प्रिंट के लिए बिल {id} नहीं खुल सका। फिर कोशिश करें।',

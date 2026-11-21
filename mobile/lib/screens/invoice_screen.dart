@@ -22,7 +22,6 @@ String _missingWord(String lang, String code) => switch (code) {
   _ => code.toLowerCase().replaceAll('_', ' '),
 };
 
-/// The warning for an invoice that lacks details a buyer may need. [lang] is the India language code.
 String missingNote(List<String> codes, [String lang = 'en']) {
   final words = [for (final code in codes) _missingWord(lang, code)];
   if (words.isEmpty) return '';

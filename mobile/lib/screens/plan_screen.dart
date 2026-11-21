@@ -11,7 +11,6 @@ import '../theme.dart';
 
 bool get buyInApp => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-/// What each plan feature gives, in [lang] (an India language code; 'en' for English).
 Map<String, String> featureWordsIn(String lang) => {
   'books': inLine(lang, 'See and export your books'),
   'post': inLine(lang, 'Unlimited invoices, bills, receipts and payments'),

@@ -11,7 +11,6 @@ class PrinterChoice {
   final String address;
 }
 
-/// A problem [BluetoothReceiptPrinter.print] returned, in the India language [lang]. Anything else stays as it is.
 String printerProblemIn(String lang, String problem, String printerName) {
   if (problem == 'Allow Nearby devices for MyCA in Android settings, then print again.') return inLine(lang, 'Allow Nearby devices for MyCA in Android settings, then print again.');
   if (problem == 'Turn on Bluetooth, then print again.') return inLine(lang, 'Turn on Bluetooth, then print again.');

@@ -1,20 +1,13 @@
-// Hindi wording for the money screens of the India app, keyed by the English line (or template with {names}).
-// Needs a native speaker's review before launch: see docs/product/INDIA-LANGUAGES.md.
-
 const hiMoney = <String, String>{
-  // Bank and cash
   'IFSC (optional)': 'IFSC (ज़रूरी नहीं)',
 
-  // Audit trail
   'The record of entries fails its integrity check. Ask your CA before recording more.': 'एंट्री का रिकॉर्ड जाँच में सही नहीं निकला। आगे कुछ भी दर्ज करने से पहले अपने CA से पूछें।',
 
-  // Statements
   'Liabilities': 'देनदारियाँ',
   'It does not balance. Ask your CA to look at the books.': 'हिसाब बराबर नहीं हो रहा। अपने CA से खाते दिखवाएँ।',
   'The movements do not add up to the closing balance. Ask your CA to look.': 'लेन-देन जोड़ने पर आख़िरी बैलेंस नहीं बनता। अपने CA से दिखवाएँ।',
   'Saved {file}. Send it to your CA or the customer.': '{file} सहेज ली गई। इसे अपने CA या ग्राहक को भेजें।',
 
-  // Your CA
   'Send to your CA?': 'अपने CA को भेजें?',
   'Ask your CA': 'अपने CA से पूछें',
   'Waiting for your CA': 'CA के जवाब का इंतज़ार',
@@ -22,7 +15,6 @@ const hiMoney = <String, String>{
   'Your CA sees these in MyCA once you have invited them from People.': 'People से बुलाने के बाद आपके CA इन्हें MyCA में देख पाएँगे।',
   'Copied. Paste it into WhatsApp or email if your CA is not on MyCA yet.': 'कॉपी हो गया। अगर आपके CA अभी MyCA पर नहीं हैं, तो इसे WhatsApp या ईमेल में चिपका दें।',
 
-  // Ask MyCA
   'Ask about your GST, deadlines or invoices. Nothing is posted to your books until you confirm it. MyCA works from the rules it shows you; it is not a chartered accountant and does not give tax or legal advice.':
       'अपने GST, आख़िरी तारीख़ों या बिलों के बारे में पूछें। आपकी पुष्टि के बिना आपके खाते में कुछ दर्ज नहीं होता। MyCA उन्हीं नियमों से काम करता है जो वह आपको दिखाता है; यह चार्टर्ड अकाउंटेंट नहीं है और टैक्स या क़ानूनी सलाह नहीं देता।',
   'Report this answer': 'इस जवाब की शिकायत करें',
@@ -33,7 +25,6 @@ const hiMoney = <String, String>{
   'Thank you. The answer was reported for review.': 'धन्यवाद। जवाब जाँच के लिए भेज दिया गया।',
   'Could not send the report. Try again when you are online.': 'शिकायत नहीं भेजी जा सकी। इंटरनेट चालू होने पर दोबारा कोशिश करें।',
 
-  // Marketplace: payouts
   'Which channel paid out?': 'किस चैनल ने भुगतान किया?',
   'Which channel\'s orders?': 'किस चैनल के ऑर्डर?',
   'Import the {channel} settlement': '{channel} का सेटलमेंट लाएँ',
@@ -54,7 +45,6 @@ const hiMoney = <String, String>{
   'Import settlement': 'सेटलमेंट लाएँ',
   'Import orders': 'ऑर्डर लाएँ',
 
-  // Marketplace: TCS and TDS
   'TCS and TDS 194-O': 'TCS और TDS 194-O',
   'GST TCS: {recorded} deducted, {reported} confirmed': 'GST TCS: {recorded} कटा, {reported} की पुष्टि हुई',
   '{amount} available for the next GST payment': 'अगले GST भुगतान में {amount} काम आएगा',
@@ -64,7 +54,6 @@ const hiMoney = <String, String>{
   'Import the TCS statement': 'TCS स्टेटमेंट लाएँ',
   'Import Form 26AS': 'Form 26AS लाएँ',
 
-  // Marketplace: margins
   'Margins by SKU': 'हर SKU का मार्जिन',
   'No marketplace orders yet': 'अभी मार्केटप्लेस का कोई ऑर्डर नहीं',
   'Import an order report and set SKU costs to see margins': 'मार्जिन देखने के लिए ऑर्डर रिपोर्ट लाएँ और SKU की लागत डालें',
@@ -77,7 +66,6 @@ const hiMoney = <String, String>{
   'Import costs': 'लागत लाएँ',
   'Import SKU costs': 'SKU की लागत लाएँ',
 
-  // Marketplace: stock
   'Stock': 'स्टॉक',
   'No stock recorded': 'कोई स्टॉक दर्ज नहीं',
   'Orders move stock out; record what you hold or send to a warehouse': 'ऑर्डर से स्टॉक घटता है; जो माल आपके पास है या गोदाम भेजा है, वह दर्ज करें',
@@ -101,7 +89,6 @@ const hiMoney = <String, String>{
   'Choose two different registrations.': 'दो अलग-अलग रजिस्ट्रेशन चुनें।',
   'At cost, with IGST under the sending registration and credit under the receiving one; the two are settled by contra.': 'लागत पर: भेजने वाले रजिस्ट्रेशन में IGST लगेगा और लेने वाले में क्रेडिट मिलेगा; दोनों का हिसाब कॉन्ट्रा से बराबर होगा।',
 
-  // Marketplace: SKU cost
   'Cost of a SKU': 'SKU की लागत',
   'Cost per unit': 'हर पीस की लागत',
   'GST rate % (optional)': 'GST दर % (ज़रूरी नहीं)',
@@ -109,7 +96,6 @@ const hiMoney = <String, String>{
   'The cost is the landed price per unit.': 'लागत यानी हर पीस का पहुँच भाव (सब खर्च जोड़कर)।',
   'Cost of {sku} is ₹{cost}': '{sku} की लागत ₹{cost} है',
 
-  // Marketplace: GST registrations
   'GST registrations': 'GST रजिस्ट्रेशन',
   'no GSTIN': 'GSTIN नहीं',
   '{invoices} invoices, {bills} bills': '{invoices} बिक्री बिल, {bills} खरीद बिल',

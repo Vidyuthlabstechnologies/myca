@@ -1,9 +1,4 @@
-// Hindi wording for the people screens of the India app, keyed by the English line (or template with {names}).
-// Needs a native speaker's review before launch: see docs/product/INDIA-LANGUAGES.md.
-// Lines these screens share with hi_core.dart (Employees, Name, Done, Save, Confirm, Preview, Remove, ...) live there only.
-
 const hiPeople = <String, String>{
-  // payroll_screen.dart
   'Approve payroll for {month}': '{month} की सैलरी मंज़ूर करें',
   'No provident fund member in this month.': 'इस महीने PF में कोई कर्मचारी नहीं है।',
   'No state insurance member in this month.': 'इस महीने ESI में कोई कर्मचारी नहीं है।',
@@ -48,7 +43,6 @@ const hiPeople = <String, String>{
   'Net to pay': 'हाथ में देना',
   'Employer contributions': 'मालिक का योगदान',
   'Total cost': 'कुल खर्च',
-  // employees_screen.dart
   'Add employee': 'कर्मचारी जोड़ें',
   'No employees yet.': 'अभी कोई कर्मचारी नहीं है।',
   '1 employee, {amount} a month before deductions.': '1 कर्मचारी, कटौती से पहले {amount} महीना।',
@@ -90,7 +84,6 @@ const hiPeople = <String, String>{
   'In provident fund': 'PF में है',
   'In state insurance (ESI)': 'ESI में है',
   'Records only. No payroll is run and no deduction is worked out yet.': 'सिर्फ़ रिकॉर्ड के लिए। अभी न सैलरी चलाई जाती है, न कोई कटौती निकाली जाती है।',
-  // people_screen.dart
   'Records sales, bills, payments and expenses.': 'बिक्री, बिल, पेमेंट और खर्चे दर्ज करते हैं।',
   'Works in the books like staff. For your CA or bookkeeper.': 'स्टाफ़ की तरह खातों में काम करते हैं। आपके CA या मुनीम के लिए।',
   'Can do everything, including deleting the business and inviting others.': 'सब कुछ कर सकते हैं, कारोबार मिटाना और दूसरों को बुलाना भी।',
@@ -131,7 +124,6 @@ const hiPeople = <String, String>{
   'Their mobile number': 'उनका मोबाइल नंबर',
   'Inviting…': 'बुला रहे हैं…',
   'Invite': 'बुलाएँ',
-  // party_screen.dart
   'Choose the bill.': 'बिल चुनें।',
   'Enter how much less you owe.': 'कितना कम देना है, वह रकम डालें।',
   'Say why: goods returned, price reduced.': 'वजह लिखें: माल वापस किया, रेट कम हुआ।',
@@ -187,12 +179,10 @@ const hiPeople = <String, String>{
   'Micro': 'माइक्रो',
   'Small': 'स्मॉल',
   'Medium': 'मीडियम',
-  // party_screen/composer.dart
   'TDS withheld': 'TDS कटा',
   'Quote, order or challan': 'कोटेशन, ऑर्डर या चालान',
   'Debit note': 'डेबिट नोट',
   'Supplier terms': 'सप्लायर की शर्तें',
-  // party_screen/supplier_terms_sheet.dart
   'A Udyam number looks like UDYAM-XX-00-0000000.': 'उद्यम नंबर ऐसा होता है: UDYAM-XX-00-0000000।',
   'Agreed days must be a whole number from 0 to 365.': 'तय दिन 0 से 365 के बीच पूरी संख्या होनी चाहिए।',
   'An MSME supplier must be paid within 45 days, so the agreed days cannot be more than 45.': 'MSME सप्लायर को 45 दिन के अंदर पैसा देना होता है, इसलिए तय दिन 45 से ज़्यादा नहीं हो सकते।',
@@ -204,7 +194,6 @@ const hiPeople = <String, String>{
   'Agreed days': 'तय दिन',
   'Up to 45. Leave it empty for the 15 days the law gives without a written agreement.': '45 तक। लिखित समझौता न हो तो कानून 15 दिन देता है, उसके लिए खाली छोड़ दें।',
   'How many days you have to pay their bills.': 'उनके बिल चुकाने के लिए आपके पास कितने दिन हैं।',
-  // party_screen/tds_withheld_sheet.dart
   'Enter how much TDS the customer withheld.': 'ग्राहक ने कितना TDS काटा, वह डालें।',
   'A TAN looks like MUMA12345B.': 'TAN ऐसा होता है: MUMA12345B।',
   'TDS withheld by {name}': '{name} ने TDS काटा',
@@ -214,12 +203,10 @@ const hiPeople = <String, String>{
   'Withheld on': 'कटने की तारीख़',
   'Customer\'s TAN (optional)': 'ग्राहक का TAN (ज़रूरी नहीं)',
   'On the TDS certificate, like MUMA12345B. It lets Form 26AS match this row.': 'TDS सर्टिफ़िकेट पर लिखा होता है, जैसे MUMA12345B। इससे Form 26AS में यह एंट्री मिल जाती है।',
-  // party_picker.dart
   'Type the customer name': 'ग्राहक का नाम लिखें',
   'Type the supplier name': 'सप्लायर का नाम लिखें',
   'GSTIN (optional)': 'GSTIN (ज़रूरी नहीं)',
   'Leave empty for a customer without GST registration': 'जिस ग्राहक का GST रजिस्ट्रेशन नहीं है, उसके लिए खाली छोड़ें',
-  // remind_customer_screen.dart
   'Send this payment reminder from my phone': 'यह पेमेंट रिमाइंडर मेरे फ़ोन से भेजें',
   'Message': 'मैसेज',
   'Their invoice numbers, dates and amounts, and your bank details. Edit it as you like.': 'उनके बिल नंबर, तारीख़ें और रकम, और आपके बैंक की जानकारी। जैसा चाहें बदल लें।',
@@ -241,7 +228,6 @@ const hiPeople = <String, String>{
   '{amount} overdue across {n} invoices, oldest {days} days late.': '{n} बिलों पर {amount} बकाया, सबसे पुराना {days} दिन से रुका है।',
   'Your phone offered the message to WhatsApp, email or another app. MyCA will remind you to check for the payment in a week.': 'आपके फ़ोन ने मैसेज WhatsApp, ईमेल या किसी और ऐप में भेजने को दिया। MyCA एक हफ़्ते बाद पेमेंट देखने की याद दिलाएगा।',
   'Your phone could not open the share sheet. Copy the message and send it yourself.': 'आपका फ़ोन शेयर करने का विकल्प नहीं खोल सका। मैसेज कॉपी करके ख़ुद भेज दें।',
-  // remind_supplier_screen.dart
   'Send this reminder from my phone': 'यह रिमाइंडर मेरे फ़ोन से भेजें',
   'Remind supplier': 'सप्लायर को याद दिलाएँ',
   'There is nothing to ask this supplier for this month.': 'इस महीने इस सप्लायर से कुछ माँगना नहीं है।',
@@ -249,7 +235,6 @@ const hiPeople = <String, String>{
   '1 bill for {month} · {credit} of your input credit waiting': '{month} का 1 बिल · आपका {credit} इनपुट क्रेडिट रुका है',
   '{n} bills for {month} · {credit} of your input credit waiting': '{month} के {n} बिल · आपका {credit} इनपुट क्रेडिट रुका है',
   'Your phone offered the message to WhatsApp, email or another app.': 'आपके फ़ोन ने मैसेज WhatsApp, ईमेल या किसी और ऐप में भेजने को दिया।',
-  // pay_bills_screen.dart
   'Recorded. Make the transfers from your bank app; MyCA has posted the payments against each bill.': 'दर्ज हो गया। अपने बैंक ऐप से पैसे भेज दें; MyCA ने हर बिल पर पेमेंट दर्ज कर दिया है।',
   'Pay the chosen bills from the bank': 'चुने हुए बिल बैंक से चुकाएँ',
   'Who to pay': 'किसे पैसे देने हैं',

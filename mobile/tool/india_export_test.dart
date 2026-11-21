@@ -1,6 +1,3 @@
-// Writes the India key list with its Hindi line to build/india_keys.json, for translators:
-//   flutter test tool/india_export_test.dart
-// Then each other language's missing lines are the keys not yet in its table.
 import 'dart:convert';
 import 'dart:io';
 

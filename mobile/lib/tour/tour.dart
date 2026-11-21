@@ -33,7 +33,6 @@ class TourStep {
 
   final BahiMood mood;
 
-  /// What Bahi says, in the owner's language.
   final String Function(BuildContext context) say;
   final TourWait wait;
   final TourPlace place;

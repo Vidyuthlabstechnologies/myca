@@ -1,8 +1,6 @@
 import { modelConfigured, translateWithModel } from './model-adapter.mjs';
 import { confirmationIntent } from './chat-confirm.mjs';
 
-// Script blocks. Marathi shares Devanagari with Hindi, so a Devanagari message is Hindi
-// unless the app says Marathi (the `lang` hint).
 const SCRIPTS = [
   ['hi', /[ऀ-ॿ]/],
   ['bn', /[ঀ-৿]/],
@@ -49,7 +47,6 @@ const READ_AS = {
   kn: 'ಇಂಗ್ಲಿಷ್‌ನಲ್ಲಿ ಅರ್ಥ ಮಾಡಿಕೊಂಡದ್ದು',
   bn: 'ইংরেজিতে যা বুঝেছি',
 };
-// Everyday ways to say yes / no to a held action, all languages in one list: the scripts never collide.
 const DECISIONS = {
   yes: [
     'हाँ', 'हां', 'जी', 'जी हाँ', 'जी हां', 'हाँ जी', 'हां जी', 'ठीक है', 'ठीक', 'कर दो', 'हाँ करो', 'चलेगा',
@@ -70,7 +67,6 @@ const DECISIONS = {
     'না', 'থাক', 'বাতিল', 'বাতিল করুন', 'কোরো না', 'করবেন না',
   ],
 };
-// Zero of each block's native digits: Devanagari, Bengali, Gujarati, Tamil, Telugu, Kannada.
 const DIGIT_BLOCKS = [0x0966, 0x09E6, 0x0AE6, 0x0BE6, 0x0C66, 0x0CE6];
 const NATIVE_DIGIT = /[०-९০-৯૦-૯௦-௯౦-౯೦-೯]/g;
 
@@ -119,8 +115,6 @@ async function replyIn(language, out, extra = {}) {
   return { ...out, reply: back.text, replyEnglish: out.reply, language, translated: true, ...extra };
 }
 
-// `lang` is the app's language. A supported code makes the reply come back in it even when the owner
-// typed English; without one (or with 'en') nothing changes from the plain English assistant.
 export async function throughLanguage(message, runEnglish, { lang } = {}) {
   const hint = chatLanguageHint(lang);
   const written = languageOf(message, hint);

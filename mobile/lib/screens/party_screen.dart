@@ -1201,7 +1201,6 @@ String _challanLabel(BuildContext context, String reason) => switch (reason) {
   _ => reason,
 };
 
-/// Payment terms in days, as format.termsLabel words them in English.
 String _termsWords(BuildContext context, int days) => days == 0 ? inText(context, 'Due on receipt') : inFormat(context, 'Net {days}', {'days': days});
 
 String _msmeCategory(BuildContext context, String category) => switch (category) {
