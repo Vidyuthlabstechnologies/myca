@@ -19,6 +19,7 @@ import 'ask_screen.dart';
 import 'bank_screen.dart';
 import 'books_check_screen.dart';
 import 'marketplace_screen.dart';
+import 'online_store_screen.dart';
 import 'recurring_screen.dart';
 import 'reports_screen.dart';
 import 'statements_screen.dart';
@@ -397,6 +398,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: inText(context, 'Payouts, TCS and TDS, margins by SKU, stock, GST registrations'),
                   trailing: const Chevron(),
                   onTap: () => _open(const MarketplaceScreen()),
+                ),
+                if (state.edition == 'IN' &&
+                    company.country == 'IN' &&
+                    snapshot.activeUser?.role != 'staff' &&
+                    snapshot.activeUser?.role != 'accountant')
+                RowCard(
+                  key: const Key('home-online-store'),
+                  leading: const TintTile(tint: Tint.sales, mark: Mark.sales),
+                  title: inText(context, 'Online store'),
+                  subtitle: inText(context, 'Publish items on a link buyers can order from on WhatsApp'),
+                  trailing: const Chevron(),
+                  onTap: () => _open(const OnlineStoreScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.switchBooks),
