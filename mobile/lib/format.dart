@@ -11,9 +11,22 @@ final _ae = MycaFormat(MycaCountry.of('AE'));
 
 final _gb = MycaFormat(MycaCountry.of('GB'));
 
-String get moneyPrefix => moneyCountry == 'AE' ? 'AED ' : moneyCountry == 'GB' ? '£ ' : '₹ ';
+final _my = MycaFormat(MycaCountry.of('MY'));
 
-String get salesTaxName => moneyCountry == 'GB' || moneyCountry == 'AE' ? 'VAT' : 'GST';
+String get moneyPrefix => switch (moneyCountry) {
+  'AE' => 'AED ',
+  'GB' => '£ ',
+  'US' => '\$ ',
+  'MY' => 'RM ',
+  _ => '₹ ',
+};
+
+String get salesTaxName => switch (moneyCountry) {
+  'GB' || 'AE' => 'VAT',
+  'US' => 'sales tax',
+  'MY' => 'SST',
+  _ => 'GST',
+};
 
 String rupees(num amount) {
   if (moneyCountry == 'US') return dollars(amount);
@@ -186,6 +199,9 @@ String compactRupees(num amount) {
   final abs = amount.abs().toDouble();
   final sign = amount < 0 ? '-' : '';
   if (moneyCountry == 'AE') return _ae.moneyCompact(amount);
+  if (moneyCountry == 'US') return _us.moneyCompact(amount);
+  if (moneyCountry == 'GB') return _gb.moneyCompact(amount);
+  if (moneyCountry == 'MY') return _my.moneyCompact(amount);
   if (abs == 0) return '₹0';
   if (abs >= 1e7 || double.parse((abs / 1e5).toStringAsFixed(2)) >= 100) return '$sign₹${_scaled(abs / 1e7)} cr';
   if (abs.round() >= 1e5) return '$sign₹${_scaled(abs / 1e5)} L';
