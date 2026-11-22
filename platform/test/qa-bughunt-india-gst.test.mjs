@@ -160,3 +160,16 @@ test('GSTR-9 table 5 keeps a cancelled exempt sale and a cancelled export with t
   assert.equal(t5.exportsWithoutTax.taxable, 3000);
   assert.equal(t5.exempt + t5.exportsWithoutTax.taxable - t5.creditNotes, 0);
 });
+
+test('the quarterly GSTR-1 reports a credit note against a large inter-state B2C invoice of an earlier quarter in CDNUR as B2CL', async () => {
+  const state = books();
+  state.company.gstFrequency = 'quarterly';
+  const sale = await sell(state, { date: '2026-06-20', partyName: 'Traveller', partyState: '29', partyAddress: '1 Brigade Road, Bengaluru 560025', lines: [{ description: 'Necklace', hsn: '7113', qty: 1, rate: 300000, gstRate: 3 }] });
+  const note = await runTool(state, 'create_credit_note', { invoiceId: sale.id, amount: 10300, reason: 'Rate difference', date: '2026-07-05' });
+  assert.equal(note.ok, true, JSON.stringify(note));
+  const file = await runTool(state, 'export_gstr1_quarter', { quarter: 'Q2 2026-27' });
+  assert.equal(file.ok, true, JSON.stringify(file));
+  assert.deepEqual(file.data.b2cs, []);
+  assert.equal(file.data.cdnur?.[0]?.typ, 'B2CL');
+  assert.equal(file.data.cdnur[0].val, 10300);
+});

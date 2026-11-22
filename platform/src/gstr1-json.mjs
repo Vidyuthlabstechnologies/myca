@@ -152,7 +152,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
 
   const cdnrMap = new Map();
   const cdnur = [];
-  const allInvoices = new Map((invoices || []).map((inv) => [inv.id, inv]));
+  const allInvoices = new Map([...(opts.originalInvoices || []), ...(invoices || [])].map((inv) => [inv.id, inv]));
   const notesInPeriod = [
     ...(opts.creditNotes || []).map((note) => ({ ...note, ntty: 'C', sign: -1 })),
     ...(opts.debitNotes || []).map((note) => ({ ...note, ntty: 'D', sign: 1 })),
