@@ -410,10 +410,10 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
             const SizedBox(height: 8),
             TextField(key: const Key('counter-customer'), controller: _customer, onChanged: (_) => setState(() => _preview = null), decoration: InputDecoration(labelText: needsBuyerDetails(cart) ? inText(context, 'Customer name') : inText(context, 'Customer (optional)'), hintText: needsBuyerDetails(cart) ? null : inText(context, 'Walk-in customer'))),
             const SizedBox(height: 8),
-            TextField(key: const Key('counter-gstin'), controller: _gstin, onChanged: (_) => setState(() {}), textCapitalization: TextCapitalization.characters, maxLength: 15, decoration: InputDecoration(labelText: inText(context, 'Customer GSTIN (optional)'), helperText: inText(context, 'For a business buyer who claims input tax credit'))),
+            TextField(key: const Key('counter-gstin'), controller: _gstin, onChanged: (_) => setState(() => _preview = null), textCapitalization: TextCapitalization.characters, maxLength: 15, decoration: InputDecoration(labelText: inText(context, 'Customer GSTIN (optional)'), helperText: inText(context, 'For a business buyer who claims input tax credit'))),
             if (needsBuyerDetails(cart) && _gstin.text.trim().isEmpty) ...[
               const SizedBox(height: 8),
-              TextField(key: const Key('counter-address'), controller: _address, maxLength: 200, decoration: InputDecoration(labelText: inText(context, 'Customer address with state'), helperText: inText(context, 'Needed on bills of ₹50,000 or more before GST'))),
+              TextField(key: const Key('counter-address'), controller: _address, onChanged: (_) => setState(() => _preview = null), maxLength: 200, decoration: InputDecoration(labelText: inText(context, 'Customer address with state'), helperText: inText(context, 'Needed on bills of ₹50,000 or more before GST'))),
             ],
             LoyaltyPointsField(
               partyName: _customer.text,
