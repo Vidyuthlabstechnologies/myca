@@ -62,13 +62,6 @@ Map<String, Object?> counterSaleArgs(List<CartLine> cart, {String customer = '',
 
 const counterPayModes = ['cash', 'upi', 'card', 'credit'];
 
-String payModeLabel(String mode) => switch (mode) {
-  'cash' => 'Cash',
-  'upi' => 'UPI',
-  'card' => 'Card',
-  _ => 'Pay later',
-};
-
 String payModeWords(BuildContext context, String mode) => switch (mode) {
   'cash' => inText(context, 'Cash'),
   'upi' => inText(context, 'UPI'),
@@ -269,11 +262,14 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
     try {
       final proposed = await api.propose('record_receipt', args);
       final preview = proposed.preview;
-      if (preview == null) return proposed.reply.isEmpty ? 'The payment was not recorded; record it from the customer\'s thread.' : proposed.reply;
+      if (!mounted) return '';
+      if (preview == null) return proposed.reply.isEmpty ? inText(context, 'The payment was not recorded; record it from the customer\'s thread.') : proposed.reply;
       final done = await api.confirm(preview.token);
-      return done.posted ? 'Paid by ${payModeLabel(_pay)}.' : done.reply;
+      if (!mounted) return '';
+      return done.posted ? inFormat(context, 'Paid by {mode}.', {'mode': payModeWords(context, _pay)}) : done.reply;
     } on MycaApiException catch (err) {
-      return 'The bill is made, but the payment was not recorded: ${err.message}';
+      if (!mounted) return '';
+      return inFormat(context, 'The bill is made, but the payment was not recorded: {why}', {'why': err.message});
     }
   }
 
@@ -410,10 +406,10 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
             const SizedBox(height: 8),
             TextField(key: const Key('counter-customer'), controller: _customer, onChanged: (_) => setState(() => _preview = null), decoration: InputDecoration(labelText: needsBuyerDetails(cart) ? inText(context, 'Customer name') : inText(context, 'Customer (optional)'), hintText: needsBuyerDetails(cart) ? null : inText(context, 'Walk-in customer'))),
             const SizedBox(height: 8),
-            TextField(key: const Key('counter-gstin'), controller: _gstin, onChanged: (_) => setState(() {}), textCapitalization: TextCapitalization.characters, maxLength: 15, decoration: InputDecoration(labelText: inText(context, 'Customer GSTIN (optional)'), helperText: inText(context, 'For a business buyer who claims input tax credit'))),
+            TextField(key: const Key('counter-gstin'), controller: _gstin, onChanged: (_) => setState(() => _preview = null), textCapitalization: TextCapitalization.characters, maxLength: 15, decoration: InputDecoration(labelText: inText(context, 'Customer GSTIN (optional)'), helperText: inText(context, 'For a business buyer who claims input tax credit'))),
             if (needsBuyerDetails(cart) && _gstin.text.trim().isEmpty) ...[
               const SizedBox(height: 8),
-              TextField(key: const Key('counter-address'), controller: _address, maxLength: 200, decoration: InputDecoration(labelText: inText(context, 'Customer address with state'), helperText: inText(context, 'Needed on bills of ₹50,000 or more before GST'))),
+              TextField(key: const Key('counter-address'), controller: _address, onChanged: (_) => setState(() => _preview = null), maxLength: 200, decoration: InputDecoration(labelText: inText(context, 'Customer address with state'), helperText: inText(context, 'Needed on bills of ₹50,000 or more before GST'))),
             ],
             LoyaltyPointsField(
               partyName: _customer.text,

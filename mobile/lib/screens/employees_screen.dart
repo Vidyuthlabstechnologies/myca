@@ -473,6 +473,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
                         prefixText: moneyPrefix,
                       ),
                     ),
+                    if (!_us && !_uk)
                     TextField(
                       controller: _hra,
                       keyboardType: money,

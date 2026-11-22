@@ -104,20 +104,23 @@ function exportsAndNonGst(docs) {
   return { zero, fromRated, fromNil, nonGst };
 }
 
-function unregisteredInterState(invoices, homeState) {
+function unregisteredInterState(docs, homeState) {
   const byPos = new Map();
-  for (const inv of invoices) {
+  const signed = [...(docs.invoices || []).map((doc) => [doc, 1]), ...(docs.debitNotes || []).map((doc) => [doc, 1]), ...(docs.creditNotes || []).map((doc) => [doc, -1])];
+  for (const [inv, sign] of signed) {
     if (String(inv.partyGstin || '').trim()) continue;
-    if (inv.export || String(inv.placeOfSupply || '') === '96') continue;
+    if (zeroRatedDoc(inv)) continue;
     const pos = String(inv.placeOfSupply || inv.partyState || '').padStart(2, '0');
     if (!pos || pos === String(homeState).padStart(2, '0')) continue;
     if (!Number(inv.igst || 0)) continue;
+    const lines = inv.lines || [];
+    const taxable = lines.length ? lines.filter((line) => Number(line.gstRate || 0) !== 0).reduce((sum, line) => sum + Number(line.taxable || 0), 0) : Number(inv.taxable || 0);
     const row = byPos.get(pos) || { pos, txval: 0, iamt: 0 };
-    row.txval += Number(inv.taxable || 0);
-    row.iamt += Number(inv.igst || 0);
+    row.txval += sign * taxable;
+    row.iamt += sign * Number(inv.igst || 0);
     byPos.set(pos, row);
   }
-  return [...byPos.values()].sort((a, b) => a.pos.localeCompare(b.pos)).map((row) => ({ pos: row.pos, txval: r2(row.txval), iamt: r2(row.iamt) }));
+  return [...byPos.values()].filter((row) => r2(row.txval) !== 0 || r2(row.iamt) !== 0).sort((a, b) => a.pos.localeCompare(b.pos)).map((row) => ({ pos: row.pos, txval: r2(row.txval), iamt: r2(row.iamt) }));
 }
 
 export function gstr3bPortalJson(state, period, gstin) {
@@ -162,7 +165,7 @@ export function gstr3bPortalJson(state, period, gstin) {
       osup_nongst: { txval: r2(extra.nonGst) },
     },
     inter_sup: {
-      unreg_details: unregisteredInterState(docs.invoices, company.state),
+      unreg_details: unregisteredInterState(docs, company.state),
       comp_details: [],
       uin_details: [],
     },

@@ -1,6 +1,6 @@
 import { companyAs } from './registrations.mjs';
 import { filing } from './sprint-load.mjs';
-import { invoicesToSalesCsv, purchasesToInwardCsv } from './invoice.mjs';
+import { purchasesToInwardCsv } from './invoice.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
 import { creditNoteTotals } from './credit-notes.mjs';
 import { noteTotals } from './debit-notes.mjs';
@@ -65,18 +65,49 @@ function lessPurchaseNotes(itc, notes) {
 }
 
 const HSN_CODE = /^\d{4,8}$/;
-const LIABILITY_ONLY_HSN = '0000';
 
 export function invoicesMissingHsn(invoices) {
   return (invoices || []).filter((inv) => (inv.lines || []).some((line) => !HSN_CODE.test(String(line.hsn ?? '').trim()))).map((inv) => inv.id);
 }
 
-function withLiabilityHsn(invoices) {
-  return (invoices || []).map((inv) => {
-    const lines = inv.lines || [];
-    if (lines.every((line) => HSN_CODE.test(String(line.hsn ?? '').trim()))) return inv;
-    return { ...inv, lines: lines.map((line) => (HSN_CODE.test(String(line.hsn ?? '').trim()) ? line : { ...line, hsn: LIABILITY_ONLY_HSN })) };
-  });
+function outwardOf(invoices, supplierState) {
+  const paiseOf = (value) => Math.round(Number(value || 0) * 100);
+  const byRate = new Map();
+  let nilPaise = 0;
+  for (const inv of invoices || []) {
+    const interState = String(inv.partyState || inv.placeOfSupply || '') !== String(supplierState);
+    for (const line of inv.lines || []) {
+      const taxable = paiseOf(line.taxable);
+      const rate = Number(line.gstRate || 0);
+      if (rate === 0 || taxable === 0) {
+        nilPaise += taxable;
+        continue;
+      }
+      const key = `${rate}_${interState ? 'I' : 'N'}`;
+      const row = byRate.get(key) || { rate, interState, taxable: 0, cgst: 0, sgst: 0, igst: 0 };
+      row.taxable += taxable;
+      row.cgst += paiseOf(line.cgst);
+      row.sgst += paiseOf(line.sgst);
+      row.igst += paiseOf(line.igst);
+      byRate.set(key, row);
+    }
+  }
+  const sums = { interTaxable: 0, interIgst: 0, intraTaxable: 0, intraCgst: 0, intraSgst: 0 };
+  const rows3a = [...byRate.values()]
+    .sort((a, b) => (a.rate !== b.rate ? a.rate - b.rate : a.interState === b.interState ? 0 : a.interState ? 1 : -1))
+    .map((row) => {
+      if (row.interState) {
+        sums.interTaxable += row.taxable;
+        sums.interIgst += row.igst;
+      } else {
+        sums.intraTaxable += row.taxable;
+        sums.intraCgst += row.cgst;
+        sums.intraSgst += row.sgst;
+      }
+      return { rate: row.rate, interState: row.interState, taxable: row.taxable / 100, cgst: row.cgst / 100, sgst: row.sgst / 100, igst: row.igst / 100 };
+    });
+  const totals = Object.fromEntries(Object.entries(sums).map(([key, value]) => [key, value / 100]));
+  return { rows3a, nilExemptTaxable: nilPaise / 100, totals };
 }
 
 function withSezSupplies(outward, sezInvoices) {
@@ -108,12 +139,12 @@ function withSezSupplies(outward, sezInvoices) {
 
 export function gstr3bFor(state, docs, inwardOverride) {
   const sezInvoices = (docs.invoices || []).filter((inv) => isSezSupply(inv));
-  const salesText = invoicesToSalesCsv(withLiabilityHsn((docs.invoices || []).filter((inv) => !isSezSupply(inv))));
   const inwardText = inwardOverride || purchasesToInwardCsv(docs.purchases);
   const supplierState = docs.gstin !== undefined ? companyAs(state, docs.gstin).state : state.company.state;
-  const result = filingPrep({ salesText, inwardText, supplierState });
+  const result = filingPrep({ inwardText, supplierState });
   const draft = result.gstr3b || {};
-  return { ...draft, outward: netOfNotes(withSezSupplies(draft.outward, sezInvoices), docs.creditNotes || [], docs.debitNotes || [], supplierState), itc: lessPurchaseNotes(draft.itc, docs.purchaseNotes || []), period: docs.period, missingHsn: invoicesMissingHsn(docs.invoices) };
+  const outward = outwardOf((docs.invoices || []).filter((inv) => !isSezSupply(inv)), supplierState);
+  return { ...draft, outward: netOfNotes(withSezSupplies(outward, sezInvoices), docs.creditNotes || [], docs.debitNotes || [], supplierState), itc: lessPurchaseNotes(draft.itc, docs.purchaseNotes || []), period: docs.period, missingHsn: invoicesMissingHsn(docs.invoices) };
 }
 
 export function periodSummary(state, period, gstin) {
@@ -122,7 +153,7 @@ export function periodSummary(state, period, gstin) {
   const gstr3b = gstr3bFor(state, docs);
   const outward = gstr3b.outward?.totals || {};
   const credit = gstr3b.itc?.available || {};
-  const file = docs.invoices.length || docs.creditNotes.length || docs.debitNotes.length ? invoicesToGstr1Json(docs.gstin !== undefined ? companyAs(state, docs.gstin) : state.company, docs.invoices, fpOf(docs.period), { creditNotes: docs.creditNotes, debitNotes: docs.debitNotes, channels: state.channels }) : null;
+  const file = docs.invoices.length || docs.creditNotes.length || docs.debitNotes.length ? invoicesToGstr1Json(docs.gstin !== undefined ? companyAs(state, docs.gstin) : state.company, docs.invoices, fpOf(docs.period), { creditNotes: docs.creditNotes, debitNotes: docs.debitNotes, originalInvoices: state.invoices || [], channels: state.channels }) : null;
   return {
     ok: true,
     data: {

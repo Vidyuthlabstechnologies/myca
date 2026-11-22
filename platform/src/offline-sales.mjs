@@ -195,7 +195,7 @@ const REJECT_HINTS = {
   INVOICE_CANCELLED: 'That bill is cancelled, so nothing can be received against it.',
   BEFORE_INVOICE: 'A receipt cannot be dated before its bill.',
   BAD_AMOUNT: 'The amount must be more than zero.',
-  BAD_RATE: 'MyCA keeps an item\'s GST rate between 0 and 28.',
+  BAD_RATE: 'MyCA keeps an item\'s GST rate between 0 and 40.',
   BAD_BARCODE: 'A barcode is 4 to 32 letters, digits or -.',
   BARCODE_IN_USE: 'Another item already has this barcode.',
   CREDIT_NOTE_TIME_BARRED: 'The time to cancel this bill by a credit note has passed. Ask your CA.',

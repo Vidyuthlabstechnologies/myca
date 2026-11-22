@@ -8,6 +8,7 @@ import { cashStart, cashForecast, latestReading } from './cash-forecast.mjs';
 import { listExceptions, summarise } from './exceptions.mjs';
 import { supplierDues } from './supplier-dues.mjs';
 import { formatMoney } from './country.mjs';
+import { isVoided } from './gstr1-tables.mjs';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -28,7 +29,7 @@ function longDate(iso) {
 
 function salesBetween(state, from, to) {
   const inRange = (doc) => doc.date && doc.date >= from && doc.date <= to;
-  const sales = (state.invoices || []).filter((inv) => inv.status !== 'cancelled' && inRange(inv)).reduce((s, inv) => s + Number(inv.total || 0), 0);
+  const sales = (state.invoices || []).filter((inv) => !isVoided(inv) && inRange(inv)).reduce((s, inv) => s + Number(inv.total || 0), 0);
   const credits = (state.creditNotes || []).filter(inRange).reduce((s, cn) => s + Number(cn.total || 0), 0);
   return round2(sales - credits);
 }

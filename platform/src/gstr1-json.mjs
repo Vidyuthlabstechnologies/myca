@@ -50,6 +50,14 @@ function itemsByRate(lines) {
   return [...byRate.values()].sort((a, b) => a.rt - b.rt).map((itm_det, idx) => ({ num: idx + 1, itm_det }));
 }
 
+function outsideGst(line) {
+  return Number(line?.gstRate || 0) === 0 && Boolean(line?.supply);
+}
+
+function taxedItems(lines) {
+  return itemsByRate((lines || []).filter((line) => !outsideGst(line)));
+}
+
 const INV_TYP = { SEZWP: 'SEWP', SEZWOP: 'SEWOP', DEXP: 'DE' };
 
 function invTyp(doc) {
@@ -116,16 +124,18 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
       });
       continue;
     }
+    const itms = taxedItems(inv.lines);
+    if (!itms.length) continue;
     if (inv.partyGstin) {
       const ctin = String(inv.partyGstin).toUpperCase();
       if (!b2bMap.has(ctin)) b2bMap.set(ctin, []);
-      b2bMap.get(ctin).push({ inum: inv.id, idt: ddmmyyyy(inv.date), val, pos, rchrg: 'N', inv_typ: invTyp(inv), itms: itemsByRate(inv.lines) });
+      b2bMap.get(ctin).push({ inum: inv.id, idt: ddmmyyyy(inv.date), val, pos, rchrg: 'N', inv_typ: invTyp(inv), itms });
     } else if (isB2cl(inv, pos, supplierState)) {
       if (!b2clMap.has(pos)) b2clMap.set(pos, []);
-      b2clMap.get(pos).push({ inum: inv.id, idt: ddmmyyyy(inv.date), val, itms: itemsByRate(inv.lines) });
+      b2clMap.get(pos).push({ inum: inv.id, idt: ddmmyyyy(inv.date), val, itms });
     } else {
       // B2CS is consolidated by place of supply and rate, per the GSTN schema.
-      for (const { itm_det } of itemsByRate(inv.lines)) {
+      for (const { itm_det } of itms) {
         const key = `${pos}|${itm_det.rt}`;
         if (!b2csMap.has(key)) {
           b2csMap.set(key, { sply_ty: pos === supplierState ? 'INTRA' : 'INTER', rt: itm_det.rt, typ: 'OE', pos, txval: 0, camt: 0, samt: 0, iamt: 0, csamt: 0 });
@@ -142,11 +152,11 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
 
   const cdnrMap = new Map();
   const cdnur = [];
-  const allInvoices = new Map((invoices || []).map((inv) => [inv.id, inv]));
+  const allInvoices = new Map([...(opts.originalInvoices || []), ...(invoices || [])].map((inv) => [inv.id, inv]));
   const notesInPeriod = [
     ...(opts.creditNotes || []).map((note) => ({ ...note, ntty: 'C', sign: -1 })),
     ...(opts.debitNotes || []).map((note) => ({ ...note, ntty: 'D', sign: 1 })),
-  ].filter((note) => note.date && fpFromDate(note.date) === fp);
+  ].filter((note) => note.date && (opts.allGiven || fpFromDate(note.date) === fp));
   const noteHoldReason = (note) => holdReason(note, allInvoices.get(note.invoiceId)?.date || note.invoiceDate || note.date);
   for (const note of notesInPeriod) {
     const reason = noteHoldReason(note);
@@ -157,17 +167,20 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
     const pos = String(note.partyState || note.placeOfSupply || supplierState).padStart(2, '0');
     const val = round2(note.total);
     const original = allInvoices.get(note.invoiceId) || note;
+    const exported = Boolean(original.export) || pos === '96';
+    const itms = exported ? itemsByRate(note.lines) : taxedItems(note.lines);
+    if (!itms.length) continue;
     if (note.partyGstin) {
       const ctin = String(note.partyGstin).toUpperCase();
       if (!cdnrMap.has(ctin)) cdnrMap.set(ctin, []);
-      cdnrMap.get(ctin).push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), pos, rchrg: 'N', inv_typ: invTyp(note.supplyType ? note : original), val, itms: itemsByRate(note.lines) });
-    } else if (original.export || pos === '96') {
-      cdnur.push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), typ: original.export?.withTax ? 'EXPWP' : 'EXPWOP', val, itms: itemsByRate(note.lines) });
+      cdnrMap.get(ctin).push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), pos, rchrg: 'N', inv_typ: invTyp(note.supplyType ? note : original), val, itms });
+    } else if (exported) {
+      cdnur.push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), typ: original.export?.withTax ? 'EXPWP' : 'EXPWOP', val, itms });
     } else if (isB2cl(original, pos, supplierState)) {
-      cdnur.push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), typ: 'B2CL', pos, val, itms: itemsByRate(note.lines) });
+      cdnur.push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), typ: 'B2CL', pos, val, itms });
     } else {
       // Credit notes against small unregistered sales are netted in B2CS (table 7).
-      for (const { itm_det } of itemsByRate(note.lines)) {
+      for (const { itm_det } of itms) {
         const key = `${pos}|${itm_det.rt}`;
         if (!b2csMap.has(key)) {
           b2csMap.set(key, { sply_ty: pos === supplierState ? 'INTRA' : 'INTER', rt: itm_det.rt, typ: 'OE', pos, txval: 0, camt: 0, samt: 0, iamt: 0, csamt: 0 });
@@ -203,7 +216,8 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
       continue;
     }
     const pos = String(revised.partyState || revised.placeOfSupply || supplierState).padStart(2, '0');
-    const entry = { oinum: original.id, oidt: ddmmyyyy(original.date), inum: revised.id, idt: ddmmyyyy(revised.date), val: round2(revised.total), pos, rchrg: 'N', inv_typ: invTyp(original), itms: itemsByRate(revised.lines) };
+    const entry = { oinum: original.id, oidt: ddmmyyyy(original.date), inum: revised.id, idt: ddmmyyyy(revised.date), val: round2(revised.total), pos, rchrg: 'N', inv_typ: invTyp(original), itms: taxedItems(revised.lines) };
+    if (!entry.itms.length) continue;
     if (revised.partyGstin) {
       const ctin = String(revised.partyGstin).toUpperCase();
       if (!b2baMap.has(ctin)) b2baMap.set(ctin, []);
@@ -213,7 +227,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
       b2claMap.get(pos).push({ oinum: entry.oinum, oidt: entry.oidt, inum: entry.inum, idt: entry.idt, val: entry.val, itms: entry.itms });
     } else {
       const omon = fpFromDate(original.date);
-      for (const { itm_det } of itemsByRate(revised.lines)) {
+      for (const { itm_det } of entry.itms) {
         const key = `${pos}|${itm_det.rt}|${omon}`;
         if (!b2csaMap.has(key)) b2csaMap.set(key, { sply_ty: pos === supplierState ? 'INTRA' : 'INTER', omon, rt: itm_det.rt, typ: 'OE', pos, txval: 0, camt: 0, samt: 0, iamt: 0, csamt: 0 });
         const row = b2csaMap.get(key);
@@ -270,6 +284,20 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
       const row = nilMap.get(sply_ty);
       const field = line.supply === 'nil' ? 'nil_amt' : line.supply === 'exempt' ? 'expt_amt' : 'ngsup_amt';
       row[field] = round2(row[field] + Number(line.taxable || 0));
+    }
+  }
+  for (const note of notesInPeriod) {
+    if (noteHoldReason(note)) continue;
+    const original = allInvoices.get(note.invoiceId) || note;
+    if (original.export) continue;
+    const pos = String(note.placeOfSupply || note.partyState || supplierState);
+    const sply_ty = `${pos === supplierState ? 'INTRA' : 'INTR'}${note.partyGstin ? 'B2B' : 'B2C'}`;
+    for (const line of note.lines || []) {
+      if (!outsideGst(line)) continue;
+      if (!nilMap.has(sply_ty)) nilMap.set(sply_ty, { sply_ty, nil_amt: 0, expt_amt: 0, ngsup_amt: 0 });
+      const row = nilMap.get(sply_ty);
+      const field = line.supply === 'nil' ? 'nil_amt' : line.supply === 'exempt' ? 'expt_amt' : 'ngsup_amt';
+      row[field] = round2(row[field] + note.sign * Number(line.taxable || 0));
     }
   }
   if (nilMap.size) body.nil = { inv: [...nilMap.values()] };

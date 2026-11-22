@@ -48,8 +48,11 @@ function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || ''));
 }
 
-function dayOf(now) {
-  return new Date(now).toISOString().slice(0, 10);
+const INDIA_OFFSET_MS = 330 * 60 * 1000;
+
+function indiaMidnight(now) {
+  const day = new Date(now + INDIA_OFFSET_MS).toISOString().slice(0, 10);
+  return new Date(Date.parse(`${day}T00:00:00.000Z`) - INDIA_OFFSET_MS);
 }
 
 export function createInbound({ db, secret, now = () => Date.now(), withBooks, email = {}, storedBytes = async () => 0, limitBytes = Infinity }) {
@@ -89,7 +92,7 @@ export function createInbound({ db, secret, now = () => Date.now(), withBooks, e
     },
 
     async list(businessId) {
-      const start = new Date(`${dayOf(now())}T00:00:00.000Z`);
+      const start = indiaMidnight(now());
       const found = await db.query(
         `select k.id, k.label, k.source, k.email_token as "emailToken", k.created_at as "createdAt", k.last_used_at as "lastUsedAt", k.disabled_at as "disabledAt",
                 coalesce(s.n, 0)::int as "todayCount", coalesce(s.total, 0)::numeric as "todayTotal"

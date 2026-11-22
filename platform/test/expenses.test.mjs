@@ -96,7 +96,7 @@ test('with a supplier GSTIN the GST inside the amount becomes input credit, IGST
 test('refusals: bad amount, rate, mode, GSTIN, head, date and a locked period; nothing is posted', async () => {
   const state = createState();
   assert.equal((await runTool(state, 'post_expense', { amount: 0 })).error, 'BAD_AMOUNT');
-  assert.equal((await runTool(state, 'post_expense', { amount: 10, gstRate: 40 })).error, 'BAD_RATE');
+  assert.equal((await runTool(state, 'post_expense', { amount: 10, gstRate: 41 })).error, 'BAD_RATE');
   assert.equal((await runTool(state, 'post_expense', { amount: 10, mode: 'upi' })).error, 'BAD_MODE');
   assert.equal((await runTool(state, 'post_expense', { amount: 10, supplierGstin: 'ABC' })).error, 'BAD_GSTIN');
   assert.equal((await runTool(state, 'post_expense', { amount: 10, head: '9999' })).error, 'UNKNOWN_HEAD');

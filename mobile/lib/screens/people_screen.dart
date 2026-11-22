@@ -70,7 +70,8 @@ String _isRole(BuildContext context, String name, String role) => UaeStrings.of(
       };
 
 String sharedWhen(String iso) {
-  final at = DateTime.tryParse(iso)?.toUtc().add(const Duration(hours: 5, minutes: 30));
+  final parsed = DateTime.tryParse(iso);
+  final at = parsed == null ? null : businessTime(parsed);
   if (at == null) return '';
   final minutes = at.minute.toString().padLeft(2, '0');
   final hour = at.hour % 12 == 0 ? 12 : at.hour % 12;

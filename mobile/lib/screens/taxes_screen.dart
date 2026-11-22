@@ -162,13 +162,13 @@ class _TaxesScreenState extends State<TaxesScreen> {
     await _reload();
   }
 
-  Future<void> _saveQuarterly({required bool iff}) async {
+  Future<void> _saveQuarterly({required bool iff, required String shown}) async {
     final state = AppScope.of(context);
     final lang = indiaLang(context);
     setState(() => _entriesNote = '');
     var note = '';
     try {
-      final period = _period ?? '';
+      final period = _period ?? shown;
       final month = period.isEmpty ? '' : period.substring(5, 7);
       final quarter = period.isEmpty ? '' : 'Q${((int.parse(month) + 8) % 12) ~/ 3 + 1} ${_fyOf(period)}';
       final data = toolData(await state.api.query(iff ? 'export_iff' : 'export_gstr1_quarter', iff ? {'period': period, ..._regArgs} : {'quarter': quarter, ..._regArgs}));
@@ -663,7 +663,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
-                        onPressed: () => _saveQuarterly(iff: false),
+                        onPressed: () => _saveQuarterly(iff: false, shown: gst.period),
                         child: Text(inText(context, 'Save the quarterly GSTR-1')),
                       ),
                     ),
@@ -671,7 +671,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
-                        onPressed: () => _saveQuarterly(iff: true),
+                        onPressed: () => _saveQuarterly(iff: true, shown: gst.period),
                         child: Text(inText(context, 'Save the IFF for this month')),
                       ),
                     ),

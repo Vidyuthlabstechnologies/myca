@@ -17,7 +17,7 @@ export const lineSchema = {
     batch: { type: 'string', maxLength: 20 },
     expiry: { type: 'string', pattern: '^([0-9]{4}-[0-9]{2}(-[0-9]{2})?|[0-9]{2}/[0-9]{4})$' },
     rate: { type: 'number', minimum: 0 },
-    gstRate: { type: 'number', minimum: 0, maximum: 28 },
+    gstRate: { type: 'number', minimum: 0, maximum: 40 },
     taxable: { type: 'boolean' },
     supply: { type: 'string', enum: ['nil', 'exempt', 'non-gst'] },
     cessRate: { type: 'number', minimum: 0 },

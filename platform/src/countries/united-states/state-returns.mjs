@@ -280,9 +280,9 @@ function settle(result, filing, reader, module) {
   };
 }
 
-function computeOne(ctx, entry, otherStates = []) {
+function computeOne(ctx, entry, otherStates = [], { homeState = '', homeReturn = null } = {}) {
   const module = stateModule(entry.state);
-  const filing = { ...filingFor(ctx, entry, module), taxYear: ctx.taxYear, otherStates };
+  const filing = { ...filingFor(ctx, entry, module), taxYear: ctx.taxYear, otherStates, homeState, homeReturn };
   const reader = stateRuleReader(entry.state, ctx.taxYear);
   let result;
   try {
@@ -333,7 +333,7 @@ export function usStateReturns(state, args = {}) {
       out.push(placeholder(ctx, entry));
       continue;
     }
-    const result = computeOne(ctx, entry);
+    const result = computeOne(ctx, entry, [], { homeState: home });
     out.push(result);
     if (result.status === 'computed') paidElsewhere.push({ state: entry.state, residency: entry.residency, tax: result.totalTax, income: result.stateIncome, sourced: result.sourcedIncome });
   }
@@ -343,7 +343,15 @@ export function usStateReturns(state, args = {}) {
       out.unshift(placeholder(ctx, entry));
       continue;
     }
-    out.unshift(computeOne(ctx, entry, paidElsewhere.filter((item) => item.residency === 'nonresident')));
+    const homeResult = computeOne(ctx, entry, paidElsewhere.filter((item) => item.residency === 'nonresident'));
+    out.unshift(homeResult);
+    if (homeResult.status !== 'computed') continue;
+    const homeReturn = { state: entry.state, tax: Math.max(0, homeResult.totalTax - sum(homeResult.otherTaxes, (item) => item.amount)), income: homeResult.stateIncome };
+    for (const [index, item] of out.entries()) {
+      const source = sourceStates.find((candidate) => candidate.state === item.state);
+      if (!source || source.residency !== 'nonresident' || item.status !== 'computed' || !stateModule(item.state)?.creditsHomeStateTax) continue;
+      out[index] = computeOne(ctx, source, [], { homeState: home, homeReturn });
+    }
   }
   const computed = out.filter((item) => item.status === 'computed');
   return {

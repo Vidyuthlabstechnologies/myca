@@ -498,6 +498,7 @@ export function createPurchase(state, input) {
     const gstinKey = normGstin(input.partyGstin);
     const nameKey = String(input.partyName || '').trim().toLowerCase();
     const repeat = (state.purchases || []).find((bill) => key(bill.supplierInvoiceNo) === key(supplierInvoiceNo)
+      && fyCodeOf(bill.date) === fyCodeOf(date)
       && (gstinKey ? normGstin(bill.partyGstin) === gstinKey : String(bill.partyName || '').trim().toLowerCase() === nameKey));
     if (repeat) return { ok: false, error: 'DUPLICATE_SUPPLIER_BILL', supplierInvoiceNo, existing: repeat.id };
   }

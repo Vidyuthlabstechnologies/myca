@@ -73,7 +73,7 @@ class _YearCloseScreenState extends State<YearCloseScreen> with ProposalFlow {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   children: [
                     Text(
-                      inText(context, 'Closing a year moves its income and expenses to capital as new entries and locks the books through its last day. Do it once your CA has signed the year off; nothing already posted changes.'),
+                      moneyCountry == 'IN' ? inText(context, 'Closing a year moves its income and expenses to capital as new entries and locks the books through its last day. Do it once your CA has signed the year off; nothing already posted changes.') : 'Closing a year moves its income and expenses to capital as new entries and locks the books through its last day. Do it once your accountant has signed the year off; nothing already posted changes.',
                       style: text.bodyMedium,
                     ),
                     const SizedBox(height: 16),

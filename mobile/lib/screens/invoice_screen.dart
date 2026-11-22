@@ -861,7 +861,7 @@ class _InvoiceBody extends StatelessWidget {
                 ),
               if (onAskCa != null)
                 ActionChip(
-                  label: Text(inText(context, 'Ask my CA')),
+                  label: Text(plainAccountant(context) ? 'Ask my accountant' : inText(context, 'Ask my CA')),
                   onPressed: busy ? null : onAskCa,
                 ),
               if (onCreditNote != null)

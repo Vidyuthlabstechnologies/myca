@@ -116,7 +116,7 @@ class MyEinvoiceTile extends StatelessWidget {
             ),
             if (totals != null) ...[
               const SizedBox(width: 12),
-              Flexible(child: Text(totals.currency == 'MYR' ? ringgit(totals.payable) : '${totals.currency} ${totals.payable.toStringAsFixed(2)}', textAlign: TextAlign.end, style: text.titleSmall)),
+              Flexible(child: Text(currencyAmount(totals.currency, totals.payable), textAlign: TextAlign.end, style: text.titleSmall)),
             ],
             const SizedBox(width: 4),
             Icon(Icons.chevron_right, color: context.myca.faint, semanticLabel: t.detailTitle(record.number)),

@@ -96,7 +96,8 @@ function childCredits(ctx, ctcRule, fatcRule, agi) {
 
 function taborRefund(ctx, rule, modifiedAgi, line13, withheld) {
   if (rule.none) return 0;
-  const adult = ctx.filers.some((item) => item.dateOfBirth && Number(item.dateOfBirth.slice(0, 4)) < Number(ctx.taxYear) - rule.minimumAge + 1);
+  const adultBy = `${Number(ctx.taxYear) - rule.minimumAge}-01-01`;
+  const adult = ctx.filers.some((item) => item.dateOfBirth && item.dateOfBirth <= adultBy);
   if (!adult && !(line13 > 0) && !(withheld > 0)) return 0;
   const index = rule.agiUpTo.findIndex((limit) => modifiedAgi <= limit);
   const tier = index < 0 ? rule.agiUpTo.length : index;

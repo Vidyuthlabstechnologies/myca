@@ -11,8 +11,11 @@ export function engineRole(role) {
   return ENGINE_ROLE[role] || 'staff';
 }
 
+const INDIA_OFFSET_MS = 330 * 60 * 1000;
+
 export function financialYear(date) {
-  const year = date.getMonth() >= 3 ? date.getFullYear() : date.getFullYear() - 1;
+  const india = new Date(date.getTime() + INDIA_OFFSET_MS);
+  const year = india.getUTCMonth() >= 3 ? india.getUTCFullYear() : india.getUTCFullYear() - 1;
   return `${year}-${String((year + 1) % 100).padStart(2, '0')}`;
 }
 

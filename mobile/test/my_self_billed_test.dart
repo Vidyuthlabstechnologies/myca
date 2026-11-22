@@ -55,7 +55,7 @@ void main() {
     await fillForeignPurchase(tester);
     await tapKey(tester, 'mySelf.check');
     expect(find.byKey(const Key('mySelf.ready')), findsOneWidget);
-    expect(find.text('USD 1200.00'), findsWidgets);
+    expect(find.text('USD 1,200.00'), findsWidgets);
     final checked = api.args['my_einvoice_check']!;
     expect(checked['type'], 'self-billed-invoice');
     expect((checked['supplier'] as Map)['tin'], 'EI00000000030');

@@ -8,6 +8,8 @@ import '../cloud/cloud_session.dart';
 import '../format.dart';
 import '../india/india_strings.dart';
 import '../theme.dart';
+import '../us/us_filing_fee.dart' show usFilingPriceUsd, usPriceLine;
+import '../us/us_plus.dart' show usPlusPriceUsd;
 
 bool get buyInApp => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
@@ -156,14 +158,20 @@ class _PlanScreenState extends State<PlanScreen> {
     });
   }
 
+  bool get _us {
+    final state = AppScope.of(context);
+    return state.edition == 'US' || state.snapshot?.company.country == 'US';
+  }
+
   Future<void> _reload() async {
     final cloud = AppScope.of(context).cloud!;
+    final us = _us;
     setState(() {
       _busy = true;
       _error = '';
     });
     try {
-      final plans = await cloud.plans();
+      final plans = us ? const <PlanOffer>[] : await cloud.plans();
       final entitlement = await cloud.entitlement();
       if (mounted) {
         setState(() {
@@ -172,7 +180,7 @@ class _PlanScreenState extends State<PlanScreen> {
         });
         AppScope.of(context).reachSteps(['plan_viewed', if (entitlement.trialDaysLeft != null) 'trial_started', if (entitlement.paying) 'paid']);
       }
-      await _startStore(cloud, plans);
+      if (!us) await _startStore(cloud, plans);
     } on MycaApiException catch (err) {
       if (mounted) setState(() => _error = err.message);
     } finally {
@@ -207,6 +215,7 @@ class _PlanScreenState extends State<PlanScreen> {
     final canBuy = owner && buyInApp && _storeReady;
     final lang = indiaLang(context);
     final features = featureWordsIn(lang);
+    if (_us) return _usPlans(context, e);
     return Scaffold(
       appBar: AppBar(title: Text(inText(context, 'Plan and billing'))),
       body: plans == null || e == null
@@ -277,6 +286,66 @@ class _PlanScreenState extends State<PlanScreen> {
                   const SizedBox(height: 16),
                   Text(inText(context, 'Plans are bought from Google Play in the MyCA Android app. A plan bought there works here too.'), style: text.bodyMedium),
                 ],
+              ],
+            ),
+    );
+  }
+
+  Widget _usPlans(BuildContext context, Entitlement? e) {
+    final text = Theme.of(context).textTheme;
+    final returnPrice = e == null || e.usReturnPriceUsd <= 0 ? usFilingPriceUsd : e.usReturnPriceUsd;
+    final listPrice = e?.usReturnListPriceUsd ?? 0;
+    final plusPrice = e == null || e.usPlusPriceUsd <= 0 ? usPlusPriceUsd : e.usPlusPriceUsd;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Plan and billing')),
+      body: e == null
+          ? Center(
+              child: _error.isEmpty
+                  ? const CircularProgressIndicator()
+                  : Padding(padding: const EdgeInsets.all(24), child: Text(_error, textAlign: TextAlign.center, style: text.bodyMedium?.copyWith(color: paletteOf(context).danger))),
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              children: [
+                Card(
+                  key: const ValueKey('plan.usReturn'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(e.planTitle.isEmpty ? 'Federal return' : e.planTitle, style: text.titleMedium),
+                        const SizedBox(height: 4),
+                        Text(usPriceLine(returnPrice), style: text.bodyLarge),
+                        if (listPrice > returnPrice) ...[
+                          const SizedBox(height: 4),
+                          Text('Launch price. The list price is \$$listPrice.', style: text.bodyMedium),
+                        ],
+                        const SizedBox(height: 4),
+                        Text('You pay when you e-file, not before.', style: text.bodyMedium),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  key: const ValueKey('plan.usPlus'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('MyCA Plus', style: text.titleMedium),
+                        const SizedBox(height: 4),
+                        Text('\$$plusPrice a year', style: text.bodyLarge),
+                        const SizedBox(height: 4),
+                        Text('IRS letters, withholding checks and quarterly estimates, all year. Cancel any time.', style: text.bodyMedium),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text('MyCA is software. It is not a CPA firm and does not give tax or legal advice. You approve every return before it is filed.', key: const ValueKey('plan.notAdvice'), style: text.bodySmall),
               ],
             ),
     );

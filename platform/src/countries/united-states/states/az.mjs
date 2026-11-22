@@ -1,4 +1,4 @@
-import { whole, positive, rateOf, ratio, check, byStatus, lineTable, sum } from '../state-kit.mjs';
+import { whole, positive, rateOf, ratio, check, byStatus, lineTable, sum, homeStateCreditCheck } from '../state-kit.mjs';
 import { rules } from '../../../sprint-load.mjs';
 
 const statusOf = (ctx) => (ctx.filingStatus === 'qss' ? 'hoh' : ctx.filingStatus);
@@ -97,7 +97,7 @@ function compute(ctx, filing, reader) {
   const income = ctx.income;
   const status = statusOf(ctx);
   const residency = filing.residency;
-  const checks = [];
+  const checks = [...homeStateCreditCheck(filing, ['CA', 'IN', 'OR', 'VA'])];
   const federalAgi = income.agi;
   const boxes = dependentBoxes(ctx, answers);
   const box8 = ctx.filers.filter((item) => item.age !== null && item.age >= 65).length;
