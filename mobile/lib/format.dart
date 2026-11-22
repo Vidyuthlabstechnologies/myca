@@ -146,9 +146,16 @@ String monthLabel(String period) {
   return '${_month(month)} ${parts[0]}';
 }
 
+DateTime businessTime(DateTime at) => switch (moneyCountry) {
+  'IN' => at.toUtc().add(const Duration(hours: 5, minutes: 30)),
+  'AE' => at.toUtc().add(const Duration(hours: 4)),
+  'MY' => at.toUtc().add(const Duration(hours: 8)),
+  _ => at.toLocal(),
+};
+
 String sharedOn(String timestamp) {
   final at = DateTime.tryParse(timestamp);
-  return at == null ? '' : longDate(isoDate(at.toUtc().add(const Duration(hours: 5, minutes: 30))));
+  return at == null ? '' : longDate(isoDate(businessTime(at)));
 }
 
 String longDate(String iso) {
