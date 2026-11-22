@@ -62,7 +62,7 @@ export const documentSchema = {
   },
 };
 
-export const US_PRIOR_YEAR = { type: 'object', additionalProperties: false, properties: { agi: { type: 'integer', minimum: 0 }, pin: { type: 'string', pattern: '^[0-9]{5}$' } } };
+export const US_PRIOR_YEAR = { type: 'object', additionalProperties: false, properties: { agi: { type: 'integer', minimum: -100000000000, maximum: 100000000000 }, pin: { type: 'string', pattern: '^[0-9]{5}$' } } };
 export const US_IP_PIN = { type: 'string', pattern: '^[0-9]{6}$' };
 
 export const INVOICE_ID_PATTERN = '^INV-(?:[A-Z]{2}[0-9]{4}-)?[0-9]{4,}$';

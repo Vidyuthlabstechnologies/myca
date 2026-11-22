@@ -17,6 +17,7 @@ import '../people_screen.dart';
 import '../plan_screen.dart';
 import '../security_screen.dart';
 import '../../us/us_consents.dart';
+import 'us_amended_screen.dart';
 import 'us_consent_screen.dart';
 import 'us_fields.dart';
 import 'us_forms_screen.dart';
@@ -116,6 +117,8 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
         return UsInterviewScreen(taxYear: year);
       case 'sign':
         return UsSignScreen(taxYear: year);
+      case 'amend':
+        return UsAmendedScreen(taxYear: year, joint: _filingStatus == 'mfj');
       default:
         return UsReviewScreen(taxYear: year);
     }
@@ -446,10 +449,19 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
                           ),
                       ],
                     ),
-                    if (hub.efile.status == 'not_filed' || stateHasIncomeTax(hub.state)) ...[
+                    if (hub.efile.status == 'not_filed' || hub.efile.filed || stateHasIncomeTax(hub.state)) ...[
                     const SizedBox(height: 14),
                     Panel(
                       children: [
+                        if (hub.efile.filed)
+                          RowCard(
+                            key: const Key('usHub.amend'),
+                            leading: const TintTile(tint: Tint.taxes, mark: Mark.paper),
+                            title: 'Amend this return',
+                            subtitle: 'A form came late or something was wrong? Fix it with Form 1040-X',
+                            trailing: const Chevron(),
+                            onTap: () => _open(screenFor('amend')),
+                          ),
                         if (hub.efile.status == 'not_filed')
                           RowCard(
                             key: const Key('usHub.priorYear'),

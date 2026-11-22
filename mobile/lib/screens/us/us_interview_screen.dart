@@ -94,7 +94,7 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
   Object? _value(UsQuestion q) {
     switch (q.inputKind) {
       case 'amount':
-        return parseDollars(_typed.text);
+        return q.negative ? parseSignedDollars(_typed.text) : parseDollars(_typed.text);
       case 'count':
         final n = int.tryParse(_typed.text.trim());
         return n == null || n < 0 ? null : n;
@@ -161,7 +161,7 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
   Widget _input(UsQuestion q) {
     switch (q.inputKind) {
       case 'amount':
-        return MoneyField(key: const Key('usInterview.amount'), controller: _typed, label: 'Amount');
+        return MoneyField(key: const Key('usInterview.amount'), controller: _typed, label: 'Amount', helper: q.negative ? 'Put a minus sign in front of a loss, like -2500' : null, signed: q.negative);
       case 'count':
         return TextField(
           key: const Key('usInterview.count'),

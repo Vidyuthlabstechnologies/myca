@@ -17,6 +17,22 @@
     "tool": "add_us_tax_form",
     "args": {
       "taxYear": 2025,
+      "kind": "Rental property",
+      "owner": "taxpayer",
+      "payer": "12 Oak St, Austin, TX 78701",
+      "fields": {
+        "payer": "12 Oak St, Austin, TX 78701",
+        "propertyType": "1",
+        "fairRentalDays": 300,
+        "rents": 18000.0,
+        "activeParticipation": false
+      }
+    }
+  },
+  {
+    "tool": "add_us_tax_form",
+    "args": {
+      "taxYear": 2025,
       "kind": "W-2",
       "id": "usf-2025-1",
       "owner": "taxpayer",
@@ -55,8 +71,15 @@
     "tool": "import_us_prior_year",
     "args": {
       "taxYear": "2025",
+      "documentSha256": "f1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2"
+    }
+  },
+  {
+    "tool": "import_us_prior_year",
+    "args": {
+      "taxYear": "2025",
       "figures": {
-        "agi": 85000,
+        "agi": 85000.0,
         "totalTax": 9100.4
       }
     }
@@ -79,6 +102,13 @@
     "args": {
       "taxYear": 2025,
       "id": "usf-2025-2"
+    }
+  },
+  {
+    "tool": "set_us_amended_return",
+    "args": {
+      "taxYear": "2025",
+      "explanation": "Added a 1099-NEC that came after I filed."
     }
   },
   {
@@ -173,6 +203,25 @@
         "deviceType": "Android",
         "at": "2026-03-02T10:00:00.000Z"
       }
+    }
+  },
+  {
+    "tool": "start_us_amended_return",
+    "args": {
+      "taxYear": "2025",
+      "original": {
+        "agi": -1200.0,
+        "deduction": 15000.0,
+        "tax": 0.0
+      },
+      "originalFilingStatus": "single",
+      "originalFiledOn": "2026-04-01"
+    }
+  },
+  {
+    "tool": "us_amended_return",
+    "args": {
+      "taxYear": "2025"
     }
   },
   {

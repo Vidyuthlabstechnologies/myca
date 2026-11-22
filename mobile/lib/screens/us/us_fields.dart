@@ -93,9 +93,10 @@ class UsStateField extends StatelessWidget {
 }
 
 class MoneyField extends StatelessWidget {
-  const MoneyField({super.key, required this.controller, required this.label, this.helper, this.errorText});
+  const MoneyField({super.key, required this.controller, required this.label, this.helper, this.errorText, this.signed = false});
 
   final TextEditingController controller;
+  final bool signed;
   final String label;
   final String? helper;
   final String? errorText;
@@ -104,8 +105,8 @@ class MoneyField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+      keyboardType: TextInputType.numberWithOptions(decimal: true, signed: signed),
+      inputFormatters: [FilteringTextInputFormatter.allow(signed ? RegExp(r'[-0-9.,]') : RegExp(r'[0-9.,]'))],
       decoration: InputDecoration(labelText: label, prefixText: '\$ ', helperText: helper, errorText: errorText),
     );
   }
@@ -117,6 +118,15 @@ num? parseDollars(String typed) {
   final value = num.tryParse(cleaned);
   if (value == null || value < 0) return null;
   return (value * 100).round() / 100;
+}
+
+num? parseSignedDollars(String typed) {
+  final cleaned = typed.replaceAll(',', '').trim();
+  if (cleaned.startsWith('-')) {
+    final magnitude = parseDollars(cleaned.substring(1));
+    return magnitude == null ? null : -magnitude;
+  }
+  return parseDollars(cleaned);
 }
 
 String usLoadProblem(Object? error, String fallback) => error is MycaApiException ? error.message : fallback;

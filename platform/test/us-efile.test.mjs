@@ -20,6 +20,7 @@ import { parseAcknowledgements, mefHeader, IrsMefClient } from '../src/us-mef-cl
 import { performExternalAction, ACTION_CLASSES } from '../src/action-gate.mjs';
 import { signUsReturn, fileUsReturn, usEfileStatus, fetchUsEfileAcks, openPendingArgs, rejectionsOf, efileMode } from '../src/us-efile.mjs';
 import { validateAssistantToolCall } from '../src/assistant-contract.mjs';
+import { importedPriorYear } from '../src/us-return.mjs';
 import { isRemoteQuery } from '../src/remote-contract.mjs';
 
 globalThis.fetch = async (url) => {
@@ -314,4 +315,23 @@ test('a joint signer uses last year\'s joint AGI for the spouse only when last y
   joint.usReturns = { 2024: { filingStatus: 'mfj', answers: {} }, 2025: { answers: { priorYearAgi: 80000 } } };
   const signed = await signUsReturn(joint, args, null, { computedReturn });
   assert.equal(signed.ok, true, JSON.stringify(signed));
+});
+
+test('a negative prior-year AGI is kept from the interview and the import and signs the return', async () => {
+  const computedReturn = async () => ({ ok: true, data: computed1040() });
+  const state = usState();
+  const answered = await runTool(state, 'answer_us_interview', { taxYear: '2025', id: 'priorYearAgi', answer: -12500 });
+  assert.equal(answered.ok, true, JSON.stringify(answered));
+  assert.equal(state.usReturns['2025'].answers.priorYearAgi, -12500);
+  assert.equal((await runTool(state, 'answer_us_interview', { taxYear: '2025', id: 'priorYearTax', answer: -1 })).ok, false);
+  assert.deepEqual(importedPriorYear(state, '2025'), { agi: -12500, joint: false });
+  const typed = await runTool(usState(), 'import_us_prior_year', { taxYear: '2025', figures: { agi: -4200 } });
+  assert.equal(typed.ok, true, JSON.stringify(typed));
+  assert.equal(typed.data.answers.priorYearAgi, -4200);
+  assert.equal(validateAssistantToolCall('import_us_prior_year', { taxYear: '2025', figures: { agi: -4200 } }).ok, true);
+  assert.equal(validateAssistantToolCall('sign_us_return', { ...signArgs(), priorYear: { taxpayer: { agi: -12500 }, spouse: { agi: -12500 } } }).ok, true);
+  const signed = await signUsReturn(state, signArgs({ priorYear: { spouse: { agi: -12500 } } }), null, { computedReturn });
+  assert.equal(signed.ok, true, JSON.stringify(signed));
+  const typedSign = await signUsReturn(usState(), signArgs({ priorYear: { taxpayer: { agi: -300 }, spouse: { agi: -300 } } }), null, { computedReturn });
+  assert.equal(typedSign.ok, true, JSON.stringify(typedSign));
 });

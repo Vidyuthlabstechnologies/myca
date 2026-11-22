@@ -8,7 +8,7 @@ import { readUsPriorYearPdf } from './us-prior-year-pdf.mjs';
 
 const MAX_AMOUNT = 1e11;
 const FIGURES = Object.freeze({
-  agi: { answer: 'priorYearAgi', label: 'Last year\'s adjusted gross income (Form 1040 line 11)' },
+  agi: { answer: 'priorYearAgi', label: 'Last year\'s adjusted gross income (Form 1040 line 11)', negative: true },
   totalTax: { answer: 'priorYearTax', label: 'Last year\'s total tax (Form 1040 line 24)' },
   overpaymentApplied: { answer: 'priorYearOverpaymentApplied', label: 'Refund applied to this year (Form 1040 line 36)' },
   shortTermLossCarryover: { answer: 'shortTermLossCarryover', label: 'Short-term capital loss carryover' },
@@ -103,8 +103,8 @@ function typedFigures(figures, problems) {
     const raw = Object.hasOwn(figures, name) ? figures[name] : undefined;
     if (raw === '' || raw === null || raw === undefined) continue;
     const number = Number(raw);
-    if (!Number.isFinite(number) || number < 0 || number > MAX_AMOUNT) {
-      problems.push(`${spec.label} is an amount of zero or more.`);
+    if (!Number.isFinite(number) || Math.abs(number) > MAX_AMOUNT || (number < 0 && !spec.negative)) {
+      problems.push(`${spec.label} is an amount${spec.negative ? '' : ' of zero or more'}.`);
       continue;
     }
     out[name] = Math.round(number * 100) / 100;

@@ -82,7 +82,8 @@ test('a return prepared elsewhere comes in as typed figures, and bad figures are
   assert.deepEqual(result.data.answers, { priorYearAgi: 85000, priorYearTax: 9100.4, priorYearOverpaymentApplied: 500, shortTermLossCarryover: 1200 });
   const interview = await runTool(state, 'us_interview', { taxYear: '2025' });
   assert.equal(interview.data.questions.find((question) => question.id === 'priorYearTax').answer, 9100.4);
-  assert.equal(importUsPriorYear(state, { taxYear: '2025', figures: { agi: -1 } }).error, 'US_PRIOR_YEAR_INVALID');
+  assert.equal(importUsPriorYear(state, { taxYear: '2025', figures: { totalTax: -1 } }).error, 'US_PRIOR_YEAR_INVALID');
+  assert.equal(importUsPriorYear(state, { taxYear: '2025', overwrite: true, figures: { agi: -1 } }).data.answers.priorYearAgi, -1);
   assert.equal(importUsPriorYear(state, { taxYear: '2025', figures: { refund: 5 } }).error, 'US_PRIOR_YEAR_INVALID');
   assert.equal(importUsPriorYear(state, { taxYear: '2025', figures: { constructor: 5 } }).error, 'US_PRIOR_YEAR_INVALID');
   assert.equal(importUsPriorYear(state, { taxYear: '2025', figures: JSON.parse('{"__proto__": 5}') }).error, 'US_PRIOR_YEAR_INVALID');

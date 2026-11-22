@@ -201,8 +201,8 @@ class _UsSignScreenState extends State<UsSignScreen> {
       if (spouse != null) _errors['spousePin'] = spouse;
     }
     if (_filedLastYear) {
-      if (parseDollars(_agi.text) == null) _errors['agi'] = 'Enter line 11 of last year\'s Form 1040. Use 0 if it was zero.';
-      if (joint && parseDollars(_spouseAgi.text) == null) _errors['spouseAgi'] = 'Enter your spouse\'s prior-year AGI. If you filed jointly last year it is the same number.';
+      if (parseSignedDollars(_agi.text) == null) _errors['agi'] = 'Enter line 11 of last year\'s Form 1040. Use 0 if it was zero.';
+      if (joint && parseSignedDollars(_spouseAgi.text) == null) _errors['spouseAgi'] = 'Enter your spouse\'s prior-year AGI. If you filed jointly last year it is the same number.';
     }
     final ip = ipPinProblem(_ipPin.text.trim());
     if (ip != null) _errors['ipPin'] = ip;
@@ -232,8 +232,8 @@ class _UsSignScreenState extends State<UsSignScreen> {
       _needsSecondStep = false;
     });
     try {
-      final agi = parseDollars(_agi.text)?.round() ?? 0;
-      final spouseAgi = parseDollars(_spouseAgi.text)?.round() ?? 0;
+      final agi = parseSignedDollars(_agi.text)?.round() ?? 0;
+      final spouseAgi = parseSignedDollars(_spouseAgi.text)?.round() ?? 0;
       final reply = await saveAndConfirm(_api, 'sign_us_return', {
         'taxYear': widget.taxYear,
         'taxpayerPin': _pin.text,
@@ -623,7 +623,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                   onChanged: (v) => setState(() => _filedLastYear = v),
                 ),
                 if (_filedLastYear) ...[
-                  MoneyField(key: const Key('usSign.agi'), controller: _agi, label: '${widget.taxYear - 1} AGI (Form 1040, line 11)', helper: _importedHelp(_agiImported, _agi, ctx.status.priorYearAgi), errorText: _errors['agi']),
+                  MoneyField(key: const Key('usSign.agi'), controller: _agi, label: '${widget.taxYear - 1} AGI (Form 1040, line 11)', helper: _importedHelp(_agiImported, _agi, ctx.status.priorYearAgi), errorText: _errors['agi'], signed: true),
                   if (joint) ...[
                     const SizedBox(height: 12),
                     MoneyField(
@@ -632,6 +632,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                       label: 'Your spouse\'s ${widget.taxYear - 1} AGI',
                       helper: _importedHelp(_spouseAgiImported, _spouseAgi, ctx.status.priorYearAgi) ?? 'If you filed jointly last year, it is the same number.',
                       errorText: _errors['spouseAgi'],
+                      signed: true,
                     ),
                   ],
                 ] else

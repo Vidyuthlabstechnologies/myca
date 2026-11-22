@@ -76,7 +76,7 @@ const QUESTIONS = Object.freeze([
   { id: 'businessExpenses', text: 'Self-employment: total business expenses', help: 'Supplies, software, advertising, travel, the business part of your phone, and the like.', kind: 'amount', when: (ctx) => !ctx.usesBooks && ctx.manualBusiness },
   { id: 'estimatedTaxPayments', text: 'Federal estimated tax paid for the year (Form 1040-ES)', help: 'All four instalments together, including one paid in January.', kind: 'amount' },
   { id: 'priorYearTax', text: 'Last year\'s total federal tax (Form 1040 line 24)', help: 'Used to check whether an estimated tax penalty can apply. Leave empty if you did not file last year.', kind: 'amount' },
-  { id: 'priorYearAgi', text: 'Last year\'s adjusted gross income (Form 1040 line 11, or line 11b from 2025)', help: 'Above $150,000 ($75,000 separate) the safe harbor is 110% of last year\'s tax.', kind: 'amount', when: (ctx) => ctx.answers?.priorYearTax !== undefined },
+  { id: 'priorYearAgi', text: 'Last year\'s adjusted gross income (Form 1040 line 11, or line 11b from 2025)', help: 'Above $150,000 ($75,000 separate) the safe harbor is 110% of last year\'s tax.', kind: 'amount', negative: true, when: (ctx) => ctx.answers?.priorYearTax !== undefined },
   { id: 'priorYearOverpaymentApplied', text: 'Last year\'s refund applied to this year', help: 'Only if you chose to apply it rather than receive it.', kind: 'amount' },
   { id: 'stateRefundTaxable', text: 'How much of the state refund on your 1099-G is taxable?', help: 'Zero if you took the standard deduction last year. If you itemized, the part that lowered your federal tax.', kind: 'amount', when: (ctx) => ctx.hasStateRefund },
   { id: 'qbiMaterialParticipation', text: 'Did you work in your business regularly, continuously and substantially this year?', help: 'This is material participation (IRC 469(h)), for example more than 500 hours, or most of the work in the business; on a joint return your spouse\'s work in it counts too. From 2026 it can give you a minimum business income deduction of $400 (IRC 199A(i)). It covers your one business; a business added with its own answer uses that answer.', kind: 'yesno', when: (ctx) => ctx.hasBusiness && (ctx.taxpayerBusiness || !ctx.spouseBusiness) && Number(ctx.taxYear) >= 2026 },
@@ -588,7 +588,7 @@ export function usInterview(state, args = {}) {
   if (!taxYear) return fail('TAX_YEAR_NOT_SUPPORTED', { supported: SUPPORTED_YEARS });
   const ret = returnOf(state, taxYear);
   const answers = ret?.answers || {};
-  return { ok: true, data: { taxYear, questions: visibleQuestions(state, ret).map((question) => ({ id: question.id, text: question.text, help: question.help, kind: question.kind, options: question.options || [], answer: Object.hasOwn(answers, question.id) ? answers[question.id] : null })) } };
+  return { ok: true, data: { taxYear, questions: visibleQuestions(state, ret).map((question) => ({ id: question.id, text: question.text, help: question.help, kind: question.kind, options: question.options || [], ...(question.negative ? { negative: true } : {}), answer: Object.hasOwn(answers, question.id) ? answers[question.id] : null })) } };
 }
 
 export function planUsInterviewAnswer(state, args = {}) {
@@ -601,7 +601,7 @@ export function planUsInterviewAnswer(state, args = {}) {
   if (question.kind === 'amount' && /HsaMonths$|^hsaMonths$/.test(question.id) && !(Number.isInteger(Number(raw)) && Number(raw) >= 0 && Number(raw) <= 12)) return fail('US_ANSWER_INVALID', { problems: ['The number of months is a whole number from 0 to 12.'] });
   if (question.kind === 'amount') {
     const number = Number(raw);
-    if (!Number.isFinite(number) || number < 0 || number > MAX_AMOUNT) return fail('US_ANSWER_INVALID', { problems: ['The answer is an amount of zero or more.'] });
+    if (!Number.isFinite(number) || Math.abs(number) > MAX_AMOUNT || (number < 0 && !question.negative)) return fail('US_ANSWER_INVALID', { problems: [question.negative ? 'The answer is an amount, below zero for a loss.' : 'The answer is an amount of zero or more.'] });
     return { ok: true, taxYear, id: question.id, answer: Math.round(number * 100) / 100, question };
   }
   if (question.kind === 'yesno') {
@@ -841,7 +841,7 @@ export function usInterviewPreview(state, args) {
 export function importedPriorYear(state, taxYear) {
   const ret = returnOf(state, String(taxYear));
   const value = ret?.answers?.priorYearAgi;
-  if (value === undefined || value === null || value === '' || !Number.isFinite(Number(value)) || Number(value) < 0) return null;
+  if (value === undefined || value === null || value === '' || !Number.isFinite(Number(value))) return null;
   const prior = returnOf(state, String(Number(taxYear) - 1));
   return { agi: Math.round(Number(value)), joint: prior?.filingStatus === 'mfj' };
 }

@@ -51,6 +51,8 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
   bool _busy = false;
   bool _done = false;
 
+  bool get _various => !widget.kind.ownRecords;
+
   static bool _isCodeList(UsFieldSpec f, Object? value) => f.key == 'box12' || (f.type == 'code' && value is List);
 
   static String _typedDate(Object? value) {
@@ -66,6 +68,8 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
       final value = widget.fields[f.key];
       if (f.type == 'state' || f.type == 'term') {
         _choices[f.key] = value == null || '$value'.isEmpty ? null : '$value';
+      } else if (f.choices != null) {
+        _choices[f.key] = f.choices!.any((c) => c.$1 == '$value') ? '$value' : null;
       } else if (f.type == 'yesno') {
         _checks[f.key] = value == true;
       } else if (_isCodeList(f, value)) {
@@ -136,7 +140,7 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
         if (!widget.kind.fields.any((f) => f.key == entry.key)) entry.key: entry.value,
     };
     for (final f in widget.kind.fields) {
-      if (f.type == 'state' || f.type == 'term') {
+      if (f.type == 'state' || f.type == 'term' || f.choices != null) {
         final v = _choices[f.key];
         if (v != null) values[f.key] = v;
         if (f.required && v == null) _errors[f.key] = 'Choose one.';
@@ -171,12 +175,12 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
         continue;
       }
       if (f.type == 'date') {
-        if (typed.toLowerCase() == 'various') {
+        if (_various && typed.toLowerCase() == 'various') {
           values[f.key] = 'VARIOUS';
         } else {
           final iso = isoFromUsDate(typed);
           if (iso == null) {
-            _errors[f.key] = 'Enter the date as MM/DD/YYYY, or Various.';
+            _errors[f.key] = _various ? 'Enter the date as MM/DD/YYYY, or Various.' : 'Enter the date as MM/DD/YYYY.';
           } else {
             values[f.key] = iso;
           }
@@ -194,6 +198,13 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
           _errors[f.key] = 'An EIN has nine digits, like 12-3456789.';
         } else {
           values[f.key] = '${digits.substring(0, 2)}-${digits.substring(2)}';
+        }
+      } else if (f.type == 'days') {
+        final days = int.tryParse(typed);
+        if (days == null || days > 366) {
+          _errors[f.key] = 'Enter a whole number of days, up to 366.';
+        } else {
+          values[f.key] = days;
         }
       } else if (f.type == 'code') {
         values[f.key] = typed.toUpperCase();
@@ -293,6 +304,20 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
     final label = f.boxLabel;
     final helper = f.box.isEmpty ? null : f.label;
     if (_codeRows.containsKey(f.key)) return _codeRowsField(f);
+    final choices = f.choices;
+    if (choices != null) {
+      return DropdownButtonFormField<String>(
+        key: Key('usForm.${f.key}'),
+        initialValue: _choices[f.key],
+        isExpanded: true,
+        decoration: InputDecoration(labelText: f.label, helperText: f.box.isEmpty ? null : 'Line ${f.box}', errorText: _errors[f.key]),
+        items: [for (final (value, name) in choices) DropdownMenuItem(value: value, child: Text(name))],
+        onChanged: (v) => setState(() {
+          _choices[f.key] = v;
+          _changed();
+        }),
+      );
+    }
     switch (f.type) {
       case 'state':
         return UsStateField(
@@ -332,17 +357,25 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
             _changed();
           }),
           title: Text(f.label),
-          subtitle: Text(f.box.isEmpty ? 'Tick it if it is checked on your form.' : 'Box ${f.box}. Tick it if it is checked on your form.'),
+          subtitle: Text(widget.kind.ownRecords ? 'Tick it if this applies.' : f.box.isEmpty ? 'Tick it if it is checked on your form.' : 'Box ${f.box}. Tick it if it is checked on your form.'),
         );
       case 'money':
         return MoneyField(key: Key('usForm.${f.key}'), controller: _controllers[f.key]!, label: label, helper: helper, errorText: _errors[f.key]);
+      case 'days':
+        return TextField(
+          key: Key('usForm.${f.key}'),
+          controller: _controllers[f.key],
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
+          decoration: InputDecoration(labelText: f.label, helperText: 'Days in the year, 0 to 366', errorText: _errors[f.key]),
+        );
       case 'date':
         return TextField(
           key: Key('usForm.${f.key}'),
           controller: _controllers[f.key],
           keyboardType: TextInputType.datetime,
           inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9/A-Za-z]')), LengthLimitingTextInputFormatter(10)],
-          decoration: InputDecoration(labelText: label, hintText: 'MM/DD/YYYY', helperText: helper == null ? 'MM/DD/YYYY, or Various' : '$helper. MM/DD/YYYY, or Various', errorText: _errors[f.key]),
+          decoration: InputDecoration(labelText: label, hintText: 'MM/DD/YYYY', helperText: _various ? (helper == null ? 'MM/DD/YYYY, or Various' : '$helper. MM/DD/YYYY, or Various') : helper ?? 'MM/DD/YYYY', errorText: _errors[f.key]),
         );
       case 'ein':
         return TextField(
@@ -420,7 +453,7 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
               const SizedBox(height: 18),
               FilledButton(key: const Key('usForm.save'), onPressed: _busy ? null : _save, child: Text(_busy ? 'Saving…' : 'Save')),
               const SizedBox(height: 10),
-              Text('Copy each box exactly as printed. Leave a box empty if it is blank on your form.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
+              Text(widget.kind.ownRecords ? 'Take the amounts from your own records: leases, receipts and statements. Leave a line empty if it does not apply.' : 'Copy each box exactly as printed. Leave a box empty if it is blank on your form.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
             ],
           ),
         ),

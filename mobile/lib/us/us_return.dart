@@ -35,7 +35,26 @@ const usStates = <(String, String)>[
   ('WY', 'Wyoming'),
 ];
 
-const knownFieldTypes = {'money', 'text', 'ein', 'code', 'yesno', 'state', 'date', 'term'};
+const knownFieldTypes = {'money', 'text', 'ein', 'code', 'yesno', 'state', 'date', 'term', 'days'};
+
+const fieldChoices = <String, List<(String, String)>>{
+  'propertyType': [
+    ('1', 'Single family residence'),
+    ('2', 'Multi-family residence'),
+    ('3', 'Vacation or short-term rental'),
+    ('4', 'Commercial'),
+    ('5', 'Land'),
+    ('6', 'Royalties'),
+    ('7', 'Self-rental'),
+    ('8', 'Other'),
+  ],
+  'recoveryClass': [
+    ('residential', 'Residential rental (27.5 years)'),
+    ('nonresidential', 'Nonresidential (39 years)'),
+  ],
+};
+
+const ownRecordKinds = {'Rental property', '2441-PROVIDER'};
 
 class UsFieldSpec {
   const UsFieldSpec(this.key, this.label, {this.box = '', this.type = 'money', this.required = false});
@@ -59,6 +78,8 @@ class UsFieldSpec {
 
   bool get known => knownFieldTypes.contains(type);
   String get boxLabel => box.isEmpty ? label : 'Box $box';
+
+  List<(String, String)>? get choices => type == 'code' ? fieldChoices[key] : null;
 }
 
 class UsFormKind {
@@ -73,6 +94,8 @@ class UsFormKind {
   final String title;
   final String description;
   final List<UsFieldSpec> fields;
+
+  bool get ownRecords => ownRecordKinds.contains(kind);
 }
 
 const _payer = UsFieldSpec('payer', 'Payer or employer name', type: 'text', required: true);
@@ -285,8 +308,20 @@ class UsTaxForm {
   num get withheld => _num(amounts['federalWithheld']);
 }
 
+const _optionLabels = <String, Map<String, String>>{
+  'itemize': {'auto': 'Whichever saves more', 'yes': 'Itemize my deductions', 'no': 'Take the standard deduction'},
+  'careStudentOrDisabled': {'none': 'Neither of us', 'taxpayer': 'Me', 'spouse': 'My spouse'},
+};
+
+String optionLabel(String question, String value) {
+  final named = _optionLabels[question]?[value];
+  if (named != null) return named;
+  if (question.endsWith('Months') && int.tryParse(value) != null) return value == '1' ? '1 month' : '$value months';
+  return value;
+}
+
 class UsQuestion {
-  const UsQuestion({required this.id, required this.text, required this.help, required this.kind, required this.options, required this.answer});
+  const UsQuestion({required this.id, required this.text, required this.help, required this.kind, required this.options, required this.answer, this.negative = false});
 
   factory UsQuestion.fromJson(Object? json) {
     final map = _map(json);
@@ -297,11 +332,11 @@ class UsQuestion {
         if (o is Map) {
           options.add((_text(o['value']), _text(o['label']).isEmpty ? _text(o['value']) : _text(o['label'])));
         } else {
-          options.add((_text(o), _text(o)));
+          options.add((_text(o), optionLabel(_text(map['id']), _text(o))));
         }
       }
     }
-    return UsQuestion(id: _text(map['id']), text: _text(map['text']), help: _text(map['help']), kind: _text(map['kind']).isEmpty ? 'yesno' : _text(map['kind']), options: options, answer: map['answer']);
+    return UsQuestion(id: _text(map['id']), text: _text(map['text']), help: _text(map['help']), kind: _text(map['kind']).isEmpty ? 'yesno' : _text(map['kind']), options: options, answer: map['answer'], negative: map['negative'] == true);
   }
 
   final String id;
@@ -310,6 +345,7 @@ class UsQuestion {
   final String kind;
   final List<(String, String)> options;
   final Object? answer;
+  final bool negative;
 
   bool get answered => answer != null && '$answer'.isNotEmpty;
 
