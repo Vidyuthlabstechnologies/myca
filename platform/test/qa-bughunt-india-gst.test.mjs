@@ -131,3 +131,14 @@ test('a 40% GST sale, bill, expense and item are accepted from chat and the phon
   const spent = await runTool(state, 'post_expense', { amount: 1400, gstRate: 40, narration: 'Staff drinks', date: `${PERIOD}-10` });
   assert.equal(spent.ok, true, JSON.stringify(spent));
 });
+
+test('GSTR-3B table 3.2 inter-state sales to unregistered buyers is net of credit notes and leaves out nil-rated lines', async () => {
+  const state = books();
+  const sale = await sell(state, { partyName: 'Traveller', partyState: '29', lines: [{ description: 'Saree', hsn: '5407', qty: 2, rate: 5000, gstRate: 5 }, { description: 'Book', hsn: '4901', qty: 1, rate: 500, gstRate: 0, supply: 'nil' }] });
+  const note = await runTool(state, 'create_credit_note', { invoiceId: sale.id, reason: 'One saree returned', lines: [{ description: 'Saree', hsn: '5407', qty: 1, rate: 5000, gstRate: 5 }], date: `${PERIOD}-15` });
+  assert.equal(note.ok, true, JSON.stringify(note));
+  const portal = gstr3bPortalJson(state, PERIOD);
+  assert.equal(portal.ok, true, JSON.stringify(portal));
+  assert.deepEqual(portal.body.inter_sup.unreg_details, [{ pos: '29', txval: 5000, iamt: 250 }]);
+  assert.deepEqual(portal.body.sup_details.osup_det, { txval: 5000, iamt: 250, camt: 0, samt: 0, csamt: 0 });
+});
