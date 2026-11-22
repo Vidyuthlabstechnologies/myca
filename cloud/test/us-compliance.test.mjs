@@ -87,7 +87,9 @@ test('every 7216 consent carries the Rev. Proc. 2013-14 statements, the preparer
   assert.match(forms[2].body[0], /we cannot use your tax return information/);
   assert.match(forms[1].body[1], /we may decline to provide you with tax return preparation services/);
   assert.notEqual(usConsentForms({ partner: { provider: 'april', label: 'April' } })[0].version, tins.version, 'a consent naming one partner does not cover another');
-  assert.equal(formHasBlanks(tins), true, 'the preparer is still a blank for the owner to fill');
+  assert.equal(formHasBlanks(tins), false, 'with Quanzo AI as preparer and a configured partner the form is complete');
+  assert.equal(formHasBlanks(usConsentForms({ partner: null })[0]), true, 'the partner stays a blank until its agreement is signed and configured');
+  assert.equal(formHasBlanks(forms[1]), true, 'the Expert Review firm is still a blank');
 });
 
 test('the consent period defaults to one year and refuses past, malformed or over-long dates', () => {
@@ -105,8 +107,9 @@ test('a filer signs a 7216 consent by typing a name, the exact text is kept, it 
   assert.equal(listed.status, 200, listed.text);
   const form = listed.body.consents.find((c) => c.document === PARTNER_TINS);
   assert.equal(form.signed, null);
-  assert.equal(form.final, false);
+  assert.equal(form.final, true);
   assert.match(form.text, /Column Tax/);
+  assert.match(form.text, /Tax return preparer: Quanzo AI/);
 
   assert.equal((await sign(who, { document: PARTNER_TINS, version: form.version, signedName: ' ' })).body.error, 'SIGNATURE_REQUIRED');
   assert.equal((await sign(who, { document: PARTNER_TINS, version: form.version, signedName: '12345' })).body.error, 'SIGNATURE_REQUIRED');
@@ -146,8 +149,10 @@ test('a consent lapses at the end of its period', async () => {
 test('in production a consent with a blank name on it cannot be signed', async () => {
   const who = await household();
   const store = createUsConsents({ db: api.db, now: () => api.clock.now, environment: 'production' });
+  const blank = (await store.list(who.userId)).consents.find((c) => c.document === EXPERT_REVIEW);
+  assert.equal(blank.final, false);
+  assert.equal((await store.sign(who.userId, null, { document: EXPERT_REVIEW, version: blank.version, signedName: 'Jordan Rivera' })).error, 'CONSENT_NOT_FINAL');
   const form = (await store.list(who.userId)).consents.find((c) => c.document === PARTNER_TINS);
-  assert.equal((await store.sign(who.userId, null, { document: PARTNER_TINS, version: form.version, signedName: 'Jordan Rivera' })).error, 'CONSENT_NOT_FINAL');
   const filled = createUsConsents({ db: api.db, now: () => api.clock.now, environment: 'production', forms: () => [{ ...usConsentForms()[0], body: ['Filled in.'], title: 'Consent' }] });
   assert.equal((await filled.sign(who.userId, null, { document: PARTNER_TINS, version: form.version, signedName: 'Jordan Rivera' })).ok, true);
 });
@@ -243,7 +248,8 @@ test('the US notice states what IRS Pub 1345 and the state privacy laws ask for,
   const text = PRIVACY_NOTICE_US.sections.map((s) => `${s.heading}: ${s.body}`).join('\n');
   assert.ok(text.includes('We maintain physical, electronic and procedural safeguards that comply with applicable law and federal standards.'));
   for (const needed of ['7216', 'under 13', '45 days', 'Form 8879', 'separate consent', 'United States', 'Stripe']) assert.ok(text.includes(needed), needed);
-  for (const blank of ['[the US company, to be confirmed before release]', '[Column Tax or April, to be confirmed]', 'Privacy contact: [Name], [email]']) assert.ok(text.includes(blank), blank);
+  assert.ok(text.includes('MyCA US is provided by Quanzo AI.'));
+  for (const blank of ['Column Tax [partner agreement to be signed before release]', 'Privacy contact: [Name], [email]']) assert.ok(text.includes(blank), blank);
 });
 
 test('server log lines never carry a full SSN', () => {
