@@ -461,7 +461,7 @@ export const SALES_PURCHASE_TOOL_SCHEMAS = {
     properties: {
       invoiceId: INVOICE_ID,
       amount: { type: 'number', exclusiveMinimum: 0 },
-      mode: { type: 'string', enum: ['bank', 'cash'] },
+      mode: { type: 'string', enum: ['bank', 'cash', 'upi', 'card'] },
       date: { type: 'string' },
       advance: { type: 'boolean' },
     },
