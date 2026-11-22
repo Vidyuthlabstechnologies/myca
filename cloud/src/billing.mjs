@@ -891,7 +891,14 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       if (!found.ok) return fail('PURCHASE_NOT_FOUND', { status: found.status, hint: 'Google Play does not know this purchase.' });
       if (!found.plan || found.productId !== productId) return fail('PURCHASE_PRODUCT_MISMATCH');
       if (found.accountId && found.accountId !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription was bought for another business.' });
-      if (!(await save(businessId, userId, token, found))) return fail('PURCHASE_SUPERSEDED', { hint: 'This Google Play purchase was replaced by a newer subscription for this business.', entitlement: await entitlement(businessId) });
+      let saved;
+      try {
+        saved = await save(businessId, userId, token, found);
+      } catch (error) {
+        if (error?.code !== '23505') throw error;
+        return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription already pays for another business.' });
+      }
+      if (!saved) return fail('PURCHASE_SUPERSEDED', { hint: 'This Google Play purchase was replaced by a newer subscription for this business.', entitlement: await entitlement(businessId) });
       await acknowledge(found, token);
       await audit(businessId, userId, 'billing.subscribe', { provider: 'play', plan: found.plan, ...(country ? { country: country.country } : {}), status: found.status, testPurchase: found.testPurchase });
       return { ok: true, plan: found.plan, status: found.status, testPurchase: found.testPurchase, entitlement: await entitlement(businessId) };
