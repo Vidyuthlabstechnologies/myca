@@ -67,6 +67,8 @@ String ringgit(num amount) {
   return '${negative ? '-' : ''}RM${groups.join(',')}${fixed.substring(dot)}';
 }
 
+String currencyAmount(String currency, num amount) => currency == 'MYR' ? ringgit(amount) : ringgit(amount).replaceFirst('RM', '$currency ');
+
 String dayMonthYear(String iso) {
   final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(iso.trim());
   if (match == null) return iso;

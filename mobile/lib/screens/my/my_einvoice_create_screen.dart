@@ -247,7 +247,7 @@ class _MyEinvoiceCreateScreenState extends State<MyEinvoiceCreateScreen> {
 
   Future<bool?> _confirmSheet(MyStrings t, MyCheck check) {
     final totals = check.totals;
-    final money = _currency == 'MYR' ? ringgit : (num value) => '$_currency ${value.toStringAsFixed(2)}';
+    String money(num value) => currencyAmount(_currency, value);
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -323,7 +323,7 @@ class _MyEinvoiceCreateScreenState extends State<MyEinvoiceCreateScreen> {
     final text = Theme.of(context).textTheme;
     final check = _check;
     final totals = check?.totals;
-    final money = _currency == 'MYR' ? ringgit : (num value) => '$_currency ${value.toStringAsFixed(2)}';
+    String money(num value) => currencyAmount(_currency, value);
     final palette = context.myca;
     return Scaffold(
       appBar: AppBar(title: Text(_type == 'invoice' ? t.createTitle : t.documentTypeName(_type))),
