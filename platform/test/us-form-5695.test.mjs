@@ -115,7 +115,7 @@ test('2025 Part I, single, wages 60,000 (tax 5,075): solar 9,000 + battery 3,000
   const data = run('single', forms, { ...home, energyCarryforward: 500 });
   const f = data.schedules[5695];
   assert.equal(f[1], 30000);
-  assert.equal(f['5a'], false);
+  assert.equal(f['5a'], true, 'the 13.5 kWh battery on line 5b qualifies');
   assert.equal(f['5b'], 10000);
   assert.equal(f['6a'], 40000);
   assert.equal(f['6b'], 12000);

@@ -146,7 +146,7 @@ export function cleanEnergyTentative({ items, mainHome, carryforward, rule }) {
   const line10 = Math.round(counted * (rule.fuelCellPerKilowattCents / 100));
   const line11 = Math.min(line9, line10);
   const line13 = line6b + line11 + carriedIn;
-  return { tentative: line13, carryforwardOnly: false, checks, lines: { 1: sum('solar-electric'), 2: sum('solar-water'), 3: sum('small-wind'), 4: sum('geothermal'), '5a': batteries.length ? smallBatteries.length === 0 : null, '5b': line5b, '6a': line6a, '6b': line6b, ...(cells.length ? { '7a': mainHome !== false } : {}), 8: line8, 9: line9, 10: line10, kilowatts: counted, 11: line11, 12: carriedIn, 13: line13 } };
+  return { tentative: line13, carryforwardOnly: false, checks, lines: { 1: sum('solar-electric'), 2: sum('solar-water'), 3: sum('small-wind'), 4: sum('geothermal'), '5a': batteries.length ? line5b > 0 : null, '5b': line5b, '6a': line6a, '6b': line6b, ...(cells.length ? { '7a': mainHome !== false } : {}), 8: line8, 9: line9, 10: line10, kilowatts: counted, 11: line11, 12: carriedIn, 13: line13 } };
 }
 
 export function cleanEnergyCredit(tentative, taxLimit) {

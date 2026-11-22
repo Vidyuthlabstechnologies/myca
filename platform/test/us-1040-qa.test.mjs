@@ -144,3 +144,36 @@ test('Form 8962 uses the monthly method when no single policy covers all 12 mont
   assert.equal(f['24'], 4908);
   assert.equal(f['26'], 348);
 });
+
+const iraRun = (forms, answers, year = '2025') => computeForm1040({ filingStatus: 'single', taxpayer: { firstName: 'Sam', lastName: 'Lee', dateOfBirth: '1985-06-01' }, forms: [{ kind: 'W-2', owner: 'taxpayer', payer: 'Acme', fields: { wages: 60000, federalWithheld: 6000 } }, ...forms], answers }, year);
+const r1099 = (fields) => ({ kind: '1099-R', owner: 'taxpayer', payer: 'Broker', fields });
+
+test('A returned IRA contribution (1099-R code 8 or P) is taxed on box 2a and stays off Form 8606 (8606 instructions, Return of IRA Contributions)', () => {
+  const roth = iraRun([r1099({ grossDistribution: 7300, taxableAmount: 300, distributionCode: '8J', exceptionCode: '21' })], { rothContributionBasis: 10000, rothConversionBasis: 0 });
+  assert.equal(roth.ok, true);
+  assert.equal(roth.data.lines['4a'], 7300);
+  assert.equal(roth.data.lines['4b'], 300);
+  const traditional = iraRun([r1099({ grossDistribution: 7300, taxableAmount: 300, distributionCode: '8', iraSepSimple: true })], { priorIraBasis: 5000, iraYearEndValue: 40000 });
+  assert.equal(traditional.data.lines['4b'], 300);
+});
+
+test('Exception 01 is refused on a Roth IRA and exception 24 on any IRA from 2026 (Form 5329 instructions, line 2)', () => {
+  const roth = iraRun([r1099({ grossDistribution: 20000, distributionCode: 'J', exceptionCode: '01' })], { rothContributionBasis: 5000, rothConversionBasis: 0 });
+  assert.ok(roth.data.checks.some((c) => c.code === 'EARLY_DISTRIBUTION_EXCEPTION_INVALID'));
+  const ltc = iraRun([r1099({ grossDistribution: 5000, distributionCode: '1', iraSepSimple: true, exceptionCode: '24' })], {}, '2026');
+  assert.ok(ltc.data.checks.some((c) => c.code === 'EARLY_DISTRIBUTION_EXCEPTION_INVALID'));
+});
+
+test('Form 8606 line 20 first-home amount needs the Roth five-year condition (8606 instructions, line 20)', () => {
+  const answers = { rothContributionBasis: 3000, rothConversionBasis: 0, rothFirstHomeExpenses: 10000 };
+  const no = iraRun([r1099({ grossDistribution: 15000, distributionCode: 'J' })], { ...answers, rothFiveYearMet: false });
+  assert.equal(no.data.lines['4b'], 12000);
+  const yes = iraRun([r1099({ grossDistribution: 15000, distributionCode: 'J' })], { ...answers, rothFiveYearMet: true });
+  assert.equal(yes.data.lines['4b'], 2000);
+});
+
+test('Form 5695 line 5a is Yes when a qualifying battery is on line 5b, even beside a battery under 3 kWh', () => {
+  const out = computeForm1040({ filingStatus: 'single', taxpayer: { firstName: 'Sam', lastName: 'Lee', dateOfBirth: '1985-06-01' }, forms: [{ kind: 'W-2', owner: 'taxpayer', payer: 'Acme', fields: { wages: 90000, federalWithheld: 9000 } }, { kind: '5695-ITEM', owner: 'taxpayer', payer: 'Installer', fields: { category: 'battery', cost: 8000, capacity: 10 } }, { kind: '5695-ITEM', owner: 'taxpayer', payer: 'Installer', fields: { category: 'battery', cost: 1000, capacity: 2 } }] }, '2025');
+  assert.equal(out.data.schedules['5695']['5b'], 8000);
+  assert.equal(out.data.schedules['5695']['5a'], true);
+});
