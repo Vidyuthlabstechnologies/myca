@@ -397,7 +397,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           const Expanded(child: SectionLabel('State returns')),
-          if (totals.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(totals, key: const Key('usHub.stateTotals'), style: text.bodySmall)),
+          if (totals.isNotEmpty) Flexible(child: Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(totals, key: const Key('usHub.stateTotals'), textAlign: TextAlign.end, style: text.bodySmall))),
         ],
       ),
       if (states == null && coverage != null)
