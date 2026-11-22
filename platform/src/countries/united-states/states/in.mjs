@@ -1,4 +1,4 @@
-import { whole, positive, rateOf, ratio, check, lineTable, sum } from '../state-kit.mjs';
+import { whole, positive, rateOf, ratio, check, lineTable, sum, homeStateCreditCheck } from '../state-kit.mjs';
 
 export const IN_COUNTY_NAMES = Object.freeze(['Adams', 'Allen', 'Bartholomew', 'Benton', 'Blackford', 'Boone', 'Brown', 'Carroll', 'Cass', 'Clark', 'Clay', 'Clinton', 'Crawford', 'Daviess', 'Dearborn', 'Decatur', 'DeKalb', 'Delaware', 'Dubois', 'Elkhart', 'Fayette', 'Floyd', 'Fountain', 'Franklin', 'Fulton', 'Gibson', 'Grant', 'Greene', 'Hamilton', 'Hancock', 'Harrison', 'Hendricks', 'Henry', 'Howard', 'Huntington', 'Jackson', 'Jasper', 'Jay', 'Jefferson', 'Jennings', 'Johnson', 'Knox', 'Kosciusko', 'LaGrange', 'Lake', 'LaPorte', 'Lawrence', 'Madison', 'Marion', 'Marshall', 'Martin', 'Miami', 'Monroe', 'Montgomery', 'Morgan', 'Newton', 'Noble', 'Ohio', 'Orange', 'Owen', 'Parke', 'Perry', 'Pike', 'Porter', 'Posey', 'Pulaski', 'Putnam', 'Randolph', 'Ripley', 'Rush', 'St. Joseph', 'Scott', 'Shelby', 'Spencer', 'Starke', 'Steuben', 'Sullivan', 'Switzerland', 'Tippecanoe', 'Tipton', 'Union', 'Vanderburgh', 'Vermillion', 'Vigo', 'Wabash', 'Warren', 'Warrick', 'Washington', 'Wayne', 'Wells', 'White', 'Whitley']);
 const OUTSIDE = 'Not in Indiana';
@@ -184,6 +184,7 @@ function compute(ctx, filing, reader) {
   const schedule5 = lineTable({ 1: withheld, 2: countyWithheld, 3: 0, 4: estimated, 5: elderly, 6: eic, 7: 0, 13: withheld + countyWithheld + estimated + elderly + eic });
   const otherCredit = filing.residency === 'nonresident' ? 0 : otherStateCredit({ ...filing, rateBasisPoints: tax.rateBasisPoints }, credits, line8);
   if (otherCredit) checks.push(check('info', 'IN_OTHER_STATE_CREDIT', 'Credit for taxes paid to other states (Schedule 6 line 5) is the smallest of the other state\'s tax, the Indiana rate times the income taxed there, and the state tax on line 8. Enclose the other state\'s return.'));
+  checks.push(...homeStateCreditCheck(filing, credits.reverseCreditStates.filter((code) => code !== 'DC')));
   if (filing.otherStates.some((other) => credits.reverseCreditStates.includes(other.state))) checks.push(check('info', 'IN_REVERSE_CREDIT', 'Arizona, Oregon and Washington D.C. give the credit on their own nonresident return, so Indiana gives none for tax paid there.'));
   const schedule6 = lineTable({ 1: 0, 5: otherCredit, 8: otherCredit });
   const line12 = schedule5[13];

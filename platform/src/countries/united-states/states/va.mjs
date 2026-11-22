@@ -1,4 +1,4 @@
-import { whole, positive, bracketTax, rateOf, ratio, check, lineTable, byStatus } from '../state-kit.mjs';
+import { whole, positive, bracketTax, rateOf, ratio, check, lineTable, byStatus, homeStateCreditCheck } from '../state-kit.mjs';
 import { incomeByOwner, filerOf, bornOnOrBefore, splitByOwner, OWNERS, nextBusinessDay, applyRatio } from './va-spouses.mjs';
 
 const NO_CREDIT_STATES = new Set(['AZ', 'CA', 'OR', 'DC']);
@@ -180,7 +180,7 @@ function compute(ctx, filing, reader) {
   const partYear = filing.residency === 'part-year';
   const nonresident = !resident && !partYear;
   const joint = ctx.filingStatus === 'mfj';
-  const checks = [];
+  const checks = [...homeStateCreditCheck(filing, [...NO_CREDIT_STATES])];
   const notes = ['Tax is worked out with the Virginia Tax Rate Schedule, which the instructions allow in place of the Tax Table.'];
   const tax = (amount) => bracketTax(amount, rule.brackets);
   const byOwner = incomeByOwner(ctx);

@@ -245,6 +245,22 @@ function otherStateCredit(ctx, filing, rule, line2, line17, checks) {
   return { total: Math.min(total, positive(line2)), rows };
 }
 
+function homeStateCredit(filing, rule, line2, line4, checks) {
+  const home = filing.homeReturn;
+  if (!home || !rule.reverseCreditStates.includes(home.state)) return { total: 0, rows: [] };
+  const line3 = positive(line4);
+  const line5 = fourPlaces(line3, line4);
+  const line6 = Math.round(positive(line2) * line5);
+  const line7 = positive(home.tax);
+  const line8 = line3;
+  const line9 = positive(home.income);
+  const line10 = fourPlaces(line8, line9);
+  const line11 = Math.round(line7 * line10);
+  const line12 = Math.min(line6, line11);
+  checks.push(check('info', 'CA_SCHEDULE_S_NONRESIDENT', `Schedule S: as a resident of ${home.state}, which gives no credit for tax paid to California, you take the credit for ${home.state} tax on your California-source income here. Attach a copy of your ${home.state} return.`));
+  return { total: Math.min(line12, positive(line2)), rows: [{ state: home.state, lines: lineTable({ 2: line2, 3: line3, 4: line4, 5: line5, 6: line6, 7: line7, 8: line8, 9: line9, 10: line10, 11: line11, 12: line12 }) }] };
+}
+
 function compute(ctx, filing, reader) {
   const rates = reader.read('tax-rates');
   const table = reader.read('tax-table');
@@ -342,7 +358,7 @@ function compute(ctx, filing, reader) {
   if (ctx.filingStatus === 'mfs' && renterCredit) notes.push('Married filing separately: if both spouses rented the same home, one may claim the full $120 instead of $60 each; MyCA claims $60.');
   const taxBase = resident ? line31 - Math.min(line31, line39) : line42;
   const renterUsed = Math.min(renterCredit, taxBase);
-  const ostc = resident ? otherStateCredit(ctx, filing, ostcRule, taxBase - renterUsed, line17, checks) : { total: 0, rows: [] };
+  const ostc = resident ? otherStateCredit(ctx, filing, ostcRule, taxBase - renterUsed, line17, checks) : filing.residency === 'nonresident' ? homeStateCredit(filing, ostcRule, taxBase - renterUsed, line32, checks) : { total: 0, rows: [] };
   const totalCredits = ostc.total + renterCredit;
   const afterCredits = Math.max(0, taxBase - totalCredits);
   if ((ostc.total || renterCredit) && line17 > byStatus(creditLimit.scheduleP, status)) checks.push(check('warning', 'CA_SCHEDULE_P', 'Above this California AGI the credits other than exemption credits may be limited by tentative minimum tax on Schedule P, which MyCA does not prepare.', 'Have your CPA check Schedule P.'));
@@ -514,6 +530,7 @@ export const STATE = Object.freeze({
   code: 'CA',
   name: 'California',
   built: true,
+  creditsHomeStateTax: true,
   forms: Object.freeze({ resident: '540', partYear: '540NR', nonresident: '540NR' }),
   questions: Object.freeze([
     Object.freeze({ id: 'fullYearCoverage', kind: 'yesno', text: 'Did you, your spouse and everyone you claim as a dependent have qualifying health coverage for all of the year?', help: 'Medicare Part A or C, Medi-Cal, employer and Covered California plans count. If not, a penalty may apply (form FTB 3853).' }),
