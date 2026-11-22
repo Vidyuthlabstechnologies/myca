@@ -1,4 +1,4 @@
-import { whole, positive, rateOf, ratio, check, otherStateCreditLimit, lineTable } from '../state-kit.mjs';
+import { whole, positive, rateOf, ratio, check, otherStateCreditLimit, lineTable, answered, form1098PropertyTax } from '../state-kit.mjs';
 
 const RETIREMENT_KEYS = ['iraTaxable', 'pensionTaxable', 'socialSecurityTaxable'];
 
@@ -64,7 +64,10 @@ function compute(ctx, filing, reader) {
   }
   const creditLimitAgi = ctx.filingStatus === 'mfj' ? credits.creditAgiLimit.joint : credits.creditAgiLimit.other;
   const creditsAllowed = income.agi <= creditLimitAgi && filing.residency !== 'nonresident';
-  const propertyTax = creditsAllowed ? rateOf(positive(answers.propertyTaxPaid), credits.propertyTaxBasisPoints) : 0;
+  const fromForm1098 = !answered(answers, 'propertyTaxPaid') && resident ? form1098PropertyTax(ctx) : 0;
+  const propertyTaxPaid = answered(answers, 'propertyTaxPaid') ? positive(answers.propertyTaxPaid) : fromForm1098;
+  if (fromForm1098 && creditsAllowed) checks.push(check('warning', 'IL_PROPERTY_TAX_FROM_1098', `The Schedule ICR property tax credit uses the $${fromForm1098.toLocaleString('en-US')} of property tax on your Form 1098.`, 'Confirm it is tax on your Illinois main home, or give the amount paid on it.'));
+  const propertyTax = creditsAllowed ? rateOf(propertyTaxPaid, credits.propertyTaxBasisPoints) : 0;
   const k12Paid = positive(answers.k12Expenses);
   const k12 = creditsAllowed ? Math.min(credits.k12Maximum, rateOf(Math.max(0, k12Paid - credits.k12Floor), credits.k12BasisPoints)) : 0;
   const line16 = propertyTax + k12;
@@ -86,7 +89,7 @@ function compute(ctx, filing, reader) {
   return {
     form: 'IL-1040',
     lines,
-    schedules: { ...(scheduleNR ? { NR: scheduleNR } : {}), ...(line16 ? { ICR: lineTable({ propertyTaxPaid: positive(answers.propertyTaxPaid), propertyTaxCredit: propertyTax, k12Expenses: k12Paid, k12Credit: k12 }) } : {}), ...(line29 ? { 'IL-E/EITC': lineTable({ 1: exemption.d, federalEic, 9: line29, 12: line30 }) } : {}) },
+    schedules: { ...(scheduleNR ? { NR: scheduleNR } : {}), ...(line16 ? { ICR: lineTable({ propertyTaxPaid, propertyTaxCredit: propertyTax, k12Expenses: k12Paid, k12Credit: k12 }) } : {}), ...(line29 ? { 'IL-E/EITC': lineTable({ 1: exemption.d, federalEic, 9: line29, 12: line30 }) } : {}) },
     stateIncome: resident ? line9 : scheduleNR[46],
     taxableIncome: line11,
     taxBeforeCredits: line14,

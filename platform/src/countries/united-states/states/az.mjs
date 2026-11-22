@@ -1,4 +1,5 @@
 import { whole, positive, rateOf, ratio, check, byStatus, lineTable, sum } from '../state-kit.mjs';
+import { rules } from '../../../sprint-load.mjs';
 
 const statusOf = (ctx) => (ctx.filingStatus === 'qss' ? 'hoh' : ctx.filingStatus);
 
@@ -35,6 +36,19 @@ function exciseCredit(ctx, rule, people, status, federalAgi) {
   return Math.min(count * rule.perPerson, rule.maximum);
 }
 
+function saltCap(ctx, deductions) {
+  const mfs = ctx.filingStatus === 'mfs';
+  const arizona = mfs ? deductions.saltLimit.mfs : deductions.saltLimit.other;
+  const found = rules.rule('us.federal.individual.salt-cap', `${ctx.taxYear}-12-31`);
+  if (!found.ok) return { cap: arizona, rule: null };
+  const value = found.value;
+  const base = Math.round((mfs ? value.mfsCapCents : value.capCents) / 100);
+  const start = Math.round((mfs ? value.mfsPhaseDownStartCents : value.phaseDownStartCents) / 100);
+  const floor = Math.round((mfs ? value.mfsFloorCents : value.floorCents) / 100);
+  const reduced = Math.max(floor, base - Math.round((Math.max(0, ctx.income.agi - start) * value.phaseDownBasisPoints) / 10000));
+  return { cap: reduced, rule: `${found.record.id}@${found.record.effectiveFrom}` };
+}
+
 function itemizedTotal(ctx, deductions, creditGifts) {
   const parts = ctx.itemized;
   const scheduleA = parts.federalScheduleA;
@@ -44,9 +58,10 @@ function itemizedTotal(ctx, deductions, creditGifts) {
     return { total: Math.max(0, total), medical: parts.medicalPaid, charity: Math.max(0, whole(scheduleA[14]) - creditGifts), federal: true };
   }
   const salesOrIncome = parts.generalSalesTax > 0 ? parts.generalSalesTax : parts.stateIncomeTaxes;
-  const salt = Math.min(salesOrIncome + parts.realEstateTaxes + parts.personalPropertyTaxes, ctx.filingStatus === 'mfs' ? deductions.saltLimit.mfs : deductions.saltLimit.other);
+  const limit = saltCap(ctx, deductions);
+  const salt = Math.min(salesOrIncome + parts.realEstateTaxes + parts.personalPropertyTaxes, limit.cap);
   const allowedCharity = Math.max(0, charity - creditGifts);
-  return { total: parts.medicalPaid + salt + parts.mortgageInterest + allowedCharity + parts.otherItemized, medical: parts.medicalPaid, charity: allowedCharity, federal: false };
+  return { total: parts.medicalPaid + salt + parts.mortgageInterest + allowedCharity + parts.otherItemized, medical: parts.medicalPaid, charity: allowedCharity, federal: false, saltCap: limit.cap, saltRule: limit.rule };
 }
 
 function donationCredits(rule, answers, status) {
@@ -278,7 +293,6 @@ function compute(ctx, filing, reader) {
   if (form309.length) schedules[309] = form309;
   schedules.deduction = lineTable({ used: deductionUsed, standard, itemized: itemized.total, charitableIncrease: charityIncrease, medicalAllowed: itemized.medical });
   if (status === 'hoh' && ctx.filingStatus === 'qss') checks.push(check('info', 'AZ_QSS_AS_HOH', 'Arizona has no qualifying surviving spouse status; a federal qualifying surviving spouse files as head of household.'));
-  if (federalAgi > 500000 && !itemized.federal && deductionUsed === 'itemized') checks.push(check('warning', 'AZ_SALT_PHASE_DOWN', 'Your state and local tax deduction is limited to $40,000 here, but the federal limit is reduced at high income; check the amount.'));
   if (ctx.income.taxExemptInterest > 0 && answers.nonArizonaMunicipalInterest === undefined && residency === 'full-year') checks.push(check('warning', 'AZ_MUNICIPAL_INTEREST', 'Interest from non-Arizona municipal bonds is added back on line 15.', 'Answer the non-Arizona municipal interest question (0 if none).'));
   if (gifts.length) checks.push(check('info', 'AZ_301_CARRYFORWARD', 'Donation credits above your tax can be carried forward five years (Form 301); MyCA uses only this year\'s credit.'));
   if (box40 || boxes.parents) checks.push(check('info', 'AZ_EXEMPTION_DETAIL', 'List each person for the other exemption or the qualifying parent exemption on page 4 of the return.'));
@@ -295,7 +309,7 @@ function compute(ctx, filing, reader) {
     totalTax: balance,
     refundableCredits: excise ? [{ code: 'AZ_EXCISE', label: 'Increased excise tax credit', amount: excise }] : [],
     checks,
-    notes: totalExemptions ? [`Exemptions for age 65, blind, other and qualifying parents total $${totalExemptions.toLocaleString('en-US')}${residency === 'full-year' ? '' : ' before proration'}.`] : [],
+    notes: [...(totalExemptions ? [`Exemptions for age 65, blind, other and qualifying parents total $${totalExemptions.toLocaleString('en-US')}${residency === 'full-year' ? '' : ' before proration'}.`] : []), ...(!itemized.federal && itemized.saltRule ? [`State and local taxes on the Arizona itemized deduction are limited to $${itemized.saltCap.toLocaleString('en-US')}, the federal limit for your income (IRC 164(b)(7), ${itemized.saltRule}).`] : [])],
   };
 }
 
