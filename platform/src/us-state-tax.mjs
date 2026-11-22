@@ -1,6 +1,8 @@
 import { rules } from './sprint-load.mjs';
 import { computeForm1040, ageAtYearEnd } from './us-1040.mjs';
 import { engineInput } from './us-return.mjs';
+import { usStateReturnFor } from './countries/united-states/state-returns.mjs';
+import { stateModule } from './countries/united-states/states/index.mjs';
 
 export const US_STATE_TAX_YEARS = Object.freeze(['2025', '2026']);
 export const US_STATE_TAX_STATES = Object.freeze(['AZ', 'CO', 'GA', 'IA', 'IL', 'KY', 'LA', 'MI', 'NC']);
@@ -31,7 +33,52 @@ function withheldFor(input, code) {
   return (input.forms || []).filter((form) => form.kind === 'W-2' && String(form.fields?.state || '').toUpperCase() === code).reduce((total, form) => total + whole(form.fields?.stateWithheld), 0);
 }
 
+function fromFullReturn(state, taxYear, code) {
+  const out = usStateReturnFor(state, { taxYear, state: code });
+  if (!out.ok) return null;
+  const item = out.data.returns[0];
+  if (!item || item.status !== 'computed') return null;
+  const usd = (value) => `$${whole(value).toLocaleString('en-US')}`;
+  const blocking = (item.checks || []).filter((row) => row.level === 'error').map((row) => row.code);
+  const balance = item.refund > 0 ? `a refund of ${usd(item.refund)}` : item.owed > 0 ? `${usd(item.owed)} to pay by ${item.due}` : 'nothing to pay or get back';
+  const notes = [item.provisional ? `Some ${taxYear} figures are provisional until ${item.stateName} publishes its ${taxYear} form.` : '', item.unreviewed ? 'The rates and amounts come from dated rules a US CPA has not reviewed yet.' : '', blocking.length ? `It cannot be filed yet: ${blocking.join(', ')}.` : ''].filter(Boolean).join(' ');
+  return {
+    ok: true,
+    data: {
+      taxYear,
+      state: code,
+      stateName: item.stateName,
+      kind: 'return',
+      returnNeeded: true,
+      form: item.form,
+      residency: item.residency,
+      taxableIncome: item.taxableIncome,
+      tax: item.totalTax,
+      withheld: item.payments.withheld,
+      refund: item.refund,
+      owed: item.owed,
+      due: item.due,
+      blocking,
+      why: `From the full state return, Form ${item.form} (${item.residency}): ${item.stateName} tax for ${taxYear} is ${usd(item.totalTax)}, with ${balance}.${notes ? ` ${notes}` : ''} Use us_state_returns for every line.`,
+      rulesUsed: item.rulesUsed,
+      unreviewed: item.unreviewed,
+      provisional: item.provisional,
+    },
+  };
+}
+
 export function usStateTax(state, args = {}) {
+  const taxYear = String(args.taxYear || '').trim() || [...US_STATE_TAX_YEARS].reverse().find((year) => state.usReturns?.[year]?.filingStatus) || US_STATE_TAX_YEARS.at(-1);
+  const ret = state.usReturns?.[taxYear];
+  const code = String(args.state || ret?.address?.state || '').trim().toUpperCase();
+  if (US_STATE_TAX_YEARS.includes(taxYear) && ret?.filingStatus && stateModule(code)?.built) {
+    const full = fromFullReturn(state, taxYear, code);
+    if (full) return full;
+  }
+  return usStateEstimate(state, args);
+}
+
+export function usStateEstimate(state, args = {}) {
   const taxYear = String(args.taxYear || '').trim() || [...US_STATE_TAX_YEARS].reverse().find((year) => state.usReturns?.[year]?.filingStatus) || US_STATE_TAX_YEARS.at(-1);
   if (!US_STATE_TAX_YEARS.includes(taxYear)) return { ok: false, error: 'TAX_YEAR_NOT_SUPPORTED', supported: US_STATE_TAX_YEARS };
   const ret = state.usReturns?.[taxYear];

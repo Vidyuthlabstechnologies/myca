@@ -76,7 +76,7 @@ const FORM_NAMES = Object.freeze({ 1040: '1040', '1-A': 'Schedule 1-A', 2: 'Sche
 
 export const LINE_MAP_YEARS = Object.freeze(Object.keys(LAYOUTS));
 
-function layoutOf(taxYear, form) {
+export function layoutOf(taxYear, form) {
   const year = LAYOUTS[String(taxYear)];
   if (!year) throw new Error(`US_LINE_MAP_YEAR_UNKNOWN ${taxYear}`);
   return year[form] || null;
