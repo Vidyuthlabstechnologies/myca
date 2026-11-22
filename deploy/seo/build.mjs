@@ -7,7 +7,7 @@ import { EARLY_ACCESS_ACTION, GUIDE_INDEX, ORIGIN, PAGES, PLAY_ID, US_FORMS } fr
 const here = dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = join(here, '..', 'public');
 
-export const US_LEGAL_BLANK = /\[[^\]]*(company|support email|partner|address)[^\]]*\]/i;
+export const US_LEGAL_BLANK = /\[[^\]]*(company|email|partner|address|release|name)[^\]]*\]/i;
 
 export function usLegalReady() {
   const pages = ['us/terms.html', 'us/refunds.html'].map((name) => {
@@ -17,7 +17,7 @@ export function usLegalReady() {
       return '[company]';
     }
   });
-  return ![...pages, JSON.stringify(PRIVACY_NOTICE_US)].some((text) => US_LEGAL_BLANK.test(text));
+  return ![...pages, [PRIVACY_NOTICE_US.controller, ...PRIVACY_NOTICE_US.sections.map((s) => s.body)].join('\n')].some((text) => US_LEGAL_BLANK.test(text));
 }
 
 const escape = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

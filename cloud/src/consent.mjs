@@ -64,16 +64,16 @@ export const PRIVACY_NOTICE = {
 
 export const PRIVACY_NOTICE_US = {
   document: 'privacy',
-  version: 'us-draft-2026-11-21',
+  version: 'us-draft-2026-11-22',
   region: 'US',
   requiresAdult: true,
   title: 'How MyCA uses your information (United States)',
   status: 'Draft for legal review. Not yet approved for release.',
-  controller: '[The US company: legal name and US address, to be confirmed before release.]',
+  controller: 'Quanzo AI. [US postal address to be confirmed before release.]',
   sections: [
     {
       heading: 'Who we are',
-      body: 'MyCA US is provided by [the US company, to be confirmed before release]. When you prepare a US tax return in MyCA we act as your tax return preparer. When you file, our e-file partner, [Column Tax or April, to be confirmed], signs Form 8879 with you and sends your return to the IRS. MyCA US is for adults 18 and over.',
+      body: 'MyCA US is provided by Quanzo AI. When you prepare a US tax return in MyCA we act as your tax return preparer. When you file, our e-file partner, Column Tax [partner agreement to be signed before release], signs Form 8879 with you and sends your return to the IRS. MyCA US is for adults 18 and over.',
     },
     {
       heading: 'What we collect',

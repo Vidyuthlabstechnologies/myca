@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
 import { partnerSettings } from '../../platform/src/us-filing-partner.mjs';
 
-export const US_PREPARER_NAME = '[the US company, to be confirmed before release]';
+export const US_PREPARER_NAME = 'Quanzo AI';
 export const PARTNER_TINS = 'us-7216-partner-tins';
 export const EXPERT_REVIEW = 'us-7216-expert-review';
 export const PLUS_USE = 'us-7216-plus-use';
-export const US_7216_VERSION = 'us-7216-draft-2026-11-14';
-const UNNAMED_PARTNER = '[Column Tax or April, to be confirmed]';
+export const US_7216_VERSION = 'us-7216-draft-2026-11-22';
+const UNNAMED_PARTNER = '[Column Tax, once its partner agreement is signed]';
 const UNNAMED_EXPERT = '[the CPA or enrolled agent firm, to be named when the Expert Review partner is signed]';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_DAYS = 3 * 366;

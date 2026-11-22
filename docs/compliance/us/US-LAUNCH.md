@@ -64,10 +64,12 @@ What must be true by about 20 January 2027:
 - [ ] Fill the bracketed blanks in `deploy/public/us/terms.html` and `us/refunds.html` and in the US notice, then remove their `noindex` line (and `renderUsPrivacy`'s in `deploy/seo/build.mjs`) and add `us/privacy`, `us/terms`, `us/refunds` back to `renderSitemap`. The footer links to these pages come back by themselves once no blank is left (`usLegalReady` in `deploy/seo/build.mjs`); add them back by hand to the static footers of `us.html`, `us/terms.html` and `us/refunds.html`.
 - [ ] Once Column Tax or April signs and approves the wording, live copy may say "our IRS-authorized e-file partner"; until then it says "our e-file partner" (site, app sign screen, US notice, store listing).
 - [ ] Privacy notice names the US company as controller, with a real contact. The US notice
-      (`us-draft-2026-11-21`) already describes the partner route and US hosting; three bracketed
-      blanks remain: the US company, the partner's name, and the privacy contact. The IRC 7216 consent
-      forms (`cloud/src/us-7216.mjs`) use the same company blank and cannot be signed in production
-      until it is filled. Full checklist: [`COMPLIANCE-REVIEW.md`](COMPLIANCE-REVIEW.md).
+      (`us-draft-2026-11-22`) names Quanzo AI as the company and Column Tax as the e-file partner
+      (chosen 2026-11-22, agreement not yet signed, so it still carries a bracketed note). Blanks left:
+      the US postal address, the support and privacy contact email, and the Column Tax signing note.
+      Confirm the company's full legal name (with Inc. or LLC). The IRC 7216 consent forms
+      (`cloud/src/us-7216.mjs`) name Quanzo AI as preparer and keep the partner blank until Column Tax
+      is configured. Full checklist: [`COMPLIANCE-REVIEW.md`](COMPLIANCE-REVIEW.md).
 - [ ] `MYCA_US_FILER_SEND_TINS=1` only once the partner contract allows SSNs in the prefill; even then
       SSNs go only for filers who signed the partner consent.
 - [ ] Two-step sign-in is required to sign or file in production; tell support.
