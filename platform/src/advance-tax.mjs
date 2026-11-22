@@ -8,6 +8,7 @@ import { salaryPrivate } from './employees.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { advanceTax234C } from './it-interest.mjs';
 import { ageAtFyEnd, bandOfAge } from './age-band.mjs';
+import { isVoided } from './gstr1-tables.mjs';
 
 export const ADVANCE_TAX_ACCOUNT = { id: 1170, code: '1170', name: 'Advance tax paid', type: 'asset', flags: 0 };
 const INDIVIDUAL_TYPES = new Set(['', 'individual', 'proprietorship', 'proprietor', 'sole proprietor', 'sole proprietorship', 'huf']);
@@ -40,7 +41,7 @@ function sum(rows, pick) {
 
 function profitToDate(state, fy, today) {
   const upTo = (doc) => doc.date && inFy(doc.date, fy) && doc.date <= today;
-  const sales = sum((state.invoices || []).filter((d) => d.status !== 'cancelled' && upTo(d)), (d) => d.taxable ?? d.total);
+  const sales = sum((state.invoices || []).filter((d) => !isVoided(d) && upTo(d)), (d) => d.taxable ?? d.total);
   const creditNotes = sum((state.creditNotes || []).filter(upTo), (d) => d.taxable ?? d.total);
   const purchases = sum((state.purchases || []).filter((d) => d.status !== 'cancelled' && upTo(d)), (d) => d.taxable ?? d.total);
   const expenses = sum((state.expenses || []).filter(upTo), (d) => d.taxable ?? d.amount);

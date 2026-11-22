@@ -31,3 +31,18 @@ test('advance tax paid and inventory are kept in two accounts, not both in accou
   assert.notEqual(byName.Inventory.code, byName['Advance tax paid'].code);
   assert.equal(trialBalance(state.ledger).balanced, true);
 });
+
+test('a sale cancelled by a credit note counts once, not twice, in the profit used for advance tax and in the weekly sales', async () => {
+  const state = books();
+  const sale = await runTool(state, 'create_invoice', { partyName: 'Kiran', lines: [{ description: 'Rice', hsn: '1006', qty: 100, rate: 50, gstRate: 5 }], date: '2026-06-10' });
+  assert.equal(sale.ok, true, JSON.stringify(sale));
+  const kept = await runTool(state, 'create_invoice', { partyName: 'Mohan', lines: [{ description: 'Rice', hsn: '1006', qty: 200, rate: 50, gstRate: 5 }], date: '2026-06-11' });
+  assert.equal(kept.ok, true, JSON.stringify(kept));
+  assert.equal((await runTool(state, 'cancel_invoice', { invoiceId: sale.invoice.id, date: '2026-06-12' })).ok, true);
+  const estimate = advanceTax(state, { asOf: '2026-06-30' });
+  assert.equal(estimate.ok, true, JSON.stringify(estimate));
+  assert.equal(estimate.data.toDate.sales, 10000);
+  const brief = await runTool(state, 'weekly_brief', { asOf: '2026-06-14' });
+  assert.equal(brief.ok, true, JSON.stringify(brief));
+  assert.equal(brief.data.sales.thisWeek, 10500);
+});
