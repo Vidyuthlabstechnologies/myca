@@ -10,6 +10,8 @@ import { createState } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
 import { gstr3bPortalJson } from '../src/gstr3b-portal.mjs';
 import { paymentFor } from '../src/gst-payment.mjs';
+import { invoiceToNicPayload, nicPartyFor } from '../src/nic-config.mjs';
+import { ewayBillPartA } from '../src/eway-bill.mjs';
 
 const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 function withCheck(first14) {
@@ -73,4 +75,18 @@ test('the quarterly GSTR-1 reports a credit note issued in the first two months 
   assert.equal(file.data.cdnr?.[0]?.nt?.[0]?.nt_num, note.creditNote.id);
   assert.equal(file.data.hsn.hsn_b2b[0].txval, 1000);
   assert.ok(file.data.doc_issue.doc_det.some((row) => row.doc_num === 5));
+});
+
+test('the e-invoice gives the buyer\'s state code from the buyer\'s GSTIN, and the e-way bill the place of supply as the actual destination', async () => {
+  const state = books();
+  const sale = await sell(state, { partyName: 'Bengaluru Retail', partyGstin: BUYER_KA, partyState: '27', partyAddress: '4 MG Road, Bengaluru 560001', lines: [{ description: 'Steel almirah', hsn: '9403', qty: 5, rate: 20000, gstRate: 18 }] });
+  assert.equal(sale.cgst, 9000);
+  const nic = invoiceToNicPayload(state.company, sale, nicPartyFor(state, sale));
+  assert.equal(nic.BuyerDtls.Stcd, '29');
+  assert.equal(nic.BuyerDtls.Pos, '27');
+  sale.transport = { mode: 'road', distanceKm: 20, vehicleNo: 'MH01AB1234', setOn: sale.date };
+  const ewb = ewayBillPartA(state, sale);
+  assert.equal(ewb.ok, true, JSON.stringify(ewb));
+  assert.equal(ewb.partA.toStateCode, 29);
+  assert.equal(ewb.partA.actToStateCode, 27);
 });
