@@ -20,6 +20,7 @@ import { parseAcknowledgements, mefHeader, IrsMefClient } from '../src/us-mef-cl
 import { performExternalAction, ACTION_CLASSES } from '../src/action-gate.mjs';
 import { signUsReturn, fileUsReturn, usEfileStatus, fetchUsEfileAcks, openPendingArgs, rejectionsOf, efileMode } from '../src/us-efile.mjs';
 import { validateAssistantToolCall } from '../src/assistant-contract.mjs';
+import { importedPriorYear } from '../src/us-return.mjs';
 import { isRemoteQuery } from '../src/remote-contract.mjs';
 
 globalThis.fetch = async (url) => {
@@ -34,7 +35,7 @@ function computed1040(overrides = {}) {
     spouse: { firstName: 'Ravi', lastName: "O'Neil", ssn: '400025678', dob: '1987-09-12', occupation: 'Engineer' },
     address: { line1: '12 Elm St', city: 'Austin', state: 'TX', zip: '78701' },
     dependents: [{ firstName: 'Asha', lastName: "O'Neil", ssn: '400039012', relationship: 'daughter', ctcEligible: true }],
-    lines: { '1a': 85000, '1z': 85000, '9': 85000, '11': 85000, '12': 31500, '14': 31500, '15': 53500, '16': 5916, '19': 2200, '21': 2200, '22': 3716, '24': 3716, '25a': 6200, '25d': 6200, '33': 6200, '34': 2484, '35a': 2484 },
+    lines: { '1a': 85000, '1z': 85000, '9': 85000, '11a': 85000, '11b': 85000, '12e': 31500, '14': 31500, '15': 53500, '16': 5916, '19': 2200, '21': 2200, '22': 3716, '24': 3716, '25a': 6200, '25d': 6200, '33': 6200, '34': 2484, '35a': 2484 },
     schedules: {},
     w2s: [{ ein: '123456789', employerName: 'Hill Country Foods', wages: 85000, fedWithheld: 6200 }],
     ...overrides,
@@ -102,8 +103,8 @@ test('Schedule C and SE lines map to their MeF documents', () => {
   const withC = computed1040({ filingStatus: 'single', spouse: null, dependents: [], schedules: { C: [{ businessName: 'Luna Bakery', activityCode: '311810', lines: { '1': 40000, '28': 12000, '31': 28000 } }], SE: [{ owner: 'taxpayer', lines: { '2': 28000, '12': 3956, '13': 1978 } }], '1': { '3': 28000, '15': 1978, '26': 1978 }, '2': { '4': 3956, '21': 3956 } } });
   const built = buildMefSubmission(withC, { efin: '123456', softwareId: '12345678', submissionId: makeSubmissionId('123456', '2026-02-10', 1), timestamp: 't', signature: { taxpayer: { pin: '12345', priorYearPin: '11111' }, date: '2026-02-10' } });
   assert.equal(built.ok, true, JSON.stringify(built.problems));
-  assert.ok(built.xml.includes('<IRS1040ScheduleC documentId="IRS1040ScheduleC-1"><BusinessNameLine1Txt>Luna Bakery</BusinessNameLine1Txt><PrincipalBusinessActivityCd>311810</PrincipalBusinessActivityCd><TotalGrossReceiptsAmt>40000</TotalGrossReceiptsAmt>'));
-  assert.ok(built.xml.includes('<SelfEmploymentTaxAmt>3956</SelfEmploymentTaxAmt>'));
+  assert.ok(built.xml.includes('<IRS1040ScheduleC documentId="IRS1040ScheduleC-1"><PrincipalBusinessActivityCd>311810</PrincipalBusinessActivityCd><BusinessNameLine1Txt>Luna Bakery</BusinessNameLine1Txt><TotalGrossReceiptsAmt>40000</TotalGrossReceiptsAmt>'));
+  assert.ok(built.xml.includes('<IRS1040ScheduleSE documentId="IRS1040ScheduleSE-1"><PersonNm>Maya ONeil</PersonNm><SSN>400011234</SSN><NetNonFarmProfitLossAmt>28000</NetNonFarmProfitLossAmt><SelfEmploymentTaxAmt>3956</SelfEmploymentTaxAmt>'));
   assert.ok(built.xml.includes('<DeductibleSelfEmploymentTaxAmt>1978</DeductibleSelfEmploymentTaxAmt>'));
   assert.ok(built.xml.includes('<PrimaryPriorYearPIN>11111</PrimaryPriorYearPIN>'));
   assert.ok(!built.xml.includes('SpouseSSN'));
@@ -286,5 +287,51 @@ test('an EIC worksheet with no credit or no qualifying child attaches nothing; a
   assert.equal(sub({ qualifyingChildren: 0, earnedIncome: 9000, agi: 9000, credit: 400 }).ok, true);
   const needed = sub({ qualifyingChildren: 2, earnedIncome: 20000, agi: 20000, credit: 5000 });
   assert.equal(needed.ok, false);
-  assert.deepEqual(needed.problems.map((p) => p.code), ['UNSUPPORTED_SCHEDULE']);
+  assert.deepEqual(needed.problems.map((p) => p.code), ['EIC_CHILD_DETAILS_MISSING']);
+});
+
+test('signing uses last year\'s AGI brought in by the prior-year import when none is typed', async () => {
+  const computedReturn = async () => ({ ok: true, data: computed1040() });
+  const args = signArgs({ priorYear: { spouse: { agi: 80000 } } });
+  const bare = await signUsReturn(usState(), args, null, { computedReturn });
+  assert.equal(bare.error, 'SIGNATURE_INVALID');
+  assert.deepEqual(bare.problems.map((problem) => problem.code), ['PRIOR_YEAR_VERIFICATION_MISSING']);
+  const state = usState();
+  state.usReturns = { ...(state.usReturns || {}), 2025: { ...(state.usReturns?.['2025'] || {}), answers: { priorYearAgi: 80000.4 } } };
+  const signed = await signUsReturn(state, args, null, { computedReturn });
+  assert.equal(signed.ok, true, JSON.stringify(signed));
+});
+
+test('a joint signer uses last year\'s joint AGI for the spouse only when last year was a joint MyCA return', async () => {
+  const computedReturn = async () => ({ ok: true, data: computed1040() });
+  const args = signArgs({ priorYear: {} });
+  const typedOnly = usState();
+  typedOnly.usReturns = { 2025: { answers: { priorYearAgi: 80000 } } };
+  const typed = await signUsReturn(typedOnly, args, null, { computedReturn });
+  assert.equal(typed.error, 'SIGNATURE_INVALID');
+  assert.deepEqual(typed.problems.map((problem) => problem.code), ['PRIOR_YEAR_VERIFICATION_MISSING']);
+  assert.match(typed.problems[0].message, /spouse/);
+  const joint = usState();
+  joint.usReturns = { 2024: { filingStatus: 'mfj', answers: {} }, 2025: { answers: { priorYearAgi: 80000 } } };
+  const signed = await signUsReturn(joint, args, null, { computedReturn });
+  assert.equal(signed.ok, true, JSON.stringify(signed));
+});
+
+test('a negative prior-year AGI is kept from the interview and the import and signs the return', async () => {
+  const computedReturn = async () => ({ ok: true, data: computed1040() });
+  const state = usState();
+  const answered = await runTool(state, 'answer_us_interview', { taxYear: '2025', id: 'priorYearAgi', answer: -12500 });
+  assert.equal(answered.ok, true, JSON.stringify(answered));
+  assert.equal(state.usReturns['2025'].answers.priorYearAgi, -12500);
+  assert.equal((await runTool(state, 'answer_us_interview', { taxYear: '2025', id: 'priorYearTax', answer: -1 })).ok, false);
+  assert.deepEqual(importedPriorYear(state, '2025'), { agi: -12500, joint: false });
+  const typed = await runTool(usState(), 'import_us_prior_year', { taxYear: '2025', figures: { agi: -4200 } });
+  assert.equal(typed.ok, true, JSON.stringify(typed));
+  assert.equal(typed.data.answers.priorYearAgi, -4200);
+  assert.equal(validateAssistantToolCall('import_us_prior_year', { taxYear: '2025', figures: { agi: -4200 } }).ok, true);
+  assert.equal(validateAssistantToolCall('sign_us_return', { ...signArgs(), priorYear: { taxpayer: { agi: -12500 }, spouse: { agi: -12500 } } }).ok, true);
+  const signed = await signUsReturn(state, signArgs({ priorYear: { spouse: { agi: -12500 } } }), null, { computedReturn });
+  assert.equal(signed.ok, true, JSON.stringify(signed));
+  const typedSign = await signUsReturn(usState(), signArgs({ priorYear: { taxpayer: { agi: -300 }, spouse: { agi: -300 } } }), null, { computedReturn });
+  assert.equal(typedSign.ok, true, JSON.stringify(typedSign));
 });

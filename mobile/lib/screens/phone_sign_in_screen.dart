@@ -5,7 +5,22 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../brand.dart';
 import '../cloud/cloud_session.dart';
+import '../india/india_strings.dart';
+import '../my/my_strings.dart';
+import '../secure_window.dart';
 import '../theme.dart';
+import '../uae/uae_cloud_strings.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
+import 'apple_sign_in_button.dart';
+import 'privacy_notice_screen.dart';
+
+String? usPhoneNumber(String typed) {
+  var digits = typed.replaceAll(RegExp(r'\D'), '');
+  if (digits.length == 11 && digits.startsWith('1')) digits = digits.substring(1);
+  if (!RegExp(r'^[2-9]\d{2}[2-9]\d{6}$').hasMatch(digits)) return null;
+  return '+1$digits';
+}
 
 class PhoneSignInScreen extends StatefulWidget {
   const PhoneSignInScreen({super.key});
@@ -14,7 +29,7 @@ class PhoneSignInScreen extends StatefulWidget {
   State<PhoneSignInScreen> createState() => _PhoneSignInScreenState();
 }
 
-class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
+class _PhoneSignInScreenState extends State<PhoneSignInScreen> with SecureWindowWhileShown {
   final _phone = TextEditingController();
   final _code = TextEditingController();
   final _authCode = TextEditingController();
@@ -58,8 +73,29 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
 
   Future<void> _sendCode() {
     final state = AppScope.of(context);
+    final String phone;
+    if (state.edition == 'US') {
+      final number = usPhoneNumber(_phone.text);
+      if (number == null) {
+        setState(() => _error = 'Enter your 10-digit US phone number, like (415) 555-0123.');
+        return Future.value();
+      }
+      phone = number;
+    } else if (state.edition == 'MY') {
+      final digits = _phone.text.replaceAll(RegExp(r'\D'), '').replaceFirst(RegExp(r'^(60|0)'), '');
+      phone = '+60$digits';
+    } else if (uaeEdition(context)) {
+      final number = uaeMobileNumber(_phone.text);
+      if (number == null) {
+        setState(() => _error = UaeStrings.of(context).enterUaeMobile);
+        return Future.value();
+      }
+      phone = number;
+    } else {
+      phone = _phone.text.trim();
+    }
     return _run(() async {
-      await state.cloud!.requestCode(_phone.text.trim());
+      await state.cloud!.requestCode(phone);
       _code.clear();
     });
   }
@@ -70,6 +106,16 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
       final token = await state.google!.idToken();
       if (token == null) return;
       await state.cloud!.signInWithGoogle(token);
+      await state.refresh();
+    });
+  }
+
+  Future<void> _apple() {
+    final state = AppScope.of(context);
+    return _run(() async {
+      final credential = await state.apple!.credential();
+      if (credential == null) return;
+      await state.cloud!.signInWithApple(credential);
       await state.refresh();
     });
   }
@@ -115,13 +161,21 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
     final text = Theme.of(context).textTheme;
     final state = AppScope.of(context);
     final cloud = state.cloud!;
+    String w(String english, String malay) => myMalayOr(context, english, malay);
+    final wait = w(UaeStrings.of(context).pleaseWait, 'Sila tunggu…');
+    final muted = state.edition == 'MY' ? Theme.of(context).colorScheme.onSurfaceVariant : Palette.muted;
     final secondStep = cloud.secondStepPending;
     final awaitingCode = cloud.awaitingCode && !secondStep;
     final googleOn = state.google != null && (_methods?.google ?? true);
+    final appleOn = state.apple != null && (_methods?.apple ?? true);
     final firmOn = state.oidc != null && (_methods?.oidc ?? false);
     final firmHost = _methods?.oidcIssuerHost ?? '';
-    final phoneOn = (_methods?.phone ?? true) && !(state.edition == 'US' && (googleOn || firmOn));
-    final phoneOnly = phoneOn && !googleOn && !firmOn;
+    final accountOn = googleOn || appleOn || firmOn;
+    final phoneOn = (_methods?.phone ?? true) && !((state.edition == 'US' || state.edition == 'MY') && accountOn);
+    final phoneOnly = phoneOn && !accountOn;
+    final s = UaeStrings.of(context);
+    final ae = uaeEdition(context);
+    final accountHint = s.accountHint(apple: appleOn, google: googleOn);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -139,44 +193,60 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                   const SizedBox(height: 24),
                   Text(
                     secondStep
-                        ? 'Enter your authenticator code'
+                        ? w(s.enterAuthenticatorCode, 'Masukkan kod pengesah anda')
                         : awaitingCode
-                            ? 'Enter the code'
-                            : (phoneOnly ? 'Your mobile number' : 'Sign in'),
+                            ? w(s.enterTheCode, 'Masukkan kod')
+                            : (phoneOnly ? w(s.yourMobileNumber, 'Nombor telefon bimbit anda') : w(s.signIn, 'Log masuk')),
                     style: text.displaySmall,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     secondStep
-                        ? 'Open your authenticator app and type the 6-digit code. A recovery code works too.'
+                        ? w(s.authenticatorNote, 'Buka aplikasi pengesah anda dan taip kod 6 digit. Kod pemulihan juga boleh digunakan.')
                         : awaitingCode
-                            ? 'We sent a 6-digit code to ${_phone.text.trim()}.'
+                            ? w(s.sentCodeTo(_phone.text.trim()), 'Kami telah menghantar kod 6 digit ke ${_phone.text.trim()}.')
                             : (phoneOnly
-                                  ? 'We will text you a code to sign in. No password to remember.'
-                                  : (googleOn ? 'Use your Google account. No new password to remember.' : 'Use the account your firm gave you. No new password to remember.')),
-                    style: text.bodyLarge?.copyWith(color: Palette.muted),
+                                  ? w(s.weWillText, 'Kami akan menghantar kod melalui SMS untuk log masuk. Tiada kata laluan untuk diingat.')
+                                  : (!appleOn ? w(accountHint, googleOn ? 'Gunakan akaun Google anda. Tiada kata laluan baharu untuk diingat.' : 'Gunakan akaun yang diberikan oleh firma anda. Tiada kata laluan baharu untuk diingat.') : accountHint)),
+                    style: text.bodyLarge?.copyWith(color: muted),
                   ),
+                  if (!awaitingCode && !secondStep) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        key: const Key('signIn.privacy'),
+                        style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(48, 48)),
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyNoticeScreen(readOnly: true))),
+                        child: Text(w(s.readPrivacy, 'Baca cara MyCA menggunakan data anda (dasar privasi)')),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 28),
+                  if (appleOn && !awaitingCode && !secondStep) ...[
+                    AppleSignInButton(busy: _busy, onPressed: _busy ? null : _apple),
+                  ],
                   if (googleOn && !awaitingCode && !secondStep) ...[
+                    if (appleOn) const SizedBox(height: 12),
                     FilledButton(
                       onPressed: _busy ? null : _google,
                       child: Text(
-                        _busy ? 'Please wait…' : 'Continue with Google',
+                        _busy ? wait : w(s.continueWithGoogle, 'Teruskan dengan Google'),
                       ),
                     ),
                   ],
                   if (firmOn && !awaitingCode && !secondStep) ...[
-                    if (googleOn) const SizedBox(height: 12),
+                    if (googleOn || appleOn) const SizedBox(height: 12),
                     OutlinedButton(
                       onPressed: _busy ? null : _firm,
-                      child: Text(firmHost.isEmpty ? 'Sign in with your firm\'s account' : 'Sign in with your firm\'s account ($firmHost)'),
+                      child: Text(w(s.firmAccount(firmHost), firmHost.isEmpty ? 'Log masuk dengan akaun firma anda' : 'Log masuk dengan akaun firma anda ($firmHost)')),
                     ),
                   ],
-                  if ((googleOn || firmOn) && phoneOn && !awaitingCode && !secondStep) ...[
+                  if (accountOn && phoneOn && !awaitingCode && !secondStep) ...[
                     const SizedBox(height: 24),
                     Text(
-                      'Or use your mobile number',
-                      style: text.bodyMedium?.copyWith(color: Palette.muted),
+                      w(s.orUseMobile, 'Atau gunakan nombor telefon bimbit anda'),
+                      style: text.bodyMedium?.copyWith(color: muted),
                     ),
                     const SizedBox(height: 8),
                   ],
@@ -193,15 +263,15 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                         letterSpacing: 4,
                         fontWeight: FontWeight.w500,
                       ),
-                      decoration: const InputDecoration(
-                        labelText: 'Code',
+                      decoration: InputDecoration(
+                        labelText: w(s.code, 'Kod'),
                         counterText: '',
                       ),
                       onSubmitted: (_) => _secondStep(),
                     )
-                  else if (!phoneOn && !googleOn && !firmOn)
+                  else if (!phoneOn && !accountOn)
                     Text(
-                      'Sign-in is not available right now. Try again later.',
+                      w(s.signInUnavailable, 'Log masuk tidak tersedia sekarang. Cuba lagi kemudian.'),
                       style: text.bodyLarge,
                     )
                   else if (!phoneOn)
@@ -212,12 +282,32 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                       autofocus: true,
                       keyboardType: TextInputType.phone,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]')),
+                        const UaeWesternDigitsFormatter(),
+                        FilteringTextInputFormatter.allow(state.edition == 'US' ? RegExp(r'[0-9() -]') : RegExp(r'[0-9+ ]')),
                       ],
-                      decoration: const InputDecoration(
-                        labelText: 'Mobile number',
-                        prefixText: '+91  ',
-                      ),
+                      autofillHints: const [AutofillHints.telephoneNumberNational],
+                      decoration: state.edition == 'US'
+                          ? const InputDecoration(
+                              labelText: 'Mobile number',
+                              prefixText: '+1  ',
+                              hintText: '(415) 555-0123',
+                            )
+                          : state.edition == 'MY'
+                          ? InputDecoration(
+                              labelText: w('Mobile number', 'Nombor telefon bimbit'),
+                              prefixText: '+60  ',
+                              hintText: '12 345 6789',
+                            )
+                          : ae
+                          ? InputDecoration(
+                              labelText: s.mobileNumber,
+                              prefixText: s.uaePrefix,
+                              hintText: '050 123 4567',
+                            )
+                          : InputDecoration(
+                              labelText: inText(context, 'Mobile number'),
+                              prefixText: '+91  ',
+                            ),
                       onSubmitted: (_) => _sendCode(),
                     )
                   else
@@ -226,14 +316,14 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                       autofocus: true,
                       keyboardType: TextInputType.number,
                       maxLength: 6,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      inputFormatters: [const UaeWesternDigitsFormatter(), FilteringTextInputFormatter.digitsOnly],
                       style: const TextStyle(
                         fontSize: 22,
                         letterSpacing: 6,
                         fontWeight: FontWeight.w500,
                       ),
-                      decoration: const InputDecoration(
-                        labelText: 'Code',
+                      decoration: InputDecoration(
+                        labelText: w(s.code, 'Kod'),
                         counterText: '',
                       ),
                       onSubmitted: (_) => _verify(),
@@ -241,8 +331,8 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                   if (_error.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Text(
-                      _error,
-                      style: const TextStyle(
+                      s.cloudSaid(_error),
+                      style: TextStyle(
                         color: Palette.danger,
                         fontWeight: FontWeight.w500,
                       ),
@@ -252,19 +342,19 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                     const SizedBox(height: 20),
                     FilledButton(
                       onPressed: _busy ? null : _secondStep,
-                      child: Text(_busy ? 'Please wait…' : 'Sign in'),
+                      child: Text(_busy ? wait : w(s.signIn, 'Log masuk')),
                     ),
                     const SizedBox(height: 8),
                     TextButton(
                       onPressed: _busy ? null : () => _startOver(cloud),
-                      child: const Text('Start over'),
+                      child: Text(w(s.startOver, 'Mula semula')),
                     ),
                   ] else if (phoneOn) ...[
                     const SizedBox(height: 20),
-                    ((googleOn || firmOn) && !awaitingCode)
+                    (accountOn && !awaitingCode)
                         ? OutlinedButton(
                             onPressed: _busy ? null : _sendCode,
-                            child: const Text('Send code'),
+                            child: Text(w(s.sendCode, 'Hantar kod')),
                           )
                         : FilledButton(
                             onPressed: _busy
@@ -272,8 +362,8 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                                 : (awaitingCode ? _verify : _sendCode),
                             child: Text(
                               _busy
-                                  ? 'Please wait…'
-                                  : (awaitingCode ? 'Sign in' : 'Send code'),
+                                  ? wait
+                                  : (awaitingCode ? w(s.signIn, 'Log masuk') : w(s.sendCode, 'Hantar kod')),
                             ),
                           ),
                   ],
@@ -286,7 +376,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                               cloud.changeNumber();
                               _error = '';
                             }),
-                      child: const Text('Use a different number'),
+                      child: Text(w(s.differentNumber, 'Guna nombor lain')),
                     ),
                   ],
                 ],

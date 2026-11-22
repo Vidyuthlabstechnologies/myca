@@ -1,3 +1,4 @@
+import { booksAatoOpts } from './aato.mjs';
 import { runSandboxOperation } from './sandbox-adapter.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
 import { regArg, companyAs, forRegistration, scopeKey } from './registrations.mjs';
@@ -73,6 +74,7 @@ function gstr1Payload(state, period, gstin) {
     creditNotes: forRegistration(state, state.creditNotes || [], gstin),
     debitNotes: forRegistration(state, state.debitNotes || [], gstin),
     channels: state.channels,
+    ...booksAatoOpts(state, fpOf(period)),
   });
   if (json.error) return fail(json.error, { hint: json.hint });
   const { hash, held, warnings, ...body } = json;
@@ -221,6 +223,7 @@ export async function fileGstr1OnPortal(state, args = {}, actor) {
   if (!regd.ok) return regd;
   const saved = savesOf(state)[scopeKey(state, period, regd.gstin)];
   if (!saved) return fail('NOT_SAVED', { hint: 'Save the GSTR-1 to the portal first ("save GSTR-1 for 2026-09 to the portal"), then file it.' });
+  if (saved.filedAck && !saved.filedMock) return fail('ALREADY_FILED', { ackNum: saved.filedAck, period, gstin: regd.gstin });
   const built = gstr1Payload(state, period, regd.gstin);
   if (!built.ok) return built;
   if (built.hash !== saved.draftHash) return fail('DRAFT_CHANGED', { hint: 'The invoices changed since the save; save again, then file.' });
@@ -260,6 +263,7 @@ export async function fileGstr1OnPortal(state, args = {}, actor) {
   }
   saved.filedAck = ackNum;
   saved.filedOn = localToday();
+  saved.filedMock = Boolean(out.mock);
   return { ok: true, period, gstin: regd.gstin, ackNum, filing, mock: Boolean(out.mock) };
 }
 
@@ -302,7 +306,7 @@ export function portalWords(name, result) {
   if (name === 'portal_status') {
     const d = result.data;
     if (!d.gstr1.length && !(d.gstr3b || []).length && !d.fvu.length) return 'Nothing has been saved to the GST portal or sent for FVU yet.';
-    return [...d.gstr1.map((s) => `· GSTR-1 ${s.period} ${s.gstin}: saved ${s.savedOn}${s.filedAck ? `, filed ${s.filedOn} (${s.filedAck})` : ''}${s.mock ? ' (simulated)' : ''}`), ...(d.gstr3b || []).map((s) => `· GSTR-3B ${s.period} ${s.gstin}: saved ${s.savedOn}${s.offsetOn ? `, tax set off ${s.offsetOn}` : ''}${s.filedAck ? `, filed ${s.filedOn} (${s.filedAck})` : ''}${s.mock ? ' (simulated)' : ''}`), ...d.fvu.map((j) => `· FVU ${j.form} ${j.quarter}: ${j.status}${j.mock ? ' (simulated)' : ''}`)].join('\n');
+    return [...d.gstr1.map((s) => `· GSTR-1 ${s.period} ${s.gstin}: saved ${s.savedOn}${s.filedAck ? `, filed ${s.filedOn} (${s.filedAck})` : ''}${s.mock || s.filedMock ? ' (simulated)' : ''}`), ...(d.gstr3b || []).map((s) => `· GSTR-3B ${s.period} ${s.gstin}: saved ${s.savedOn}${s.offsetOn ? `, tax set off ${s.offsetOn}` : ''}${s.filedAck ? `, filed ${s.filedOn} (${s.filedAck})` : ''}${s.mock || s.filedMock ? ' (simulated)' : ''}`), ...d.fvu.map((j) => `· FVU ${j.form} ${j.quarter}: ${j.status}${j.mock ? ' (simulated)' : ''}`)].join('\n');
   }
   return '';
 }

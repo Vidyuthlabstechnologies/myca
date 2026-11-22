@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import 'api/models.dart';
 import 'api/myca_api.dart';
+import 'india/india_strings.dart';
 import 'widgets.dart';
 
 class ThreadEntry {
@@ -57,7 +58,7 @@ mixin ProposalFlow<T extends StatefulWidget> on State<T> {
             ThreadEntry(
               text: preview.summary,
               tone: BubbleTone.pending,
-              label: 'Not posted yet',
+              label: inText(context, 'Not posted yet'),
               footnotes: preview.effects,
             ),
           );
@@ -67,7 +68,7 @@ mixin ProposalFlow<T extends StatefulWidget> on State<T> {
             ThreadEntry(
               text: reply.reply,
               tone: BubbleTone.posted,
-              label: 'Posted',
+              label: inText(context, 'Posted'),
             ),
           );
         } else if (reply.blocked) {
@@ -75,7 +76,7 @@ mixin ProposalFlow<T extends StatefulWidget> on State<T> {
             ThreadEntry(
               text: reply.reply,
               tone: BubbleTone.problem,
-              label: 'Not posted',
+              label: inText(context, 'Not posted'),
             ),
           );
         } else {
@@ -98,7 +99,7 @@ mixin ProposalFlow<T extends StatefulWidget> on State<T> {
     }
   }
 
-  Future<void> say(String message) => _run(message, () => api.chat(message));
+  Future<void> say(String message, {String? shown}) => _run(shown ?? message, () => api.chat(message, lang: indiaLang(context)));
 
   Future<void> propose(String said, String tool, Map<String, Object?> args) =>
       _run(said, () => api.propose(tool, args));

@@ -141,12 +141,26 @@ export function escapeHtml(text) {
   return String(text ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
 
+export const PAGE_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://cdn.plaid.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.plaid.com",
+  'frame-src https://cdn.plaid.com https://*.plaid.com',
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
 function send(req, res, code, body, type = 'application/json') {
   const headers = {
     'content-type': type,
     'cache-control': 'no-store',
     'x-frame-options': 'DENY',
-    'content-security-policy': "frame-ancestors 'none'",
+    'content-security-policy': type === types['.html'] ? PAGE_CSP : "frame-ancestors 'none'",
     'x-content-type-options': 'nosniff',
     ...corsHeaders(req),
   };
@@ -198,7 +212,9 @@ function assertApiRequest(req) {
 function handler(req, res) {
   return (async () => {
     const url = new URL(req.url, 'http://127.0.0.1');
-    assertLocalRequest(req);
+    const oauthReturn = req.method === 'GET' && url.pathname === '/api/oauth/gusto/callback';
+    if (!oauthReturn) assertLocalRequest(req);
+    else if (!isAllowedHost(req.headers.host)) throw refuse('host not allowed');
     if (req.method === 'OPTIONS') {
       if (!isAllowedOrigin(req.headers.origin, req.headers.host)) {
         res.writeHead(403, { 'content-type': 'application/json', 'cache-control': 'no-store' });
@@ -237,8 +253,8 @@ function handler(req, res) {
       return send(req, res, 200, { ok: true, user: session.activeUser() });
     }
     if (req.method === 'POST' && url.pathname === '/api/chat') {
-      const { message } = JSON.parse(await readBody(req) || '{}');
-      return send(req, res, 200, await session.chat(message));
+      const { message, lang } = JSON.parse(await readBody(req) || '{}');
+      return send(req, res, 200, await session.chat(message, lang ? { lang: String(lang) } : undefined));
     }
     if (req.method === 'POST' && url.pathname === '/api/propose') {
       const { name, args } = JSON.parse(await readBody(req) || '{}');

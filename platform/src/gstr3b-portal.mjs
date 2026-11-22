@@ -1,26 +1,75 @@
 import { createHash } from 'node:crypto';
 import { runSandboxOperation } from './sandbox-adapter.mjs';
 import { gstr3bFor } from './period-summary.mjs';
-import { paymentFor } from './gst-payment.mjs';
+import { paymentFor, creditOpening } from './gst-payment.mjs';
 import { reviewOf } from './gst-review.mjs';
 import { recordFiling, filingFor } from './filings.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { documentsForPeriod, isReturnPeriod, fpOf } from './return-period.mjs';
-import { regArg, companyAs, scopeKey } from './registrations.mjs';
+import { regArg, companyAs, scopeKey, isPrincipal } from './registrations.mjs';
 import { localToday } from './dates.mjs';
 import { normalizeClientId } from './books.mjs';
+import { reverseChargeTotals } from './reverse-charge.mjs';
+import { isSezSupply } from './chart.mjs';
 
 const ARN = /^[A-Z0-9]{10,20}$/;
 const PAN = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 const TAX = 30002;
+const REVERSE_CHARGE = 30003;
 
 function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
 }
 
 const r2 = (value) => Math.round(Number(value || 0) * 100) / 100;
-const amounts = (txval, iamt, camt, samt) => ({ txval: r2(txval), iamt: r2(iamt), camt: r2(camt), samt: r2(samt), csamt: 0 });
-const taxOnly = (iamt, camt, samt) => ({ iamt: r2(iamt), camt: r2(camt), samt: r2(samt), csamt: 0 });
+const amounts = (txval, iamt, camt, samt, csamt = 0) => ({ txval: r2(txval), iamt: r2(iamt), camt: r2(camt), samt: r2(samt), csamt: r2(csamt) });
+const taxOnly = (iamt, camt, samt, csamt = 0) => ({ iamt: r2(iamt), camt: r2(camt), samt: r2(samt), csamt: r2(csamt) });
+
+function cessOf(doc) {
+  return (doc.lines || []).reduce((sum, line) => sum + Number(line.cess || 0), 0);
+}
+
+function zeroRatedDoc(doc) {
+  return Boolean(doc.export) || String(doc.placeOfSupply || '') === '96' || isSezSupply(doc);
+}
+
+export function cessTotals(docs) {
+  const signed = [...(docs.invoices || []).map((doc) => [doc, 1]), ...(docs.debitNotes || []).map((doc) => [doc, 1]), ...(docs.creditNotes || []).map((doc) => [doc, -1])];
+  let outward = 0;
+  let zero = 0;
+  for (const [doc, sign] of signed) {
+    if (zeroRatedDoc(doc)) zero += sign * cessOf(doc);
+    else outward += sign * cessOf(doc);
+  }
+  let input = 0;
+  let ineligible = 0;
+  for (const bill of docs.purchases || []) {
+    if (bill.itcEligible === false) ineligible += cessOf(bill);
+    else input += cessOf(bill);
+  }
+  for (const note of docs.purchaseNotes || []) {
+    if (note.itcEligible === false) ineligible -= cessOf(note);
+    else input -= cessOf(note);
+  }
+  return { outward: r2(outward), zero: r2(zero), output: r2(outward + zero), input: r2(input), ineligible: r2(ineligible) };
+}
+
+function monthAfter(period) {
+  const [y, m] = period.split('-').map(Number);
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+}
+
+export function cessBroughtForward(state, period, gstin) {
+  const opening = isPrincipal(state, gstin) ? creditOpening(state) : null;
+  if (!opening || opening.cess == null || period < opening.period) return { known: false, credit: 0 };
+  let carried = Number(opening.cess || 0);
+  for (let month = opening.period; month < period; month = monthAfter(month)) {
+    const docs = documentsForPeriod(state, month, '', gstin);
+    const totals = docs.ok && docs.period ? cessTotals(docs) : { input: 0, output: 0 };
+    carried = r2(Math.max(0, carried + totals.input - totals.output));
+  }
+  return { known: true, credit: r2(carried) };
+}
 
 function savesOf(state) {
   if (!state.gstr3bPortal || typeof state.gstr3bPortal !== 'object') state.gstr3bPortal = {};
@@ -31,16 +80,17 @@ function lineSupply(line) {
   return String(line?.supply || '');
 }
 
-function exportsAndNonGst(invoices) {
+function exportsAndNonGst(docs) {
   const zero = { txval: 0, iamt: 0 };
   const fromRated = { txval: 0, iamt: 0 };
   let fromNil = 0;
   let nonGst = 0;
-  for (const inv of invoices) {
-    const exported = Boolean(inv.export) || String(inv.placeOfSupply || '') === '96';
+  const signed = [...(docs.invoices || []).map((doc) => [doc, 1]), ...(docs.debitNotes || []).map((doc) => [doc, 1]), ...(docs.creditNotes || []).map((doc) => [doc, -1])];
+  for (const [inv, sign] of signed) {
+    const exported = zeroRatedDoc(inv);
     for (const line of inv.lines || []) {
-      const taxable = Number(line.taxable || 0);
-      const igst = Number(line.igst || 0);
+      const taxable = sign * Number(line.taxable || 0);
+      const igst = sign * Number(line.igst || 0);
       if (exported) {
         zero.txval += taxable;
         zero.iamt += igst;
@@ -80,31 +130,35 @@ export function gstr3bPortalJson(state, period, gstin) {
   if (!company.gstin) return fail('GSTIN_REQUIRED', { hint: 'Add the business GSTIN first.' });
   const draft = gstr3bFor(state, docs);
   const totals = draft.outward?.totals || {};
-  const extra = exportsAndNonGst(docs.invoices);
+  const extra = exportsAndNonGst(docs);
   const warnings = [];
   if (draft.missingHsn?.length) warnings.push(`Invoices without an HSN are counted in the totals: ${draft.missingHsn.join(', ')}.`);
-  const outward = amounts(Number(totals.interTaxable || 0) + Number(totals.intraTaxable || 0) - extra.fromRated.txval, Number(totals.interIgst || 0) - extra.fromRated.iamt, totals.intraCgst, totals.intraSgst);
+  const cessForward = cessBroughtForward(state, docs.period, regd.gstin);
+  const cess = { ...cessTotals(docs), broughtForward: cessForward.credit, broughtForwardKnown: cessForward.known };
+  const outward = amounts(Number(totals.interTaxable || 0) + Number(totals.intraTaxable || 0) - extra.fromRated.txval, Number(totals.interIgst || 0) - extra.fromRated.iamt, totals.intraCgst, totals.intraSgst, cess.outward);
   const nilExempt = Math.max(0, Number(draft.outward?.nilExemptTaxable || 0) - extra.fromNil - extra.nonGst);
   const itc = draft.itc || {};
   const available = itc.available || {};
   const ineligible = itc.ineligible || {};
-  const importServices = Number(itc.importServicesIgst || 0);
-  const others = taxOnly(Number(available.igst || 0) - importServices, available.cgst, available.sgst);
-  const net = taxOnly(available.igst, available.cgst, available.sgst);
+  const rcm = reverseChargeTotals(docs.purchases);
+  const importServices = rcm.eligibleImport.igst;
+  const otherRcm = rcm.eligibleOther;
+  const others = taxOnly(Number(available.igst || 0) - importServices - otherRcm.igst, Number(available.cgst || 0) - otherRcm.cgst, Number(available.sgst || 0) - otherRcm.sgst, cess.input);
+  const net = taxOnly(available.igst, available.cgst, available.sgst, cess.input);
   const payment = paymentFor(state, docs.period, { gstin: regd.gstin });
   const late = payment.ok ? payment.data.late : null;
   const interest = late?.interest ? late.interest : 0;
-  const cash = payment.ok ? payment.data.cash : { igst: 0, cgst: 0, sgst: 0 };
+  const cash = cashWithReverseCharge(payment.ok ? payment.data : null);
   const cashTotal = Number(cash.igst || 0) + Number(cash.cgst || 0) + Number(cash.sgst || 0);
-  const share = (head) => (cashTotal > 0 ? r2(interest * Number(cash[head] || 0) / cashTotal) : 0);
+  const [igstInterest, cgstInterest, sgstInterest] = cashTotal > 0 ? splitByWeight(interest, [cash.igst, cash.cgst, cash.sgst]) : [0, 0, 0];
   const body = {
     gstin: company.gstin,
     ret_period: fpOf(docs.period),
     sup_details: {
       osup_det: outward,
-      osup_zero: amounts(extra.zero.txval, extra.zero.iamt, 0, 0),
+      osup_zero: amounts(extra.zero.txval, extra.zero.iamt, 0, 0, cess.zero),
       osup_nil_exmp: { txval: r2(nilExempt) },
-      isup_rev: amounts(0, 0, 0, 0),
+      isup_rev: amounts(rcm.taxable, rcm.igst, rcm.cgst, rcm.sgst),
       osup_nongst: { txval: r2(extra.nonGst) },
     },
     inter_sup: {
@@ -116,7 +170,7 @@ export function gstr3bPortalJson(state, period, gstin) {
       itc_avl: [
         { ty: 'IMPG', ...taxOnly(0, 0, 0) },
         { ty: 'IMPS', ...taxOnly(importServices, 0, 0) },
-        { ty: 'ISRC', ...taxOnly(0, 0, 0) },
+        { ty: 'ISRC', ...taxOnly(otherRcm.igst, otherRcm.cgst, otherRcm.sgst) },
         { ty: 'ISD', ...taxOnly(0, 0, 0) },
         { ty: 'OTH', ...others },
       ],
@@ -126,7 +180,7 @@ export function gstr3bPortalJson(state, period, gstin) {
       ],
       itc_net: net,
       itc_inelg: [
-        { ty: 'RUL', ...taxOnly(ineligible.igst, ineligible.cgst, ineligible.sgst) },
+        { ty: 'RUL', ...taxOnly(ineligible.igst, ineligible.cgst, ineligible.sgst, cess.ineligible) },
         { ty: 'OTH', ...taxOnly(0, 0, 0) },
       ],
     },
@@ -136,14 +190,17 @@ export function gstr3bPortalJson(state, period, gstin) {
         { ty: 'NONGST', inter: 0, intra: 0 },
       ],
     },
-    intr_ltfee: { intr_details: taxOnly(share('igst'), share('cgst'), share('sgst')) },
+    intr_ltfee: { intr_details: taxOnly(igstInterest, cgstInterest, sgstInterest) },
   };
   if (interest > 0) warnings.push(`Interest of ₹${r2(interest)} for paying late is included.`);
   if (!payment.ok) warnings.push('The tax to pay could not be worked out, so no interest is included.');
   else if (payment.data.broughtForwardKnown === false) warnings.push('Credit carried from earlier months is not known to MyCA; check the electronic credit ledger on the portal.');
-  warnings.push('Reverse-charge purchases, imports of goods, ISD credit, credit reversals and cess are not in the books, so those rows are zero.');
+  if (rcm.count) warnings.push(`Reverse charge tax of ₹${rcm.total} on ${rcm.count} ${rcm.count === 1 ? 'purchase' : 'purchases'} is in 3.1(d) and must be paid in cash; its credit is in 4(A)(2) and 4(A)(3).`);
+  if (cess.output || cess.input) warnings.push(`Compensation cess: ₹${cess.output} on supplies and ₹${cess.input} of cess credit${cess.broughtForward > 0 ? ` plus ₹${cess.broughtForward} brought forward` : ''}; cess credit can be used only against cess.`);
+  if (cess.output && !cess.broughtForwardKnown) warnings.push('Cess credit carried from earlier months is not known to MyCA; check the cess balance in the electronic credit ledger on the portal.');
+  warnings.push(cess.output || cess.input ? 'Imports of goods, ISD credit and credit reversals are not in the books, so those rows are zero.' : 'Imports of goods, ISD credit, credit reversals and cess are not in the books, so those rows are zero.');
   const hash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
-  return { ok: true, period: docs.period, gstin: company.gstin, body, hash, warnings, payment: payment.ok ? payment.data : null };
+  return { ok: true, period: docs.period, gstin: company.gstin, body, hash, warnings, payment: payment.ok ? payment.data : null, cess };
 }
 
 function foundSave(state, args) {
@@ -209,18 +266,51 @@ export async function gstr3bPortalLiability(state, args = {}, actor) {
   return { ok: true, period: found.period, gstin: found.gstin, liability: found.saved.liability, mock: Boolean(out.mock) };
 }
 
-export function offsetPlan(payment, ledgerIds = {}) {
+export function splitByWeight(amount, weights) {
+  const total = BigInt(Math.max(0, Math.round(Number(amount || 0) * 100)));
+  const units = weights.map((weight) => BigInt(Math.max(0, Math.round(Number(weight || 0) * 100))));
+  const sum = units.reduce((acc, unit) => acc + unit, 0n);
+  if (total === 0n || sum === 0n) return units.map(() => 0);
+  const parts = units.map((unit, index) => ({ index, floor: (total * unit) / sum, remainder: (total * unit) % sum }));
+  let left = total - parts.reduce((acc, part) => acc + part.floor, 0n);
+  for (const part of [...parts].sort((a, b) => (b.remainder > a.remainder ? 1 : b.remainder < a.remainder ? -1 : a.index - b.index))) {
+    if (left === 0n) break;
+    part.floor += 1n;
+    left -= 1n;
+  }
+  return parts.map((part) => Number(part.floor) / 100);
+}
+
+function cashWithReverseCharge(payment) {
+  const cash = payment?.cash || {};
+  const rcm = payment?.reverseCharge || {};
+  return { igst: Number(cash.igst || 0) + Number(rcm.igst || 0), cgst: Number(cash.cgst || 0) + Number(rcm.cgst || 0), sgst: Number(cash.sgst || 0) + Number(rcm.sgst || 0) };
+}
+
+export function offsetPlan(payment, ledgerIds = {}, cess = {}) {
+  const cessCredit = r2(Math.max(0, Math.min(Number(cess.input || 0) + Number(cess.broughtForward || 0), Number(cess.output || 0))));
+  const cessCash = r2(Math.max(0, Number(cess.output || 0) - cessCredit));
   const used = payment.used || {};
   const cash = payment.cash || {};
+  const rcm = payment.reverseCharge || {};
   const late = payment.late || null;
   const interest = Number(late?.interest || 0);
-  const cashTotal = Number(cash.igst || 0) + Number(cash.cgst || 0) + Number(cash.sgst || 0);
-  const share = (head) => (cashTotal > 0 ? r2(interest * Number(cash[head] || 0) / cashTotal) : 0);
-  const fee = r2(Number(late?.lateFee || 0) / 2);
+  const all = cashWithReverseCharge(payment);
+  const cashTotal = all.igst + all.cgst + all.sgst;
+  const rcmRow = { igst: Number(rcm.igst || 0), cgst: Number(rcm.cgst || 0), sgst: Number(rcm.sgst || 0) };
+  const byHead = cashTotal > 0 ? splitByWeight(interest, [all.igst, all.cgst, all.sgst]) : [0, 0, 0];
+  const interestOf = { tax: {}, rcm: {} };
+  ['igst', 'cgst', 'sgst'].forEach((head, index) => {
+    [interestOf.tax[head], interestOf.rcm[head]] = splitByWeight(byHead[index], [cash[head], rcmRow[head]]);
+  });
+  const [cgstFee, sgstFee] = splitByWeight(Number(late?.lateFee || 0), [1, 1]);
   const ledger = (type) => Number(ledgerIds[type] || 0);
+  const rcmTotal = Number(rcm.igst || 0) + Number(rcm.cgst || 0) + Number(rcm.sgst || 0);
+  const cashRow = (type, row, part, fees, cessPaid = 0) => ({ liab_ldg_id: ledger(type), trans_typ: type, ipd: r2(row.igst), cpd: r2(row.cgst), spd: r2(row.sgst), cspd: cessPaid, i_intrpd: part.igst, c_intrpd: part.cgst, s_intrpd: part.sgst, cs_intrpd: 0, c_lfeepd: fees[0], s_lfeepd: fees[1] });
   return {
     pdcash: [
-      { liab_ldg_id: ledger(TAX), trans_typ: TAX, ipd: r2(cash.igst), cpd: r2(cash.cgst), spd: r2(cash.sgst), cspd: 0, i_intrpd: share('igst'), c_intrpd: share('cgst'), s_intrpd: share('sgst'), cs_intrpd: 0, c_lfeepd: fee, s_lfeepd: fee },
+      cashRow(TAX, cash, interestOf.tax, [cgstFee, sgstFee], cessCash),
+      ...(rcmTotal > 0 ? [cashRow(REVERSE_CHARGE, rcm, interestOf.rcm, [0, 0])] : []),
     ],
     pditc: {
       liab_ldg_id: ledger(TAX),
@@ -228,7 +318,7 @@ export function offsetPlan(payment, ledgerIds = {}) {
       i_pdi: r2(used.igst?.igst), i_pdc: r2(used.igst?.cgst), i_pds: r2(used.igst?.sgst),
       c_pdi: r2(used.cgst?.igst), c_pdc: r2(used.cgst?.cgst),
       s_pdi: r2(used.sgst?.igst), s_pds: r2(used.sgst?.sgst),
-      cs_pdcs: 0,
+      cs_pdcs: cessCredit,
     },
   };
 }
@@ -242,8 +332,8 @@ export async function offsetGstr3bOnPortal(state, args = {}, actor) {
   const review = approvedReview(state, found.period, found.gstin);
   if (!review.ok) return review;
   if (!built.payment) return fail('PAYMENT_UNKNOWN', { hint: 'MyCA could not work out the tax to pay for the month.' });
-  const plan = offsetPlan(built.payment, found.saved.ledgerIds || {});
-  const cashNeeded = r2(plan.pdcash.reduce((sum, row) => sum + row.ipd + row.cpd + row.spd + row.i_intrpd + row.c_intrpd + row.s_intrpd + row.c_lfeepd + row.s_lfeepd, 0));
+  const plan = offsetPlan(built.payment, found.saved.ledgerIds || {}, built.cess);
+  const cashNeeded = r2(plan.pdcash.reduce((sum, row) => sum + row.ipd + row.cpd + row.spd + row.cspd + row.i_intrpd + row.c_intrpd + row.s_intrpd + row.c_lfeepd + row.s_lfeepd, 0));
   const out = await op(state, actor, args, 'gst_gstr3b_offset', { period: found.period, payload: plan }, { period: found.period, gstin: found.gstin, draftHash: found.saved.draftHash, cash: cashNeeded }, { period: found.period, gstin: found.gstin, draftHash: found.saved.draftHash });
   if (!out.ok) return { ...out, period: found.period, gstin: found.gstin, cashNeeded, hint: out.hint || (cashNeeded > 0 ? `The cash ledger needs ₹${cashNeeded}; pay it by challan (PMT-06) first.` : '') };
   found.saved.offsetOn = localToday();
@@ -264,12 +354,12 @@ export async function requestGstr3bEvc(state, args = {}, actor) {
 export async function fileGstr3bOnPortal(state, args = {}, actor) {
   const found = foundSave(state, args);
   if (!found.ok) return found;
-  if (found.saved.filedAck) return fail('ALREADY_FILED', { ackNum: found.saved.filedAck });
+  if (found.saved.filedAck && !found.saved.filedMock) return fail('ALREADY_FILED', { ackNum: found.saved.filedAck });
   const built = sameDraft(state, found);
   if (!built.ok) return built;
   const review = approvedReview(state, found.period, found.gstin);
   if (!review.ok) return review;
-  const cashOwed = built.payment ? Number(built.payment.cash?.total || 0) + Number(built.payment.creditUsed || 0) : 0;
+  const cashOwed = (built.payment ? Number(built.payment.cash?.total || 0) + Number(built.payment.reverseCharge?.total || 0) + Number(built.payment.creditUsed || 0) : 0) + Number(built.cess?.output || 0);
   if (!found.saved.offsetOn && cashOwed > 0) return fail('NOT_SET_OFF', { hint: 'Set off the tax on the portal first ("pay GSTR-3B for 2026-09 on the portal").' });
   const pan = String(args.pan || state.company?.pan || '').trim().toUpperCase();
   if (!PAN.test(pan)) return fail('PAN_REQUIRED');
@@ -285,6 +375,7 @@ export async function fileGstr3bOnPortal(state, args = {}, actor) {
   }
   found.saved.filedAck = ackNum;
   found.saved.filedOn = localToday();
+  found.saved.filedMock = Boolean(out.mock);
   return { ok: true, period: found.period, gstin: found.gstin, ackNum, filing, mock: Boolean(out.mock) };
 }
 

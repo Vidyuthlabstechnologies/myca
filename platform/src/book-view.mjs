@@ -1,7 +1,7 @@
 export const BOOK_KEYS = new Set([
   'company', 'ledger', 'parties', 'vendors', 'invoices', 'purchases',
   'countryData',
-  'invoiceSeq', 'invoiceSeqByFy', 'billSeq', 'transferSeq', 'imports', 'lockThrough',
+  'invoiceSeq', 'invoiceSeqByFy', 'billSeq', 'selfInvoiceSeq', 'transferSeq', 'imports', 'lockThrough',
   'files', 'attachments', 'pendingFile', 'pendingChatAction', 'lastConfirmation',
   'exceptions', 'exceptionSeq',
   'expenses', 'expenseSeq', 'expenseTags',
@@ -18,7 +18,7 @@ export const BOOK_KEYS = new Set([
   'employees', 'employeeSeq',
   'tdsEntries', 'tdsDeposits',
   'gstCreditOpening', 'tdsReviews', 'payrollRuns', 'usReturns', 'salesTaxRates', 'salesTaxNexus', 'salesTaxReviews', 'salesTaxPayments', 'gstPayments', 'sutaRates', 'yearClosings', 'automation', 'amendmentSeq', 'chatRecent',
-  'settlements', 'settlementSeq', 'channels', 'tcsStatements', 'tdsCreditStatements', 'skus', 'stockMoves', 'inventoryValuations', 'portalSaves', 'gstr3bPortal', 'tdsFvuJobs', 'usEfile',
+  'catalogue', 'settlements', 'settlementSeq', 'channels', 'tcsStatements', 'tdsCreditStatements', 'skus', 'stockMoves', 'inventoryValuations', 'loyalty', 'inventoryCosting', 'offlineSeries', 'portalSaves', 'gstr3bPortal', 'tdsFvuJobs', 'usEfile',
 ]);
 
 export const FIRM_KEYS = new Set([

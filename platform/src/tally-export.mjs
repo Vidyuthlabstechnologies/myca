@@ -1,10 +1,10 @@
-import { htmlEscape } from './text-safe.mjs';
+import { xmlText } from './text-safe.mjs';
 import { isReturnPeriod, periodOf } from './return-period.mjs';
 import { localToday } from './dates.mjs';
 import { isTdsReceipt } from './tds-credits.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
-const text = (value) => htmlEscape(String(value ?? '').trim());
+const text = (value) => xmlText(String(value ?? '').trim());
 
 const GROUPS = {
   customer: 'Sundry Debtors',
@@ -154,6 +154,7 @@ export function tallyVouchers(state, period) {
       entry(LEDGERS.purchases, blocked ? round2(bill.taxable + tax) : bill.taxable, true),
       ...(blocked ? [] : taxEntries(bill, 'input', true)),
       entry(bill.partyName, round2(bill.total - tds), false),
+      ...(bill.reverseCharge ? taxEntries(bill, 'output', false) : []),
       entry(LEDGERS.tdsPayable, tds, false),
     ] }));
   }
@@ -170,7 +171,9 @@ export function tallyVouchers(state, period) {
     use(note.partyName, GROUPS.supplier, note.partyGstin || '');
     const tax = round2(note.cgst + note.sgst + note.igst);
     push(voucher({ type: 'Debit Note', date: note.date, number: note.id, party: note.partyName, narration: `Against ${note.billId}: ${note.reason}`, reference: note.billId, entries: [
-      entry(note.partyName, note.total, true),
+      entry(note.partyName, round2(note.total - Number(note.tdsReversed || 0)), true),
+      entry(LEDGERS.tdsPayable, note.tdsReversed, true),
+      ...(note.reverseCharge ? taxEntries(note, 'output', true) : []),
       entry(LEDGERS.purchases, note.itcEligible === false ? round2(note.taxable + tax) : note.taxable, false),
       ...(note.itcEligible === false ? [] : taxEntries(note, 'input', false)),
     ] }));

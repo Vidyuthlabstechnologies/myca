@@ -185,6 +185,131 @@ and [`README.md`](README.md) for what is left and how it is being done.
   books themselves (sales, receipts, credit notes, purchases, payments, expenses with their
   heads and TDS sections, approved payroll) when no ledger file is attached (2026-10-16)
 
+- Competitive gaps (2026-11-14, see docs/product/COMPETITIVE-GAP-MATRIX.md): US refund booster
+  (`us_refund_boost`, each unused deduction priced by re-running the return); UK simplified expenses
+  and trading allowance check (`gb_simplified_expenses`) and CIS deductions (`gb_cis_deductions`);
+  UAE end-of-service gratuity (`ae_gratuity`) and WPS salary file (`ae_wps_file`), all from dated rules
+- India counter billing (2026-11-14): `find_item` looks up a SKU by code or barcode, `set_sku_cost`
+  stores barcode and selling price; the Android Counter sale screen scans with the camera, bills through
+  `create_invoice` and prints the engine's figures on a 58/80 mm Bluetooth ESC/POS printer
+- India online store (2026-11-21): `catalogue_settings`, `catalogue_items`, `catalogue_view`, `store_orders`
+  and `store_order_action` (`catalogue.mjs`); the hosted API keeps a public snapshot per business in
+  `store_links` (refreshed in the same transaction as any write), serves `GET /s/<slug>` (cart, WhatsApp
+  order and Place order, strict CSP) and `GET /v1/store/<slug>`, takes `POST /v1/store/<slug>/orders`
+  (priced from the snapshot, rate-limited) into `store_orders`; the Android Online store screen publishes
+  items, shares the link and turns an order into a quote
+- India loyalty points (2026-11-21): `loyalty_settings` (owner; earn rate on value before GST or total,
+  point value, minimum, most of a bill, expiry), points earned on sales to named customers, `redeemPoints`
+  on `create_invoice` as a discount before GST (CGST Act s.15(3)(a)) shown as "Loyalty points redeemed",
+  reversal on credit notes and cancellations, `loyalty_adjust` (owner, reason, audited) and `loyalty_balance`
+  with points liability and a WhatsApp balance line; Android Loyalty points screen and Use points on
+  the counter sale and the customer's sale
+- India inventory depth (2026-11-21): `set_costing_method` chooses FIFO or weighted average once
+  (AS 2 para 16 / Ind AS 2 para 25; LIFO refused; a change needs a reason and is audited); stock-in
+  carries a cost per lot, batch and expiry; stock out, `stock_position`, valuations, `sku_margins` and
+  `inventory_costing` (lots and cost of goods out) use the method, with existing stock as the opening lot
+  at the recorded cost and no change until a method is chosen. Items carry a GST UQC and a reorder level;
+  invoice and bill lines with a SKU carry the unit (GSTR-1 HSN, e-invoice and e-way bill use it) and move
+  tracked stock, cancellation puts it back. `stock_alerts` lists expired, expiring in 30 days and low
+  stock, and the reorder level feeds `restock_plan`. The counter sale item form takes the unit, the
+  low-stock level and opening stock with batch and expiry; "Expiring soon and low stock" list, in Hindi
+- Malaysia PCB (2026-11-14): `my_payroll` works out the monthly tax deduction by LHDN's computerised
+  method from `my.payroll.pcb` and the resident bands and rebate rules (categories 1 to 3, children,
+  bonus, year to date, zakat, TP1 deductions; flat rate for non-residents)
+- UAE payroll run (2026-11-14): `ae_payroll_run` pays overtime on the basic hourly wage, rest days,
+  unpaid leave, GPSSA pension for Emiratis and the month's gratuity accrual from dated rules
+  (`ae.labour.overtime`, `ae.labour.wage-deductions`, `ae.pension.gpssa`) and hands WPS lines to `ae_wps_file`
+- US start from last year (2026-11-14): `import_us_prior_year` copies the profile, sealed SSNs and
+  dependents from last year's MyCA return, fills last year's AGI, tax and capital loss carryovers (or
+  takes them typed), and lists the forms to expect; the US app has a Start from last year screen
+- US amended return (2026-11-21): `start_us_amended_return` keeps the original 1040 (the accepted MyCA
+  filing, or typed figures from a return filed elsewhere) as column A, `us_amended_return` computes Form 1040-X
+  (Rev. December 2025) lines 1 to 23, Part I dependents and Part II, with the refund-claim deadline, the
+  joint-to-separate rule and IRS e-file eligibility; `us_return_review` links it. MyCA does not transmit 1040-X yet
+- UK payroll calculation (2026-11-15): `gb_payroll_run` works out a weekly or monthly pay run for 2026-27 by the
+  HMRC computerised PAYE method (cumulative, week 1/month 1, K, BR, D and NT codes, Scottish and Welsh
+  prefixes, the 50% limit), Class 1 National Insurance by category letter, student and postgraduate loans
+  and pensions, from `gb.paye.calculation` and `gb.ni.class-1`; it does not send RTI to HMRC
+- UK bank feed (2026-11-15): the Plaid connector now serves UK businesses too. The link token asks for GB
+  banks and carries the UK app's Android package, the Connections screen offers it in the UK edition, and the
+  pulled transactions import as a bank statement like the US ones. It stays off until the owner has Plaid UK
+  production access, registers `com.mldynamic.myca.uk` in the Plaid dashboard and saves the keys; the UK
+  privacy notice names Plaid with its entity and region left for the solicitor to confirm
+- US state income tax, first slice (2026-11-15): `us_state_tax` answers from the started federal return. Alaska,
+  Florida, Nevada, New Hampshire, South Dakota, Tennessee, Texas and Wyoming need no state return; Illinois,
+  Michigan and North Carolina get a 2025 estimate (federal AGI, state exemptions or standard deduction, flat
+  rate, W-2 state withholding) from dated rules in `sprints/statutory-rules/src/rules/us-states.mjs`. It is an
+  estimate: no state subtractions or credits, no state form, no e-file, no 2026 figures yet
+- Quality review fixes (2026-11-15): the ₹50,000 buyer-details threshold is now the dated rule
+  `gst.invoice.unregistered-buyer-details` (rule 46(e)), tested on taxable value, and `create_invoice` returns a
+  `buyerDetails` notice (shown in chat) when an unregistered buyer's name or address is missing, so chat, desktop and
+  API get it as well as the counter sale; the invoice is still posted, not refused. `us_state_tax` with no year
+  uses the started return's year. Signing a US return uses the prior-year AGI brought in by the import for the
+  taxpayer (a spouse's is still typed). The LINDUNG 24 Jam note names the month its current rate began
+- US state income tax, 2026 figures (2026-11-15): the seven states now answer for tax year 2026 from announced
+  figures (Illinois $2,925 exemption; Michigan $5,900; North Carolina 3.99%; Georgia 4.99%, $15,000 or $30,000
+  and $5,000 a dependent under HB 463; Kentucky 3.5% and $3,360; Louisiana $12,875 or $25,750; Colorado 4.4%).
+  Each is marked provisional and the reply says to check again at filing, since no state has published its 2026
+  return. Colorado's 2026 rate is from a secondary source and ignores any TABOR rate cut; Louisiana's amounts
+  are the ones its withholding tables used
+- US state income tax, four more states (2026-11-15): Colorado (4.4% of federal taxable income), Georgia (5.19%,
+  $12,000 or $24,000 standard deduction, $4,000 a dependent), Kentucky (4%, $3,270 standard deduction) and
+  Louisiana (flat 3%, $12,500 or $25,000 standard deduction) join the 2025 estimate, each from the state's own
+  published figures. Same limits as the first slice
+- India in Hindi, shared screens (2026-11-15): the wording class the shared screens use now reads the same
+  Hindi table, so cash, bank, reports, statements, repeating entries, reminders, expenses, parties and the
+  entry forms show their fixed wording in Hindi on a Hindi phone (about 340 more lines). Lines built with a
+  name or an amount inside them, taxes and payroll stay in English for now
+- India in Hindi, first screens (2026-11-15): on a phone set to Hindi the India app shows the home screen, the
+  new entry sheet and the counter sale in Hindi from `mobile/lib/india/india_strings.dart`; a test fails if a
+  text passed to `inText` has no Hindi line. Other screens and server replies stay in English for now
+- India counter sale buyer details (2026-11-15): a counter bill of ₹50,000 or more is held until the
+  customer's name and address are entered, and the address goes on the invoice (`partyAddress`)
+- India offline billing engine (2026-11-21): `offline_kit` (query), `register_offline_device` and
+  `post_offline_sales` (propose and confirm, hidden from the assistant) give each phone its own invoice
+  series (`INV-MA2627-0001`) and post its offline bills, receipts and new items exactly once by `ref`,
+  refusing any bill whose figures differ from the engine's; shared vectors in
+  `platform/test/fixtures/offline-invoice-vectors.json`. Contract: docs/architecture/OFFLINE-BILLING.md
+- US federal figures checked against the IRS text (2026-11-15): the 2025 and 2026 brackets, capital gains
+  thresholds, earned income credit table, student loan interest phase-out and QBI thresholds, and the 2026
+  standard deduction and child tax credit, were compared line by line with Rev. Proc. 2024-40 and 2025-32. All
+  match; those records now say so. Still resting on secondary summaries: the other US individual records and
+  the 2027 figures
+- Malaysia PCB checked against LHDN (2026-11-15): the 2026 PCB rule now cites LHDN's own specification, and three
+  differences from it are fixed: a PCB that falls under RM10 only after zakat is still deducted (it was dropped),
+  the RM10 floor is tested on normal pay and on a bonus separately, and the spread EPF figure is cut to the sen
+  as LHDN does. Disabled employee (RM7,000) and disabled spouse (RM6,000) reliefs are added for 2026. LHDN's
+  worked example (category 3, three children, RM5,500) gives RM110.00 here too
+- Malaysia CP39 file (2026-11-15): `my_cp39_file` builds the monthly PCB remittance text file for e-PCB Plus or
+  a bank from LHDN's 2026 specification (Exhibit 4 and 5): a 57-character header with the employer numbers and
+  totals, a 136-character line per employee, amounts in sen with no decimal point, file name
+  `<employer no><mm>_<yyyy>.txt`. The layout is the dated rule `my.payroll.cp39-text-file`. Employees with no
+  deduction are left out. Not yet done: a download button in the app, and an upload to e-PCB Plus to prove the
+  file is accepted (the specification does not say how lines end; the file uses CR LF)
+- Malaysia payroll screen (2026-11-15): the Malaysia app has a Payroll screen on the home page. It takes the month
+  and each employee's wages, bonus, PCB category and children, shows EPF, SOCSO, EIS, PCB and net pay per employee
+  with the month's totals and due date from `my_payroll`, and saves the CP39 file from `my_cp39_file`. Employees
+  with nothing to remit no longer need a tax number for the CP39 file. Open: employees are typed in each month,
+  the sandbox does not run payroll, and the file has not been uploaded to e-PCB Plus.
+- US state estimate adds Arizona and Iowa (2026-11-15): `us_state_tax` answers for tax year 2025 in Arizona (2.5% on
+  federal AGI less the Arizona standard deduction) and Iowa (3.8% on federal taxable income), from the Arizona
+  Department of Revenue highlights and Form 140 instructions and the 2025 IA 1040. No 2026 records yet, so 2026
+  answers `STATE_YEAR_NOT_SUPPORTED_YET` for these two. Arizona's age and blind exemptions and Iowa's alternate
+  tax calculation are listed as not counted.
+- Malaysia payroll remembers employees (2026-11-15): after a payroll run the Malaysia app keeps the employees (name,
+  wages, PCB category, children, tax number, MyKad or passport) and the employer's E number in the phone's secure
+  storage, per business, and fills them in next month. The bonus is not kept. Nothing is sent to the server, so
+  they do not follow the user to another phone.
+- Malaysia income tax sources (2026-11-15): the resident bands and the RM400 rebate were checked against LHDN's own
+  tax rate and rebate pages and match; the records now cite LHDN first. The 30% non-resident rate, the SST records
+  and the UAE labour records still rest on secondary summaries; UAE VAT and corporate tax already cite the FTA.
+- Malaysia LINDUNG 24 Jam (2026-11-15): `my.payroll.lindung-24-jam` records the employee-paid Non-Employment
+  Injury Scheme from June 2026 (0.75%, then 1% and 1.25%; mandatory for foreign workers, voluntary for
+  locals); `my_payroll` says it is due and not in net pay, because the ringgit schedule is not encoded yet
+- UK flat-rate mileage (2026-11-15): `gb.income-tax.simplified-expenses` is 55p a mile for the first 10,000
+  business miles from 6 April 2026 and stays 45p for 2025-26
+
+
 ### Data import
 - Tally Day Book CSV and TallyPrime XML → posted invoices (row isolation, alias mapping)
 - Zoho Books invoice CSV → posted invoices
@@ -351,7 +476,7 @@ no live switch, no CA approvals, and no bytes leaving the PC.
 | UI polish | Invoice design built 2026-10-16 (colour, layout, bank details, terms, footer, signatory, HSN column; desktop print and app PDF). Export invoices in a foreign currency (2026-10-15) cover the multi-currency need for Indian businesses; the desktop has keyboard shortcuts (Ctrl+K or / for chat, Ctrl+1 to 8 for the tabs, Esc clears) |
 | Ops | Custom domain + TLS active, GitHub Pro branch protection, code-signing certificate. The packaged app checks the project's GitHub release page on launch; once the installer is signed by the publisher it downloads, verifies and installs it quietly (2026-10-21), until then it offers the download |
 | Tax assistant (2026-11-09) | Built: five tax knowledge modules in the open Agent Skills format (`platform/src/tax-modules/*/SKILL.md`: GST returns, input tax credit, income tax for individuals, TDS on business payments, presumptive income) whose figures are filled in from the dated statutory rules for the date asked about; `ask_tax` answers from them through the action gate and refuses a model answer that quotes a figure not in the rules; `tax_plan` (both regimes, break-even deductions, 87A edge, 44AD/44ADA against actual profit); `review_income_tax` (checks a prepared return against MyCA's computation, Form 26AS and the year's GST sales). New rule records `income-tax.presumptive.business` and `.profession`. Left: CA sign-off on the modules and the new records, capital gains, house property and HRA in the computation, reading a prepared ITR JSON or Form 16 straight into the review, and screens in the desktop and Android apps (both reach the tools through chat today) |
-| Batch 4 leftovers (2026-11-06) | AIS in the Form 26AS check (the check and `import_26as_credits` read Form 26AS only; `prepare_itr` already takes an AIS file for the regime comparison). The file the GSTN IMS portal takes for decisions (MyCA keeps the decisions and sends nothing to the portal). A server-side step-up before another device is ended (the server asks for no code; the app asks the phone's own screen lock). A line in the privacy notice for the authenticator key (the notice in force, `draft-2026-10-07`, does not name it). A daily WhatsApp message for MSME dates (the reminder is on Home and goes to nobody; the weekly brief, where switched on, already names MSME bills past their date) |
+| Batch 4 leftovers (2026-11-06) | AIS in the Form 26AS check (the check and `import_26as_credits` read Form 26AS only; `prepare_itr` already takes an AIS file for the regime comparison). The file the GSTN IMS portal takes for decisions (MyCA keeps the decisions and sends nothing to the portal). A server-side step-up before another device is ended (the server asks for no code; the app asks the phone's own screen lock). A line in the privacy notice for the authenticator key (the notice then in force, `draft-2026-10-07`, does not name it). A daily WhatsApp message for MSME dates (the reminder is on Home and goes to nobody; the weekly brief, where switched on, already names MSME bills past their date) |
 
 ## Known limitations (stated honestly, not hidden)
 

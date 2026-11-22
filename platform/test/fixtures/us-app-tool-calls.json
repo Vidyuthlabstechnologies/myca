@@ -1,0 +1,361 @@
+[
+  {
+    "tool": "add_us_tax_form",
+    "args": {
+      "taxYear": 2025,
+      "kind": "1099-INT",
+      "owner": "taxpayer",
+      "payer": "First Bank",
+      "fields": {
+        "payer": "First Bank",
+        "interest": 42.17
+      },
+      "documentSha256": "f1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2"
+    }
+  },
+  {
+    "tool": "add_us_tax_form",
+    "args": {
+      "taxYear": 2025,
+      "kind": "Rental property",
+      "owner": "taxpayer",
+      "payer": "12 Oak St, Austin, TX 78701",
+      "fields": {
+        "payer": "12 Oak St, Austin, TX 78701",
+        "propertyType": "1",
+        "fairRentalDays": 300,
+        "rents": 18000.0,
+        "activeParticipation": false
+      }
+    }
+  },
+  {
+    "tool": "add_us_tax_form",
+    "args": {
+      "taxYear": 2025,
+      "kind": "W-2",
+      "id": "usf-2025-1",
+      "owner": "taxpayer",
+      "payer": "Acme",
+      "fields": {
+        "payer": "Acme",
+        "payerTin": "12-3456789",
+        "wages": 52000.0,
+        "federalWithheld": 6100.0
+      }
+    }
+  },
+  {
+    "tool": "answer_us_interview",
+    "args": {
+      "taxYear": 2025,
+      "id": "hsa",
+      "answer": 1500.25
+    }
+  },
+  {
+    "tool": "answer_us_interview",
+    "args": {
+      "taxYear": 2025,
+      "id": "student",
+      "answer": true
+    }
+  },
+  {
+    "tool": "file_us_return",
+    "args": {
+      "taxYear": 2025
+    }
+  },
+  {
+    "tool": "import_us_prior_year",
+    "args": {
+      "taxYear": "2025",
+      "documentSha256": "f1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2"
+    }
+  },
+  {
+    "tool": "import_us_prior_year",
+    "args": {
+      "taxYear": "2025",
+      "figures": {
+        "agi": 85000.0,
+        "totalTax": 9100.4
+      }
+    }
+  },
+  {
+    "tool": "list_us_tax_forms",
+    "args": {
+      "taxYear": 2025
+    }
+  },
+  {
+    "tool": "read_us_tax_document",
+    "args": {
+      "documentId": "f1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2",
+      "taxYear": 2025
+    }
+  },
+  {
+    "tool": "remove_us_tax_form",
+    "args": {
+      "taxYear": 2025,
+      "id": "usf-2025-2"
+    }
+  },
+  {
+    "tool": "set_us_amended_return",
+    "args": {
+      "taxYear": "2025",
+      "explanation": "Added a 1099-NEC that came after I filed."
+    }
+  },
+  {
+    "tool": "set_us_state_answers",
+    "args": {
+      "taxYear": "2025",
+      "state": "NY",
+      "answers": {
+        "ny529Contributions": 1200.0
+      }
+    }
+  },
+  {
+    "tool": "set_us_state_answers",
+    "args": {
+      "taxYear": "2025",
+      "state": "NY",
+      "answers": {
+        "nycMonths": 7
+      }
+    }
+  },
+  {
+    "tool": "set_us_state_answers",
+    "args": {
+      "taxYear": "2025",
+      "state": "NY",
+      "answers": {
+        "nycResident": "part-year"
+      }
+    }
+  },
+  {
+    "tool": "set_us_state_answers",
+    "args": {
+      "taxYear": "2025",
+      "state": "NY",
+      "answers": {
+        "yonkersNonresidentWages": false
+      }
+    }
+  },
+  {
+    "tool": "set_us_state_residency",
+    "args": {
+      "taxYear": "2025",
+      "states": [
+        {
+          "state": "CT",
+          "residency": "part-year",
+          "from": "2025-01-01",
+          "to": "2025-03-31"
+        },
+        {
+          "state": "NY",
+          "residency": "part-year",
+          "from": "2025-04-01",
+          "to": "2025-12-31"
+        },
+        {
+          "state": "NJ",
+          "residency": "nonresident"
+        }
+      ]
+    }
+  },
+  {
+    "tool": "set_us_taxpayer",
+    "args": {
+      "taxYear": 2025,
+      "filingStatus": "mfj",
+      "taxpayer": {
+        "firstName": "Jordan",
+        "lastName": "Rivera",
+        "ssn": "123456780",
+        "dateOfBirth": "1990-07-04",
+        "occupation": "Nurse"
+      },
+      "spouse": {
+        "firstName": "Sam",
+        "lastName": "Rivera",
+        "ssn": "987654320",
+        "dateOfBirth": "1991-01-02",
+        "occupation": ""
+      },
+      "dependents": [
+        {
+          "firstName": "Ava",
+          "lastName": "Rivera",
+          "ssn": "123456781",
+          "dateOfBirth": "2018-05-05",
+          "relationship": "daughter",
+          "months": 12
+        }
+      ],
+      "address": {
+        "line1": "1 Market St",
+        "city": "San Francisco",
+        "state": "CA",
+        "zip": "94105"
+      }
+    }
+  },
+  {
+    "tool": "sign_us_return",
+    "args": {
+      "taxYear": 2025,
+      "taxpayerPin": "24680",
+      "priorYear": {
+        "taxpayer": {
+          "agi": 0
+        }
+      },
+      "consent8879": true,
+      "payment": {
+        "method": "direct_debit",
+        "routing": "021000021",
+        "account": "000123456789",
+        "accountType": "checking",
+        "date": "2026-04-10",
+        "phone": "4155550123"
+      },
+      "device": {
+        "deviceId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "deviceType": "Android",
+        "at": "2026-03-02T10:00:00.000Z"
+      }
+    }
+  },
+  {
+    "tool": "sign_us_return",
+    "args": {
+      "taxYear": 2025,
+      "taxpayerPin": "24680",
+      "spousePin": "13579",
+      "priorYear": {
+        "taxpayer": {
+          "agi": 48000
+        },
+        "spouse": {
+          "agi": 48000
+        }
+      },
+      "identityProtectionPin": {
+        "taxpayer": "123456"
+      },
+      "consent8879": true,
+      "refund": {
+        "method": "direct_deposit",
+        "routing": "021000021",
+        "account": "000123456789",
+        "accountType": "checking"
+      },
+      "device": {
+        "deviceId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "deviceType": "Android",
+        "at": "2026-03-02T10:00:00.000Z"
+      }
+    }
+  },
+  {
+    "tool": "start_us_amended_return",
+    "args": {
+      "taxYear": "2025",
+      "original": {
+        "agi": -1200.0,
+        "deduction": 15000.0,
+        "tax": 0.0
+      },
+      "originalFilingStatus": "single",
+      "originalFiledOn": "2026-04-01"
+    }
+  },
+  {
+    "tool": "us_amended_return",
+    "args": {
+      "taxYear": "2025"
+    }
+  },
+  {
+    "tool": "us_efile_status",
+    "args": {
+      "taxYear": 2025
+    }
+  },
+  {
+    "tool": "us_form_kinds",
+    "args": {}
+  },
+  {
+    "tool": "us_interview",
+    "args": {
+      "taxYear": 2025
+    }
+  },
+  {
+    "tool": "us_return_pdf",
+    "args": {
+      "taxYear": 2025
+    }
+  },
+  {
+    "tool": "us_return_review",
+    "args": {
+      "taxYear": 2025
+    }
+  },
+  {
+    "tool": "us_return_status",
+    "args": {
+      "taxYear": 2025
+    }
+  },
+  {
+    "tool": "us_state_coverage",
+    "args": {}
+  },
+  {
+    "tool": "us_state_filing_package",
+    "args": {
+      "taxYear": "2025"
+    }
+  },
+  {
+    "tool": "us_state_questions",
+    "args": {
+      "taxYear": "2025",
+      "state": "NY"
+    }
+  },
+  {
+    "tool": "us_state_returns",
+    "args": {
+      "taxYear": "2025",
+      "state": "NY"
+    }
+  },
+  {
+    "tool": "us_state_returns",
+    "args": {
+      "taxYear": "2025"
+    }
+  },
+  {
+    "tool": "us_taxpayer",
+    "args": {
+      "taxYear": 2025
+    }
+  }
+]

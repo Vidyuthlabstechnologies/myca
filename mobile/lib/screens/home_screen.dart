@@ -6,17 +6,23 @@ import '../api/models.dart';
 import '../notifications.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import 'offline_banner.dart';
+import '../india/india_language_picker.dart';
+import '../india/india_strings.dart';
 import '../attention.dart';
 import '../brand.dart';
 import '../format.dart';
 import '../marks.dart';
 import '../registers.dart';
 import '../theme.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'ask_screen.dart';
 import 'bank_screen.dart';
 import 'books_check_screen.dart';
+import 'loyalty_screen.dart';
 import 'marketplace_screen.dart';
+import 'online_store_screen.dart';
 import 'recurring_screen.dart';
 import 'reports_screen.dart';
 import 'statements_screen.dart';
@@ -33,6 +39,8 @@ import 'register_screen.dart';
 import 'sales_tax_screen.dart';
 import 'us_taxes_screen.dart';
 import 'taxes_screen.dart';
+import '../uk/uk_hub_screen.dart';
+import 'uae/uae_taxes_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.snapshot});
@@ -64,6 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<SupplierDues> _loadDues() async {
     if (_us) return SupplierDues.fromTool(null);
+    if (AppScope.of(context).edition == 'GB' || widget.snapshot.company.country == 'AE') return SupplierDues.fromTool(null);
     final state = AppScope.of(context);
     try {
       return SupplierDues.fromTool(await state.api.query('supplier_dues'));
@@ -134,14 +143,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final text = Theme.of(context).textTheme;
     final company = snapshot.company;
     final empty = snapshot.invoices.isEmpty && snapshot.purchases.isEmpty;
+    final uk = state.edition == 'GB';
+    final s = UaeStrings.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Wordmark(size: 18),
         actions: [
+          if (state.edition == 'IN') const IndiaLanguageButton(),
           Padding(
             padding: const EdgeInsets.only(right: 9),
             child: Tooltip(
-              message: 'Your business',
+              message: s.yourBusiness,
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: () => showBusinessSheet(context, snapshot),
@@ -164,22 +176,23 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        tooltip: 'New entry',
+        tooltip: s.newEntry,
         onPressed: () => showNewEntrySheet(context),
         icon: const Icon(Icons.add, size: 20),
-        label: const Text('New entry'),
+        label: Text(s.newEntry),
       ),
       body: RefreshIndicator(
         onRefresh: state.refresh,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
           children: [
+            if (state.offline != null) OfflineBanner(offline: state.offline!),
             Padding(
               padding: const EdgeInsets.fromLTRB(2, 0, 2, 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(greetingFor(state.now()), style: text.bodyMedium),
+                  Text(s.greeting(state.now()), style: text.bodyMedium),
                   const SizedBox(height: 2),
                   Text(
                     company.name,
@@ -190,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (widget.snapshot.sharedAsOf.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
-                      'Shared by the owner as of ${sharedOn(widget.snapshot.sharedAsOf)}. Entries after that are not shown, and changes are made by the owner.',
+                      s.sharedByOwner(sharedOn(widget.snapshot.sharedAsOf)),
                       style: text.bodyMedium?.copyWith(color: Palette.warn),
                     ),
                   ],
@@ -204,7 +217,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             _AskBar(onSubmit: (text) => _open(AskScreen(first: text))),
             const SizedBox(height: 18),
-            if (company.country == 'IN')
+            if (uk)
+              UkHomePanel(onTap: () => _open(const UkHubScreen()))
+            else if (company.country == 'AE')
+              UaeTaxesPanel(onTap: () => _open(const UaeTaxesScreen()))
+            else if (company.country == 'IN')
               FutureBuilder<Today>(
                 future: _today,
                 builder: (context, today) => _TodayPanel(
@@ -226,7 +243,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
               ),
-            if (company.country != 'IN')
+            if (company.country != 'IN' && company.country != 'AE' && !uk)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: _UsTaxesPanel(onTap: () => _open(const UsTaxesScreen())),
@@ -247,7 +264,7 @@ class _HomeScreenState extends State<HomeScreen> {
               future: _dues,
               builder: (context, snap) {
                 final dues = snap.data;
-                if (_us || dues == null || dues.msme.count == 0) return const SizedBox.shrink();
+                if (_us || uk || dues == null || dues.msme.count == 0) return const SizedBox.shrink();
                 return Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: _MsmePanel(dues: dues, onTap: () => _open(const PayBillsScreen())),
@@ -304,7 +321,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const RegisterScreen(kind: RegisterKind.purchases),
                     ),
                     onExpenses: () => _open(const ExpensesScreen()),
-                    onPayroll: () => _open(const EmployeesScreen()),
+                    onPayroll: company.country == 'AE' ? null : () => _open(const EmployeesScreen()),
                   ),
                 );
               },
@@ -316,13 +333,13 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 26),
             ],
-            const SectionLabel('Your books'),
+            SectionLabel(s.yourBooks),
             Panel(
               children: [
                 RowCard(
                   leading: const TintTile(tint: Tint.sales, mark: Mark.sales),
-                  title: 'Sales',
-                  subtitle: registerSubtitle(
+                  title: s.sales,
+                  subtitle: s.registerSubtitle(
                     snapshot.invoices,
                     RegisterKind.sales,
                   ),
@@ -335,8 +352,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     tint: Tint.purchases,
                     mark: Mark.purchases,
                   ),
-                  title: 'Purchases',
-                  subtitle: registerSubtitle(
+                  title: s.purchases,
+                  subtitle: s.registerSubtitle(
                     snapshot.purchases,
                     RegisterKind.purchases,
                   ),
@@ -349,87 +366,110 @@ class _HomeScreenState extends State<HomeScreen> {
                     tint: Tint.expense,
                     mark: Mark.expense,
                   ),
-                  title: 'Expenses',
-                  subtitle: expensesSubtitle(snapshot.expenses),
+                  title: s.expenses,
+                  subtitle: s.expensesSubtitle(snapshot.expenses),
                   trailing: const Chevron(),
                   onTap: () => _open(const ExpensesScreen()),
                 ),
-                if (snapshot.activeUser?.role != 'staff' &&
+                if (company.country != 'AE' &&
+                    snapshot.activeUser?.role != 'staff' &&
                     snapshot.activeUser?.role != 'accountant')
+                if (!uk)
                   RowCard(
                     leading: const TintTile(tint: Tint.ask, mark: Mark.employee),
-                    title: 'Employees',
-                    subtitle: 'Who works for you and what they are paid',
+                    title: inText(context, 'Employees'),
+                    subtitle: inText(context, 'Who works for you and what they are paid'),
                     trailing: const Chevron(),
                     onTap: () => _open(const EmployeesScreen()),
                   ),
               ],
             ),
             const SizedBox(height: 26),
-            const SectionLabel('Money and follow-up'),
+            SectionLabel(s.moneyAndFollowUp),
             Panel(
               children: [
                 RowCard(
                   leading: const TintTile(tint: Tint.sales, mark: Mark.bringIn),
-                  title: 'Cash',
-                  subtitle:
-                      'Bank and cash, the next 30 days, and can I afford it',
+                  title: s.cash,
+                  subtitle: s.cashSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const CashScreen()),
                 ),
+                if (company.country != 'AE')
+                if (!uk)
                 RowCard(
                   leading: const TintTile(tint: Tint.sales, mark: Mark.otherApp),
-                  title: 'Marketplace',
-                  subtitle: 'Payouts, TCS and TDS, margins by SKU, stock, GST registrations',
+                  title: inText(context, 'Marketplace'),
+                  subtitle: inText(context, 'Payouts, TCS and TDS, margins by SKU, stock, GST registrations'),
                   trailing: const Chevron(),
                   onTap: () => _open(const MarketplaceScreen()),
                 ),
+                if (state.edition == 'IN' &&
+                    company.country == 'IN' &&
+                    snapshot.activeUser?.role != 'staff' &&
+                    snapshot.activeUser?.role != 'accountant')
+                RowCard(
+                  key: const Key('home-online-store'),
+                  leading: const TintTile(tint: Tint.sales, mark: Mark.sales),
+                  title: inText(context, 'Online store'),
+                  subtitle: inText(context, 'Publish items on a link buyers can order from on WhatsApp'),
+                  trailing: const Chevron(),
+                  onTap: () => _open(const OnlineStoreScreen()),
+                ),
+                if (state.edition == 'IN' && company.country == 'IN')
+                RowCard(
+                  leading: const TintTile(tint: Tint.sales, mark: Mark.bringIn),
+                  title: inText(context, 'Loyalty points'),
+                  subtitle: inText(context, 'Points customers earn and use, and what the shop owes in points'),
+                  trailing: const Chevron(),
+                  onTap: () => _open(const LoyaltyScreen()),
+                ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.switchBooks),
-                  title: 'Bank',
-                  subtitle: 'Your statement next to your books, matched and not matched',
+                  title: s.bank,
+                  subtitle: s.bankSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const BankScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.comingUp),
-                  title: 'Repeating entries',
-                  subtitle: 'Invoices, bills and expenses posted on their dates',
+                  title: s.repeatingEntries,
+                  subtitle: s.repeatingSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const RecurringScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.taxes, mark: Mark.sales),
-                  title: 'Reports',
-                  subtitle: 'Saved reports run by name, compared with the period before',
+                  title: s.reports,
+                  subtitle: s.reportsSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const ReportsScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
-                  title: 'Statements',
-                  subtitle: 'Profit and loss, balance sheet, cash flow, customer statements',
+                  title: s.statements,
+                  subtitle: s.statementsSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const StatementsScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.people),
-                  title: 'Your CA',
-                  subtitle: 'Questions you asked and their answers',
+                  title: company.country == 'AE' ? s.yourAccountant : uk ? 'Your accountant' : inText(context, 'Your CA'),
+                  subtitle: s.yourAccountantSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const CaScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.comingUp),
-                  title: 'Reminders',
-                  subtitle: 'Anything you asked to be reminded of',
+                  title: s.reminders,
+                  subtitle: s.remindersSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const RemindersScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.taxes, mark: Mark.confirm),
-                  title: 'Books check',
-                  subtitle: 'What needs you, worked out from your books',
+                  title: s.booksCheck,
+                  subtitle: s.booksCheckSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const BooksCheckScreen()),
                 ),
@@ -466,7 +506,7 @@ class _RecoveryNote extends StatelessWidget {
           Text(words, style: text.bodyLarge),
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton(onPressed: onDismiss, child: const Text('Got it')),
+            child: TextButton(onPressed: onDismiss, child: Text(UaeStrings.of(context).gotIt)),
           ),
         ],
       ),
@@ -484,7 +524,7 @@ class _UsTaxesPanel extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     return Material(
       color: Palette.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard), side: const BorderSide(color: Palette.line)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard), side: BorderSide(color: Palette.line)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -543,7 +583,7 @@ class _SalesTaxPanel extends StatelessWidget {
         : '${first!.state} ${salesTaxPeriodWords(first.lastPeriod!)}';
     return Material(
       color: Palette.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard), side: const BorderSide(color: Palette.line)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard), side: BorderSide(color: Palette.line)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -594,26 +634,26 @@ class _TodayPanel extends StatelessWidget {
     final urgent = open.any(isUrgent);
     final gst = data?.gst;
     final headline = failed
-        ? 'Could not check your taxes'
+        ? inText(context, 'Could not check your taxes')
         : data == null
-        ? 'Checking your books…'
+        ? inText(context, 'Checking your books…')
         : open.isEmpty
-        ? 'You are all caught up'
+        ? inText(context, 'You are all caught up')
         : open.length == 1
-        ? '1 thing needs you'
-        : '${open.length} things need you';
+        ? inThingsNeedYou(context, 1)
+        : inThingsNeedYou(context, open.length);
     final detail = failed
-        ? 'Pull down to try again.'
+        ? inText(context, 'Pull down to try again.')
         : open.isNotEmpty
         ? open.first.title
         : data == null
         ? ''
-        : 'No returns overdue and nothing waiting on you.';
+        : inText(context, 'No returns overdue and nothing waiting on you.');
     return Material(
       color: Palette.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radiusCard),
-        side: const BorderSide(color: Palette.line),
+        side: BorderSide(color: Palette.line),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -635,10 +675,10 @@ class _TodayPanel extends StatelessWidget {
                           runSpacing: 4,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            Text('TAXES AND FILINGS', style: text.labelSmall),
+                            Text(inText(context, 'TAXES AND FILINGS'), style: text.labelSmall),
                             if (open.isNotEmpty)
                               StatusTag(
-                                text: urgent ? 'Overdue' : 'Due soon',
+                                text: urgent ? inText(context, 'Overdue') : inText(context, 'Due soon'),
                                 color: urgent ? Palette.danger : Palette.warn,
                               ),
                           ],
@@ -671,11 +711,11 @@ class _TodayPanel extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'TAX ON SALES, ${monthLabel(gst.period).toUpperCase()}',
+                            inFormat(context, 'TAX ON SALES, {month}', {'month': monthLabel(gst.period).toUpperCase()}),
                             style: text.labelSmall,
                           ),
                           const SizedBox(height: 4),
-                          Text(
+                          Amount(
                             rupees(gst.outputTax.total),
                             style: text.headlineMedium?.copyWith(
                               fontFeatures: moneyFigures,
@@ -691,9 +731,7 @@ class _TodayPanel extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            gst.salesCount == 1
-                                ? '1 sale'
-                                : '${gst.salesCount} sales',
+                            inCount(context, gst.salesCount, '1 sale', '{n} sales'),
                             textAlign: TextAlign.end,
                             style: text.bodySmall?.copyWith(
                               fontFeatures: moneyFigures,
@@ -701,7 +739,7 @@ class _TodayPanel extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Credit on purchases ${rupees(gst.inputCredit.total)}',
+                            inFormat(context, 'Credit on purchases {amount}', {'amount': rupees(gst.inputCredit.total)}),
                             textAlign: TextAlign.end,
                             style: text.bodySmall?.copyWith(
                               fontFeatures: moneyFigures,
@@ -729,6 +767,7 @@ class _FirstSaleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Material(
       color: Palette.accentSoft,
       borderRadius: BorderRadius.circular(radiusCard),
@@ -744,18 +783,18 @@ class _FirstSaleCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Log your first sale',
+                      s.firstSale,
                       style: text.titleLarge?.copyWith(color: Palette.accent),
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'Name the customer, enter the amount, confirm.',
+                      s.firstSaleLine,
                       style: text.bodyMedium?.copyWith(color: Palette.accent),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward, color: Palette.accent, size: 20),
+              Icon(Icons.arrow_forward, color: Palette.accent, size: 20),
             ],
           ),
         ),
@@ -782,6 +821,7 @@ class _SummaryPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     final owed = summary.customers;
     return Container(
       decoration: BoxDecoration(
@@ -794,26 +834,26 @@ class _SummaryPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            monthLabel(summary.period).toUpperCase(),
+            s.monthLabel(summary.period).toUpperCase(),
             style: text.labelSmall,
           ),
           const SizedBox(height: 10),
           Row(
             children: [
               _Figure(
-                label: 'Sold',
+                label: s.sold,
                 amount: summary.current.salesNet,
                 before: summary.previous.salesNet,
                 onTap: onSales,
               ),
               _Figure(
-                label: 'Bought',
+                label: s.bought,
                 amount: summary.current.purchases,
                 before: summary.previous.purchases,
                 onTap: onPurchases,
               ),
               _Figure(
-                label: 'Spent',
+                label: s.spent,
                 amount: summary.current.expenses,
                 before: summary.previous.expenses,
                 onTap: onExpenses,
@@ -821,7 +861,7 @@ class _SummaryPanel extends StatelessWidget {
               if (summary.current.payrollStatus == 'approved' ||
                   summary.previous.payrollStatus == 'approved')
                 _Figure(
-                  label: 'Paid staff',
+                  label: s.paidStaff,
                   amount: summary.current.payrollGross,
                   before: summary.previous.payrollGross,
                   onTap: onPayroll ?? () {},
@@ -833,7 +873,7 @@ class _SummaryPanel extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(flex: 3, child: Text('Owed to you', style: text.titleMedium)),
+              Expanded(flex: 3, child: Text(s.owedToYou, style: text.titleMedium)),
               const SizedBox(width: 12),
               Expanded(
                 flex: 2,
@@ -850,7 +890,7 @@ class _SummaryPanel extends StatelessWidget {
           ),
           Text(
             summary.openInvoices == 0
-                ? 'No invoice is waiting for payment.'
+                ? s.noInvoiceWaiting
                 : owed.map((c) => '${c.name} ${rupees(c.due)}').join(' · '),
             style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
           ),
@@ -859,7 +899,7 @@ class _SummaryPanel extends StatelessWidget {
             children: [
               Expanded(
                 flex: 3,
-                child: Text('You owe suppliers', style: text.titleMedium),
+                child: Text(s.youOweSuppliers, style: text.titleMedium),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -877,9 +917,9 @@ class _SummaryPanel extends StatelessWidget {
           ),
           Text(
             summary.unpaidBills == 0
-                ? 'No bill is waiting to be paid.'
+                ? s.noBillWaiting
                 : summary.suppliers
-                      .map((s) => '${s.name} ${rupees(s.due)}')
+                      .map((supplier) => '${supplier.name} ${rupees(supplier.due)}')
                       .join(' · '),
             style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
           ),
@@ -917,18 +957,19 @@ class _AskBarState extends State<_AskBar> {
 
   @override
   Widget build(BuildContext context) {
+    final s = UaeStrings.of(context);
     return TextField(
       controller: _text,
       textInputAction: TextInputAction.send,
       onSubmitted: (_) => _send(),
       decoration: InputDecoration(
-        hintText: 'Tell or ask MyCA anything',
-        prefixIcon: const Padding(
+        hintText: s.askAnything,
+        prefixIcon: Padding(
           padding: EdgeInsets.all(12),
           child: MarkIcon(mark: Mark.ask, size: 20, color: Palette.muted),
         ),
         suffixIcon: IconButton(
-          tooltip: 'Send',
+          tooltip: s.send,
           icon: const Icon(Icons.arrow_upward, size: 20),
           onPressed: _send,
         ),
@@ -971,7 +1012,7 @@ class _Figure extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               Text(
-                'last ${compactRupees(before)}',
+                UaeStrings.of(context).lastFigure(compactRupees(before)),
                 style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
               ),
             ],
@@ -994,10 +1035,11 @@ class _ClosePanel extends StatelessWidget {
     final needs = [for (final item in (data['needsYou'] as List? ?? const [])) '$item'];
     final cash = data['cash'] is Map ? Map<String, dynamic>.from(data['cash'] as Map) : const <String, dynamic>{};
     final rows = closed ? checklist.take(3).toList() : checklist.where((row) => row['ok'] != true).toList();
+    final s = UaeStrings.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionLabel(closed ? 'Books today · closed' : 'Books today · ${needs.length} ${needs.length == 1 ? 'needs' : 'need'} you'),
+        SectionLabel(s.booksToday(closed, needs.length)),
         Panel(
           children: [
             for (final row in rows)
@@ -1008,8 +1050,8 @@ class _ClosePanel extends StatelessWidget {
               ),
             RowCard(
               leading: const TintTile(tint: Tint.taxes, mark: Mark.sales),
-              title: 'Bank ${rupees(cash['bank'] as num? ?? 0)} · customers owe ${rupees(data['receivable'] as num? ?? 0)}',
-              subtitle: cash['source'] == 'recorded' ? 'As recorded; give today\'s bank balance for the real figure' : 'From the balance on ${cash['readingOn'] ?? ''} plus what was recorded since',
+              title: s.closeCash(rupees(cash['bank'] as num? ?? 0), rupees(data['receivable'] as num? ?? 0)),
+              subtitle: s.closeSource(cash['source'] == 'recorded', '${cash['readingOn'] ?? ''}'),
             ),
           ],
         ),
@@ -1029,12 +1071,11 @@ class _MsmePanel extends StatelessWidget {
     final position = dues.msme;
     final count = position.count;
     final overdue = position.overdue;
-    final bills = count == 1 ? 'bill' : 'bills';
     final next = dues.bills.where((bill) => bill.msme).firstOrNull;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionLabel('MSME suppliers'),
+        SectionLabel(inText(context, 'MSME suppliers')),
         Panel(
           children: [
             RowCard(
@@ -1043,13 +1084,13 @@ class _MsmePanel extends StatelessWidget {
                   ? const TintTile(tint: Tint.urgent, mark: Mark.urgent)
                   : const TintTile(tint: Tint.taxes, mark: Mark.comingUp),
               title: overdue > 0
-                  ? '$overdue ${overdue == 1 ? 'bill' : 'bills'} past the MSMED limit'
-                  : '$count MSME $bills to pay inside the limit',
+                  ? inCount(context, overdue, '1 bill past the MSMED limit', '{n} bills past the MSMED limit')
+                  : inCount(context, count, '1 MSME bill to pay inside the limit', '{n} MSME bills to pay inside the limit'),
               subtitle: overdue > 0
-                  ? '${rupees(position.overdueOutstanding)} not deductible until paid · $count MSME $bills open'
+                  ? inCount(context, count, '{amount} not deductible until paid · 1 MSME bill open', '{amount} not deductible until paid · {n} MSME bills open', {'amount': rupees(position.overdueOutstanding)})
                   : (next == null
-                        ? '${rupees(position.outstanding)} open'
-                        : 'Next: ${next.supplier} by ${longDate(next.payBy)} · ${rupees(position.outstanding)} open'),
+                        ? inFormat(context, '{amount} open', {'amount': rupees(position.outstanding)})
+                        : inFormat(context, 'Next: {name} by {date} · {amount} open', {'name': next.supplier, 'date': longDate(next.payBy), 'amount': rupees(position.outstanding)})),
               trailing: const Chevron(),
               onTap: onTap,
             ),
@@ -1065,31 +1106,33 @@ class _WeekPanel extends StatelessWidget {
 
   final List<Map<String, dynamic>> items;
 
-  static String _title(Map<String, dynamic> item) {
+  static String _title(BuildContext context, Map<String, dynamic> item, UaeStrings s) {
     final title = '${item['title']}';
     final amount = item['amount'];
     if (item['kind'] == 'receivable') {
-      return '${title.split(' owes ').first} owes ${rupees(amount as num? ?? 0)} on ${item['invoiceId'] ?? ''}';
+      return s.owesOn(title.split(' owes ').first, rupees(amount as num? ?? 0), '${item['invoiceId'] ?? ''}');
     }
     if (item['kind'] != 'payable' || amount is! num) return title;
     final supplier = RegExp(r'^Pay (.+) \S+ on \S+?(?: \(MSME\))?$').firstMatch(title)?.group(1);
     if (supplier == null) return title;
-    return 'Pay $supplier ${rupees(amount)} on ${item['billId'] ?? ''}${item['msme'] == true ? ' (MSME)' : ''}';
+    final parts = {'name': supplier, 'amount': rupees(amount), 'bill': '${item['billId'] ?? ''}'};
+    return item['msme'] == true ? inFormat(context, 'Pay {name} {amount} on {bill} (MSME)', parts) : inFormat(context, 'Pay {name} {amount} on {bill}', parts);
   }
 
   @override
   Widget build(BuildContext context) {
     final overdue = items.where((item) => item['overdue'] == true).length;
+    final s = UaeStrings.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionLabel(overdue > 0 ? 'This week · $overdue overdue' : 'This week'),
+        SectionLabel(s.thisWeek(overdue)),
         Panel(
           children: [
             for (final item in items.take(6))
               RowCard(
                 leading: TintTile(tint: item['overdue'] == true ? Tint.urgent : Tint.taxes, mark: item['overdue'] == true ? Mark.urgent : Mark.comingUp),
-                title: _title(item),
+                title: _title(context, item, s),
                 subtitle: '${item['detail'] ?? ''}',
               ),
           ],
@@ -1110,7 +1153,7 @@ class _DuePanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionLabel('Due today'),
+        SectionLabel(UaeStrings.of(context).dueTodayTitle),
         Panel(
           children: [
             for (final reminder in reminders)
@@ -1121,7 +1164,7 @@ class _DuePanel extends StatelessWidget {
                 ),
                 title: reminder.text,
                 subtitle: [
-                  reminderWhen(reminder),
+                  reminderWhen(reminder, UaeStrings.of(context)),
                   if (reminder.aboutLabel.isNotEmpty) reminder.aboutLabel,
                 ].join(' · '),
                 onTap: () => onTap(reminder),

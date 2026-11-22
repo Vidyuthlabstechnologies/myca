@@ -4,6 +4,7 @@ import { HOSTED_CHANNELS as CONNECTOR_CHANNELS } from './govt-connectors.mjs';
 
 const MIN_KEY_LENGTH = 32;
 const ALGORITHM = 'aes-256-gcm';
+const TAG_BYTES = 16;
 
 function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
@@ -29,7 +30,7 @@ export function openSecrets(secret, businessId, sealed) {
   const [iv, tag, body] = String(sealed || '').split('.');
   if (!iv || !tag || !body) return {};
   try {
-    const decipher = createDecipheriv(ALGORITHM, deriveKey(secret, businessId), Buffer.from(iv, 'base64url'));
+    const decipher = createDecipheriv(ALGORITHM, deriveKey(secret, businessId), Buffer.from(iv, 'base64url'), { authTagLength: TAG_BYTES });
     decipher.setAuthTag(Buffer.from(tag, 'base64url'));
     return JSON.parse(Buffer.concat([decipher.update(Buffer.from(body, 'base64url')), decipher.final()]).toString('utf8'));
   } catch {
@@ -43,7 +44,7 @@ function publicView(channel, row) {
   for (const field of spec.fields) shown[field] = spec.secrets.includes(field) ? (row?.secretsSet?.includes(field) ? 'set' : '') : String(row?.fields?.[field] || '');
   const optional = new Set([...(spec.optional || []), 'region', 'dc']);
   const configured = Boolean(row) && spec.fields.every((field) => optional.has(field) || (spec.secrets.includes(field) ? row.secretsSet.includes(field) : Boolean(row.fields[field])));
-  return { channel, title: spec.title, country: spec.country || 'IN', ...(spec.govt ? { govt: true, mode: row?.fields?.environment === 'production' ? 'live' : 'test' } : {}), configured, enabled: row ? row.enabled : true, lastFetchedTo: row?.lastFetchedTo || '', kinds: spec.kinds, pushes: spec.pushes || [], fields: spec.fields, secrets: spec.secrets, optional: [...optional].filter((f) => spec.fields.includes(f)), ...shown };
+  return { channel, title: spec.title, country: spec.country || 'IN', countries: spec.countries || [spec.country || 'IN'], ...(spec.govt ? { govt: true, mode: row?.fields?.environment === 'production' ? 'live' : 'test' } : {}), configured, enabled: row ? row.enabled : true, lastFetchedTo: row?.lastFetchedTo || '', kinds: spec.kinds, pushes: spec.pushes || [], fields: spec.fields, secrets: spec.secrets, optional: [...optional].filter((f) => spec.fields.includes(f)), ...shown };
 }
 
 export function createConnectorStore({ db, key = '' }) {

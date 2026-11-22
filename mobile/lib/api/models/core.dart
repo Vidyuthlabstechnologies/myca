@@ -63,6 +63,7 @@ class Snapshot {
     required this.users,
     required this.activeUser,
     this.sharedAsOf = '',
+    this.raw = const <String, dynamic>{},
   });
 
   factory Snapshot.fromJson(Object? json) {
@@ -82,10 +83,12 @@ class Snapshot {
       users: _maps(map['users']).map(FirmUser.fromJson).toList(),
       activeUser: active is Map ? FirmUser.fromJson(active) : null,
       sharedAsOf: _text(map['sharedAsOf']),
+      raw: map,
     );
   }
 
   final String sharedAsOf;
+  final Map<String, dynamic> raw;
   final Company company;
   final List<Invoice> invoices;
   final List<Invoice> purchases;
@@ -152,24 +155,51 @@ class ChatReply {
     required this.preview,
     required this.posted,
     required this.blocked,
+    this.tools = const [],
+    this.results = const [],
+    this.blockers = const [],
+    this.error = '',
+    this.raw = const <String, dynamic>{},
   });
 
   factory ChatReply.fromJson(Object? json) {
     final map = _map(json);
     final awaiting =
         map['awaitingConfirmation'] == true && map['preview'] is Map;
+    final tools = map['tools'];
+    final held = _map(map['preview']);
     return ChatReply(
       reply: _text(map['reply']),
       preview: awaiting ? ChatPreview.fromJson(map['preview']) : null,
       posted: map['posted'] == true,
       blocked: map['blocked'] == true,
+      tools: tools is List ? [for (final t in tools) if (t is Map) Map<String, dynamic>.from(t)] : const [],
+      results: [for (final tool in _maps(map['tools'])) _map(tool['result'])],
+      blockers: held['blockers'] is List ? (held['blockers'] as List).map(_text).where((line) => line.isNotEmpty).toList() : const <String>[],
+      error: _text(map['error']),
+      raw: map,
     );
   }
 
+  final List<Map<String, dynamic>> results;
+  final List<String> blockers;
+  final String error;
   final String reply;
   final ChatPreview? preview;
   final bool posted;
   final bool blocked;
+  final Map<String, dynamic> raw;
+
+  /// The tools a confirm ran, each as {name, result}.
+  final List<Map<String, dynamic>> tools;
+
+  /// The data of the named tool's result, or an empty map.
+  Map<String, dynamic> toolResult(String name) {
+    for (final t in tools) {
+      if (t['name'] == name) return toolData(t['result']);
+    }
+    return const <String, dynamic>{};
+  }
 }
 
 class Today {

@@ -149,7 +149,7 @@ test('CI: the build job holds no write token; only publish holds contents and id
   const publish = wf.jobs.publish;
   assert.equal(publish.permissions.contents, 'write');
   assert.equal(publish.permissions['id-token'], 'write');
-  assert.deepEqual([].concat(publish.needs), ['build']);
+  assert.deepEqual([].concat(publish.needs), ['build', 'sbom']);
   assert.match(publish.if, /github\.event_name == 'push' && startsWith\(github\.ref, 'refs\/tags\/v'\)/);
   assert.ok(!publish.steps.some((s) => /\bnpm\b|\bnpx\b|electron-builder/.test(s.run || '')), 'publish runs no package scripts');
 });
@@ -531,3 +531,115 @@ test('CI: the pipe detector ignores quoted bars, || fallbacks and comments', () 
   assert.equal(pipesOutsideQuotes('echo ok # a | b'), false);
   assert.equal(pipesOutsideQuotes('printf "%s" "$v" |\n  sha256sum'), true);
 });
+
+function dockerfiles() {
+  return ['cloud/Dockerfile', 'deploy/site/Dockerfile'];
+}
+
+test('#207: no workflow runs on pull_request_target', () => {
+  for (const file of workflowFiles()) {
+    assert.ok(!Object.keys(workflow(file).on || {}).includes('pull_request_target'), file);
+  }
+});
+
+test('#207: every npm install in CI and in the images skips package install scripts', () => {
+  const offenders = [];
+  for (const file of workflowFiles()) {
+    for (const line of read(`.github/workflows/${file}`).split('\n')) {
+      if (/\bnpm (ci|install|i)\b/.test(line) && !/--ignore-scripts\b/.test(line)) offenders.push(`${file}: ${line.trim()}`);
+    }
+  }
+  for (const file of dockerfiles()) {
+    for (const line of read(file).split('\n')) {
+      if (/\bnpm (ci|install|i)\b/.test(line) && !/--ignore-scripts\b/.test(line)) offenders.push(`${file}: ${line.trim()}`);
+    }
+  }
+  assert.deepEqual(offenders, []);
+});
+
+test('#207: container base images are pinned by digest and Dependabot keeps them current', () => {
+  for (const file of dockerfiles()) {
+    const froms = read(file).split('\n').filter((line) => /^FROM\s/i.test(line));
+    assert.ok(froms.length > 0, `${file} has a base image`);
+    for (const line of froms) assert.match(line, /^FROM \S+:\S+@sha256:[0-9a-f]{64}(\s+AS\s+\w+)?$/i, `${file}: ${line}`);
+  }
+  const deps = parseYaml(read('.github/dependabot.yml'));
+  const docker = deps.updates.find((u) => u['package-ecosystem'] === 'docker');
+  assert.ok(docker, 'Dependabot watches Docker base images');
+  assert.deepEqual([...docker.directories].sort(), ['/cloud', '/deploy/site']);
+});
+
+test('#207: Dependabot covers every package that has a lockfile', () => {
+  const deps = parseYaml(read('.github/dependabot.yml'));
+  const npmDirs = deps.updates.filter((u) => u['package-ecosystem'] === 'npm').map((u) => u.directory).sort();
+  const lockDirs = readdirSync(REPO, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && !d.name.startsWith('.') && d.name !== 'node_modules')
+    .filter((d) => { try { readFileSync(new URL(`${d.name}/package-lock.json`, REPO)); return true; } catch { return false; } })
+    .map((d) => `/${d.name}`)
+    .sort();
+  assert.deepEqual(npmDirs, lockDirs);
+  assert.ok(deps.updates.some((u) => u['package-ecosystem'] === 'pub' && u.directory === '/mobile'));
+  assert.ok(deps.updates.some((u) => u['package-ecosystem'] === 'github-actions'));
+});
+
+test('#207: hosted images roll out by digest, with a bill of materials and build provenance for the API', () => {
+  const rollout = workflow('cloud-run-rollout.yml').jobs.rollout;
+  assert.equal(rollout.permissions.attestations, 'write');
+  const build = rollout.steps.find((s) => /docker push "\$IMAGE"/.test(s.run || ''));
+  assert.match(build.run, /RepoDigests/);
+  assert.match(build.run, /IMAGE_PINNED=/);
+  assert.ok(rollout.steps.some((s) => /^anchore\/sbom-action@/.test(s.uses || '') && s.with.format === 'cyclonedx-json'));
+  const attest = rollout.steps.find((s) => /^actions\/attest-build-provenance@/.test(s.uses || ''));
+  assert.equal(attest.with['subject-digest'], '${{ env.IMAGE_DIGEST }}');
+  const deploy = rollout.steps.find((s) => /gcloud run deploy/.test(s.run || ''));
+  assert.match(deploy.run, /--image "\$IMAGE_PINNED"/);
+  for (const [name, job] of Object.entries(workflow('deploy-cloud.yml').jobs)) {
+    if (job.uses) assert.equal(job.permissions.attestations, 'write', `${name} lets the rollout attest`);
+  }
+  const site = workflow('deploy-site.yml').jobs.deploy;
+  assert.ok(site.steps.some((s) => /IMAGE_PINNED=/.test(s.run || '')));
+  assert.ok(site.steps.some((s) => /gcloud run deploy myca-site .*--image "\$IMAGE_PINNED"/.test(s.run || '')));
+});
+
+test('#207: Windows and Android releases carry a bill of materials and build provenance', () => {
+  for (const [file, sbomFile] of [['build-windows.yml', 'myca-windows.sbom.cdx.json'], ['build-android.yml', 'myca-android.sbom.cdx.json']]) {
+    const wf = workflow(file);
+    const sbom = wf.jobs.sbom;
+    assert.ok(sbom, `${file} has an sbom job`);
+    assert.deepEqual(sbom.permissions, { contents: 'read' }, `${file}: the sbom job holds no write token`);
+    const step = sbom.steps.find((s) => /^anchore\/sbom-action@/.test(s.uses || ''));
+    assert.equal(step.with.format, 'cyclonedx-json');
+    assert.equal(step.with['output-file'], sbomFile);
+    const publish = wf.jobs.publish;
+    assert.ok([].concat(publish.needs).includes('sbom'));
+    assert.equal(publish.permissions.attestations, 'write');
+    assert.equal(publish.permissions['id-token'], 'write');
+    assert.ok(publish.steps.some((s) => /^actions\/attest-build-provenance@/.test(s.uses || '') && s.with['subject-path']), `${file} attests what it publishes`);
+    assert.ok(read(`.github/workflows/${file}`).includes(`dist/${sbomFile}`), `${file} attaches the bill of materials to the release`);
+  }
+});
+
+test('#207: both Play listings upload with the short-lived CI token, never a stored key', () => {
+  const text = read('.github/workflows/build-android.yml');
+  assert.doesNotMatch(text, /PLAY_SERVICE_ACCOUNT_JSON/);
+  const play = workflow('build-android.yml').jobs.play;
+  assert.equal(play.environment, 'production');
+  const uploads = play.steps.filter((s) => /play-upload\.mjs/.test(s.run || ''));
+  assert.equal(uploads.length, 2);
+  for (const s of uploads) assert.equal(s.env.PLAY_ACCESS_TOKEN, '${{ steps.play-auth.outputs.access_token }}');
+});
+
+test('#207: CodeQL scans the JavaScript and the workflows, and only CodeQL can write security events', () => {
+  const wf = workflow('codeql.yml');
+  assert.deepEqual(wf.permissions, { contents: 'read' });
+  const job = wf.jobs.analyze;
+  assert.equal(job.permissions['security-events'], 'write');
+  assert.deepEqual([...job.strategy.matrix.language].sort(), ['actions', 'javascript-typescript']);
+  assert.ok(Object.keys(wf.on).includes('pull_request'));
+  for (const file of workflowFiles().filter((f) => f !== 'codeql.yml')) {
+    for (const [name, job] of Object.entries(workflow(file).jobs)) {
+      assert.notEqual((job.permissions || {})['security-events'], 'write', `${file}:${name}`);
+    }
+  }
+});
+

@@ -1,4 +1,4 @@
-import { createWahaSender, wahaConfigFromEnv } from './waha.mjs';
+import { createWahaSender, wahaConfigFromEnv, withoutNumbers } from './waha.mjs';
 
 const TIMEOUT_MS = 15000;
 
@@ -11,9 +11,9 @@ async function post(fetchImpl, url, init) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const res = await fetchImpl(url, { ...init, signal: controller.signal });
+    const res = await fetchImpl(url, { ...init, redirect: 'error', signal: controller.signal });
     const text = await res.text();
-    if (!res.ok) throw new Error(`sms provider answered ${res.status}: ${text.slice(0, 200)}`);
+    if (!res.ok) throw new Error(`sms provider answered ${res.status}: ${withoutNumbers(text.slice(0, 200))}`);
     return text;
   } finally {
     clearTimeout(timer);

@@ -5,16 +5,22 @@ import 'format.dart';
 import 'package:flutter/widgets.dart';
 
 import 'api/models.dart';
+import 'app_config.dart';
 import 'shared_file.dart';
 import 'api/myca_api.dart';
 import 'app_services.dart';
 import 'cloud/cloud_session.dart';
+import 'cloud/apple_auth.dart';
 import 'cloud/google_auth.dart';
 import 'cloud/oidc_auth.dart';
 import 'cloud/plaid_link.dart';
 import 'crash_reports.dart';
+import 'growth.dart';
 import 'lock/app_lock.dart';
 import 'notifications.dart';
+import 'offline/offline_billing.dart';
+import 'offline/offline_first_api.dart';
+import 'offline/offline_sync.dart';
 
 Future<bool> _cannotSave(String name, String content) async => false;
 
@@ -25,6 +31,21 @@ Future<bool> _cannotShare(String text) async => false;
 Future<bool> _cannotOpen(Uri url) async => false;
 
 Future<PickedFile?> _cannotPickAny() async => null;
+
+abstract class LanguageStore {
+  Future<String> load();
+  Future<void> save(String code);
+}
+
+class NoLanguageStore implements LanguageStore {
+  const NoLanguageStore();
+
+  @override
+  Future<String> load() async => '';
+
+  @override
+  Future<void> save(String code) async {}
+}
 
 class AppState extends ChangeNotifier {
   AppState({
@@ -42,16 +63,65 @@ class AppState extends ChangeNotifier {
     this.lock = const NoAppLock(),
     this.now = DateTime.now,
     this.crashes,
+    this.funnel,
     this.google,
+    this.apple,
     this.oidc,
     this.plaidLink = const NoPlaidLink(),
     this.openLink = _cannotOpen,
     String edition = 'IN',
     this.installationId = sessionInstallationId,
-  })  : api = api ?? cloud!.api,
-        edition = edition.toUpperCase() == 'US' ? 'US' : 'IN';
+    this.languages = const NoLanguageStore(),
+    ValueNotifier<String>? languageChoice,
+    this.sendAnswerReport,
+    OfflineBilling? offline,
+    bool offlineTimers = true,
+  })  : offline = normalEdition(edition) == 'IN' ? offline : null,
+        api = _offlineFirst(api ?? cloud!.api, normalEdition(edition) == 'IN' ? offline : null, cloud),
+        languageChoice = languageChoice ?? ValueNotifier<String>(''),
+        edition = normalEdition(edition) {
+    final books = this.offline;
+    offlineSync = books == null ? null : OfflineSync(books, this.api, now: now, timers: offlineTimers);
+  }
+
+  static MycaApi _offlineFirst(MycaApi base, OfflineBilling? offline, CloudSession? cloud) =>
+      offline == null ? base : OfflineFirstApi(base, offline, business: () => cloud == null ? 'local' : (cloud.businessId ?? ''));
+
+  final OfflineBilling? offline;
+  late final OfflineSync? offlineSync;
 
   final String edition;
+  final LanguageStore languages;
+  final Future<void> Function(Map<String, Object?> report)? sendAnswerReport;
+
+  Future<bool> reportAnswer({required String answer, required String reason}) async {
+    final report = <String, Object?>{
+      'kind': 'flutter',
+      'type': 'AiAnswerReport',
+      'appVersion': 'unknown',
+      'count': 1,
+      'message': '$reason | ${edition.toLowerCase()} | ${answer.length > 240 ? answer.substring(0, 240) : answer}',
+      'stack': 'ai-answer-report $reason',
+    };
+    final send = sendAnswerReport ?? (cloud != null && cloud!.signedIn ? (Map<String, Object?> one) => cloud!.sendCrashReports([one]) : null);
+    if (send == null) return false;
+    try {
+      await send(report);
+      return true;
+    } on Exception {
+      return false;
+    }
+  }
+  final ValueNotifier<String> languageChoice;
+
+  String get language => languageChoice.value;
+
+  Future<void> setLanguage(String code) async {
+    if (code == language) return;
+    languageChoice.value = code;
+    notifyListeners();
+    await languages.save(code);
+  }
   final Future<String> Function() installationId;
 
   final MycaApi api;
@@ -66,6 +136,7 @@ class AppState extends ChangeNotifier {
   bool _serverAsked = false;
 
   bool get testServer => server?.isTest ?? false;
+  bool get sandboxServer => server?.isSandbox ?? false;
   final NotificationPlanner notifications;
   final SaveTextFile saveTextFile;
   final SaveBytesFile saveBytesFile;
@@ -74,7 +145,9 @@ class AppState extends ChangeNotifier {
   final AppLock lock;
   final DateTime Function() now;
   final CrashReporter? crashes;
+  final FunnelTracker? funnel;
   final GoogleAuth? google;
+  final AppleAuth? apple;
   final OidcAuth? oidc;
   final PlaidLinkOpener plaidLink;
   final Future<bool> Function(Uri url) openLink;
@@ -119,6 +192,8 @@ class AppState extends ChangeNotifier {
   bool get household => snapshot?.company.household ?? false;
 
   Future<void> start() async {
+    final saved = await languages.load();
+    if (saved.isNotEmpty) languageChoice.value = saved;
     welcomed = await store.welcomed();
     migrated = await store.migrated();
     await cloud?.restore();
@@ -154,9 +229,11 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       snapshot = await api.snapshot();
-      moneyCountry = snapshot?.company.country ?? 'IN';
+      moneyCountry = snapshot?.company.country ?? (edition == 'MY' ? 'MY' : 'IN');
       await _skipMigrationForKeptBooks();
       _sendCrashReports();
+      _reachFunnel();
+      unawaited(offlineSync?.kick());
     } on SignedOutException {
       snapshot = null;
       recoveryNote = '';
@@ -188,6 +265,21 @@ class AppState extends ChangeNotifier {
     unawaited(reporter.flush(hosted.sendCrashReports));
   }
 
+  void _reachFunnel() {
+    final books = snapshot;
+    if (books == null) return;
+    final india = edition == 'IN';
+    final kept = books.invoices.isNotEmpty || books.purchases.isNotEmpty || books.expenses.isNotEmpty;
+    reachSteps(['signed_in', if (india) 'business_created', if (india && kept) 'first_entry']);
+  }
+
+  void reachSteps(List<String> steps) {
+    final tracker = funnel;
+    final hosted = cloud;
+    if (tracker == null || hosted == null || !hosted.ready || hosted.needsConsent) return;
+    unawaited(tracker.reach(steps, hosted.sendFunnelSteps));
+  }
+
   Future<void> setCrashReports(bool enabled) async {
     final reporter = crashes;
     if (reporter == null || enabled == crashReportsOn) return;
@@ -209,6 +301,7 @@ class AppState extends ChangeNotifier {
   void leftApp() => _leftAt = now();
 
   void returnedToApp() {
+    unawaited(offlineSync?.kick());
     final left = _leftAt;
     _leftAt = null;
     if (left == null || locked || !_guards) return;
@@ -264,4 +357,6 @@ class AppScope extends InheritedNotifier<AppState> {
   const AppScope({super.key, required AppState state, required super.child}) : super(notifier: state);
 
   static AppState of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<AppScope>()!.notifier!;
+
+  static AppState? maybeOf(BuildContext context) => context.dependOnInheritedWidgetOfExactType<AppScope>()?.notifier;
 }

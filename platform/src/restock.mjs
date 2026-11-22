@@ -138,9 +138,18 @@ export function restockPlan(state, args = {}) {
     const pack = supply.pack || 1;
     const moq = supply.moq || 0;
     const ordered = onOrder.get(sku) || 0;
-    const row = { sku, name: item.name || '', supplier: supply.supplier || '', cost: item.cost ?? null, onHand, onOrder: ordered, leadDays: lead, pack, moq, historyDays };
+    const reorderLevel = item.reorderLevel == null ? null : Number(item.reorderLevel);
+    const belowReorder = reorderLevel != null && onHand <= reorderLevel;
+    const row = { sku, name: item.name || '', unit: item.unit || '', supplier: supply.supplier || '', cost: item.cost ?? null, onHand, onOrder: ordered, leadDays: lead, pack, moq, historyDays, reorderLevel, belowReorder };
+    const byLevel = () => {
+      const wanted = item.reorderQty != null ? Number(item.reorderQty) : Math.ceil(2 * reorderLevel - onHand - ordered);
+      if (!(wanted > 0)) return null;
+      const orderQty = Math.max(moq, Math.ceil(wanted / pack) * pack);
+      return { ...row, status: 'below reorder level', velocity7: null, velocity28: null, coverDays: null, orderQty, orderAmount: item.cost != null ? round2(orderQty * item.cost) : null, why: `${onHand} on hand is at or below the reorder level of ${reorderLevel}; ${item.reorderQty != null ? 'ordering the set reorder quantity' : 'ordering enough to reach twice the reorder level'}.` };
+    };
     if (historyDays < LONG_WINDOW) {
-      rows.push({ ...row, status: 'not enough history', velocity7: null, velocity28: null, coverDays: null, orderQty: 0, why: `${historyDays} days of stock moves; needs ${LONG_WINDOW}.` });
+      const level = belowReorder ? byLevel() : null;
+      rows.push(level || { ...row, status: 'not enough history', velocity7: null, velocity28: null, coverDays: null, orderQty: 0, why: `${historyDays} days of stock moves; needs ${LONG_WINDOW}.` });
       continue;
     }
     const d7 = inStockDays(list, addDays(today, -(SHORT_WINDOW - 1)), today, onHand);
@@ -150,6 +159,11 @@ export function restockPlan(state, args = {}) {
     const stockoutV = Math.max(v7, v28);
     const buffer = Math.min(30, Math.max(7, Math.round(lead / 2)));
     if (stockoutV <= 0) {
+      const level = belowReorder ? byLevel() : null;
+      if (level) {
+        rows.push(level);
+        continue;
+      }
       rows.push({ ...row, status: 'slow mover', velocity7: 0, velocity28: 0, coverDays: null, orderQty: 0, tiedUp: item.cost != null ? round2(onHand * item.cost) : null, why: `nothing sold in ${LONG_WINDOW} days${item.cost != null ? `; ₹${round2(onHand * item.cost).toLocaleString('en-IN')} tied up` : ''}.` });
       continue;
     }
@@ -163,6 +177,11 @@ export function restockPlan(state, args = {}) {
     const wanted = Math.max(0, Math.ceil((SIZING_DAYS + lead) * v28 - onHand - ordered));
     const orderQty = status === 'fine' || status === 'overstock' ? 0 : Math.max(moq, Math.ceil(wanted / pack) * pack);
     const runsOut = addDays(today, Math.floor(coverDays));
+    const level = belowReorder && orderQty === 0 ? byLevel() : null;
+    if (level) {
+      rows.push({ ...level, velocity7: Math.round(v7 * 100) / 100, velocity28: Math.round(v28 * 100) / 100, coverDays, runsOut });
+      continue;
+    }
     rows.push({
       ...row,
       status,
@@ -182,8 +201,9 @@ export function restockPlan(state, args = {}) {
               ? `${Math.round(coverDays)} days of cover at the current rate.`
               : `${Math.round(coverDays)} days of cover.`,
     });
+    if (belowReorder) rows[rows.length - 1].why += ` At or below the reorder level of ${reorderLevel}.`;
   }
-  const order = { 'too late': 0, 'order now': 1, 'order soon': 2, fine: 3, overstock: 4, 'slow mover': 5, 'not enough history': 6 };
+  const order = { 'too late': 0, 'order now': 1, 'below reorder level': 2, 'order soon': 3, fine: 4, overstock: 5, 'slow mover': 6, 'not enough history': 7 };
   rows.sort((a, b) => (order[a.status] - order[b.status]) || ((a.coverDays ?? 999) - (b.coverDays ?? 999)) || a.sku.localeCompare(b.sku));
   const toOrder = rows.filter((r) => r.orderQty > 0);
   return {
@@ -203,7 +223,8 @@ export function restockWords(d, money) {
   const lines = [];
   const named = (r) => `${r.sku}${r.name ? ` (${r.name})` : ''}`;
   for (const r of d.rows) {
-    if (r.status === 'not enough history' || r.status === 'slow mover') lines.push(`· ${named(r)}: ${r.onHand} on hand, ${r.status}: ${r.why}`);
+    if (r.status === 'below reorder level') lines.push(`· ${named(r)}: ${r.why} Order ${r.orderQty}${r.unit ? ` ${r.unit}` : ''}${r.supplier ? ` from ${r.supplier}` : ''}${r.orderAmount != null ? ` (${money(r.orderAmount)})` : ''}.`);
+    else if (r.status === 'not enough history' || r.status === 'slow mover') lines.push(`· ${named(r)}: ${r.onHand} on hand, ${r.status}: ${r.why}`);
     else lines.push(`· ${named(r)}: ${r.onHand} on hand${r.onOrder ? ` + ${r.onOrder} on order` : ''}, selling ${r.velocity28} a day (${r.velocity7} this week), ${r.status}: ${r.why}${r.orderQty ? ` Order ${r.orderQty}${r.supplier ? ` from ${r.supplier}` : ''}${r.orderAmount != null ? ` (${money(r.orderAmount)})` : ''}.` : ''}`);
   }
   const head = d.toOrder.length ? `${d.toOrder.length === 1 ? '1 SKU' : `${d.toOrder.length} SKUs`} to order${d.orderTotal != null ? `, about ${money(d.orderTotal)}` : ''}:` : 'Nothing needs ordering.';

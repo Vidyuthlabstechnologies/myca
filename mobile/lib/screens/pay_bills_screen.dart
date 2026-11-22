@@ -5,6 +5,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../proposal_flow.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -39,10 +40,10 @@ class _PayBillsScreenState extends State<PayBillsScreen> with ProposalFlow {
   @override
   Future<void> onPosted() async {
     HapticFeedback.mediumImpact();
-    setState(() => _doneNote = 'Recorded. Make the transfers from your bank app; MyCA has posted the payments against each bill.');
+    setState(() => _doneNote = inText(context, 'Recorded. Make the transfers from your bank app; MyCA has posted the payments against each bill.'));
   }
 
-  Future<void> _pay() => propose('Pay the chosen bills from the bank', 'record_payment_run', {
+  Future<void> _pay() => propose(inText(context, 'Pay the chosen bills from the bank'), 'record_payment_run', {
     'billIds': _chosen.toList()..sort(),
     'mode': 'bank',
   });
@@ -58,7 +59,9 @@ class _PayBillsScreenState extends State<PayBillsScreen> with ProposalFlow {
       controlAffinity: ListTileControlAffinity.leading,
       title: Text('${b.supplier} · ${rupees(b.outstanding)}', style: text.bodyLarge?.copyWith(fontFeatures: moneyFigures)),
       subtitle: Text(
-        '${b.billId}${b.supplierInvoiceNo.isEmpty ? '' : ' (their ${b.supplierInvoiceNo})'} · ${b.whenWords}',
+        b.supplierInvoiceNo.isEmpty
+            ? '${b.billId} · ${b.whenWords}'
+            : inFormat(context, '{bill} (their {theirs}) · {when}', {'bill': b.billId, 'theirs': b.supplierInvoiceNo, 'when': b.whenWords}),
         style: text.bodySmall?.copyWith(color: b.urgent ? Palette.warn : Palette.muted),
       ),
     );
@@ -68,7 +71,7 @@ class _PayBillsScreenState extends State<PayBillsScreen> with ProposalFlow {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Who to pay')),
+      appBar: AppBar(title: Text(inText(context, 'Who to pay'))),
       body: FutureBuilder<PaymentRun?>(
         future: _run,
         builder: (context, snap) {
@@ -77,7 +80,7 @@ class _PayBillsScreenState extends State<PayBillsScreen> with ProposalFlow {
           }
           final run = snap.data;
           if (run == null) {
-            return const EmptyNote(text: 'The payment run could not be worked out.');
+            return EmptyNote(text: inText(context, 'The payment run could not be worked out.'));
           }
           final chosenTotal = run.proposed.where((b) => _chosen.contains(b.billId)).fold<num>(0, (s, b) => s + b.outstanding)
               + run.consider.where((b) => _chosen.contains(b.billId)).fold<num>(0, (s, b) => s + b.outstanding);
@@ -88,42 +91,49 @@ class _PayBillsScreenState extends State<PayBillsScreen> with ProposalFlow {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   children: [
                     if (run.proposed.isEmpty && run.consider.isEmpty)
-                      Text('Nothing needs paying in the next ${run.windowDays} days.', style: text.bodyLarge)
+                      Text(inFormat(context, 'Nothing needs paying in the next {days} days.', {'days': run.windowDays}), style: text.bodyLarge)
                     else ...[
-                      Text('Pay now', style: text.titleMedium),
+                      Text(inText(context, 'Pay now'), style: text.titleMedium),
                       Text(
-                        'MSMED pay-by dates first, then bills near the 180-day credit limit, then agreed terms.',
+                        inText(context, 'MSMED pay-by dates first, then bills near the 180-day credit limit, then agreed terms.'),
                         style: text.bodySmall?.copyWith(color: Palette.muted),
                       ),
                       for (final b in run.proposed) _bill(b, text, choosable: true),
                       if (run.consider.isNotEmpty) ...[
                         const SizedBox(height: 12),
-                        Text('Consider', style: text.titleMedium),
-                        Text('Older than 45 days with no agreed terms.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+                        Text(inText(context, 'Consider'), style: text.titleMedium),
+                        Text(inText(context, 'Older than 45 days with no agreed terms.'), style: text.bodySmall?.copyWith(color: Palette.muted)),
                         for (final b in run.consider) _bill(b, text, choosable: true),
                       ],
                     ],
                     if (run.held.isNotEmpty) ...[
                       const SizedBox(height: 12),
-                      Text('Held back', style: text.titleMedium),
+                      Text(inText(context, 'Held back'), style: text.titleMedium),
                       for (final b in run.held)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text('${b.supplier} ${rupees(b.outstanding)} on ${b.billId}: ${b.reason}', style: text.bodySmall?.copyWith(color: Palette.warn)),
+                          child: Text(
+                            inFormat(context, '{supplier} {amount} on {bill}: {reason}', {'supplier': b.supplier, 'amount': rupees(b.outstanding), 'bill': b.billId, 'reason': b.reason}),
+                            style: text.bodySmall?.copyWith(color: Palette.warn),
+                          ),
                         ),
                     ],
                     if (run.later.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Text(
-                        '${run.later.length == 1 ? '1 bill' : '${run.later.length} bills'} (${rupees(run.laterTotal)}) can wait.',
+                        inCount(context, run.later.length, '1 bill ({amount}) can wait.', '{n} bills ({amount}) can wait.', {'amount': rupees(run.laterTotal)}),
                         style: text.bodySmall?.copyWith(color: Palette.muted),
                       ),
                     ],
                     const SizedBox(height: 16),
                     Text(
                       run.fromReading
-                          ? 'Bank and cash ${rupees(run.balance)} now, ${rupees(run.balance - chosenTotal)} after paying ${rupees(chosenTotal)}.'
-                          : 'MyCA has only the recorded figures for bank and cash (${rupees(run.balance)}). Give your balance on the Cash screen for a true picture.',
+                          ? inFormat(context, 'Bank and cash {balance} now, {after} after paying {chosen}.', {
+                              'balance': rupees(run.balance),
+                              'after': rupees(run.balance - chosenTotal),
+                              'chosen': rupees(chosenTotal),
+                            })
+                          : inFormat(context, 'MyCA has only the recorded figures for bank and cash ({balance}). Give your balance on the Cash screen for a true picture.', {'balance': rupees(run.balance)}),
                       style: text.bodyMedium?.copyWith(fontFeatures: moneyFigures, color: run.fromReading ? null : Palette.warn),
                     ),
                     if (run.verdictWords.isNotEmpty)
@@ -135,7 +145,7 @@ class _PayBillsScreenState extends State<PayBillsScreen> with ProposalFlow {
                     if (pending == null && _doneNote.isEmpty && (run.proposed.isNotEmpty || run.consider.isNotEmpty))
                       FilledButton(
                         onPressed: busy || _chosen.isEmpty ? null : _pay,
-                        child: Text('Pay ${rupees(chosenTotal)} from the bank'),
+                        child: Text(inFormat(context, 'Pay {amount} from the bank', {'amount': rupees(chosenTotal)})),
                       ),
                     for (final entry in entries) entry.toBubble(),
                     if (_doneNote.isNotEmpty) ...[
@@ -150,7 +160,7 @@ class _PayBillsScreenState extends State<PayBillsScreen> with ProposalFlow {
                   busy: busy,
                   onPost: postPending,
                   onDiscard: discardPending,
-                  postLabel: 'Yes, pay them',
+                  postLabel: inText(context, 'Yes, pay them'),
                 ),
             ],
           );

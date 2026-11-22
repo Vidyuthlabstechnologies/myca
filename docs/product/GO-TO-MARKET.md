@@ -59,9 +59,10 @@ people enter less. A year paid up front costs about ten months.
 
 | Plan | For | Price | What is in it |
 |---|---|---|---|
-| Essentials | A small registered business keeping its own books | ₹399 a month or ₹3,999 a year | Unlimited invoices, bills, receipts and payments, chat in plain words, GSTR-1 and GSTR-3B worked out from the books, two people |
-| Pro | A business that wants the returns filed and the channels connected | ₹799 a month or ₹7,999 a year | Essentials, plus filing GSTR-1 and GSTR-3B on the portal with the CA's approval, e-invoices and GSTIN checks, Amazon, Shopify, Razorpay and bank connections, WhatsApp, five people |
-| CA firm | A CA firm or a larger business with an accountant in-house | ₹2,499 a month or ₹24,999 a year | Pro, plus twenty-five people, approvals across clients, priority support |
+| Essentials | A small registered business keeping its own books | ₹999 a month or ₹9,999 a year | Unlimited invoices, bills, receipts and payments, chat in plain words, GSTR-1 and GSTR-3B worked out from the books, two people |
+| Pro | A business that wants the returns filed and the channels connected | ₹1,999 a month or ₹19,999 a year | Essentials, plus filing GSTR-1 and GSTR-3B on the portal with the CA's approval, e-invoices and GSTIN checks, Amazon, Shopify, Razorpay and bank connections, WhatsApp, five people |
+| MyCA Assured | A business that wants a CA to do the monthly filing, instead of a ₹1,500 to ₹5,000 retainer | ₹4,999 a month or ₹49,999 a year | Pro, plus a chartered accountant who reviews and files GST and TDS every month, the accuracy promise, priority support. Not sold until a CA team is signed |
+| CA firm | A CA firm or a larger business with an accountant in-house | ₹5,999 a month or ₹59,999 a year | Pro, plus twenty-five people, approvals across clients, priority support |
 
 After the trial, a business that has not chosen a plan is read-only: it can see, ask about
 and export its books, and nothing new is posted until it subscribes.
@@ -81,11 +82,17 @@ Sources: codingclave.com best billing software for small business in India, aidu
 myBillBook vs Vyapar vs Zoho, tallysupport.in Tally price list. Prices move, so check again
 before the Play products are created.
 
-Essentials sits in the Vyapar and myBillBook band, where a shopkeeper already expects to
-pay, and gives more than they do because the books are real double-entry books with GST
-worked out. Pro is under Zoho Books Standard while also filing the returns, which Zoho
-keeps for its higher plans, and adds the assistant and WhatsApp. CA firm is about a Tally
-Gold rental, the tool a firm already pays for. The engines cost almost nothing per business
+Prices were raised on 2026-11-14 from ₹399, ₹799 and ₹2,499 to a premium ladder: MyCA is
+priced against Zoho Books and the CA retainer, not against billing apps. Essentials sits
+with Zoho Books Standard and gives real double-entry books, GST worked out and the
+assistant. Pro adds portal filing, which Zoho keeps for its higher plans, plus e-invoices,
+connectors and WhatsApp. MyCA Assured replaces the monthly CA retainer (₹1,500 to ₹5,000 a
+month for GST and TDS) with a CA who files from books that are already right. CA firm is
+priced at Zoho Books Premium and above a Tally Gold rental, for twenty-five people.
+
+The promise is accuracy, not penalties: if a return MyCA filed is wrong because of MyCA's
+mistake, MyCA corrects and refiles it at no charge. MyCA does not promise to pay a
+customer's penalties or interest (decided 2026-11-14). The engines cost almost nothing per business
 (section 5), so the margin is in every plan, and the portal and AI costs sit in Pro and CA
 firm, where they are used.
 

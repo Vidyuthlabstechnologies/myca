@@ -6,9 +6,12 @@ const MAX_MESSAGE = 300;
 const MAX_FRAMES = 40;
 const MAX_FRAME = 300;
 const MAX_COUNT = 1000;
+const MAX_SCRUBBED = 4000;
+const MAX_STACK_READ = 200000;
 const KINDS = new Set(['flutter', 'async', 'server']);
 
 const SCRUBS = [
+  [/[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u2028\u2029]/g, ''],
   [/(https?:\/\/[^\s?#"']+)[?#][^\s"')]*/gi, '$1'],
   [/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, '[EMAIL]'],
   [/\beyJ[\w-]+\.[\w-]+\.[\w-]+/g, '[TOKEN]'],
@@ -18,9 +21,13 @@ const SCRUBS = [
   [/\b[A-Za-z0-9_-]{32,}\b/g, '[TOKEN]'],
   [/"[^"\n]{0,200}"/g, '"[TEXT]"'],
   [/'[^'\n]{0,200}'/g, "'[TEXT]'"],
-  [/(?:\+?91[\s-]?)?(?<![\w:.])[6-9]\d{9}\b/g, '[PHONE]'],
-  [/(?:₹|\brs\.?|\binr)\s*\d[\d,]*(?:\.\d+)?/gi, '[AMOUNT]'],
-  [/(?<![\w:.])\d[\d,]{3,}(?:\.\d+)?/g, '[NUMBER]'],
+  [/(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)/g, '[SSN]'],
+  [/(?<!\d)\d{2}-\d{7}(?!\d)/g, '[EIN]'],
+  [/(?<!\d)(?:\+?91[\s-]?)?[6-9]\d{9}(?!\d)/g, '[PHONE]'],
+  [/(?<![\w.])(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}(?!\d)/g, '[PHONE]'],
+  [/(?:₹|(?<![\w.$])\$|\brs\.?|\binr|\busd)\s*\d[\d,]*(?:\.\d+)?/gi, '[AMOUNT]'],
+  [/(?<!\d)\d{7,}(?!\d)(?:\.\d+)?/g, '[NUMBER]'],
+  [/(?<![\w.])(?<!\.\w{1,8}:)(?<!\.\w{1,8}:\d{1,7}:)\d[\d,]{2,}\d(?:\.\d+)?/g, '[NUMBER]'],
 ];
 
 export function scrubCrashText(value) {
@@ -34,14 +41,23 @@ function clip(value, max) {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
+function head(value, max) {
+  const text = String(value ?? '');
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  let last = cut.length - 1;
+  while (last >= 0 && !/\s/.test(cut[last])) last -= 1;
+  return last > 0 ? cut.slice(0, last) : cut;
+}
+
 function stackOf(value) {
-  return String(value ?? '')
-    .split('\n')
-    .map((line) => line.trimEnd())
-    .filter((line) => line.trim())
-    .slice(0, MAX_FRAMES)
-    .map((line) => clip(scrubCrashText(line), MAX_FRAME))
-    .join('\n');
+  const frames = [];
+  for (const line of head(value, MAX_STACK_READ).split('\n')) {
+    if (!line.trim()) continue;
+    frames.push(clip(scrubCrashText(head(line.trimEnd(), MAX_SCRUBBED)), MAX_FRAME));
+    if (frames.length >= MAX_FRAMES) break;
+  }
+  return frames.join('\n');
 }
 
 export function cleanCrashReport(raw) {
@@ -54,7 +70,7 @@ export function cleanCrashReport(raw) {
   if (!/^[\w.+-]{1,32}$/.test(appVersion)) return { ok: false, error: 'BAD_VERSION' };
   const count = Number(raw.count ?? 1);
   if (!Number.isInteger(count) || count < 1 || count > MAX_COUNT) return { ok: false, error: 'BAD_COUNT' };
-  const message = clip(scrubCrashText(raw.message).replace(/\s+/g, ' ').trim(), MAX_MESSAGE);
+  const message = clip(scrubCrashText(head(raw.message, MAX_SCRUBBED)).replace(/\s+/g, ' ').trim(), MAX_MESSAGE);
   const stack = stackOf(raw.stack);
   const fingerprint = createHash('sha256').update([kind, type, ...stack.split('\n').slice(0, 5)].join('\n')).digest('hex');
   return { ok: true, report: { kind, type, appVersion, count, message, stack, fingerprint } };

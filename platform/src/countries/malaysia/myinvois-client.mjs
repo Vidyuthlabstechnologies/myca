@@ -43,7 +43,7 @@ export async function myInvoisToken(config = {}) {
   const environment = environmentOf(config);
   if (environment === 'off') return fail('LIVE_CALLS_DISABLED', { hint: 'Set MYCA_PROVIDER_ENV=test for the LHDN pre-production sandbox, or live for production.' });
   if (!config.clientId || !config.clientSecret) return fail('MYINVOIS_CREDENTIALS_MISSING', { settings: MYINVOIS_SETTINGS.slice(0, 2), hint: 'Register the ERP system in the MyInvois portal to get a client id and secret.' });
-  const key = `${environment}|${config.clientId}|${config.onBehalfOf || ''}`;
+  const key = tokenKey(config);
   const cached = tokens.get(key);
   if (cached && cached.expiresAt - TOKEN_MARGIN_MS > Date.now()) return { ok: true, token: cached.token, environment };
   const send = config.transport;
@@ -60,16 +60,32 @@ export async function myInvoisToken(config = {}) {
   return { ok: true, token: json.access_token, environment };
 }
 
-async function call(config, method, path, body) {
+function tokenKey(config) {
+  return `${environmentOf(config)}|${config.clientId}|${config.onBehalfOf || ''}`;
+}
+
+async function authorised(config, request) {
   const auth = await myInvoisToken(config);
-  if (!auth.ok) return auth;
+  if (!auth.ok) return { auth };
   const send = config.transport;
-  if (typeof send !== 'function') return fail('TRANSPORT_MISSING', { hint: 'The action gate passes the transport; the Malaysia engine never opens a connection itself.' });
-  const response = await send(`${MYINVOIS_HOSTS[auth.environment].api}${path}`, {
+  if (typeof send !== 'function') return { auth: fail('TRANSPORT_MISSING', { hint: 'The action gate passes the transport; the Malaysia engine never opens a connection itself.' }) };
+  let response = await request(send, auth);
+  if (response.status === 401) {
+    tokens.delete(tokenKey(config));
+    const again = await myInvoisToken(config);
+    if (!again.ok) return { auth: again };
+    response = await request(send, again);
+  }
+  return { auth, response };
+}
+
+async function call(config, method, path, body) {
+  const { auth, response } = await authorised(config, (send, token) => send(`${MYINVOIS_HOSTS[token.environment].api}${path}`, {
     method,
-    headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json', Accept: 'application/json', 'Accept-Language': 'en' },
+    headers: { Authorization: `Bearer ${token.token}`, 'Content-Type': 'application/json', Accept: 'application/json', 'Accept-Language': 'en' },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
+  }));
+  if (!response) return auth;
   const json = await readJson(response);
   if (response.status === 429) return fail('MYINVOIS_THROTTLED', { retryAfterSeconds: Number(response.headers?.get?.('retry-after') || 60) });
   if (!response.ok) return fail('MYINVOIS_REJECTED', { status: response.status, lhdn: json, ...(response.status === 422 ? { retryAfterSeconds: Number(response.headers?.get?.('retry-after') || 0) } : {}) });
@@ -146,18 +162,42 @@ export async function cancelMyInvoisDocument(config = {}, args = {}) {
 export async function validateMyTin(config = {}, args = {}) {
   const tin = String(args.tin || '').trim().toUpperCase();
   const idType = String(args.idType || 'BRN').trim().toUpperCase();
-  const idValue = String(args.idValue || '').trim();
+  const idValue = idType === 'NRIC' ? String(args.idValue || '').replace(/[\s-]/g, '') : String(args.idValue || '').trim();
   if (!tin || !idValue) return fail('TIN_AND_ID_REQUIRED');
   if (!['BRN', 'NRIC', 'PASSPORT', 'ARMY'].includes(idType)) return fail('BAD_ID_TYPE');
   if (mockModeEnabled()) return { ok: true, mock: true, data: { tin, valid: true } };
-  const auth = await myInvoisToken(config);
-  if (!auth.ok) return auth;
-  const send = config.transport;
-  if (typeof send !== 'function') return fail('TRANSPORT_MISSING', { hint: 'The action gate passes the transport; the Malaysia engine never opens a connection itself.' });
-  const response = await send(`${MYINVOIS_HOSTS[auth.environment].api}/api/v1.0/taxpayer/validate/${encodeURIComponent(tin)}?idType=${idType}&idValue=${encodeURIComponent(idValue)}`, { method: 'GET', headers: { Authorization: `Bearer ${auth.token}` } });
+  const { auth, response } = await authorised(config, (send, token) => send(`${MYINVOIS_HOSTS[token.environment].api}/api/v1.0/taxpayer/validate/${encodeURIComponent(tin)}?idType=${idType}&idValue=${encodeURIComponent(idValue)}`, { method: 'GET', headers: { Authorization: `Bearer ${token.token}` } }));
+  if (!response) return auth;
   if (response.status === 200 || response.status === 404) return { ok: true, environment: auth.environment, data: { tin, valid: response.status === 200 } };
   if (response.status === 429) return fail('MYINVOIS_THROTTLED', { retryAfterSeconds: Number(response.headers?.get?.('retry-after') || 60) });
   return fail('MYINVOIS_REJECTED', { status: response.status, lhdn: await readJson(response), hint: 'LHDN did not answer whether the TIN exists; nothing is known about it yet.' });
+}
+
+export async function myInvoisDocumentDetails(config = {}, args = {}) {
+  const uuid = String(args.uuid || '').trim();
+  if (!/^[A-Z0-9]{26}$/.test(uuid)) return fail('BAD_DOCUMENT_UUID');
+  if (mockModeEnabled()) return { ok: true, mock: true, data: { uuid, status: 'Valid', validationResults: { status: 'Valid', validationSteps: [] } } };
+  return call(config, 'GET', `/api/v1.0/documents/${uuid}/details`);
+}
+
+export async function myInvoisRecentDocuments(config = {}, args = {}) {
+  const direction = String(args.direction || 'Received');
+  if (!['Sent', 'Received'].includes(direction)) return fail('BAD_DIRECTION', { hint: 'Sent or Received.' });
+  const pageNo = Math.max(1, Math.floor(Number(args.pageNo) || 1));
+  const pageSize = Math.min(100, Math.max(1, Math.floor(Number(args.pageSize) || 100)));
+  if (mockModeEnabled()) return { ok: true, mock: true, data: { result: [], metadata: { totalPages: 1, totalCount: 0 } } };
+  return call(config, 'GET', `/api/v1.0/documents/recent?pageNo=${pageNo}&pageSize=${pageSize}&InvoiceDirection=${direction}`);
+}
+
+export async function rejectMyInvoisDocument(config = {}, args = {}) {
+  const uuid = String(args.uuid || '').trim();
+  const reason = String(args.reason || '').trim();
+  if (!/^[A-Z0-9]{26}$/.test(uuid)) return fail('BAD_DOCUMENT_UUID');
+  if (!reason || reason.length > 300) return fail('REJECT_REASON_REQUIRED', { hint: 'Give a reason of up to 300 characters. A buyer may reject within 72 hours of validation, once.' });
+  if (mockModeEnabled()) return { ok: true, mock: true, data: { uuid, status: 'Requested for Rejection' } };
+  const guarded = guardProduction(config, args);
+  if (guarded) return guarded;
+  return call(config, 'PUT', `/api/v1.0/documents/state/${uuid}/state`, { status: 'rejected', reason });
 }
 
 export function myInvoisShareLink(environment, uuid, longId) {

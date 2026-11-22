@@ -1,3 +1,4 @@
+import { xmlElements, xmlSource } from './xml-scan.mjs';
 import { exportTallyXml, tallyVouchers } from './tally-export.mjs';
 import { isReturnPeriod } from './return-period.mjs';
 import { localToday } from './dates.mjs';
@@ -29,7 +30,7 @@ function tagNumber(xml, tag) {
 
 export function parseTallyReply(xml) {
   const text = String(xml || '');
-  const lineErrors = [...text.matchAll(/<LINEERROR>([\s\S]*?)<\/LINEERROR>/gi)].map((m) => m[1].replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const lineErrors = xmlElements(xmlSource(text, { ignoreCase: true }), 'LINEERROR', { exact: true }).map((found) => found.inner.replace(/\s+/g, ' ').trim()).filter(Boolean);
   return {
     created: tagNumber(text, 'CREATED'),
     altered: tagNumber(text, 'ALTERED'),
@@ -74,8 +75,9 @@ export async function pushTally(state, args = {}, actor) {
   if (!reply.ok) return { ...reply, url: plan.url, hint: reply.error === 'TALLY_UNREACHABLE' || reply.error === 'TALLY_TIMEOUT' ? 'Open Tally with the company loaded and its HTTP server on (F12 Configuration, Advanced Configuration, port 9000).' : reply.hint };
   const parsed = parseTallyReply(reply.text);
   const record = { period: plan.period, on: localToday(), url: plan.url, vouchers: plan.vouchers, ledgers: plan.ledgers, created: parsed.created, altered: parsed.altered, errors: parsed.errors, lineErrors: parsed.lineErrors, mock: mockModeEnabled() };
-  if (parsed.errors) return { ok: false, error: 'TALLY_REJECTED', ...record };
+  if (parsed.errors && !(parsed.created > 0 || parsed.altered > 0)) return { ok: false, error: 'TALLY_REJECTED', ...record };
   pushesOf(state)[plan.period] = record;
+  if (parsed.errors) return { ok: false, error: 'TALLY_REJECTED', ...record, partial: true, hint: `Tally took ${parsed.created} and refused ${parsed.errors}. The month is marked as sent so the ones it took are not sent twice; fix the refused ones, delete this month's vouchers in Tally and say "push again".` };
   return { ok: true, push: record, mock: record.mock };
 }
 

@@ -67,6 +67,13 @@ export function planQuote(state, args = {}) {
   return { ok: true, plan: { kind: kinded.kind, ...kinded.extra, ...planned.plan } };
 }
 
+function itemFieldsOf(line) {
+  const sku = String(line?.sku ?? '').trim().toUpperCase().slice(0, 64);
+  const unit = String(line?.unit ?? '').trim().slice(0, 20);
+  const batch = String(line?.batch ?? '').trim().slice(0, 20);
+  return { ...(sku ? { sku } : {}), ...(unit ? { unit } : {}), ...(batch ? { batch } : {}) };
+}
+
 function planQuoteLines(state, args = {}) {
   const date = args.date == null || args.date === '' ? localToday() : postingDate(args.date);
   if (!date) return { ok: false, error: 'INVALID_DATE', date: args.date };
@@ -78,7 +85,8 @@ function planQuoteLines(state, args = {}) {
   const raw = Array.isArray(args.lines) ? args.lines : [];
   if (!raw.length) return { ok: false, error: 'NO_LINES' };
   const company = state.company || {};
-  const pos = partyStateOf(partyGstin) || company.state;
+  const givenState = String(args.partyState ?? '').trim();
+  const pos = (/^\d{1,2}$/.test(givenState) ? givenState.padStart(2, '0') : '') || partyStateOf(partyGstin) || company.state;
   const lines = [];
   if (countryOf(state) === 'US') return planUsQuote(state, { date, validDays, partyName, raw, args });
   for (const line of raw) {
@@ -93,6 +101,7 @@ function planQuoteLines(state, args = {}) {
     lines.push({
       description: String(line.description || 'Supply'),
       hsn: String(line.hsn ?? '').trim(),
+      ...itemFieldsOf(line),
       qty,
       rate,
       gstRate,
@@ -185,8 +194,9 @@ export function invoiceArgsFromQuote(quote, args = {}) {
   return {
     partyName: quote.partyName,
     ...(quote.partyGstin ? { partyGstin: quote.partyGstin } : {}),
+    ...(quote.country !== 'US' && quote.placeOfSupply ? { partyState: quote.placeOfSupply } : {}),
     date: args.date == null || args.date === '' ? localToday() : args.date,
-    lines: quote.lines.map((line) => (quote.country === 'US' ? { description: line.description, qty: line.qty, rate: line.rate, taxable: line.taxable > 0 } : { description: line.description, hsn: line.hsn, qty: line.qty, rate: line.rate, gstRate: line.gstRate })),
+    lines: quote.lines.map((line) => (quote.country === 'US' ? { description: line.description, qty: line.qty, rate: line.rate, taxable: line.taxable > 0 } : { description: line.description, hsn: line.hsn, ...itemFieldsOf(line), qty: line.qty, rate: line.rate, gstRate: line.gstRate })),
     ...(quote.country === 'US' ? (quote.taxExempt ? { taxExempt: true, exemptionReason: quote.exemptionReason } : { taxJurisdiction: quote.taxJurisdiction }) : {}),
   };
 }
@@ -208,6 +218,7 @@ export function convertQuote(state, args = {}) {
   const made = quote.country === 'US' ? createUsInvoice(state, invoiceArgsFromQuote(quote, args)) : createInvoice(state, invoiceArgsFromQuote(quote, args));
   if (made.ok === false) return made;
   made.invoice.quoteId = quote.id;
+  if (quote.source === 'store') made.invoice.source = 'store';
   quote.status = 'invoiced';
   quote.invoiceId = made.invoice.id;
   return { ...made, quote };

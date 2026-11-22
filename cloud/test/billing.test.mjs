@@ -1,7 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, createVerify } from 'node:crypto';
-import { createBilling } from '../src/billing.mjs';
+import { billingConfigFromEnv, createBilling } from '../src/billing.mjs';
 import { startApi, SALE } from './helpers.mjs';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -85,6 +85,17 @@ test('plans are public, name the Play product for each paid plan, and say which 
   assert.equal(byId.free, undefined);
   assert.equal(byId.essentials.buyable, false, 'a plan without a Play product cannot be bought');
   assert.equal(byId.pro.buyable, true);
+  assert.equal(byId.assured.title, 'MyCA Assured');
+  assert.equal(byId.assured.monthlyRupees, 4999);
+  assert.ok(byId.assured.features.includes('ca-assured') && byId.assured.features.includes('accuracy-promise'));
+  assert.equal(byId.assured.buyable, false, 'Assured stays unsold until its Play product is created');
+  assert.deepEqual(out.body.plans.map((p) => p.id), ['essentials', 'pro', 'assured', 'firm']);
+});
+
+test('MyCA Assured is sold only once its own Play product id is set', () => {
+  assert.equal(billingConfigFromEnv({ MYCA_PLAY_PRODUCT_ASSURED: 'myca_assured' }).productIds.assured, 'myca_assured');
+  assert.equal(billingConfigFromEnv({}).productIds.assured, '');
+  assert.deepEqual(billingConfigFromEnv({ MYCA_PLAN_PRICES: 'assured=5499,essentials=abc' }).prices, { assured: 5499 });
 });
 
 test('a new business gets a 14-day trial of Pro, then turns read-only with the paid features off', async () => {
@@ -105,7 +116,7 @@ test('a new business gets a 14-day trial of Pro, then turns read-only with the p
 
 test('there is no free plan: after the trial the books are read-only until a plan is chosen', async () => {
   const plans = (await api.call('GET', '/v1/plans')).body.plans;
-  assert.deepEqual(plans.map((plan) => [plan.id, plan.monthlyRupees, plan.yearlyRupees]), [['essentials', 399, 3999], ['pro', 599, 7999], ['firm', 2499, 24999]]);
+  assert.deepEqual(plans.map((plan) => [plan.id, plan.monthlyRupees, plan.yearlyRupees]), [['essentials', 999, 9999], ['pro', 599, 19999], ['assured', 4999, 49999], ['firm', 5999, 59999]]);
   assert.ok(plans.every((plan) => plan.monthlyRupees > 0));
   const owner = await api.ownerWithBusiness('+919400000082', { name: 'Small Shop', state: '29' });
   const month = new Date(api.clock.now + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 7);
@@ -262,4 +273,57 @@ test('the server refuses to start with Play products but no way to reach the Pla
   assert.match(billingConfigProblem({ ...base, MYCA_PLAY_SERVICE_ACCOUNT_JSON: '{"client_email":"x"}' }), /not a service account key/);
   assert.equal(billingConfigProblem({ ...base, MYCA_PLAY_SERVICE_ACCOUNT_JSON: JSON.stringify({ client_email: 'play@x.iam.gserviceaccount.com', private_key: 'k' }) }), '');
   assert.equal(billingConfigProblem({ ...base, MYCA_PLAY_SERVICE_ACCOUNT_JSON: 'unset', K_SERVICE: 'x' }), '');
+});
+
+test('a CA firm\'s earned invite credits are applied at its next renewal and keep the firm plan a month past the paid end', async () => {
+  const firmBilling = createBilling({
+    db: api.db,
+    now: () => api.clock.now,
+    fetchImpl: fakeGoogle,
+    config: { packageName: PACKAGE, productIds: { pro: 'myca_pro_monthly', firm: 'myca_firm_monthly' }, serviceAccount: { clientEmail: 'play@test.iam.gserviceaccount.com', privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }), tokenUri: 'https://oauth2.googleapis.com/token' } },
+  });
+  const firm = await api.ownerWithBusiness('+919400000095', { name: 'Credit and Co', state: '29' });
+  const client = await api.ownerWithBusiness('+919400000096', { name: 'Client Co', state: '29' });
+  await age(firm, 40);
+  purchase('tok-firm-credit', { productId: 'myca_firm_monthly', expires: api.clock.now + 2 * DAY, accountId: firm.businessId });
+  const first = await firmBilling.verify(firm.businessId, null, { productId: 'myca_firm_monthly', purchaseToken: 'tok-firm-credit' });
+  assert.equal(first.ok, true, JSON.stringify(first));
+  await api.db.query("insert into referral_credits (referred_user_id, referrer_user_id, firm_business_id, client_plan, months, earned_at) values ($1, $2, $3, 'pro', 1, now())", [client.user.id, firm.user.id, firm.businessId]);
+
+  assert.equal((await firmBilling.verify(firm.businessId, null, { productId: 'myca_firm_monthly', purchaseToken: 'tok-firm-credit' })).ok, true);
+  let credit = await api.db.query('select status from referral_credits where firm_business_id = $1', [firm.businessId]);
+  assert.equal(credit.rows[0].status, 'earned', 'checking the same period again is not a renewal');
+
+  purchase('tok-firm-credit', { productId: 'myca_firm_monthly', expires: api.clock.now + 32 * DAY, accountId: firm.businessId });
+  assert.equal((await firmBilling.verify(firm.businessId, null, { productId: 'myca_firm_monthly', purchaseToken: 'tok-firm-credit' })).ok, true);
+  credit = await api.db.query('select status, applied_at from referral_credits where firm_business_id = $1', [firm.businessId]);
+  assert.equal(credit.rows[0].status, 'applied');
+  const seen = await firmBilling.entitlement(firm.businessId);
+  assert.equal(seen.subscription.creditMonths, 1);
+  assert.ok(seen.subscription.creditUntil > seen.subscription.currentEnd);
+
+  purchase('tok-firm-credit', { productId: 'myca_firm_monthly', expires: api.clock.now + 62 * DAY, accountId: firm.businessId });
+  await firmBilling.verify(firm.businessId, null, { productId: 'myca_firm_monthly', purchaseToken: 'tok-firm-credit' });
+  assert.equal((await firmBilling.entitlement(firm.businessId)).subscription.creditMonths, 1, 'a credit is applied once');
+
+  api.clock.advance(62 * DAY + 10 * DAY);
+  assert.equal((await firmBilling.entitlement(firm.businessId)).plan, 'firm', 'past the paid end the credit keeps the firm plan');
+  api.clock.advance(30 * DAY);
+  assert.equal((await firmBilling.entitlement(firm.businessId)).plan, 'lapsed', 'and then it runs out');
+  api.clock.advance(-102 * DAY);
+});
+
+test('MyCA Assured cannot be sold until the independent professional is named', async () => {
+  const config = { packageName: PACKAGE, productIds: { assured: 'myca_assured' }, notifyToken: NOTIFY, serviceAccount: { clientEmail: 'play@test.iam.gserviceaccount.com', privateKey: 'x', tokenUri: 'https://oauth2.googleapis.com/token' }, prices: {} };
+  const closed = createBilling({ db: api.db, config });
+  const shut = closed.plans().plans.find((p) => p.id === 'assured');
+  assert.equal(shut.buyable, false);
+  assert.equal(shut.opening, true);
+  assert.equal((await closed.verify('x', 'y', { productId: 'myca_assured', purchaseToken: 'tok' })).error, 'PLAN_NOT_OPEN');
+  const open = createBilling({ db: api.db, config: { ...config, assuredProfessional: 'A. Rao, CA, ICAI membership 123456' } });
+  const sold = open.plans().plans.find((p) => p.id === 'assured');
+  assert.equal(sold.buyable, true);
+  assert.equal(sold.opening, false);
+  assert.match(sold.professional, /ICAI membership/);
+  assert.equal(billingConfigFromEnv({ MYCA_ASSURED_PROFESSIONAL: 'A. Rao' }).assuredProfessional, 'A. Rao');
 });

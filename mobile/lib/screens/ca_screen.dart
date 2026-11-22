@@ -6,8 +6,11 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
 import '../app_services.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../theme.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import '../widgets/utf16_limit.dart';
 
@@ -18,6 +21,8 @@ Future<String> askMyCa(
 }) async {
   final state = AppScope.of(context);
   final api = state.api;
+  final ae = uaeEdition(context);
+  final s = UaeStrings.of(context);
   final asked = await showModalBottomSheet<_Ask>(
     context: context,
     isScrollControlled: true,
@@ -36,25 +41,25 @@ Future<String> askMyCa(
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
-        title: const Text('Send to your CA?'),
+        title: Text(ae ? s.sendToAccountant : inText(context, 'Send to your CA?')),
         content: SingleChildScrollView(
           child: Text([preview.summary, ...preview.effects].join('\n\n')),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialog).pop(false),
-            child: const Text('Cancel'),
+            child: Text(s.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialog).pop(true),
-            child: const Text('Send'),
+            child: Text(s.send),
           ),
         ],
       ),
     );
     if (yes != true) {
       await api.discard();
-      return 'Not sent.';
+      return s.notSent;
     }
     return (await api.confirm(preview.token)).reply;
   } on MycaApiException catch (err) {
@@ -94,7 +99,7 @@ class _AskSheetState extends State<_AskSheet> {
   bool _attaching = false;
 
   Future<void> _attach() async {
-    if (_documents.length >= 5) return setState(() => _error = 'At most five files on one question.');
+    if (_documents.length >= 5) return setState(() => _error = UaeStrings.of(context).atMostFive);
     setState(() {
       _error = '';
       _attaching = true;
@@ -121,6 +126,8 @@ class _AskSheetState extends State<_AskSheet> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
+    final ae = uaeEdition(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(
         22,
@@ -132,10 +139,10 @@ class _AskSheetState extends State<_AskSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Ask your CA', style: text.headlineSmall),
+          Text(ae ? s.askYourAccountant : inText(context, 'Ask your CA'), style: text.headlineSmall),
           const SizedBox(height: 4),
           Text(
-            'About ${widget.about}. MyCA attaches the details.',
+            s.askAbout(widget.about),
             style: text.bodySmall,
           ),
           const SizedBox(height: 14),
@@ -146,8 +153,8 @@ class _AskSheetState extends State<_AskSheet> {
             maxLines: 5,
             inputFormatters: const [Utf16LengthLimit(1000)],
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              labelText: 'Your question',
+            decoration: InputDecoration(
+              labelText: s.yourQuestion,
               counterText: '',
             ),
           ),
@@ -159,7 +166,7 @@ class _AskSheetState extends State<_AskSheet> {
             children: [
               ActionChip(
                 avatar: const Icon(Icons.attach_file, size: 16),
-                label: Text(_attaching ? 'Attaching…' : 'Attach a file'),
+                label: Text(_attaching ? s.attaching : s.attachFile),
                 onPressed: _attaching ? null : _attach,
               ),
               for (final doc in _documents)
@@ -173,7 +180,7 @@ class _AskSheetState extends State<_AskSheet> {
             const SizedBox(height: 8),
             Text(
               _error,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Palette.danger,
                 fontWeight: FontWeight.w600,
               ),
@@ -186,12 +193,12 @@ class _AskSheetState extends State<_AskSheet> {
               onPressed: () {
                 final note = _note.text.trim();
                 if (note.isEmpty) {
-                  setState(() => _error = 'Write what you want to ask.');
+                  setState(() => _error = s.writeQuestion);
                   return;
                 }
                 Navigator.of(context).pop(_Ask(note: note, documents: List.of(_documents)));
               },
-              child: const Text('Preview'),
+              child: Text(s.preview),
             ),
           ),
         ],
@@ -200,10 +207,10 @@ class _AskSheetState extends State<_AskSheet> {
   }
 }
 
-String caStatusWords(CaRequest request) => switch (request.status) {
-  'answered' => 'Answered',
-  'closed' => 'Closed',
-  _ => 'Waiting for your CA',
+String caStatusWords(CaRequest request, [UaeStrings? ae, String lang = 'en']) => ae != null ? ae.accountantStatus(request.status) : switch (request.status) {
+  'answered' => inLine(lang, 'Answered'),
+  'closed' => inLine(lang, 'Closed'),
+  _ => inLine(lang, 'Waiting for your CA'),
 };
 
 class CaScreen extends StatefulWidget {
@@ -234,8 +241,9 @@ class _CaScreenState extends State<CaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ae = uaeEdition(context) ? UaeStrings.of(context) : null;
     return Scaffold(
-      appBar: AppBar(title: const Text('Your CA')),
+      appBar: AppBar(title: Text(ae != null ? ae.yourAccountant : AppScope.of(context).edition == 'GB' ? 'Your accountant' : inText(context, 'Your CA'))),
       body: FutureBuilder<List<CaRequest>>(
         future: _requests,
         builder: (context, state) {
@@ -247,9 +255,9 @@ class _CaScreenState extends State<CaScreen> {
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
             children: [
               if (requests.isEmpty)
-                const EmptyNote(
+                EmptyNote(
                   text:
-                      'No open questions. Use "Ask my CA" on an invoice, a flagged item or a month\'s review; MyCA attaches the details.',
+                      ae != null ? ae.noOpenQuestions : AppScope.of(context).edition == 'GB' ? 'No open questions. Ask your accountant from an invoice or a flagged item; MyCA attaches the details.' : inText(context, 'No open questions. Use "Ask my CA" on an invoice, a flagged item or a month\'s review; MyCA attaches the details.'),
                 )
               else
                 Panel(
@@ -266,7 +274,7 @@ class _CaScreenState extends State<CaScreen> {
                         ),
                         title: request.title,
                         subtitle:
-                            '${caStatusWords(request)} · ${longDate(request.lastOn)}',
+                            '${caStatusWords(request, ae, indiaLang(context))} · ${ae != null ? ae.longDate(request.lastOn) : longDate(request.lastOn)}',
                         trailing: const Chevron(),
                         onTap: () async {
                           await Navigator.of(context).push(
@@ -281,7 +289,7 @@ class _CaScreenState extends State<CaScreen> {
                 ),
               const SizedBox(height: 14),
               Text(
-                'Your CA sees these in MyCA once you have invited them from People.',
+                ae != null ? ae.accountantSees : AppScope.of(context).edition == 'GB' ? 'Your accountant sees these in MyCA once you have invited them from People.' : inText(context, 'Your CA sees these in MyCA once you have invited them from People.'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -353,8 +361,9 @@ class _CaThreadScreenState extends State<CaThreadScreen> {
     await Clipboard.setData(ClipboardData(text: _request.text));
     if (!mounted) return;
     setState(
-      () => _note =
-          'Copied. Paste it into WhatsApp or email if your CA is not on MyCA yet.',
+      () => _note = uaeEdition(context)
+          ? UaeStrings.of(context).copiedForAccountant
+          : inText(context, 'Copied. Paste it into WhatsApp or email if your CA is not on MyCA yet.'),
     );
   }
 
@@ -362,6 +371,8 @@ class _CaThreadScreenState extends State<CaThreadScreen> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final open = _request.status != 'closed';
+    final ae = uaeEdition(context) ? UaeStrings.of(context) : null;
+    final s = UaeStrings.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(_request.id)),
       body: Column(
@@ -371,7 +382,7 @@ class _CaThreadScreenState extends State<CaThreadScreen> {
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
               children: [
                 Text(
-                  caStatusWords(_request).toUpperCase(),
+                  caStatusWords(_request, ae, indiaLang(context)).toUpperCase(),
                   style: text.labelSmall,
                 ),
                 const SizedBox(height: 4),
@@ -392,7 +403,7 @@ class _CaThreadScreenState extends State<CaThreadScreen> {
                 if (_request.attachments.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(
-                    'Attached: ${_request.attachments.join(', ')}',
+                    s.attached(_request.attachments.join(', ')),
                     style: text.bodySmall,
                   ),
                 ],
@@ -405,19 +416,19 @@ class _CaThreadScreenState extends State<CaThreadScreen> {
                         : BubbleTone.plain,
                     label: message.by == _request.askedBy
                         ? null
-                        : 'Reply · ${longDate(message.on)}',
+                        : s.replyOn(s.longDate(message.on)),
                   ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
                   children: [
                     ActionChip(
-                      label: const Text('Copy to send'),
+                      label: Text(s.copyToSend),
                       onPressed: _copy,
                     ),
                     if (open)
                       ActionChip(
-                        label: const Text('Close'),
+                        label: Text(s.close),
                         onPressed: _busy
                             ? null
                             : () => _run('close_ca', {'id': _request.id}),
@@ -442,13 +453,13 @@ class _CaThreadScreenState extends State<CaThreadScreen> {
                       child: TextField(
                         controller: _reply,
                         textCapitalization: TextCapitalization.sentences,
-                        decoration: const InputDecoration(hintText: 'Reply'),
+                        decoration: InputDecoration(hintText: s.reply),
                       ),
                     ),
                     const SizedBox(width: 8),
                     FilledButton(
                       onPressed: _busy ? null : _send,
-                      child: const Text('Send'),
+                      child: Text(s.send),
                     ),
                   ],
                 ),

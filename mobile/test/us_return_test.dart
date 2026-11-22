@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:myca/us/us_text_scaler.dart';
 import 'package:myca/api/models.dart';
 import 'package:myca/api/myca_api.dart';
 import 'package:myca/app_config.dart';
@@ -22,6 +23,9 @@ import 'fake_api.dart';
 import 'fake_cloud.dart';
 
 class FeeStore implements StoreBilling {
+  FeeStore({this.price = '\$129.00'});
+
+  final String price;
   final controller = StreamController<List<StorePurchase>>.broadcast();
   final bought = <String>[];
   final finished = <String>[];
@@ -31,7 +35,7 @@ class FeeStore implements StoreBilling {
   @override
   Future<bool> available() async => true;
   @override
-  Future<Map<String, StoreProduct>> products(Set<String> ids) async => {for (final id in ids) id: StoreProduct(id: id, price: '\$129.00')};
+  Future<Map<String, StoreProduct>> products(Set<String> ids) async => {for (final id in ids) id: StoreProduct(id: id, price: price)};
   @override
   Future<bool> buy(String productId, String accountId) async {
     bought.add('sub:$productId:$accountId');
@@ -92,6 +96,7 @@ class UsFakeApi implements MycaApi {
   List<Map<String, Object?>> checks = [];
   String efile = 'not_filed';
   String mode = 'sandbox';
+  String route = 'mef';
   List<Map<String, Object?>> rejections = [];
   num refund = 1234.5;
   num owed = 0;
@@ -102,6 +107,9 @@ class UsFakeApi implements MycaApi {
     {'form': 'Form 1040', 'line': '25a', 'label': 'Federal tax withheld', 'amount': 6100, 'source': 'W-2 box 2'},
   ];
   final tools = <String, Object?>{};
+  Object? Function(String name, Map<String, Object?> args)? stateTools;
+  void Function(Map<String, Object?> args)? stateSaved;
+  void Function(Map<String, Object?> args)? stateAnswered;
   Map<String, Object?> signed = {};
   int _token = 0;
   final _pending = <String, Proposal>{};
@@ -125,12 +133,12 @@ class UsFakeApi implements MycaApi {
   Future<void> signOut() async {}
 
   @override
-  Future<ChatReply> chat(String message) async => ChatReply.fromJson({'reply': 'ok'});
+  Future<ChatReply> chat(String message, {String lang = 'en'}) async => ChatReply.fromJson({'reply': 'ok'});
 
   @override
   Future<ChatReply> propose(String name, Map<String, Object?> args) async {
     proposals.add(Proposal(name, args));
-    if (name == 'file_us_return' && efile != 'signed') return ChatReply.fromJson({'reply': 'Sign the return first.', 'blocked': true});
+    if (name == 'file_us_return' && efile != 'signed' && route != 'partner') return ChatReply.fromJson({'reply': 'Sign the return first.', 'blocked': true});
     final token = 'tok-${_token++}';
     _pending[token] = Proposal(name, args);
     final summary = name == 'file_us_return' ? 'Send your 2025 Form 1040 to the IRS test system.' : 'Save $name.';
@@ -163,10 +171,24 @@ class UsFakeApi implements MycaApi {
         forms.removeWhere((f) => f['id'] == args['id']);
       case 'answer_us_interview':
         answers['${args['id']}'] = args['answer'];
+      case 'set_us_state_residency':
+        stateSaved?.call(args);
+      case 'set_us_state_answers':
+        stateAnswered?.call(args);
       case 'sign_us_return':
         signed = args;
         efile = 'signed';
       case 'file_us_return':
+        if (route == 'partner') {
+          efile = 'in_progress';
+          return ChatReply.fromJson({
+            'reply': 'Continue on the partner page.',
+            'posted': false,
+            'tools': [
+              {'name': 'file_us_return', 'result': {'ok': true, 'data': {'route': 'partner', 'status': 'in_progress', 'handoffUrl': 'https://file.partner.example/s/1'}}},
+            ],
+          });
+        }
         efile = 'submitted';
     }
     return ChatReply.fromJson({'reply': p.tool == 'sign_us_return' ? 'Signed with PIN. Refund to account ending 6789.' : 'Saved.', 'posted': true});
@@ -224,11 +246,13 @@ class UsFakeApi implements MycaApi {
           'unsupported': unsupported,
         });
       case 'us_efile_status':
-        return _ok({'status': efile, 'mode': mode, 'submissionId': efile == 'submitted' ? '00000020253150000001' : '', 'rejections': rejections});
+        return _ok({'status': efile, 'mode': mode, 'route': route, 'submissionId': efile == 'submitted' ? '00000020253150000001' : '', 'rejections': rejections});
       case 'us_return_pdf':
         return _ok({'base64': 'JVBERi0xLjQK'});
     }
     if (tools.containsKey(name)) return tools[name];
+    final state = stateTools;
+    if (state != null && name.startsWith('us_state_')) return state(name, args);
     return {'ok': false, 'error': 'UNKNOWN_TOOL'};
   }
 
@@ -560,7 +584,7 @@ void main() {
     await scrollTap(tester, find.byKey(const Key('usSign.sign')));
     expect(find.text('Choose any five digits except 00000.'), findsOneWidget);
     expect(find.textContaining('does not add up'), findsOneWidget);
-    expect(find.text('Tick the box to sign.'), findsOneWidget);
+    expect(find.text('Check the box to sign.'), findsOneWidget);
     expect(api.proposals, isEmpty);
 
     await tester.enterText(find.byKey(const Key('usSign.pin')), '24680');
@@ -589,6 +613,32 @@ void main() {
     expect(api.confirmed, ['sign_us_return', 'file_us_return']);
     expect(find.text('Sent to the IRS'), findsOneWidget);
     expect(find.textContaining('00000020253150000001'), findsOneWidget);
+  });
+
+  testWidgets('partner route: no PIN screen; one tap opens the e-file partner prefilled, and the hub waits for the IRS answer', (tester) async {
+    final api = UsFakeApi()
+      ..taxpayer = {'filingStatus': 'single'}
+      ..route = 'partner';
+    api.forms.add({'id': 'F1', 'kind': 'W-2', 'payer': 'Acme', 'amounts': {'wages': 52000}});
+    final opened = <Uri>[];
+    await tester.pumpWidget(MycaApp(state: usState(api, opened: opened)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('usHub.step.sign')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('usSign.pin')), findsNothing, reason: 'the partner signs Form 8879 with the filer');
+    expect(find.byKey(const Key('usSign.partnerIntro')), findsOneWidget);
+    expect(find.text(wholeWords('Ready to e-file')), findsOneWidget);
+    expect(find.textContaining('IRS test system'), findsOneWidget);
+    await scrollTap(tester, find.byKey(const Key('usSign.partner')));
+    expect(api.confirmed, ['file_us_return']);
+    expect(opened, [Uri.parse('https://file.partner.example/s/1')]);
+    expect(find.text(wholeWords('Finish e-filing')), findsOneWidget);
+    expect(find.text('Continue where you left off'), findsOneWidget);
+
+    api.efile = 'accepted';
+    await scrollTap(tester, find.byKey(const Key('usSign.partnerRefresh')));
+    expect(find.text('Accepted by the IRS'), findsOneWidget);
   });
 
   testWidgets('filing is held until that year\'s \$129 is paid on Google Play; then the file button appears', (tester) async {

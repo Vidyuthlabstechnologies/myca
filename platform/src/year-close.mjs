@@ -1,4 +1,4 @@
-import { createTransfers, listAccounts, TRANSFER_FLAGS } from './ledger.mjs';
+import { ACCOUNT_FLAGS, createTransfers, listAccounts, TRANSFER_FLAGS } from './ledger.mjs';
 import { localToday } from './dates.mjs';
 import { lockPeriod } from './period-lock.mjs';
 import { countryOf } from './country.mjs';
@@ -99,9 +99,14 @@ export function closeYear(state, args = {}) {
     if (row.debitNet < 0) bundle.push({ id: nextTransferId(state), debitAccountId: Number(row.id), creditAccountId: CAPITAL, amount, flags: linked, invoiceId: id, code: 'YEAR-CLOSE', userData: plan.to });
     else bundle.push({ id: nextTransferId(state), debitAccountId: CAPITAL, creditAccountId: Number(row.id), amount, flags: linked, invoiceId: id, code: 'YEAR-CLOSE', userData: plan.to });
   }
+  const touched = [CAPITAL, ...plan.rows.map((row) => Number(row.id))].map((accountId) => state.ledger.accounts.get(BigInt(accountId))).filter(Boolean);
+  const flagsBefore = touched.map((account) => account.flags);
+  const limits = ACCOUNT_FLAGS.DEBITS_MUST_NOT_EXCEED_CREDITS | ACCOUNT_FLAGS.CREDITS_MUST_NOT_EXCEED_DEBITS;
+  for (const account of touched) account.flags &= ~limits;
   const posted = createTransfers(state.ledger, bundle);
   if (posted.some((result) => !result.ok)) {
     state.transferSeq = seqBefore;
+    touched.forEach((account, index) => { account.flags = flagsBefore[index]; });
     return fail('LEDGER_REJECT', { posted });
   }
   const locked = lockPeriod(state, plan.to, `Year ${plan.year} closed`);

@@ -4,8 +4,10 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../registers.dart';
 import '../theme.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'pay_bills_screen.dart';
 
@@ -60,7 +62,8 @@ class _CashScreenState extends State<CashScreen> {
 
   Future<void> _ask() async {
     final amount = parseAmount(_amount.text);
-    if (amount == null) return setState(() => _note = 'Enter an amount.');
+    final s = UaeStrings.of(context);
+    if (amount == null) return setState(() => _note = s.enterAnAmount);
     FocusScope.of(context).unfocus();
     setState(() {
       _busy = true;
@@ -72,7 +75,7 @@ class _CashScreenState extends State<CashScreen> {
       answer = Affordability.fromTool(
         await _api.query('can_afford', {'amount': amount, 'on': _whenDate()}),
       );
-      if (answer == null) note = 'That could not be worked out.';
+      if (answer == null) note = s.couldNotWorkThatOut;
     } on MycaApiException catch (err) {
       note = err.message;
     }
@@ -122,19 +125,20 @@ class _CashScreenState extends State<CashScreen> {
   }
 
   Future<bool> _confirm(ChatPreview preview) async {
+    final s = UaeStrings.of(context);
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
-        title: const Text('Use these balances?'),
+        title: Text(s.useTheseBalances),
         content: Text([preview.summary, ...preview.effects].join('\n\n')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialog).pop(false),
-            child: const Text('Cancel'),
+            child: Text(s.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialog).pop(true),
-            child: const Text('Use them'),
+            child: Text(s.useThem),
           ),
         ],
       ),
@@ -145,8 +149,9 @@ class _CashScreenState extends State<CashScreen> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Cash')),
+      appBar: AppBar(title: Text(s.cash)),
       body: FutureBuilder<CashForecast?>(
         future: _forecast,
         builder: (context, state) {
@@ -159,11 +164,11 @@ class _CashScreenState extends State<CashScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('The forecast could not be worked out.'),
+                  Text(s.forecastFailed),
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: _reload,
-                    child: const Text('Try again'),
+                    child: Text(s.tryAgain),
                   ),
                 ],
               ),
@@ -174,9 +179,9 @@ class _CashScreenState extends State<CashScreen> {
             children: [
               _Card(
                 children: [
-                  Text('BANK AND CASH NOW', style: text.labelSmall),
+                  Text(s.bankAndCashNow, style: text.labelSmall),
                   const SizedBox(height: 6),
-                  Text(
+                  Amount(
                     rupees(forecast.startAmount),
                     style: text.displaySmall?.copyWith(
                       fontWeight: FontWeight.w400,
@@ -184,7 +189,7 @@ class _CashScreenState extends State<CashScreen> {
                     ),
                   ),
                   Text(
-                    'Bank ${rupees(forecast.bank)} · cash in hand ${rupees(forecast.cash)}',
+                    s.bankAndCash(rupees(forecast.bank), rupees(forecast.cash)),
                     style: text.bodyMedium?.copyWith(
                       fontFeatures: moneyFigures,
                     ),
@@ -192,7 +197,7 @@ class _CashScreenState extends State<CashScreen> {
                   const SizedBox(height: 8),
                   Text(
                     forecast.fromReading
-                        ? 'From the balance you gave on ${longDate(forecast.readingOn)}, with what was recorded since.'
+                        ? s.fromBalanceOn(s.longDate(forecast.readingOn))
                         : forecast.startNote,
                     style: text.bodySmall?.copyWith(
                       color: forecast.fromReading
@@ -207,13 +212,14 @@ class _CashScreenState extends State<CashScreen> {
                       onPressed: _busy ? null : () => _updateBalance(forecast),
                       child: Text(
                         forecast.fromReading
-                            ? 'Update balance'
-                            : 'Tell MyCA your balance today',
+                            ? s.updateBalance
+                            : s.tellBalance,
                       ),
                     ),
                   ),
                 ],
               ),
+              if (moneyCountry != 'AE') ...[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
@@ -224,24 +230,25 @@ class _CashScreenState extends State<CashScreen> {
                       builder: (_) => const PayBillsScreen(),
                     ),
                   ),
-                  label: const Text('Who to pay'),
+                  label: Text(inText(context, 'Who to pay')),
                 ),
               ),
+              ],
               const SizedBox(height: 12),
               _Card(
                 children: [
-                  Text('NEXT ${forecast.days} DAYS', style: text.labelSmall),
+                  Text(s.nextDays(forecast.days), style: text.labelSmall),
                   const SizedBox(height: 8),
-                  _Line(label: 'Coming in', amount: forecast.comingTotal),
-                  _Line(label: 'Going out', amount: -forecast.goingTotal),
+                  _Line(label: s.comingIn, amount: forecast.comingTotal),
+                  _Line(label: s.goingOut, amount: -forecast.goingTotal),
                   const Divider(height: 20),
                   _Line(
-                    label: 'On ${longDate(forecast.until)}',
+                    label: s.onDate(s.longDate(forecast.until)),
                     amount: forecast.end,
                     strong: true,
                   ),
                   _Line(
-                    label: 'Lowest, on ${longDate(forecast.lowestOn)}',
+                    label: s.lowestOn(s.longDate(forecast.lowestOn)),
                     amount: forecast.lowest,
                   ),
                   const SizedBox(height: 10),
@@ -253,9 +260,9 @@ class _CashScreenState extends State<CashScreen> {
                         start: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(row.label, style: text.bodyMedium),
+                            Text(s.accountName(row.label), style: text.bodyMedium),
                             Text(
-                              '${longDate(row.date)} · ${row.basis}',
+                              '${s.longDate(row.date)} · ${row.basis}',
                               style: text.bodySmall,
                             ),
                           ],
@@ -270,7 +277,7 @@ class _CashScreenState extends State<CashScreen> {
                   if (forecast.overdueTotal > 0) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'Overdue and not counted: ${rupees(forecast.overdueTotal)}. MyCA cannot tell when it will be paid.',
+                      s.overdueNotCounted(rupees(forecast.overdueTotal)),
                       style: text.bodySmall?.copyWith(color: Palette.warn),
                     ),
                   ],
@@ -286,16 +293,16 @@ class _CashScreenState extends State<CashScreen> {
               const SizedBox(height: 12),
               _Card(
                 children: [
-                  Text('CAN I AFFORD IT?', style: text.labelSmall),
+                  Text(s.canIAfford, style: text.labelSmall),
                   const SizedBox(height: 10),
                   TextField(
                     controller: _amount,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration: const InputDecoration(
-                      labelText: 'Amount to spend',
-                      prefixText: '₹ ',
+                    decoration: InputDecoration(
+                      labelText: s.amountToSpend,
+                      prefixText: moneyPrefix,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -308,7 +315,7 @@ class _CashScreenState extends State<CashScreen> {
                         'In 3 months',
                       ])
                         ChoiceChip(
-                          label: Text(when),
+                          label: Text(s.cashWhen(when)),
                           selected: _when == when,
                           selectedColor: Palette.sunken,
                           showCheckmark: false,
@@ -321,7 +328,7 @@ class _CashScreenState extends State<CashScreen> {
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: _busy ? null : _ask,
-                      child: const Text('Check'),
+                      child: Text(s.check),
                     ),
                   ),
                   if (_answer != null) ...[
@@ -422,7 +429,7 @@ class _BalanceSheetState extends State<_BalanceSheet> {
     final cash = _cash.text.trim().isEmpty ? null : parseAmount(_cash.text);
     if (bank == null && cash == null) {
       return setState(
-        () => _error = 'Enter the bank balance, the cash in hand, or both.',
+        () => _error = UaeStrings.of(context).enterBalances,
       );
     }
     Navigator.of(context).pop((bank, cash));
@@ -431,6 +438,7 @@ class _BalanceSheetState extends State<_BalanceSheet> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(
         22,
@@ -438,39 +446,40 @@ class _BalanceSheetState extends State<_BalanceSheet> {
         22,
         22 + MediaQuery.viewInsetsOf(context).bottom,
       ),
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Your balance today', style: text.headlineSmall),
+          Text(s.yourBalanceToday, style: text.headlineSmall),
           const SizedBox(height: 6),
           Text(
-            'As your bank app or passbook shows it. This posts nothing to your books.',
+            s.balanceSheetNote,
             style: text.bodySmall,
           ),
           const SizedBox(height: 14),
           TextField(
             controller: _bank,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Bank balance',
-              prefixText: '₹ ',
+            decoration: InputDecoration(
+              labelText: s.bankBalance,
+              prefixText: moneyPrefix,
             ),
           ),
           const SizedBox(height: 10),
           TextField(
             controller: _cash,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Cash in hand',
-              prefixText: '₹ ',
+            decoration: InputDecoration(
+              labelText: s.cashInHand,
+              prefixText: moneyPrefix,
             ),
           ),
           if (_error.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
               _error,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Palette.danger,
                 fontWeight: FontWeight.w600,
               ),
@@ -479,9 +488,10 @@ class _BalanceSheetState extends State<_BalanceSheet> {
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: FilledButton(onPressed: _done, child: const Text('Preview')),
+            child: FilledButton(onPressed: _done, child: Text(s.preview)),
           ),
         ],
+      ),
       ),
     );
   }

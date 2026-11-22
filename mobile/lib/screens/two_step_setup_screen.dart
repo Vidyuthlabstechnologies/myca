@@ -4,7 +4,10 @@ import 'package:flutter/services.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../cloud/cloud_session.dart';
+import '../secure_window.dart';
 import '../theme.dart';
+import '../uae/uae_cloud_strings.dart';
+import '../uae/uae_strings.dart';
 import '../widgets/qr_image.dart';
 import 'recovery_codes_screen.dart';
 
@@ -15,7 +18,7 @@ class TwoStepSetupScreen extends StatefulWidget {
   State<TwoStepSetupScreen> createState() => _TwoStepSetupScreenState();
 }
 
-class _TwoStepSetupScreenState extends State<TwoStepSetupScreen> {
+class _TwoStepSetupScreenState extends State<TwoStepSetupScreen> with SecureWindowWhileShown {
   Future<SecondStepSetup>? _setup;
   final _code = TextEditingController();
   String _error = '';
@@ -51,14 +54,14 @@ class _TwoStepSetupScreenState extends State<TwoStepSetupScreen> {
       }
     }
     if (!opened && mounted) {
-      setState(() => _error = 'No authenticator app could open this. Scan the code or copy the key instead.');
+      setState(() => _error = UaeStrings.of(context).noAuthenticatorApp);
     }
   }
 
   Future<void> _turnOn() async {
     final code = _code.text.trim();
     if (!RegExp(r'^[0-9]{6}$').hasMatch(code)) {
-      setState(() => _error = 'Type the 6-digit code the app shows.');
+      setState(() => _error = UaeStrings.of(context).typeSixDigits);
       return;
     }
     final state = AppScope.of(context);
@@ -85,8 +88,9 @@ class _TwoStepSetupScreenState extends State<TwoStepSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Turn on two-step sign-in')),
+      appBar: AppBar(title: Text(s.turnOnTwoStep)),
       body: FutureBuilder<SecondStepSetup>(
         future: _setup,
         builder: (context, loaded) {
@@ -94,7 +98,7 @@ class _TwoStepSetupScreenState extends State<TwoStepSetupScreen> {
           if (setup == null) {
             return Center(
               child: loaded.hasError
-                  ? Padding(padding: const EdgeInsets.all(24), child: Text('${loaded.error}', textAlign: TextAlign.center))
+                  ? Padding(padding: const EdgeInsets.all(24), child: Text(s.cloudSaid('${loaded.error}'), textAlign: TextAlign.center))
                   : const CircularProgressIndicator(),
             );
           }
@@ -102,18 +106,18 @@ class _TwoStepSetupScreenState extends State<TwoStepSetupScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             children: [
               Text(
-                'Scan this with Google Authenticator, Authy or any authenticator app, or copy the key into it. Then type the code it shows.',
+                s.scanThis,
                 style: text.bodyMedium,
               ),
               const SizedBox(height: 16),
-              Center(child: QrSquare(data: setup.uri, label: 'QR code for your authenticator app')),
+              Center(child: QrSquare(data: setup.uri, label: s.qrLabel)),
               const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
                     child: SelectableText(
                       setup.groupedSecret,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'monospace',
                         fontSize: 18,
                         fontWeight: FontWeight.w500,
@@ -125,29 +129,29 @@ class _TwoStepSetupScreenState extends State<TwoStepSetupScreen> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Copy key',
+                    tooltip: s.copyKey,
                     onPressed: () => _copy(setup),
                     icon: Icon(_copied ? Icons.check : Icons.copy_outlined),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-              OutlinedButton(onPressed: () => _open(setup), child: const Text('Open in authenticator app')),
+              OutlinedButton(onPressed: () => _open(setup), child: Text(s.openInAuthenticator)),
               const SizedBox(height: 24),
               TextField(
                 controller: _code,
                 keyboardType: TextInputType.number,
                 maxLength: 6,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(labelText: 'Code from the app', counterText: ''),
+                decoration: InputDecoration(labelText: s.codeFromApp, counterText: ''),
                 onSubmitted: (_) => _turnOn(),
               ),
               if (_error.isNotEmpty) ...[
                 const SizedBox(height: 10),
-                Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                Text(s.cloudSaid(_error), style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
               ],
               const SizedBox(height: 16),
-              FilledButton(onPressed: _busy ? null : _turnOn, child: Text(_busy ? 'Please wait…' : 'Turn on')),
+              FilledButton(onPressed: _busy ? null : _turnOn, child: Text(_busy ? s.pleaseWait : s.turnOn)),
             ],
           );
         },

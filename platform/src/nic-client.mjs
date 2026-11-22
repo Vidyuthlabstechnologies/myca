@@ -1,6 +1,8 @@
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto';
-import { loadGovtConfig, pemFromDisk, rsaEncryptBase64, GOVT_GUIDE, invoiceToNicPayload, generateMockIrnPayload, nicCancelProblem, nicPartyFor, nicPayloadRefusal } from './nic-config.mjs';
+import { sameSecrets } from './held-secret.mjs';
+import { loadGovtConfig, pemFromDisk, rsaEncryptBase64, GOVT_GUIDE, invoiceToNicPayload, nicDocumentById, generateMockIrnPayload, nicCancelProblem, nicPartyFor, nicPayloadRefusal } from './nic-config.mjs';
 import { liveCallsEnabled, mockModeEnabled, testModeEnabled } from './runtime-config.mjs';
+import { localDateTime } from './dates.mjs';
 
 export { rsaEncryptBase64 };
 
@@ -99,14 +101,19 @@ export function nicSessionKey(cfg = {}) {
     .digest('hex');
 }
 
+function secretsOf(cfg) {
+  return [cfg?.clientSecret, cfg?.password].map((part) => String(part ?? ''));
+}
+
 function sessionFor(cfg) {
-  return sessions.get(nicSessionKey(cfg)) || NO_SESSION;
+  const kept = sessions.get(nicSessionKey(cfg));
+  return kept && sameSecrets(secretsOf(cfg), kept.secrets) ? kept.session : NO_SESSION;
 }
 
 function rememberSession(cfg, session) {
   const key = nicSessionKey(cfg);
   sessions.delete(key);
-  sessions.set(key, session);
+  sessions.set(key, { session, secrets: secretsOf(cfg) });
   while (sessions.size > MAX_SESSIONS) sessions.delete(sessions.keys().next().value);
 }
 
@@ -268,7 +275,7 @@ export async function nicGstinMaster(gstin, cfgOrFetch = loadGovtConfig(), fetch
 }
 
 export async function nicGenerateIrn(state, invoiceId, fetchFn = fetch, options = {}) {
-  const inv = [...(state.invoices || []), ...(state.creditNotes || []), ...(state.debitNotes || [])].find((i) => i.id === invoiceId);
+  const inv = nicDocumentById(state, invoiceId);
   if (!inv) return { ok: false, error: 'INVOICE_NOT_FOUND', invoiceId };
   const cfg = loadGovtConfig();
   const useMock = options.mock === false ? false : Boolean(options.mock || cfg.env === 'mock' || cfg.useMock || mockModeEnabled());
@@ -356,17 +363,23 @@ function extractIrn(path, body) {
   return m ? decodeURIComponent(m[1]) : '';
 }
 
-// Deterministic canned IRP responses for mock mode.
+function nicStamp(now = new Date()) {
+  const [day, time] = localDateTime(now).split(' ');
+  const [y, m, d] = day.split('-');
+  return `${d}/${m}/${y} ${time}`;
+}
+
 function mockCallData(method, path, body) {
+  const stamp = nicStamp();
   if (path === IRP_PATHS.cancelIrn) {
-    return { Irn: body?.Irn || '', CancelDate: '20/09/2026 13:00:00', Status: 'CNL' };
+    return { Irn: body?.Irn || '', CancelDate: stamp, Status: 'CNL' };
   }
   if (path.includes('/irnbyirn') || /\/Invoice\/irn\//.test(path)) {
     const irn = extractIrn(path, body);
-    return { Irn: irn, AckNo: `MOCK-ACK-${irn.slice(-6)}`, AckDt: '20/09/2026 12:00:00', SignedInvoice: `mock_jwt_${irn}.sig`, Status: 'ACT' };
+    return { Irn: irn, AckNo: `MOCK-ACK-${irn.slice(-6)}`, AckDt: stamp, SignedInvoice: `mock_jwt_${irn}.sig`, Status: 'ACT' };
   }
   if (path.includes('irnbydocdetails')) {
-    return { Irn: 'MOCKIRNDOC123456789X', AckNo: 'MOCK-ACK-DOC', AckDt: '20/09/2026 12:00:00', Status: 'ACT' };
+    return { Irn: 'MOCKIRNDOC123456789X', AckNo: 'MOCK-ACK-DOC', AckDt: stamp, Status: 'ACT' };
   }
   if (path.includes('rejectedirns')) {
     return { Irn: [], Irns: [] };
@@ -374,7 +387,7 @@ function mockCallData(method, path, body) {
   if (path.includes('/Master/gstin/')) {
     return { LglNm: 'Nalanda Textiles Private Limited', StjCd: '27', Stj: 'Maharashtra', Ctu: 'IN', CtuNm: 'India' };
   }
-  return { Irn: 'MOCKIRN000000000000X', AckNo: 'MOCK-ACK-000001', AckDt: '20/09/2026 12:00:00', Status: 'ACT' };
+  return { Irn: 'MOCKIRN000000000000X', AckNo: 'MOCK-ACK-000001', AckDt: stamp, Status: 'ACT' };
 }
 
 export { generateMockIrnPayload };

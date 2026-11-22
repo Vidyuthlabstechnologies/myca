@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
 
 const ALGORITHM = 'aes-256-gcm';
+const TAG_BYTES = 16;
 const VERSION = 'v1';
 const MIN_KEY_LENGTH = 32;
 
@@ -26,17 +27,30 @@ export function sealState(secret, businessId, text) {
   return `${VERSION}.${iv.toString('base64url')}.${cipher.getAuthTag().toString('base64url')}.${body.toString('base64url')}`;
 }
 
-export function openState(secret, businessId, value) {
-  if (!isSealed(value)) return value;
+function openText(secret, businessId, value) {
   if (!secret) throw Object.assign(new Error('the books are sealed and the service has no MYCA_BOOKS_KEY'), { code: 'BOOKS_KEY_MISSING' });
   const [, iv, tag, body] = value.split('.');
   try {
-    const decipher = createDecipheriv(ALGORITHM, dataKey(secret, businessId), Buffer.from(iv, 'base64url'));
+    const decipher = createDecipheriv(ALGORITHM, dataKey(secret, businessId), Buffer.from(iv, 'base64url'), { authTagLength: TAG_BYTES });
     decipher.setAuthTag(Buffer.from(tag, 'base64url'));
-    return JSON.parse(Buffer.concat([decipher.update(Buffer.from(body, 'base64url')), decipher.final()]).toString('utf8'));
+    return Buffer.concat([decipher.update(Buffer.from(body, 'base64url')), decipher.final()]).toString('utf8');
   } catch {
     throw Object.assign(new Error('the books could not be opened with this key'), { code: 'BOOKS_KEY_WRONG' });
   }
+}
+
+export function openState(secret, businessId, value) {
+  if (!isSealed(value)) return value;
+  const text = openText(secret, businessId, value);
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw Object.assign(new Error('the books could not be opened with this key'), { code: 'BOOKS_KEY_WRONG' });
+  }
+}
+
+export function resealState(oldSecret, newSecret, businessId, value) {
+  return sealState(newSecret, businessId, isSealed(value) ? openText(oldSecret, businessId, value) : JSON.stringify(value));
 }
 
 export function storedState(secret, businessId, text) {

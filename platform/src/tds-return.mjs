@@ -84,6 +84,19 @@ export function allocateDeposits(state) {
   return covered;
 }
 
+export function depositedPaiseOf(state, targets) {
+  const wanted = new Set(targets);
+  const deductions = entriesOf(state, { form: 'all' });
+  let deposited = (state.tdsDeposits || []).reduce((sum, deposit) => sum + paise(deposit.amount), 0);
+  let covered = 0;
+  for (const entry of deductions) {
+    const take = Math.min(deposited, paise(entry.tds));
+    deposited -= take;
+    if (wanted.has(entry)) covered += take;
+  }
+  return covered;
+}
+
 function deducteeKey(entry) {
   return `${entry.pan || `NOPAN:${String(entry.payee || '').toUpperCase()}`}|${entry.section}`;
 }
@@ -144,7 +157,7 @@ export function tdsReturnDraft(state, requested, { form = 'other' } = {}) {
   const deducted = round2(deductedInQuarter.reduce((sum, entry) => sum + entry.tds, 0));
   const deposited = round2(challans.reduce((sum, row) => sum + row.covers, 0));
   const row = dueRow(state, quarter);
-  const filed = filingFor(state, 'TDS_QUARTERLY', quarter.label);
+  const filed = filingFor(state, 'TDS_QUARTERLY', quarter.label, '', form);
   const { form: formNumber, ruleUsed } = formFor(quarter, form);
   const unreviewed = inQuarter.some((entry) => entry.unreviewed);
   const basis = { form, quarter: quarter.label, deductees: deductees.map((d) => [d.pan || d.payee, d.section, d.count, d.basis, d.tds]), challans: challans.map((c) => [c.id, c.covers]) };

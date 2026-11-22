@@ -62,6 +62,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      attestations: write
     with:
       environment: staging
       server_environment: staging
@@ -80,6 +81,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      attestations: write
     with:
       environment: ${{ inputs.country == 'US' && 'production-us' || 'production' }}
       server_environment: production

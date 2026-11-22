@@ -4,6 +4,9 @@ import { incomeTax, rules } from './sprint-load.mjs';
 import { localToday } from './dates.mjs';
 import { periodSummary } from './period-summary.mjs';
 import { creditsToDate } from './advance-tax.mjs';
+import { ageAtFyEnd, bandOfAge } from './age-band.mjs';
+
+export { ageAtFyEnd };
 import { findTaxGuidance, loadTaxModule, rupees, taxModuleCatalog } from './tax-modules.mjs';
 import { countryOf, countryPack } from './country.mjs';
 import { countryKnowledge, searchCountryKnowledge } from './countries/knowledge.mjs';
@@ -81,7 +84,7 @@ function previousFy(fy) {
 function fyArg(value, fallback) {
   const text = String(value || '').trim();
   if (!text) return { ok: true, fy: fallback };
-  if (!FY_LABEL.test(text)) return fail('FY_INVALID', { hint: 'Use a financial year like 2025-26.' });
+  if (!FY_LABEL.test(text) || Number(text.slice(5)) !== (Number(text.slice(0, 4)) + 1) % 100) return fail('FY_INVALID', { hint: 'Use a financial year like 2025-26.' });
   return { ok: true, fy: text };
 }
 
@@ -92,12 +95,28 @@ function citation(id, onDate) {
   return { ruleId: id, act: record.act, section: record.section, source: record.source, effectiveFrom: record.effectiveFrom, attested: (record.attestations || []).some((item) => item.verdict === 'verified') };
 }
 
-function profileOf(args = {}) {
-  const ageBand = AGE_BANDS.has(args.ageBand) ? args.ageBand : 'below-60';
+function ageOf(args, fy) {
+  const dob = String(args.dateOfBirth || '').trim();
+  const age = dob ? ageAtFyEnd(dob, fy) : null;
+  if (age !== null) {
+    const firstApril = dob.slice(5) === '04-01';
+    const note = firstApril && bandOfAge(age + 1) !== bandOfAge(age) ? `Born on 1 April: by the rule that a person attains an age on the day before the birthday, the age at 31 March may be ${age + 1}, which changes the slab band. Ask your CA which to use.` : '';
+    return { ageBand: bandOfAge(age), age, ageSource: 'date of birth', ageNote: note };
+  }
+  return { ageBand: AGE_BANDS.has(args.ageBand) ? args.ageBand : 'below-60', age: null, ageSource: AGE_BANDS.has(args.ageBand) ? 'age band as given' : 'not given; below 60 assumed', ageNote: dob ? 'The date of birth is not a date (YYYY-MM-DD), so it was not used.' : '' };
+}
+
+function profileOf(args = {}, fy = '') {
+  const { ageBand, age, ageSource, ageNote } = ageOf(args, fy);
+  const otherIncomePaise = Math.max(0, toPaise(args.otherIncome));
   return {
     ageBand,
+    age,
+    ageSource,
+    ageNote,
     salaryPaise: Math.max(0, toPaise(args.salary)),
-    otherIncomePaise: Math.max(0, toPaise(args.otherIncome)),
+    otherIncomePaise,
+    depositInterestPaise: Math.min(otherIncomePaise, Math.max(0, toPaise(args.depositInterest))),
     businessIncomePaise: given(args.businessIncome) ? Math.max(0, toPaise(args.businessIncome)) : null,
     claims: {
       section80CPaise: Math.max(0, toPaise(args.section80C)),
@@ -109,18 +128,45 @@ function profileOf(args = {}) {
   };
 }
 
+function section80TTBOf(fy, regime, profile) {
+  if (regime !== 'old' || profile.ageBand === 'below-60' || !profile.depositInterestPaise) return 0;
+  const found = rules.rule('income-tax.deduction.80ttb.cap', fyStartOf(fy));
+  if (!found.ok) return 0;
+  return Math.min(profile.depositInterestPaise, found.value.maxPaise);
+}
+
 function computeRegime(fy, regime, profile, businessPaise, extraDeductionPaise = 0) {
+  const section80TTBPaise = section80TTBOf(fy, regime, profile);
+  const extra = extraDeductionPaise + section80TTBPaise;
   const nonSalary = profile.otherIncomePaise + businessPaise;
-  const fromOther = Math.min(nonSalary, extraDeductionPaise);
-  return incomeTax.computeIncomeTax({
+  const fromOther = Math.min(nonSalary, extra);
+  const computed = incomeTax.computeIncomeTax({
     fy,
     regime,
     ageBand: profile.ageBand,
     residentIndividual: true,
-    salaryPaise: Math.max(0, profile.salaryPaise - (extraDeductionPaise - fromOther)),
+    salaryPaise: Math.max(0, profile.salaryPaise - (extra - fromOther)),
     otherIncomePaise: nonSalary - fromOther,
     claims: profile.claims,
   });
+  if (computed.error || !section80TTBPaise) return computed;
+  return { ...computed, grossTotalIncomePaise: computed.grossTotalIncomePaise + section80TTBPaise, section80TTBPaise };
+}
+
+function seniorNotes(fy, profile, businessPaise) {
+  const notes = [];
+  const onDate = fyStartOf(fy);
+  if (profile.ageNote) notes.push({ code: 'AGE_CHECK', text: profile.ageNote });
+  if (profile.ageBand === 'below-60') return notes;
+  const ttb = rules.rule('income-tax.deduction.80ttb.cap', onDate);
+  if (ttb.ok) notes.push({ code: 'SECTION_80TTB', ruleId: 'income-tax.deduction.80ttb.cap', text: profile.depositInterestPaise ? `Under the old regime up to ${rupees(ttb.value.maxPaise)} of interest on bank, co-operative bank and post office deposits is deducted (${ttb.record.act === 'IT-2025' ? 'section 153' : 'section 80TTB'}); the new regime allows no such deduction.` : `Interest on bank, co-operative bank and post office deposits up to ${rupees(ttb.value.maxPaise)} is deductible under the old regime (${ttb.record.act === 'IT-2025' ? 'section 153' : 'section 80TTB'}); give it as depositInterest, included in other income.` });
+  if (businessPaise === 0) {
+    const exempt = rules.rule('income-tax.advance-tax.senior-exemption', onDate);
+    if (exempt.ok) notes.push({ code: 'NO_ADVANCE_TAX', ruleId: 'income-tax.advance-tax.senior-exemption', text: `A resident aged ${exempt.value.minAgeYears} or more with no business or professional income pays no advance tax (section ${exempt.record.section}); any tax due is paid as self-assessment tax before filing.` });
+    const specified = rules.rule('income-tax.specified-senior-citizen', onDate);
+    if (specified.ok && profile.age !== null && profile.age >= specified.value.minAgeYears) notes.push({ code: 'SPECIFIED_SENIOR_CITIZEN', ruleId: 'income-tax.specified-senior-citizen', text: `Aged ${specified.value.minAgeYears} or more: if the only income is pension and interest from the bank that pays the pension, a declaration to that bank (${specified.record.act === 'IT-2025' ? 'Form No. 125' : 'Form No. 12BBA'}) lets the bank deduct the tax, and no return need be filed (section ${specified.record.section}).` });
+  }
+  return notes;
 }
 
 function figures(computed) {
@@ -129,6 +175,7 @@ function figures(computed) {
     standardDeduction: toRupees(computed.standardDeductionPaise),
     section80C: toRupees(computed.section80CPaise),
     section80D: toRupees(computed.section80DPaise),
+    section80TTB: toRupees(computed.section80TTBPaise || 0),
     totalIncome: toRupees(computed.totalIncomePaise),
     slabTax: toRupees(computed.slabTaxPaise),
     rebate: toRupees(computed.rebatePaise),
@@ -237,7 +284,7 @@ export function taxPlan(state, args = {}) {
   const fyArgResult = fyArg(args.fy, rules.fyOf(today));
   if (!fyArgResult.ok) return fyArgResult;
   const fy = fyArgResult.fy;
-  const profile = profileOf(args);
+  const profile = profileOf(args, fy);
   const business = businessIncomeFor(fy, args, profile);
   if (business.error) return business.error;
   const { businessPaise, presumptive } = business;
@@ -278,14 +325,18 @@ export function taxPlan(state, args = {}) {
     ? 'With business or professional income, leaving the new regime needs Form 10-IEA by the return due date, and coming back to it is allowed only once.'
     : 'Without business income, the regime is chosen afresh each year in the return.';
   const onDate = fyStartOf(fy);
-  const citations = [...INCOME_RULES, ...(presumptive?.ok ? [presumptive.section === '44ADA' ? 'income-tax.presumptive.profession' : 'income-tax.presumptive.business'] : [])].map((id) => citation(id, onDate));
+  const seniorRules = profile.ageBand === 'below-60' ? [] : ['income-tax.deduction.80ttb.cap', ...(businessPaise === 0 ? ['income-tax.advance-tax.senior-exemption'] : []), ...(businessPaise === 0 && profile.age !== null && profile.age >= 75 ? ['income-tax.specified-senior-citizen'] : [])];
+  const citations = [...INCOME_RULES, ...seniorRules, ...(presumptive?.ok ? [presumptive.section === '44ADA' ? 'income-tax.presumptive.profession' : 'income-tax.presumptive.business'] : [])].map((id) => citation(id, onDate));
   return {
     ok: true,
     data: {
       forCA: true,
       fy,
       ageBand: profile.ageBand,
-      income: { salary: toRupees(profile.salaryPaise), business: toRupees(businessPaise), businessBasis: business.basis, other: toRupees(profile.otherIncomePaise) },
+      age: profile.age,
+      ageSource: profile.ageSource,
+      senior: seniorNotes(fy, profile, businessPaise),
+      income: { salary: toRupees(profile.salaryPaise), business: toRupees(businessPaise), businessBasis: business.basis, other: toRupees(profile.otherIncomePaise), depositInterest: toRupees(profile.depositInterestPaise) },
       presumptive: presumptive && presumptive.ok ? presumptive : null,
       regimes: { new: figures(computedNew), old: figures(computedOld) },
       recommended,
@@ -361,7 +412,7 @@ export function reviewIncomeTaxReturn(state, args = {}) {
   const fy = fyArgResult.fy;
   const regime = args.regime === 'old' ? 'old' : args.regime === 'new' ? 'new' : null;
   if (!regime) return fail('REGIME_REQUIRED', { hint: 'Say which regime the return was prepared under: old or new.' });
-  const profile = profileOf(args);
+  const profile = profileOf(args, fy);
   const business = businessIncomeFor(fy, args, profile, args.presumptive === true);
   if (business.error) return business.error;
   const { businessPaise, presumptive } = business;
@@ -372,6 +423,7 @@ export function reviewIncomeTaxReturn(state, args = {}) {
   if (asFiled.error) return fail(asFiled.error, { ruleId: asFiled.ruleId, fy });
   if (alternative.error) return fail(alternative.error, { ruleId: alternative.ruleId, fy });
   const findings = [];
+  if (profile.ageNote) findings.push(finding('AGE_CHECK', 'check', 'Check the age band', profile.ageNote, { fy }));
   const deductionsClaimed = profile.claims.section80CPaise + profile.claims.healthInsuranceSelfAndFamilyPaise + profile.claims.healthInsuranceParentsPaise;
 
   if (regime === 'new' && (deductionsClaimed > 0 || toPaise(args.claimedDeductions) > 0)) {
@@ -558,6 +610,7 @@ export function taxPlanWords(data, money) {
   lines.push(data.saving > 0 ? `The ${data.recommended} regime is ${money(data.saving)} cheaper. ${data.regimeRule}` : `Both regimes cost the same. ${data.regimeRule}`);
   if (data.presumptive) lines.push(data.presumptive.eligible ? `Presumptive income under ${data.presumptive.section}: ${money(data.presumptive.income)} on turnover ${money(data.presumptive.turnover)}.` : `${data.presumptive.section} is not available: turnover is above ${money(data.presumptive.cap)}.`);
   for (const idea of data.ideas) lines.push(`· ${idea.text}`);
+  for (const note of data.senior || []) lines.push(`· ${note.text}`);
   if (data.next) lines.push(data.next);
   if (data.unattested.length) lines.push('The rates come from MyCA\'s dated rules and are not yet signed off by a CA.');
   lines.push(data.disclaimer);

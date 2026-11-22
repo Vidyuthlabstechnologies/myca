@@ -172,6 +172,16 @@ test('the GSTR-9 exemption is open-ended from FY 2024-25 and not claimed before 
 const RULE_37 = 'gst.rule37.payment-days';
 const RULE_37A = 'gst.rule37a.deadlines';
 
+test('2/2025-Compensation Cess (Rate) and 19/2025-Central Tax (Rate): cess on any notified goods to 21-Sep-2025, only chapter 24 and pan masala to 31-Jan-2026, none from 1-Feb-2026', () => {
+  assert.deepEqual(rule('gst.compensation-cess', '2025-09-21').value, { levied: true, hsnPrefixes: null });
+  assert.deepEqual(rule('gst.compensation-cess', '2025-09-22').value, { levied: true, hsnPrefixes: ['24', '21069020'] });
+  assert.deepEqual(rule('gst.compensation-cess', '2026-01-31').value, { levied: true, hsnPrefixes: ['24', '21069020'] });
+  assert.deepEqual(rule('gst.compensation-cess', '2026-02-01').value, { levied: false, hsnPrefixes: [] });
+  assert.equal(rule('gst.compensation-cess', '2017-06-30').ok, false);
+  assert.match(rule('gst.compensation-cess', '2025-09-22').record.source, /2\/2025-Compensation Cess \(Rate\)/);
+  assert.match(rule('gst.compensation-cess', '2026-02-01').record.source, /19\/2025-Central Tax \(Rate\)/);
+});
+
 test('Rule 37 gives 180 days from the invoice date to pay the supplier, before and after the 1-Oct-2022 substitution', () => {
   for (const onDate of ['2017-07-01', '2022-09-30', '2022-10-01', '2026-09-21']) {
     const result = rule(RULE_37, onDate);
@@ -236,4 +246,28 @@ test('golden cases straddle 1-Aug-2024 for B2CL and 22-Sep-2025 and 1-Feb-2026 f
     assert.ok(rates.some((entry) => entry.input.invoiceDate === date && entry.input.ratePercent === rate && entry.expected.valid === valid), `${date} ${rate}`);
   }
   for (const entry of cases) assert.ok(typeof entry.citation === 'string' && entry.citation.trim() !== '', entry.name);
+});
+
+test('HSN digits follow Notification 78/2020: 4 up to Rs 5 crore AATO, 6 above, B2C may omit up to Rs 5 crore', () => {
+  const found = rule('gst.hsn.digits', '2026-11-21');
+  assert.equal(found.ok, true);
+  assert.deepEqual(found.value.tiers, [{ aatoPaiseUpTo: 5000000000, digits: 4 }, { aatoPaiseUpTo: null, digits: 6 }]);
+  assert.equal(found.value.unregisteredRecipientMayOmitUpToAatoPaise, 5000000000);
+  assert.equal(rule('gst.hsn.digits', '2021-03-31').ok, false);
+});
+
+test('the 30-day IRP reporting window is AATO Rs 100 crore from 1-Nov-2023 and Rs 10 crore from 1-Apr-2025', () => {
+  assert.equal(rule('gst.einvoice.reporting-window', '2023-10-31').ok, false);
+  assert.equal(rule('gst.einvoice.reporting-window', '2025-03-31').value.aatoPaiseAtLeast, 100000000000);
+  assert.equal(rule('gst.einvoice.reporting-window', '2025-04-01').value.aatoPaiseAtLeast, 10000000000);
+  assert.equal(rule('gst.einvoice.reporting-window', '2026-11-21').value.days, 30);
+});
+
+test('credit notes and GSTR-1 amendments close on 30 November after the year or the annual return, whichever is earlier', () => {
+  for (const id of ['gst.credit-note.declaration-deadline', 'gst.gstr1.amendment-deadline']) {
+    const found = rule(id, '2026-11-21');
+    assert.equal(found.value.month, 11, id);
+    assert.equal(found.value.day, 30, id);
+    assert.equal(found.value.orAnnualReturnIfEarlier, true, id);
+  }
 });

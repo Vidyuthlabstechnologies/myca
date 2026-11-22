@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startApi } from './helpers.mjs';
+import { LIMITS } from '../src/rate-limits.mjs';
 
 const CONFIG = { verifyToken: 'verify-me', appSecret: 'app-secret', phoneNumberId: '1234', accessToken: 'tok' };
 let api;
@@ -98,5 +99,28 @@ test('without configuration the webhook does not exist, and without an app secre
     assert.equal(res.status, 404, 'the route is off until the app secret is set');
   } finally {
     await noSecret.close();
+  }
+});
+
+test('WhatsApp chat shares the hourly limit on asking: past it one notice is sent, then nothing, and the app is held to the same count', async () => {
+  const sent = [];
+  const limited = await startApi({ whatsapp: CONFIG, whatsappSender: { async sendText(phone, text) { sent.push({ phone, text }); } }, rateLimits: { ...LIMITS, ask: { max: 3, windowSeconds: 3600 } } });
+  try {
+    const owner = await limited.ownerWithBusiness('+919700000077', { name: 'Busy Traders', state: '29' });
+    const results = [];
+    for (let i = 1; i <= 6; i++) {
+      const { raw, headers } = signed(incoming('919700000077', `wamid.limit.${i}`, 'who owes me?'));
+      const out = await limited.call('POST', '/v1/whatsapp/webhook', { raw, headers });
+      assert.equal(out.status, 200, out.text);
+      results.push(out.body.results[0]);
+    }
+    assert.deepEqual(results.map((r) => Boolean(r.rateLimited)), [false, false, false, true, true, true]);
+    assert.deepEqual(results.map((r) => r.replied), [true, true, true, true, false, false]);
+    assert.equal(sent.length, 4);
+    assert.match(sent[3].text, /pausing/);
+    const inApp = await limited.call('POST', `/v1/businesses/${owner.businessId}/ask`, { token: owner.token, body: { message: 'who owes me?' } });
+    assert.equal(inApp.status, 429, inApp.text);
+  } finally {
+    await limited.close();
   }
 });

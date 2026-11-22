@@ -463,7 +463,7 @@ test('assistant planner: blocks live filing but allows filing pack prep', async 
   const state = createState();
   const blocked = planLocalToolCall(state, 'submit GSTR-1 return on GSTN using OTP');
   assert.equal(blocked.blocked, true);
-  assert.match(blocked.reply, /cannot upload, submit, sign, or file/i);
+  assert.match(blocked.reply, /I do not file from chat, so nothing was filed/);
 
   const pack = planLocalToolCall(state, 'filing pack');
   assert.equal(pack.kind, 'tool');

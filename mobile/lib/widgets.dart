@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'format.dart' show readableDay;
 import 'api/models.dart';
+import 'india/india_strings.dart';
 import 'marks.dart';
 import 'theme.dart';
+import 'uae/uae_strings.dart';
 
 class RulesStatusNote extends StatelessWidget {
   const RulesStatusNote({super.key, required this.status});
@@ -23,17 +24,17 @@ class RulesStatusNote extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SectionLabel('Statutory rules'),
+              SectionLabel(inText(context, 'Statutory rules')),
               Text(rules.summary, style: text.bodyMedium),
               for (final family in rules.attention)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Text('Needs an update: $family', style: text.bodyMedium?.copyWith(color: Palette.warn)),
+                  child: Text(inFormat(context, 'Needs an update: {family}', {'family': family}), style: text.bodyMedium?.copyWith(color: paletteOf(context).warn)),
                 ),
               for (final note in rules.notes)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Text(note, style: text.bodySmall?.copyWith(color: Palette.muted)),
+                  child: Text(note, style: text.bodySmall?.copyWith(color: paletteOf(context).muted)),
                 ),
             ],
           ),
@@ -60,27 +61,58 @@ class TintTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final glyph = mark;
+    final p = paletteOf(context);
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: glyph == null ? Palette.sunken : Palette.surface,
+        color: glyph == null ? p.sunken : p.surface,
         borderRadius: BorderRadius.circular(
           glyph == null ? size : radiusControl,
         ),
-        border: glyph == null ? null : Border.all(color: Palette.line),
+        border: glyph == null ? null : Border.all(color: p.line),
       ),
       child: glyph != null
-          ? MarkIcon(mark: glyph, color: tint.stroke, size: size * 0.55)
+          ? MarkIcon(mark: glyph, color: toneOf(context, tint.stroke), size: size * 0.55)
           : Text(
               letter ?? '',
               style: TextStyle(
-                color: Palette.ink,
+                color: p.ink,
                 fontSize: size * 0.4,
                 fontWeight: FontWeight.w500,
               ),
             ),
+    );
+  }
+}
+
+class ChoiceDot extends StatelessWidget {
+  const ChoiceDot({super.key, required this.selected, this.size = 40});
+
+  final bool selected;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      checked: selected,
+      inMutuallyExclusiveGroup: true,
+      child: SizedBox.square(
+        dimension: size,
+        child: Center(
+          child: Container(
+            width: size * 0.6,
+            height: size * 0.6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: selected ? Palette.ink : Colors.transparent,
+              border: Border.all(color: selected ? Palette.ink : Palette.muted, width: 1.6),
+            ),
+            child: selected ? Icon(Icons.check, size: size * 0.4, color: Palette.onInk) : null,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -95,9 +127,9 @@ class Panel extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Palette.surface,
+        color: paletteOf(context).surface,
         borderRadius: BorderRadius.circular(radiusCard),
-        border: Border.all(color: Palette.line),
+        border: Border.all(color: paletteOf(context).line),
       ),
       child: Column(
         children: [
@@ -132,8 +164,9 @@ class RowCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final big = MediaQuery.textScalerOf(context).scale(14) / 14 > 1.3;
     return Material(
-      color: Palette.surface,
+      color: paletteOf(context).surface,
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -141,8 +174,7 @@ class RowCard extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, box) => Row(
               children: [
-                leading,
-                const SizedBox(width: 14),
+                if (!big) ...[leading, const SizedBox(width: 14)],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,15 +182,15 @@ class RowCard extends StatelessWidget {
                       Text(
                         title,
                         style: text.titleMedium,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                        maxLines: big ? null : 2,
+                        overflow: big ? null : TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 1),
                       Text(
                         subtitle,
                         style: text.bodyMedium,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
+                        maxLines: big ? null : 3,
+                        overflow: big ? null : TextOverflow.ellipsis,
                       ),
                       if (badge != null) ...[const SizedBox(height: 6), badge!],
                     ],
@@ -177,9 +209,25 @@ class RowCard extends StatelessWidget {
   }
 
   static Widget _capped(BuildContext context, double width, Widget child) {
-    final big = MediaQuery.textScalerOf(context).scale(14) / 14 > 1.3;
-    if (!big || !width.isFinite) return child;
+    if (!width.isFinite) return child;
     return ConstrainedBox(constraints: BoxConstraints(maxWidth: width * 0.45), child: child);
+  }
+}
+
+class Amount extends StatelessWidget {
+  const Amount(this.value, {super.key, this.style, this.alignment = Alignment.centerLeft});
+
+  final String value;
+  final TextStyle? style;
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: alignment,
+      child: Text(value, style: style, maxLines: 1, softWrap: false),
+    );
   }
 }
 
@@ -228,7 +276,7 @@ class Chevron extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      const Icon(Icons.chevron_right, color: Palette.faint, size: 20);
+      Icon(Icons.chevron_right, color: paletteOf(context).faint, size: 20);
 }
 
 class SectionLabel extends StatelessWidget {
@@ -328,7 +376,8 @@ class Bubble extends StatelessWidget {
       BubbleTone.posted => Palette.accent,
       _ => Palette.muted,
     };
-    final foreground = mine ? Colors.white : Palette.ink;
+    final foreground = mine ? Palette.onInk : Palette.ink;
+    final s = UaeStrings.of(context);
     final stampColor = switch (stamp) {
       'Unpaid' || 'Part paid' || 'Declined' || 'Expired' => Palette.warn,
       'Cancelled' => Palette.danger,
@@ -369,7 +418,7 @@ class Bubble extends StatelessWidget {
                     children: [
                       if (label != null)
                         Text(
-                          readableDay(label!).toUpperCase(),
+                          s.readableDay(s.bubbleLabel(label)).toUpperCase(),
                           style: TextStyle(
                             color: status,
                             fontSize: 11,
@@ -378,7 +427,7 @@ class Bubble extends StatelessWidget {
                           ),
                         ),
                       if (stamp != null)
-                        StatusTag(text: stamp!, color: stampColor),
+                        StatusTag(text: s.stamp(stamp), color: stampColor),
                     ],
                   ),
                 ),
@@ -394,8 +443,9 @@ class Bubble extends StatelessWidget {
               if (amount != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Text(
+                  child: Amount(
                     amount!,
+                    alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
                     style: TextStyle(
                       color: foreground,
                       fontSize: 20,
@@ -410,7 +460,7 @@ class Bubble extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     note,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Palette.muted,
                       fontSize: 13,
                       height: 1.35,
@@ -458,9 +508,9 @@ class ProposalBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        decoration: const BoxDecoration(
-          color: Palette.surface,
-          border: Border(top: BorderSide(color: Palette.line)),
+        decoration: BoxDecoration(
+          color: paletteOf(context).surface,
+          border: Border(top: BorderSide(color: paletteOf(context).line)),
         ),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Row(
@@ -468,7 +518,7 @@ class ProposalBar extends StatelessWidget {
             Expanded(
               child: OutlinedButton(
                 onPressed: busy ? null : onDiscard,
-                child: const Text('Discard'),
+                child: Text(UaeStrings.of(context).discard),
               ),
             ),
             const SizedBox(width: 10),
@@ -476,7 +526,7 @@ class ProposalBar extends StatelessWidget {
               flex: 2,
               child: FilledButton(
                 onPressed: busy ? null : onPost,
-                child: Text(postLabel),
+                child: Text(postLabel == 'Post it' ? UaeStrings.of(context).postIt : postLabel),
               ),
             ),
           ],

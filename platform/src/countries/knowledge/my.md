@@ -1,6 +1,6 @@
 ---
 country: MY
-checked: 2026-11-11
+checked: 2026-11-14
 recheck-by: 2027-02-28
 attested: false
 ---
@@ -10,9 +10,9 @@ attested: false
 ## Summary
 
 Malaysia is the easiest of the planned countries to build. The opening is e-invoicing: every
-business with revenue above RM1 million must issue e-invoices through LHDN's MyInvois, the API
-is open to any software without a licence, and the newest wave (RM1 million to RM5 million)
-only started on 1 January 2026. MyCA already does this kind of work in India through NIC.
+business with revenue of RM3 million or more (RM1 million until 31 August 2026) must issue
+e-invoices through LHDN's MyInvois, the API is open to any software without a licence, and the
+newest wave only started on 1 January 2026. MyCA already does this kind of work in India through NIC.
 Income tax and SST have no filing API for third parties, so MyCA prepares the figures and the
 taxpayer files in MyTax or MySST. Data is hosted in Google Cloud Singapore until Google opens a
 Malaysia region (owner decision, 11 November 2026).
@@ -47,6 +47,47 @@ Malaysia region (owner decision, 11 November 2026).
 - From 1 January 2026 a sale above RM10,000 cannot go into a consolidated e-invoice.
   Source: reported by the Malaysia build thread from info-tech.com.my on 2026-11-11 (secondary;
   confirm against the e-Invoice Specific Guideline)
+- From 1 September 2026 the exemption rose from annual turnover below RM1 million to below
+  RM3 million (checked 2026-11-14). e-Invoice Guideline version 4.8 of 30 August 2026, section
+  1.6.1(e), as read by the MyCA compliance engineer: the exemption does not apply when a related
+  company, holding company or shareholder company has annual turnover of RM3 million or more.
+  The RM10,000 limit on a consolidated transaction stays. Written as the dated rule
+  `my.einvoice.mandate` from 2026-09-01 (the RM1 million record now ends 2026-08-31); the
+  `my_einvoice_required` tool answers from it.
+  Sources: https://thestar.com.my/news/nation/2026/08/30/over-11-million-businesses-to-benefit-from-higher-e-invoicing-threshold-says-lhdn
+  (30 August 2026, quoting LHDN) and
+  https://beancount.io/blog/2026/09/16/malaysia-e-invoicing-phase-4-rm3m-exemption-rm10000-rule-guide
+  (secondary). The guideline PDF itself was not read here; confirm the related-company wording
+  against it before attestation.
+- Consolidated e-invoice (checked 2026-11-14): sales to buyers who do not ask for an e-invoice
+  are summed into one e-invoice a month to the general public (TIN EI00000000010, classification
+  004), issued within 7 days after the month ends. Not allowed for automotive sales, aviation,
+  construction contracts, wholesale or retail of construction materials, licensed betting and
+  gaming, and payments to agents, dealers and distributors; luxury goods and jewellery on hold;
+  electricity and telecommunication added from 1 January 2026. Written as
+  `my.einvoice.consolidation` (two dated records). MyCA refuses a consolidated e-invoice
+  before the month ends, after day 7 unless the owner acknowledges it is late (recorded in the
+  audit trail), for an excluded activity, and for any receipt above RM10,000.
+  Source: https://kschia.blogspot.com/2025/09/irbm-bans-consolidated-e-invoices-for.html
+  (secondary; confirm against the e-Invoice Guideline section 3.6 and the Specific Guideline)
+- Time windows and sizes (checked 2026-11-14 against the SDK), written as
+  `my.einvoice.workflow`: cancel within 72 hours of validation; a buyer may reject once within
+  72 hours; an issue date more than 72 hours before submission is refused; an identical
+  submission within 10 minutes is refused; 100 documents, 5 MB a submission, 300 KB a document;
+  reasons up to 300 characters; tokens last 3,600 seconds.
+  Sources: https://sdk.myinvois.hasil.gov.my/einvoicingapi/03-cancel-document/,
+  https://sdk.myinvois.hasil.gov.my/einvoicingapi/04-reject-document,
+  https://sdk.myinvois.hasil.gov.my/einvoicingapi/02-submit-documents,
+  https://autocount.freshdesk.com/support/solutions/articles/69000874510-e-invoice-issuance-date-time-is-too-old-you-can-set-issue-date-time-to-current-date-in-document-info
+- Special TINs: EI00000000010 general public, EI00000000020 foreign buyer, EI00000000030 foreign
+  supplier (self-billed only), EI00000000040 government. Self-billed documents are types 11 to
+  14, issued by the buyer for a foreign supplier, agent, dealer or individual. A document not in
+  ringgit carries its exchange rate to MYR.
+  Source: https://www.hasil.gov.my/wp-content/uploads/IRBM-e-Invoice-Guideline.pdf
+- Sandbox: with no `MYCA_MYINVOIS_CLIENT_ID` and live calls not on, MyCA answers from a built-in
+  simulator of the MyInvois pre-production API (`platform/src/countries/malaysia/myinvois-sandbox.mjs`)
+  that follows the SDK's routes, error codes and windows. Its validation step error codes other
+  than CF321 and CV317 are MyCA's own labels, not LHDN's.
 - Sign-in as the taxpayer's own system: `POST /connect/token` with the OAuth client credentials
   grant.
   Source: https://sdk.myinvois.hasil.gov.my/api/07-login-as-taxpayer-system
@@ -72,6 +113,11 @@ Malaysia region (owner decision, 11 November 2026).
   (12 June 2025, secondary; confirm against the Royal Malaysian Customs Department orders)
 - These figures are pointers. The rates, the goods and services schedules and the registration
   thresholds must be written as dated rules from the gazetted orders before any calculation.
+- From 1 September 2018 to 29 February 2024 service tax was 6% (8% from 1 March 2024 except the
+  6% services). Registration is due once the twelve-month value exceeds the threshold, looking
+  back or ahead (checked 2026-11-14).
+  Sources: https://www.pwc.com/my/en/publications/mtb/service-tax.html and
+  https://ccs-co.com/post/part-4-comprehensive-guide-to-service-tax-in-malaysia-definitions-thresholds-and-statutory-obligations-under-the-service-tax-act-2018/
 
 ## Licences and registrations
 
@@ -95,6 +141,14 @@ Malaysia region (owner decision, 11 November 2026).
 - Google Cloud has no Malaysia region. Cloud Run's nearest locations are Singapore
   (`asia-southeast1`), Jakarta and Bangkok. AWS opened a Malaysia region in August 2024.
   Source: https://docs.cloud.google.com/run/docs/locations
+- MyKad numbers (12 digits, YYMMDD-PB-###G) are masked to their last four digits in anything
+  sent to the model, in chat text and in audit metadata (`platform/src/my-identity.mjs`), as
+  US Social Security numbers are. The place-of-birth codes follow the National Registration
+  Department's list as tabled on https://en.wikipedia.org/wiki/Malaysian_identity_card (secondary)
+- Breach notification: the Commissioner within 72 hours, affected people within 7 days of
+  notifying the Commissioner, under the Commissioner's Data Breach Notification Guideline (2025).
+  Source: https://privacymatters.dlapiper.com/2025/03/malaysia-guidelines-issued-on-data-breach-notification-and-data-protection-officer-appointment/ (secondary;
+  confirm against the guideline)
 - MyCA's own rule is that each country's data stays in that country. For Malaysia the owner chose
   Google Cloud Singapore (`asia-southeast1`) under the transfer rule above on 11 November 2026,
   to move to a Google Malaysia region once one opens. The privacy notice must say so.
@@ -119,6 +173,15 @@ Checked 2026-11-11 from secondary sources; written as dated rules `my.income-tax
   medical insurance RM4,000, SOCSO RM350, SSPN RM8,000, child under 18 RM2,000 each. RM400 rebate
   at or below RM35,000 chargeable income, another RM400 for a spouse with no income.
   Source: https://ringgitplus.com/en/blog/tax/everything-you-can-claim-as-income-tax-relief-in-malaysia-2026-filing-for-ya-2025.html
+- Rechecked 2026-11-14 against LHDN's own YA 2025 relief table, with the sub-limits inside a
+  group (EPF RM4,000 and life insurance RM3,000 within RM7,000; vaccination, dental and medical
+  examination RM1,000 each and child learning disability RM6,000 within the RM10,000 medical
+  cap; upskilling RM2,000 within education fees; first home loan interest RM7,000 or RM5,000).
+  Source: https://www.hasil.gov.my/en/individual/individual-life-cycle/income-declaration/tax-reliefs/
+- Rebates are deducted from tax charged and any excess is not refunded; a non-resident gets no
+  reliefs and no rebate. Source: https://taxsummaries.pwc.com/malaysia/individual/other-tax-credits-and-incentives
+  Whether a non-resident may set zakat against tax was not found in a source; MyCA refuses it
+  and marks it for the tax agent.
 
 ## SST rates and thresholds (research for the dated rules)
 
@@ -159,7 +222,11 @@ Checked 2026-11-11 from secondary sources; written as dated rules `my.income-tax
 
 - The sales tax goods schedules (which goods are 5% and which 10%), from the Customs orders.
 - YA 2026 relief caps from Budget 2026; the gazetted text behind every rule, for attestation.
-- Employer side: EPF, SOCSO, EIS and the monthly tax deduction (PCB) tables.
+- Employer side: EPF, SOCSO, EIS and the monthly tax deduction (PCB) tables. MyCA only credits
+  PCB already deducted; it does not compute it.
+- The e-Invoice Guideline v4.8 text itself (section 1.6.1(e)), and whether a foreign supplier on
+  a self-billed e-invoice may give "NA" for its contact number (MyCA asks for a number).
+- Which industries the 2026 rental 6% rate covers before the order is gazetted.
 - Whether MyCA needs a Malaysian entity (Sdn. Bhd.) to hold MyInvois intermediary credentials
   and the signing certificate.
 - Which payment processor for a Malaysian entity.

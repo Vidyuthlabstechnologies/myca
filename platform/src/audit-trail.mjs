@@ -89,6 +89,7 @@ export const OUTSIDE_SENTENCES = Object.freeze({
   track1099_read: 'Read 1099 forms from Track1099',
   track1099_import: 'Import 1099 forms from Track1099',
   irs_mef_send: 'Send a federal tax return to the IRS',
+  us_filer_session: 'Open a filing session with the US e-file partner',
   irs_mef_acks: 'Collect IRS acknowledgements for federal returns',
 });
 
@@ -159,6 +160,9 @@ export function auditDetails(name, result) {
     }
   }
   if (name === 'record_share' && source.ok !== false && source.recorded === true) add(source.invoiceId);
+  if (name === 'register_offline_device' && source.ok !== false && isRecord(source.series)) add(source.series.code);
+  const offlineEntries = name === 'post_offline_sales' && source.ok !== false && Array.isArray(source.results) ? source.results.filter(isRecord) : [];
+  for (const entry of offlineEntries) if (entry.status === 'posted' || entry.status === 'already') add(entry.id);
   const body = isRecord(source.data) ? source.data : source;
   const text = (value) => (typeof value === 'string' ? value.slice(0, MAX_REASON) : undefined);
   const extra = {};
@@ -169,6 +173,7 @@ export function auditDetails(name, result) {
     if (text(body.was) !== undefined) extra.was = text(body.was);
     if (text(body.reason) !== undefined) extra.reason = text(body.reason);
   }
+  if (offlineEntries.length) extra.entries = offlineEntries.slice(0, MAX_IDS).map((entry) => ({ ref: text(entry.ref) || '', kind: text(entry.kind) || '', status: text(entry.status) || '', ...(text(entry.id) ? { id: text(entry.id) } : {}), ...(text(entry.error) ? { error: text(entry.error) } : {}), ...(text(entry.part) ? { part: text(entry.part) } : {}) }));
   return { ids, ...extra };
 }
 

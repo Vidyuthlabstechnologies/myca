@@ -4,7 +4,10 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../theme.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 
 enum StatementKind { profitAndLoss, balanceSheet, cashFlow, customer }
@@ -30,6 +33,38 @@ const periodLabels = {
   StatementPeriod.lastYear: 'Last year',
   StatementPeriod.thisMonth: 'This month',
   StatementPeriod.lastMonth: 'Last month',
+};
+
+String statementWords(String lang, String en) => switch (en) {
+  'Profit and loss' => inLine(lang, 'Profit and loss'),
+  'Balance sheet' => inLine(lang, 'Balance sheet'),
+  'Cash flow' => inLine(lang, 'Cash flow'),
+  'Customer statement' => inLine(lang, 'Customer statement'),
+  'This year' => inLine(lang, 'This year'),
+  'Last year' => inLine(lang, 'Last year'),
+  'This month' => inLine(lang, 'This month'),
+  'Last month' => inLine(lang, 'Last month'),
+  'Income' => inLine(lang, 'Income'),
+  'Expenses' => inLine(lang, 'Expenses'),
+  'Result' => inLine(lang, 'Result'),
+  'Net profit' => inLine(lang, 'Net profit'),
+  'Net loss' => inLine(lang, 'Net loss'),
+  'Total' => inLine(lang, 'Total'),
+  'Assets' => inLine(lang, 'Assets'),
+  'Liabilities' => inLine(lang, 'Liabilities'),
+  'Equity' => inLine(lang, 'Equity'),
+  'At the start' => inLine(lang, 'At the start'),
+  'Cash and bank' => inLine(lang, 'Cash and bank'),
+  'From running the business' => inLine(lang, 'From running the business'),
+  'Assets and deposits' => inLine(lang, 'Assets and deposits'),
+  'Owner' => inLine(lang, 'Owner'),
+  'At the end' => inLine(lang, 'At the end'),
+  'Opening' => inLine(lang, 'Opening'),
+  'Balance at the start' => inLine(lang, 'Balance at the start'),
+  'Entries' => inLine(lang, 'Entries'),
+  'Closing' => inLine(lang, 'Closing'),
+  'Balance at the end' => inLine(lang, 'Balance at the end'),
+  _ => en,
 };
 
 typedef DateSpan = ({String from, String to});
@@ -86,11 +121,13 @@ class StatementView {
     for (final row in (value as List? ?? const [])) Map<String, dynamic>.from(row as Map),
   ];
 
-  static List<StatementLine> _accounts(Object? value) => [
-    for (final row in _rows(value)) StatementLine(row['account'] as String? ?? '', row['amount'] as num? ?? 0),
+  static List<StatementLine> _accounts(Object? value, UaeStrings s) => [
+    for (final row in _rows(value)) StatementLine(s.accountName(row['account'] as String? ?? ''), row['amount'] as num? ?? 0),
   ];
 
-  static StatementView? fromTool(StatementKind kind, Object? json) {
+  static StatementView? fromTool(StatementKind kind, Object? json, [UaeStrings? ae, String lang = 'en']) {
+    final s = ae ?? UaeStrings(false, india: lang);
+    String t(String en) => s.ar ? s.statementTitle(en) : statementWords(s.india, en);
     final data = toolData(json);
     if (data.isEmpty) return null;
     final fileName = data['fileName'] as String? ?? 'statement.csv';
@@ -104,11 +141,11 @@ class StatementView {
           fileName: fileName,
           csv: csv,
           sections: [
-            StatementSection('Income', _accounts(data['income']), total: data['totalIncome'] as num?),
-            StatementSection('Expenses', _accounts(data['expenses']), total: data['totalExpenses'] as num?),
-            StatementSection('Result', [StatementLine(net >= 0 ? 'Net profit' : 'Net loss', net)]),
+            StatementSection(t('Income'), _accounts(data['income'], s), total: data['totalIncome'] as num?, totalLabel: t('Total')),
+            StatementSection(t('Expenses'), _accounts(data['expenses'], s), total: data['totalExpenses'] as num?, totalLabel: t('Total')),
+            StatementSection(t('Result'), [StatementLine(t(net >= 0 ? 'Net profit' : 'Net loss'), net)]),
           ],
-          warning: (data['undatedEntries'] as num? ?? 0) > 0 ? 'Some entries have no date and are left out of this period.' : '',
+          warning: (data['undatedEntries'] as num? ?? 0) > 0 ? s.undatedLeftOut : '',
         );
       case StatementKind.balanceSheet:
         return StatementView(
@@ -116,16 +153,16 @@ class StatementView {
           fileName: fileName,
           csv: csv,
           sections: [
-            StatementSection('Assets', _accounts(data['assets']), total: data['totalAssets'] as num?),
-            StatementSection('Liabilities', _accounts(data['liabilities']), total: data['totalLiabilities'] as num?),
-            StatementSection('Equity', _accounts(data['equity']), total: data['totalEquity'] as num?),
+            StatementSection(t('Assets'), _accounts(data['assets'], s), total: data['totalAssets'] as num?, totalLabel: t('Total')),
+            StatementSection(t('Liabilities'), _accounts(data['liabilities'], s), total: data['totalLiabilities'] as num?, totalLabel: t('Total')),
+            StatementSection(t('Equity'), _accounts(data['equity'], s), total: data['totalEquity'] as num?, totalLabel: t('Total')),
           ],
-          warning: data['balanced'] == false ? 'It does not balance. Ask your CA to look at the books.' : '',
+          warning: data['balanced'] == false ? (ae != null ? ae.doesNotBalance : inLine(lang, 'It does not balance. Ask your CA to look at the books.')) : '',
         );
       case StatementKind.cashFlow:
         List<StatementLine> flows(Object? section) => [
           for (final line in _rows((section as Map?)?['lines']))
-            StatementLine(line['label'] as String? ?? '', line['net'] as num? ?? 0, detail: 'In ${rupees(line['in'] as num? ?? 0)} · out ${rupees(line['out'] as num? ?? 0)}'),
+            StatementLine(s.accountName(line['label'] as String? ?? ''), line['net'] as num? ?? 0, detail: s.inOut(rupees(line['in'] as num? ?? 0), rupees(line['out'] as num? ?? 0))),
         ];
         num net(Object? section) => (section as Map?)?['net'] as num? ?? 0;
         return StatementView(
@@ -133,13 +170,13 @@ class StatementView {
           fileName: fileName,
           csv: csv,
           sections: [
-            StatementSection('At the start', [StatementLine('Cash and bank', data['opening'] as num? ?? 0)]),
-            StatementSection('From running the business', flows(data['operating']), total: net(data['operating'])),
-            if (flows(data['investing']).isNotEmpty) StatementSection('Assets and deposits', flows(data['investing']), total: net(data['investing'])),
-            if (flows(data['financing']).isNotEmpty) StatementSection('Owner', flows(data['financing']), total: net(data['financing'])),
-            StatementSection('At the end', [StatementLine('Cash and bank', data['closing'] as num? ?? 0)]),
+            StatementSection(t('At the start'), [StatementLine(t('Cash and bank'), data['opening'] as num? ?? 0)]),
+            StatementSection(t('From running the business'), flows(data['operating']), total: net(data['operating']), totalLabel: t('Total')),
+            if (flows(data['investing']).isNotEmpty) StatementSection(t('Assets and deposits'), flows(data['investing']), total: net(data['investing']), totalLabel: t('Total')),
+            if (flows(data['financing']).isNotEmpty) StatementSection(t('Owner'), flows(data['financing']), total: net(data['financing']), totalLabel: t('Total')),
+            StatementSection(t('At the end'), [StatementLine(t('Cash and bank'), data['closing'] as num? ?? 0)]),
           ],
-          warning: data['ties'] == false ? 'The movements do not add up to the closing balance. Ask your CA to look.' : '',
+          warning: data['ties'] == false ? (ae != null ? ae.doesNotTie : inLine(lang, 'The movements do not add up to the closing balance. Ask your CA to look.')) : '',
         );
       case StatementKind.customer:
         return StatementView(
@@ -147,21 +184,26 @@ class StatementView {
           fileName: fileName,
           csv: csv,
           sections: [
-            StatementSection('Opening', [StatementLine('Balance at the start', data['opening'] as num? ?? 0)]),
-            StatementSection('Entries', [
+            StatementSection(t('Opening'), [StatementLine(t('Balance at the start'), data['opening'] as num? ?? 0)]),
+            StatementSection(t('Entries'), [
               for (final row in _rows(data['rows']))
                 StatementLine(
                   '${row['entry']}${(row['reference'] as String? ?? '').isEmpty ? '' : ' ${row['reference']}'}',
                   row['balance'] as num? ?? 0,
-                  detail: '${longDate(row['date'] as String? ?? '')} · ${(row['charged'] as num? ?? 0) > 0 ? 'charged ${rupees(row['charged'] as num)}' : 'paid ${rupees(row['paid'] as num? ?? 0)}'}',
+                  detail: '${s.longDate(row['date'] as String? ?? '')} · ${s.chargedOrPaid((row['charged'] as num? ?? 0) > 0, (row['charged'] as num? ?? 0) > 0 ? rupees(row['charged'] as num) : rupees(row['paid'] as num? ?? 0))}',
                 ),
             ]),
-            StatementSection('Closing', [StatementLine('Balance at the end', data['closing'] as num? ?? 0)]),
+            StatementSection(t('Closing'), [StatementLine(t('Balance at the end'), data['closing'] as num? ?? 0)]),
           ],
         );
     }
   }
 }
+
+Widget _amount(BuildContext context, String amount, TextStyle? style) => ConstrainedBox(
+  constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.4),
+  child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerRight, child: Text(amount, style: style)),
+);
 
 class StatementsScreen extends StatefulWidget {
   const StatementsScreen({super.key, this.initial = StatementKind.profitAndLoss, this.customer = ''});
@@ -198,15 +240,16 @@ class _StatementsScreenState extends State<StatementsScreen> {
   Future<StatementView?> _load() async {
     _error = '';
     _note = '';
-    final span = statementSpan(_period, DateTime.now(), yearStartMonth: moneyCountry == 'US' ? 1 : 4);
+    final span = statementSpan(_period, DateTime.now(), yearStartMonth: moneyCountry == 'US' || moneyCountry == 'AE' ? 1 : 4);
     final args = <String, Object?>{
       if (_kind == StatementKind.balanceSheet) 'asOf': span.to else ...{'from': span.from, 'to': span.to},
       if (_kind == StatementKind.customer) 'party': _customer.text.trim(),
     };
     try {
       final json = await api.query(_tools[_kind]!, args);
-      final view = StatementView.fromTool(_kind, json);
-      if (view == null && json is Map) _error = (json['hint'] as String?) ?? 'This statement could not be prepared.';
+      if (!mounted) return null;
+      final view = StatementView.fromTool(_kind, json, uaeEdition(context) ? UaeStrings.of(context) : null, indiaLang(context));
+      if (view == null && json is Map) _error = (json['hint'] as String?) ?? UaeStrings.of(context).statementFailed;
       return view;
     } on MycaApiException catch (err) {
       _error = err.message;
@@ -224,14 +267,16 @@ class _StatementsScreenState extends State<StatementsScreen> {
   Future<void> _save(StatementView view) async {
     final saved = await AppScope.of(context).saveTextFile(view.fileName, view.csv);
     if (!mounted) return;
-    setState(() => _note = saved ? 'Saved ${view.fileName}. Send it to your CA or the customer.' : 'Not saved.');
+    final ae = uaeEdition(context) ? UaeStrings.of(context) : null;
+    setState(() => _note = ae != null ? (saved ? ae.statementSaved(view.fileName) : ae.notSaved) : saved ? inFormat(context, 'Saved {file}. Send it to your CA or the customer.', {'file': view.fileName}) : inText(context, 'Not saved.'));
   }
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Statements')),
+      appBar: AppBar(title: Text(s.statements)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
@@ -241,7 +286,7 @@ class _StatementsScreenState extends State<StatementsScreen> {
             children: [
               for (final kind in StatementKind.values)
                 ChoiceChip(
-                  label: Text(statementTitles[kind]!),
+                  label: Text(s.ar ? s.statementTitle(statementTitles[kind]!) : statementWords(indiaLang(context), statementTitles[kind]!)),
                   selected: _kind == kind,
                   onSelected: (_) {
                     _kind = kind;
@@ -258,9 +303,10 @@ class _StatementsScreenState extends State<StatementsScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<StatementPeriod>(
+            isExpanded: true,
             initialValue: _period,
-            decoration: InputDecoration(labelText: _kind == StatementKind.balanceSheet ? 'As at the end of' : 'Period'),
-            items: [for (final p in StatementPeriod.values) DropdownMenuItem(value: p, child: Text(periodLabels[p]!))],
+            decoration: InputDecoration(labelText: _kind == StatementKind.balanceSheet ? s.asAtEndOf : s.period),
+            items: [for (final p in StatementPeriod.values) DropdownMenuItem(value: p, child: Text(s.ar ? s.statementTitle(periodLabels[p]!) : statementWords(indiaLang(context), periodLabels[p]!), overflow: TextOverflow.ellipsis))],
             onChanged: (p) {
               if (p == null) return;
               _period = p;
@@ -273,13 +319,13 @@ class _StatementsScreenState extends State<StatementsScreen> {
               controller: _customer,
               textCapitalization: TextCapitalization.words,
               textInputAction: TextInputAction.search,
-              decoration: const InputDecoration(labelText: 'Customer'),
+              decoration: InputDecoration(labelText: s.customer),
               onSubmitted: (_) => _reload(),
             ),
           ],
           const SizedBox(height: 16),
           if (_view == null)
-            const EmptyNote(text: 'Type the customer\'s name to see their statement.')
+            EmptyNote(text: s.typeCustomerName)
           else
             FutureBuilder<StatementView?>(
               future: _view,
@@ -288,7 +334,7 @@ class _StatementsScreenState extends State<StatementsScreen> {
                   return const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()));
                 }
                 final view = snap.data;
-                if (view == null) return EmptyNote(text: _error.isEmpty ? 'This statement could not be prepared.' : _error);
+                if (view == null) return EmptyNote(text: _error.isEmpty ? s.statementFailed : _error);
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -302,23 +348,27 @@ class _StatementsScreenState extends State<StatementsScreen> {
                       SectionLabel(section.title),
                       Panel(
                         children: [
-                          if (section.lines.isEmpty) const ListTile(title: Text('Nothing in this period')),
+                          if (section.lines.isEmpty) ListTile(title: Text(s.nothingInPeriod)),
                           for (final line in section.lines)
                             ListTile(
-                              title: Text(line.label),
+                              title: AmountRow(
+                                start: Text(line.label),
+                                amount: rupees(line.amount),
+                                style: text.titleSmall?.copyWith(fontFeatures: moneyFigures),
+                              ),
                               subtitle: line.detail.isEmpty ? null : Text(line.detail),
-                              trailing: Text(rupees(line.amount), style: text.titleSmall),
+                              trailing: _amount(context, rupees(line.amount), text.titleSmall),
                             ),
                           if (section.total != null)
                             ListTile(
                               title: Text(section.totalLabel, style: text.titleSmall),
-                              trailing: Text(rupees(section.total!), style: text.titleSmall),
+                              trailing: _amount(context, rupees(section.total!), text.titleSmall),
                             ),
                         ],
                       ),
                     ],
                     const SizedBox(height: 16),
-                    OutlinedButton.icon(onPressed: () => _save(view), icon: const Icon(Icons.download_outlined), label: const Text('Save as CSV')),
+                    OutlinedButton.icon(onPressed: () => _save(view), icon: const Icon(Icons.download_outlined), label: Text(s.saveAsCsv)),
                     if (_note.isNotEmpty) ...[const SizedBox(height: 8), Text(_note, style: text.bodyMedium)],
                   ],
                 );

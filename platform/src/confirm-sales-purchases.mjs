@@ -12,12 +12,16 @@ import { planTerms, termsLabel, invoiceTerms, dueDateOf } from './payment-terms.
 import { planSupplierTerms, msmeDays } from './supplier-dues.mjs';
 import { planRecurring, findRecurring, everyWords } from './recurring.mjs';
 import { planQuote, findQuote, checkConvert, invoiceArgsFromQuote, kindTitle, kindOf, SALES_DOCUMENT_KINDS } from './quotes.mjs';
-import { gstSplit, partyStateOf } from './chart.mjs';
+import { gstSplit, partyStateOf, INVOICE_SUPPLY_TYPES, cessOf, hasCessInput, badCessInput } from './chart.mjs';
 import { postingDate, localToday } from './dates.mjs';
+import { cessLineNotInForce, chargesCess } from './compensation-cess.mjs';
+import { engineBooks } from './countries/engines.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
-import { lastGstRateFor, lastHsnFor, planPayment } from './invoice.mjs';
+import { lastGstRateFor, lastHsnFor, planPayment, allocateDiscount } from './invoice.mjs';
+import { redemptionPreviewWords, earnPreview, loyaltySettings, STORE_NO_POINTS } from './loyalty.mjs';
 import { planSupplierReminder } from './supplier-reminders.mjs';
 import { planTds, tdsWords, wantsTds } from './tds-deduction.mjs';
+import { reverseChargeOf } from './reverse-charge.mjs';
 import { planTransport, transportWords, ewayBillNeed } from './eway-bill.mjs';
 import { formatMoneyCurrent, countryOf } from './country.mjs';
 import { usDocumentPreview } from './us-sales.mjs';
@@ -36,7 +40,7 @@ function stateCodeOf(value) {
 export function amendmentPreview(state, args) {
   const planned = planAmendment(state, args);
   if (!planned.ok) {
-    const reason = { INVOICE_NOT_FOUND: `There is no invoice ${planned.invoiceId}.`, NOT_FILED: planned.hint, AMENDMENT_PERIOD_FILED: planned.hint, REASON_REQUIRED: 'Say why the invoice is being amended.', NOTHING_CHANGED: 'Nothing on the invoice would change.', INVALID_GSTIN: `${planned.partyGstin} is not a GSTIN.`, PERIOD_LOCKED: `The books are locked through ${planned.lockThrough}.`, DATE_BEFORE_INVOICE: 'An amendment cannot be dated before the invoice.', INVOICE_CANCELLED: 'That invoice is cancelled.' }[planned.error] || planned.error;
+    const reason = { INVOICE_NOT_FOUND: `There is no invoice ${planned.invoiceId}.`, NOT_FILED: planned.hint, AMENDMENT_PERIOD_FILED: planned.hint, REASON_REQUIRED: 'Say why the invoice is being amended.', NOTHING_CHANGED: 'Nothing on the invoice would change.', INVALID_GSTIN: `${planned.partyGstin} is not a GSTIN.`, PERIOD_LOCKED: `The books are locked through ${planned.lockThrough}.`, DATE_BEFORE_INVOICE: 'An amendment cannot be dated before the invoice.', AMENDMENT_TIME_BARRED: planned.hint, INVOICE_CANCELLED: 'That invoice is cancelled.' }[planned.error] || planned.error;
     return { blockers: [reason], summary: '', effects: [], figures: {} };
   }
   const p = planned.plan;
@@ -65,7 +69,9 @@ function plusYear(iso) {
   return `${Number(iso.slice(0, 4)) + 1}${iso.slice(4)}`;
 }
 
-export function documentPreview(state, args, kind) {
+export function documentPreview(state, args, kind, { earnsPoints = true } = {}) {
+  const own = engineBooks(countryOf(state), kind === 'sale' ? 'create_invoice' : 'create_purchase', 'preview');
+  if (own) return own(state, args, kind);
   if (countryOf(state) === 'US') return usDocumentPreview(state, args, kind);
   const company = state.company || {};
   const date = postingDate(args.date);
@@ -81,6 +87,14 @@ export function documentPreview(state, args, kind) {
   const fx = exportSale ? Number(String(exportSale.currency || 'INR').toUpperCase() === 'INR' ? 1 : exportSale.exchangeRate) : 1;
   if (exportSale && !(fx > 0)) blockers.push('An export needs the exchange rate: rupees per unit of the currency.');
   if (exportSale && String(args.partyGstin || '').trim()) blockers.push('An export goes to a buyer outside India, who has no GSTIN.');
+  const supplyType = sale && args.supplyType != null ? String(args.supplyType).trim().toUpperCase() : '';
+  if (supplyType && !INVOICE_SUPPLY_TYPES.includes(supplyType)) blockers.push(`${supplyType} is not a supply type I know; say SEZWP, SEZWOP or DEXP.`);
+  else if (supplyType && exportSale) blockers.push('A supply to an SEZ or a deemed export is to a buyer in India; it is not also an export.');
+  else if (supplyType && !String(args.partyGstin || '').trim()) blockers.push(supplyType === 'DEXP' ? 'A deemed export needs the recipient\'s GSTIN.' : 'A supply to an SEZ unit or developer needs its GSTIN.');
+  if (supplyType === 'DEXP' && (args.lines || []).some((l) => String(l?.hsn ?? '').trim().startsWith('99'))) blockers.push('Deemed exports under section 147 cover goods only, not services.');
+  if ((args.lines || []).some((l) => badCessInput(l))) blockers.push('Cess is a percentage and/or rupees per unit, zero or more.');
+  const cessOutOfForce = date ? cessLineNotInForce(args.lines || [], date, chargesCess) : null;
+  if (cessOutOfForce) blockers.push(`${(args.lines || []).length > 1 ? `Line ${cessOutOfForce.line}: ` : ''}${cessOutOfForce.hint}`);
   const regd = regArg(state, args.registrationGstin);
   if (!regd.ok) blockers.push(`${args.registrationGstin} is not a registration of this business.`);
   const ownState = regd.ok ? regd.registration.state : company.state;
@@ -89,7 +103,10 @@ export function documentPreview(state, args, kind) {
     : sale
       ? (stateCodeOf(args.partyState) || partyStateOf(args.partyGstin) || ownState)
       : ownState;
-  const supplier = sale ? ownState : (partyStateOf(args.partyGstin) || stateCodeOf(args.partyState) || ownState);
+  const reverse = sale ? { ok: true, rcm: null } : reverseChargeOf(args);
+  if (!reverse.ok) blockers.push(reverse.hint || reverse.error);
+  const rcm = reverse.ok ? reverse.rcm : null;
+  const supplier = sale ? ownState : rcm?.kind === 'import' ? '96' : (partyStateOf(args.partyGstin) || stateCodeOf(args.partyState) || ownState);
   const saidGstin = String(args.partyGstin || '').trim().toUpperCase();
   if (saidGstin && !exportSale) {
     const checked = gstinRules.validateGstin(saidGstin);
@@ -103,39 +120,60 @@ export function documentPreview(state, args, kind) {
     const line = (args.lines || []).length > 1 ? `Line ${unrated + 1} has` : 'This has';
     blockers.push(`${line} no GST rate, and I will not guess one.${last ? ` ${last.from} on ${last.date} was at ${last.gstRate}%.` : ''} Say the rate, or 0% if none applies.`);
   }
-  const lines = (args.lines || []).map((l) => {
+  const wantsPoints = sale && args.redeemPoints != null && args.redeemPoints !== '';
+  const redeeming = wantsPoints ? redemptionPreviewWords(state, args, date || undefined) : null;
+  if (redeeming?.blocker) blockers.push(redeeming.blocker);
+  const redemption = redeeming?.redemption || null;
+  const grossOf = (l) => Math.round(Number(l.qty == null || l.qty === '' ? 1 : l.qty) * (exportSale ? Math.round(Number(l.rate) * (fx > 0 ? fx : 0) * 100) / 100 : Number(l.rate)) * 100);
+  const pointsOff = redemption ? allocateDiscount((args.lines || []).map(grossOf), redemption.valuePaise) : [];
+  const lines = (args.lines || []).map((l, i) => {
     const qty = Number(l.qty == null || l.qty === '' ? 1 : l.qty);
     const rate = exportSale ? Math.round(Number(l.rate) * (fx > 0 ? fx : 0) * 100) / 100 : Number(l.rate);
     const gstRate = Number(l.gstRate == null || l.gstRate === '' ? 0 : l.gstRate);
-    const taxable = Math.round(qty * rate * 100) / 100;
-    const split = exportSale && !exportSale.withTax ? { cgst: 0, sgst: 0, igst: 0 } : gstSplit({ taxable, rate: gstRate, supplierState: supplier, partyState: pos });
-    return { ...split, taxable, gstRate, qty, rate };
+    const taxable = Math.round((qty * rate - (pointsOff[i] || 0) / 100) * 100) / 100;
+    const untaxed = (exportSale && !exportSale.withTax) || supplyType === 'SEZWOP';
+    const split = untaxed ? { cgst: 0, sgst: 0, igst: 0 } : gstSplit({ taxable, rate: gstRate, supplierState: supplier, partyState: pos, interState: supplyType === 'SEZWP' });
+    const cess = !untaxed && hasCessInput(l) && !badCessInput(l) ? cessOf(l, taxable, qty).cess : 0;
+    return { ...split, cess, taxable, gstRate, qty, rate };
   });
   const sum = (key) => Math.round(lines.reduce((s, l) => s + (l[key] || 0), 0) * 100) / 100;
   const taxable = sum('taxable');
-  const tax = Math.round((sum('cgst') + sum('sgst') + sum('igst')) * 100) / 100;
+  const cess = sum('cess');
+  const tax = Math.round((sum('cgst') + sum('sgst') + sum('igst') + cess) * 100) / 100;
   if (!(taxable > 0)) blockers.push('It comes to nothing, so there is nothing to post.');
   const party = args.partyName || (sale ? 'Walk-in' : 'Supplier');
-  const heads = exportSale && !exportSale.withTax ? 'no IGST (zero-rated under LUT or bond)' : sum('igst') > 0 ? `IGST ${money(sum('igst'))}` : `CGST ${money(sum('cgst'))} + SGST ${money(sum('sgst'))}`;
-  const exportWords = exportSale ? `Export invoice (${String(exportSale.currency || 'INR').toUpperCase()}${fx > 0 && fx !== 1 ? ` at ${fx}` : ''}) to` : 'Invoice to';
+  const gstHeads = (exportSale && !exportSale.withTax) || supplyType === 'SEZWOP' ? 'no IGST (zero-rated under LUT or bond)' : sum('igst') > 0 || supplyType === 'SEZWP' ? `IGST ${money(sum('igst'))}` : `CGST ${money(sum('cgst'))} + SGST ${money(sum('sgst'))}`;
+  const heads = cess > 0 ? `${gstHeads}, cess ${money(cess)}` : gstHeads;
+  const SUPPLY_WORDS = { SEZWP: 'Supply to an SEZ with IGST (IGST Act s.16) to', SEZWOP: 'Zero-rated supply to an SEZ (IGST Act s.16) to', DEXP: 'Deemed export (CGST Act s.147) to' };
+  const exportWords = exportSale ? `Export invoice (${String(exportSale.currency || 'INR').toUpperCase()}${fx > 0 && fx !== 1 ? ` at ${fx}` : ''}) to` : SUPPLY_WORDS[supplyType] || 'Invoice to';
+  const supplyEffect = supplyType === 'DEXP'
+    ? `It goes into GSTR-1 table 6C as a deemed export (DE)${date ? ` for ${date.slice(0, 7)}` : ''} and into GSTR-3B 3.1(a).`
+    : supplyType === 'SEZWP' || supplyType === 'SEZWOP' ? `It goes into GSTR-1 table 6B as ${supplyType === 'SEZWP' ? 'SEWP' : 'SEWOP'}${date ? ` for ${date.slice(0, 7)}` : ''} and into GSTR-3B 3.1(b).` : '';
   const terms = sale ? invoiceTerms(state, { name: party, gstin: args.partyGstin, override: args.paymentTermsDays }) : { days: null };
   if (terms.error) blockers.push('Terms are a whole number of days from 0 to 365.');
   const due = sale && terms.days != null && date ? ` Due ${dueDateOf(date, terms.days)} (${termsLabel(terms.days)}${terms.source === 'customer' ? `, ${party}'s usual terms` : ''}).` : '';
   let tds = null;
   if (!sale && wantsTds(args) && date && !blockers.length) {
-    const planned = planTds(state, args, { date, basis: taxable, payable: taxable + tax, payee: party, beforeGst: true });
+    const planned = planTds(state, args, { date, basis: taxable, payable: rcm ? taxable : taxable + tax, payee: party, beforeGst: true });
     if (planned.ok) tds = planned.tds;
     else blockers.push((TDS_REASONS[planned.error] || (() => planned.error))(planned));
   }
+  const earning = sale && earnsPoints && !blockers.length ? earnPreview(state, args, { taxable, total: Math.round((taxable + tax) * 100) / 100 }) : 0;
+  const pointsWords = redemption ? ` Loyalty points redeemed: ${redemption.points} points, ${money(redemption.value)} off before GST (GST is on the lower value, CGST Act s.15(3)(a)); ${party} has ${redemption.balanceAfter} left.` : '';
+  const earnWords = earning > 0 ? ` ${party} earns ${earning} loyalty ${earning === 1 ? 'point' : 'points'}.` : '';
   return {
     blockers,
     summary: sale
-      ? `${exportWords} ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Place of supply ${exportSale ? 'outside India (96)' : gstinRules.STATE_CODES?.[pos] || pos || '?'}.${due}`
-      : `Purchase bill from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`,
+      ? `${exportWords} ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Place of supply ${exportSale ? 'outside India (96)' : gstinRules.STATE_CODES?.[pos] || pos || '?'}.${due}${pointsWords}${earnWords}`
+      : rcm
+        ? `${rcm.kind === 'import' ? `Import of services from ${party} (${rcm.originCountry})` : `Reverse charge purchase from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''}`} dated ${date || '?'}: taxable ${money(taxable)}, ${heads} payable by you under reverse charge. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`
+        : `Purchase bill from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`,
     effects: sale
-      ? [`${party} owes you ${money(taxable + tax)} more.`, exportSale ? `It goes into GSTR-1 table 6A${date ? ` for ${date.slice(0, 7)}` : ''} as ${exportSale.withTax ? 'WPAY' : 'WOPAY'}.` : args.partyGstin && (args.lines || []).some((l) => Number(l.gstRate) > 0 && !/^\d{4,8}$/.test(String(l.hsn ?? '').trim())) ? missingHsnWords(state, args) : `It goes into your GSTR-1${date ? ` for ${date.slice(0, 7)}` : ''}.`]
-      : [`You owe ${party} ${money(taxable + tax - (tds?.tds || 0))} more.`, args.itcEligible === false ? 'The GST on it cannot be claimed, so it is part of the cost.' : 'It is checked against your GSTR-2B when you add one.', ...(tds ? [tdsWords(tds, taxable + tax - tds.tds, `you owe ${party}`)] : [])],
-    figures: { date, taxable, tax, total: Math.round((taxable + tax) * 100) / 100, placeOfSupply: pos, ...(tds ? { tds: tds.tds, tdsSection: tds.section, tdsRate: tds.rate } : {}) },
+      ? [`${party} owes you ${money(taxable + tax)} more.`, supplyEffect || (exportSale ? `It goes into GSTR-1 table 6A${date ? ` for ${date.slice(0, 7)}` : ''} as ${exportSale.withTax ? 'WPAY' : 'WOPAY'}.` : args.partyGstin && (args.lines || []).some((l) => Number(l.gstRate) > 0 && !/^\d{4,8}$/.test(String(l.hsn ?? '').trim())) ? missingHsnWords(state, args) : `It goes into your GSTR-1${date ? ` for ${date.slice(0, 7)}` : ''}.`)]
+      : rcm
+        ? [`You owe ${party} ${money(taxable - (tds?.tds || 0))} more; the GST of ${money(tax)} is yours to pay in cash with this month's GSTR-3B.`, ...(rcm.kind === 'notified' ? [] : ['MyCA numbers a self-invoice for it, which can get an IRN when e-invoicing applies to you.']), ...(tds ? [tdsWords(tds, taxable - tds.tds, `you owe ${party}`)] : [])]
+        : [`You owe ${party} ${money(taxable + tax - (tds?.tds || 0))} more.`, args.itcEligible === false ? 'The GST on it cannot be claimed, so it is part of the cost.' : 'It is checked against your GSTR-2B when you add one.', ...(tds ? [tdsWords(tds, taxable + tax - tds.tds, `you owe ${party}`)] : [])],
+    figures: { date, taxable, tax, total: Math.round((rcm ? taxable : taxable + tax) * 100) / 100, placeOfSupply: pos, ...(redemption ? { redeemPoints: redemption.points, pointsDiscount: redemption.value } : {}), ...(earning > 0 ? { pointsEarned: earning } : {}), ...(rcm ? { reverseCharge: rcm.kind } : {}), ...(tds ? { tds: tds.tds, tdsSection: tds.section, tdsRate: tds.rate } : {}) },
   };
 }
 
@@ -153,6 +191,7 @@ export function receiptPreview(state, args) {
   const date = args.date == null || args.date === '' ? inv.date : postingDate(args.date);
   const blockers = [];
   if (!date) blockers.push(`${args.date} is not a date I can read.`);
+  else if (date < inv.date && args.advance !== true) blockers.push(`${date} is before the invoice date ${inv.date}; a receipt cannot be dated before the invoice unless it is recorded as an advance.`);
   else if (isPeriodLocked(state, date)) blockers.push(`${date} is inside the locked period (through ${state.lockThrough}).`);
   if (inv.status === 'cancelled') blockers.push(`${inv.id} is cancelled, so nothing can be received against it.`);
   else if (due <= 0.01) blockers.push(`${inv.id} is already fully received or credited (${money(inv.total)}).`);
@@ -160,7 +199,7 @@ export function receiptPreview(state, args) {
   else if (!(amount >= 0.01)) blockers.push('A receipt has to be a positive amount.');
   return {
     blockers,
-    summary: `Receipt of ${money(amount)} against ${inv.id} (${inv.partyName}) by ${args.mode === 'cash' ? 'cash' : 'bank'} on ${date || '?'}. Outstanding is ${money(due)} of ${money(inv.total)}.`,
+    summary: `${date && date < inv.date ? 'Advance receipt' : 'Receipt'} of ${money(amount)} against ${inv.id} (${inv.partyName}) by ${args.mode === 'cash' ? 'cash' : 'bank'} on ${date || '?'}. Outstanding is ${money(due)} of ${money(inv.total)}.`,
     effects: [`${money(amount)} goes into your ${args.mode === 'cash' ? 'cash' : 'bank'}.`, `${inv.id} becomes ${amount >= due - 0.01 ? 'paid' : 'partly paid'}.`],
     figures: { amount, due, date },
   };
@@ -331,9 +370,12 @@ const CREDIT_NOTE_REASONS = {
   BAD_AMOUNT: () => 'The amount must be a positive number.',
   EXCEEDS_INVOICE: (p) => `Only ${money(p.room)} of ${p.invoiceId} is left to credit.`,
   PARTLY_CREDITED: (p) => `${p.invoiceId} already has a credit note; issue one for the rest instead of cancelling.`,
+  CREDIT_NOTE_TIME_BARRED: (p) => p.hint,
 };
 
 export function creditNotePreview(state, args, cancel = false) {
+  const own = cancel ? null : engineBooks(countryOf(state), 'create_credit_note', 'preview');
+  if (own) return own(state, args);
   const invoiceId = String(args.invoiceId || '').trim().toUpperCase();
   if (cancel && creditedAgainst(state, invoiceId) > 0) {
     return { blockers: [CREDIT_NOTE_REASONS.PARTLY_CREDITED({ invoiceId })], summary: '', effects: [], figures: {} };
@@ -393,7 +435,7 @@ export function purchaseNotePreview(state, args) {
   return {
     blockers: [],
     summary: `Debit note to ${plan.bill.partyName} of ${money(plan.total)} against ${plan.bill.id}${plan.full ? ', the whole bill' : ''} dated ${plan.date}: taxable ${money(plan.taxable)}${heads ? `, ${heads}` : ''}. Reason: ${plan.reason}.${refund}`,
-    effects: ['You owe the supplier that much less, or are owed it back if you have already paid.', plan.itcEligible && heads ? 'The input credit on that part is reversed in the month of the note.' : 'The bill stays as it was.'],
+    effects: ['You owe the supplier that much less, or are owed it back if you have already paid.', plan.itcEligible && heads ? 'The input credit on that part is reversed in the month of the note.' : 'The bill stays as it was.', ...(plan.tdsReversed > 0 ? [`TDS of ${money(plan.tdsReversed)} under ${plan.bill.tds.section} on that part is reversed.`] : []), ...(plan.tdsHint ? [plan.tdsHint] : [])],
     figures: { billId: plan.bill.id, date: plan.date, taxable: plan.taxable, cgst: plan.cgst, sgst: plan.sgst, igst: plan.igst, total: plan.total, refundDue: plan.refundDue },
   };
 }
@@ -474,11 +516,12 @@ const TRANSPORT_REASONS = {
   INVOICE_NOT_FOUND: (p) => `${p.invoiceId} is not an invoice in these books.`,
   INVOICE_CANCELLED: (p) => `${p.invoiceId} is cancelled.`,
   BAD_MODE: () => 'The mode is road, rail, air or ship.',
-  VEHICLE_REQUIRED: () => 'Say the vehicle number for movement by road, for example MH12AB1234.',
+  VEHICLE_REQUIRED: () => 'Say the vehicle number for movement by road, for example MH12AB1234, or the transporter id if the transporter will add the vehicle.',
   BAD_VEHICLE: (p) => `${p.vehicleNo} is not a vehicle number I can read (for example MH12AB1234).`,
   BAD_DISTANCE: () => 'Say the distance as whole kilometres, from 1 to 4000.',
   BAD_TRANSPORTER_ID: (p) => `${p.transporterId} is not a 15-character transporter id (GSTIN or TRANSIN).`,
   DOC_REQUIRED: (p) => `For movement by ${p.mode}, say the transport document number.`,
+  BAD_DOC_DATE: (p) => `${p.docDate} is not a date I can read; give the transport document date as YYYY-MM-DD.`,
 };
 
 export function transportPreview(state, args) {
@@ -678,7 +721,9 @@ export function markQuotePreview(state, args) {
 export function convertPreview(state, args) {
   const checked = checkConvert(state, args);
   if (!checked.ok) return { blockers: [QUOTE_REASONS[checked.error] || checked.error], summary: '', effects: [], figures: {} };
-  const invoice = documentPreview(state, invoiceArgsFromQuote(checked.quote, args), 'sale');
+  const fromStore = checked.quote.source === 'store';
+  const invoice = documentPreview(state, invoiceArgsFromQuote(checked.quote, args), 'sale', { earnsPoints: !fromStore });
   const note = checked.expired ? ` The quote expired on ${checked.quote.validUntil}.` : '';
-  return { ...invoice, summary: `From ${kindTitle(checked.quote).toLowerCase()} ${checked.quote.id}: ${invoice.summary}${note}` };
+  const effects = fromStore && loyaltySettings(state).enabled ? [...invoice.effects, STORE_NO_POINTS] : invoice.effects;
+  return { ...invoice, effects, summary: `From ${kindTitle(checked.quote).toLowerCase()} ${checked.quote.id}: ${invoice.summary}${note}` };
 }

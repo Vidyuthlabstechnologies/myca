@@ -1,10 +1,13 @@
-import { gstin } from './sprint-load.mjs';
+import { gstin, rules } from './sprint-load.mjs';
 import { creditedAgainst, debitedAgainst } from './credit-notes.mjs';
 import { quoteState, kindOf, kindTitle } from './quotes.mjs';
 import { ewayBillStatus, transportWords } from './eway-bill.mjs';
 import { countryOf } from './country.mjs';
 import { invoiceTemplateOf, bankWords } from './invoice-template.mjs';
 import { isTdsReceipt, tdsReceiptLabel, tdsWithheldOn } from './tds-credits.mjs';
+import { COMPOSITION_DECLARATION, documentTitleOf, einvoiceProofOf, exportEndorsementOf, hsnShownOn, reverseChargeLineOf } from './invoice-compliance.mjs';
+
+export const LOYALTY_DISCOUNT_LABEL = 'Loyalty points redeemed';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const text = (value) => String(value ?? '').trim();
@@ -18,6 +21,11 @@ function partyOf(state, doc) {
   return (state.parties || []).find((p) => (doc.partyAccountId ? p.accountId === doc.partyAccountId : p.name === doc.partyName && text(p.gstin) === text(doc.partyGstin))) || null;
 }
 
+function buyerDetailsDue(doc) {
+  const found = rules.rule('gst.invoice.unregistered-buyer-details', doc.date);
+  return found.ok && Math.round(Number(doc.taxable || 0) * 100) >= found.value.taxableValuePaiseAtLeast;
+}
+
 function common(state, doc) {
   const company = state.company || {};
   const party = partyOf(state, doc);
@@ -26,7 +34,7 @@ function common(state, doc) {
   const missing = [];
   if (!us && !text(company.gstin)) missing.push('SELLER_GSTIN');
   if (!text(company.address)) missing.push('SELLER_ADDRESS');
-  if (!us && !buyerAddress && (text(doc.partyGstin) || round2(doc.total) >= 50000)) missing.push('BUYER_ADDRESS');
+  if (!us && !buyerAddress && (text(doc.partyGstin) || buyerDetailsDue(doc))) missing.push('BUYER_ADDRESS');
   if (!us && doc.lines.some((line) => !text(line.hsn))) missing.push('HSN');
   return {
     id: doc.id,
@@ -47,6 +55,7 @@ function common(state, doc) {
       qty: line.qty,
       rate: round2(line.rate),
       gstRate: line.gstRate,
+      ...(Number(line.loyaltyDiscount) > 0 ? { grossTaxable: round2(line.grossTaxable), loyaltyDiscount: round2(line.loyaltyDiscount) } : {}),
       taxable: round2(line.taxable),
       cgst: round2(line.cgst),
       sgst: round2(line.sgst),
@@ -54,13 +63,15 @@ function common(state, doc) {
       amount: round2(line.amount),
       ...(us ? { taxRate: Number(line.taxRate || 0), salesTax: round2(line.salesTax || 0) } : {}),
     })),
+    ...(doc.loyaltyRedeemed ? { grossTaxable: round2(Number(doc.taxable) + Number(doc.loyaltyRedeemed.value)), discounts: [{ label: LOYALTY_DISCOUNT_LABEL, points: doc.loyaltyRedeemed.points, amount: round2(doc.loyaltyRedeemed.value), beforeGst: true }] } : {}),
     taxable: round2(doc.taxable),
     cgst: round2(doc.cgst),
     sgst: round2(doc.sgst),
     igst: round2(doc.igst),
+    ...(Number(doc.cess) > 0 ? { cess: round2(doc.cess) } : {}),
     total: round2(doc.total),
     missing,
-    template: (() => { const t = invoiceTemplateOf(state); return { ...t, bankWords: bankWords(t.bank) }; })(),
+    template: (() => { const t = invoiceTemplateOf(state); return { ...t, showHsn: hsnShownOn(state, doc, t), bankWords: bankWords(t.bank) }; })(),
     ...(us ? { country: 'US', subtotal: round2(doc.subtotal ?? doc.taxable), salesTax: round2(doc.salesTax ?? doc.salesTaxPaid ?? 0), taxJurisdiction: text(doc.taxJurisdiction), taxRate: Number(doc.taxRate || 0), taxExempt: Boolean(doc.taxExempt), exemptionReason: text(doc.exemptionReason) } : { country: 'IN' }),
   };
 }
@@ -84,6 +95,10 @@ export function invoiceDocument(state, id) {
     data: {
       ...common(state, invoice),
       kind: 'invoice',
+      documentTitle: documentTitleOf(state, invoice),
+      reverseChargeLine: reverseChargeLineOf(state, invoice),
+      exportEndorsement: exportEndorsementOf(state, invoice),
+      ...(state.company?.composition === true ? { compositionDeclaration: COMPOSITION_DECLARATION } : {}),
       receipts,
       received,
       tdsWithheld: tdsWithheldOn(invoice),
@@ -98,8 +113,8 @@ export function invoiceDocument(state, id) {
       paymentTermsDays: invoice.paymentTermsDays ?? null,
       dueDate: invoice.dueDate || '',
       quoteId: invoice.quoteId || '',
-      balance: round2(invoice.total - received - credited),
-      upiPayment: upiPayment(state, invoice, round2(invoice.total - received - credited)),
+      balance: round2(invoice.total + debited - received - credited),
+      upiPayment: upiPayment(state, invoice, round2(invoice.total + debited - received - credited)),
     },
   };
 }
@@ -125,10 +140,10 @@ export function upiPayment(state, invoice, balance) {
 function einvoiceWords(state, invoice) {
   if ((state.company?.country || 'IN') !== 'IN') return null;
   if (invoice.status === 'cancelled') return { status: 'not-applicable', irn: '', why: 'The invoice is cancelled.' };
-  if (!invoice.partyGstin) return { status: 'not-applicable', irn: '', why: 'E-invoicing applies to invoices to registered buyers (B2B); this one is to an unregistered buyer.' };
-  if (invoice.irn) return { status: 'issued', irn: invoice.irn, ackNo: invoice.ackNo || '', why: 'IRN issued by the IRP.' };
-  if (invoice.sandboxIrn) return { status: 'sandbox', irn: invoice.sandboxIrn, ackNo: invoice.sandboxAckNo || '', why: 'Sandbox IRN from the NIC test IRP. It is not valid for a real supply; switch e-invoicing to live to issue the real one.' };
-  if (invoice.mockIrn) return { status: 'mock', irn: invoice.mockIrn, ackNo: invoice.mockAckNo || '', why: 'Simulated IRN; nothing reached the IRP.' };
+  if (!invoice.partyGstin && !invoice.export) return { status: 'not-applicable', irn: '', why: 'E-invoicing applies to invoices to registered buyers (B2B); this one is to an unregistered buyer.' };
+  if (invoice.irn) return { status: 'issued', irn: invoice.irn, ackNo: invoice.ackNo || '', ...einvoiceProofOf(invoice), why: 'IRN issued by the IRP.' };
+  if (invoice.sandboxIrn) return { status: 'sandbox', irn: invoice.sandboxIrn, ackNo: invoice.sandboxAckNo || '', ...einvoiceProofOf(invoice, 'sandbox'), why: 'Sandbox IRN from the NIC test IRP. It is not valid for a real supply; switch e-invoicing to live to issue the real one.' };
+  if (invoice.mockIrn) return { status: 'mock', irn: invoice.mockIrn, ackNo: invoice.mockAckNo || '', ...einvoiceProofOf(invoice, 'mock'), why: 'Simulated IRN; nothing reached the IRP.' };
   return { status: 'ready', irn: '', why: 'If your turnover brings you into e-invoicing, generate the IRN; it goes through the action gate and needs a CA approval before anything reaches the IRP.' };
 }
 
@@ -144,6 +159,7 @@ function ewayBillWords(status) {
     ewbValidity: status.ewbValidity || '',
     hasIrn: Boolean(status.hasIrn),
     ...(status.sandboxEwbNo ? { sandboxEwbNo: status.sandboxEwbNo } : {}),
+    ...(status.mockEwbNo ? { mockEwbNo: status.mockEwbNo } : {}),
     next: {
       'not-needed': '',
       'transport-needed': 'Add the vehicle, distance and transporter, then the e-way bill can be generated.',
@@ -151,6 +167,7 @@ function ewayBillWords(status) {
         ? 'Ready to generate from the IRN through Sandbox by Quicko (live switch and approval).'
         : 'Ready to generate from the invoice through Sandbox by Quicko (live switch and approval); no e-invoice is needed.',
       generated: '',
+      simulated: `Simulated e-way bill ${status.mockEwbNo || ''} from the sandbox; nothing reached the e-way bill portal and the goods cannot move on it.`,
     }[status.status] || '',
   };
 }

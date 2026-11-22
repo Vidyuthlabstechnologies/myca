@@ -1,7 +1,9 @@
+import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../us/us_text_scaler.dart';
 import '../../api/models.dart';
 import '../../api/myca_api.dart';
 import '../../app_state.dart';
@@ -11,9 +13,17 @@ import '../../theme.dart';
 import '../../us/tin.dart';
 import '../../us/us_filing_fee.dart';
 import '../../us/us_return.dart';
+import '../../us/us_state.dart';
 import '../../widgets.dart';
 import '../plan_screen.dart' show buyInApp;
+import '../../us/us_consents.dart';
+import '../security_screen.dart';
+import 'us_consent_screen.dart';
 import 'us_fields.dart';
+
+const _jurat = 'Under penalties of perjury, I declare that I have examined this return and accompanying schedules and statements, and to the best of my knowledge and belief they are true, correct and complete. I authorize MyCA to send it to the IRS and to receive the IRS acknowledgment.';
+
+bool _largeText(BuildContext context) => MediaQuery.textScalerOf(context).scale(14) / 14 > 1.6;
 
 String deviceTypeName() => switch (defaultTargetPlatform) {
   TargetPlatform.android => 'Android',
@@ -24,20 +34,23 @@ String deviceTypeName() => switch (defaultTargetPlatform) {
 };
 
 class _SignContext {
-  const _SignContext(this.status, this.review, this.efile, this.fee);
+  const _SignContext(this.status, this.review, this.efile, this.fee, {this.tins, this.states});
 
   final UsReturnStatus status;
   final UsReview review;
   final UsEfileStatus efile;
   final UsFilingFee fee;
+  final UsConsentForm? tins;
+  final UsStateFilingPackage? states;
 }
 
 class UsSignScreen extends StatefulWidget {
-  const UsSignScreen({super.key, required this.taxYear, this.fees, this.store});
+  const UsSignScreen({super.key, required this.taxYear, this.fees, this.store, this.consents});
 
   final int taxYear;
   final UsFilingFees? fees;
   final StoreBilling? store;
+  final UsConsents? consents;
 
   @override
   State<UsSignScreen> createState() => _UsSignScreenState();
@@ -68,6 +81,8 @@ class _UsSignScreenState extends State<UsSignScreen> {
   UsFilingFee? _paidFee;
   UsFilingFees? _fees;
   StoreBilling? _store;
+  UsConsents? _consents;
+  bool _needsSecondStep = false;
 
   MycaApi get _api => AppScope.of(context).api;
 
@@ -77,6 +92,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
     final cloud = AppScope.of(context).cloud;
     _fees ??= widget.fees ?? (cloud == null ? const NoFilingFees() : CloudFilingFees(cloud));
     _store ??= widget.store ?? (buyInApp && cloud != null ? PlayBilling() : null);
+    _consents ??= widget.consents ?? (cloud == null ? null : CloudUsConsents(cloud));
     _context ??= _load();
   }
 
@@ -91,7 +107,81 @@ class _UsSignScreenState extends State<UsSignScreen> {
   Future<_SignContext> _load() async {
     final year = widget.taxYear;
     final results = await Future.wait<Object>([loadReturnStatus(_api, year), loadReview(_api, year), loadEfileStatus(_api, year), _loadFee(year)]);
-    return _SignContext(results[0] as UsReturnStatus, results[1] as UsReview, results[2] as UsEfileStatus, results[3] as UsFilingFee);
+    final efile = results[2] as UsEfileStatus;
+    final consents = _consents;
+    final tins = efile.partner && consents != null ? await consentFor(consents, usPartnerTinsConsent) : null;
+    final states = await loadStateFilingPackage(_api, year);
+    final status = results[0] as UsReturnStatus;
+    _prefillPriorYear(status);
+    return _SignContext(status, results[1] as UsReview, efile, results[3] as UsFilingFee, tins: tins, states: states);
+  }
+
+  bool _agiImported = false;
+  bool _spouseAgiImported = false;
+
+  void _prefillPriorYear(UsReturnStatus status) {
+    final agi = status.priorYearAgi;
+    if (agi == null) return;
+    if (_agi.text.isEmpty) {
+      _agi.text = dollarsTyped(agi);
+      _agiImported = true;
+    }
+    if (status.filingStatus == 'mfj' && status.priorYearJoint && _spouseAgi.text.isEmpty) {
+      _spouseAgi.text = dollarsTyped(agi);
+      _spouseAgiImported = true;
+    }
+  }
+
+  String? _importedHelp(bool imported, TextEditingController controller, num? agi) =>
+      imported && agi != null && controller.text == dollarsTyped(agi) ? 'From your ${widget.taxYear - 1} return in MyCA. Check it against line 11.' : null;
+
+  bool get _typedSomething => [_pin, _spousePin, _ipPin, _spouseIpPin, _routing, _account, _phone, _payDate].any((c) => c.text.isNotEmpty);
+
+  void _failed(MycaApiException err) {
+    if (!mounted) return;
+    setState(() {
+      _note = err.message;
+      _needsSecondStep = err.code == 'SECOND_STEP_REQUIRED';
+    });
+  }
+
+  Future<void> _openSecurity() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SecurityScreen()));
+    if (!mounted) return;
+    setState(() {
+      _needsSecondStep = false;
+      _note = '';
+      _needsSecondStep = false;
+    });
+  }
+
+  Future<void> _openConsent() async {
+    final consents = _consents;
+    if (consents == null) return;
+    await Navigator.of(context).push(MaterialPageRoute<bool>(builder: (_) => UsConsentScreen(consents: consents, document: usPartnerTinsConsent)));
+    if (mounted) setState(() { _context = _load(); });
+  }
+
+  Widget _noteView() {
+    if (_note.isEmpty) return const SizedBox.shrink();
+    final text = Theme.of(context).textTheme;
+    if (!_needsSecondStep) {
+      return Padding(padding: const EdgeInsets.only(top: 12), child: Text(_note, key: const Key('usSign.note'), style: TextStyle(color: context.myca.danger, fontWeight: FontWeight.w500)));
+    }
+    return Container(
+      key: const Key('usSign.secondStep'),
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: context.myca.warnSoft, borderRadius: BorderRadius.circular(radiusControl)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(_note, style: text.bodyMedium?.copyWith(color: context.myca.ink)),
+          const SizedBox(height: 10),
+          FilledButton(key: const Key('usSign.openSecurity'), onPressed: _openSecurity, child: const Text('Turn on two-step sign-in')),
+        ],
+      ),
+    );
   }
 
   @override
@@ -114,8 +204,8 @@ class _UsSignScreenState extends State<UsSignScreen> {
       if (spouse != null) _errors['spousePin'] = spouse;
     }
     if (_filedLastYear) {
-      if (parseDollars(_agi.text) == null) _errors['agi'] = 'Enter line 11 of last year\'s Form 1040. Use 0 if it was zero.';
-      if (joint && parseDollars(_spouseAgi.text) == null) _errors['spouseAgi'] = 'Enter your spouse\'s prior-year AGI. If you filed jointly last year it is the same number.';
+      if (parseSignedDollars(_agi.text) == null) _errors['agi'] = 'Enter line 11 of last year\'s Form 1040. Use 0 if it was zero.';
+      if (joint && parseSignedDollars(_spouseAgi.text) == null) _errors['spouseAgi'] = 'Enter your spouse\'s prior-year AGI. If you filed jointly last year it is the same number.';
     }
     final ip = ipPinProblem(_ipPin.text.trim());
     if (ip != null) _errors['ipPin'] = ip;
@@ -132,7 +222,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
         if (_phone.text.replaceAll(RegExp(r'\D'), '').length != 10) _errors['phone'] = 'Enter your 10-digit US phone number. The IRS asks for it with a bank payment.';
       }
     }
-    if (!_consent) _errors['consent'] = 'Tick the box to sign.';
+    if (!_consent) _errors['consent'] = 'Check the box to sign.';
     if (_errors.isNotEmpty) return setState(() => _note = 'Some answers need a look.');
     final bank = {
       'routing': _routing.text.replaceAll(RegExp(r'\D'), ''),
@@ -142,10 +232,11 @@ class _UsSignScreenState extends State<UsSignScreen> {
     setState(() {
       _busy = true;
       _note = '';
+      _needsSecondStep = false;
     });
     try {
-      final agi = parseDollars(_agi.text)?.round() ?? 0;
-      final spouseAgi = parseDollars(_spouseAgi.text)?.round() ?? 0;
+      final agi = parseSignedDollars(_agi.text)?.round() ?? 0;
+      final spouseAgi = parseSignedDollars(_spouseAgi.text)?.round() ?? 0;
       final reply = await saveAndConfirm(_api, 'sign_us_return', {
         'taxYear': widget.taxYear,
         'taxpayerPin': _pin.text,
@@ -187,7 +278,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
         _context = _load();
       });
     } on MycaApiException catch (err) {
-      if (mounted) setState(() => _note = err.message);
+      _failed(err);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -197,6 +288,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
     setState(() {
       _busy = true;
       _note = '';
+      _needsSecondStep = false;
     });
     try {
       final reply = await _api.propose('file_us_return', {'taxYear': widget.taxYear});
@@ -206,7 +298,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
         if (reply.preview == null) _note = reply.reply.isEmpty ? 'The return cannot be sent yet.' : reply.reply;
       });
     } on MycaApiException catch (err) {
-      if (mounted) setState(() => _note = err.message);
+      _failed(err);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -225,7 +317,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
         _context = _load();
       });
     } on MycaApiException catch (err) {
-      if (mounted) setState(() => _note = err.message);
+      _failed(err);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -291,6 +383,185 @@ class _UsSignScreenState extends State<UsSignScreen> {
     ],
   ];
 
+  Future<void> _continueWithPartner() async {
+    final openLink = AppScope.of(context).openLink;
+    setState(() {
+      _busy = true;
+      _note = '';
+      _needsSecondStep = false;
+    });
+    try {
+      final reply = await saveAndConfirm(_api, 'file_us_return', {'taxYear': widget.taxYear});
+      final url = reply.toolResult('file_us_return')['handoffUrl'];
+      var note = '';
+      if (url is String && url.startsWith('https://')) {
+        final opened = await openLink(Uri.parse(url));
+        if (!opened) note = 'The filing page did not open. Try again.';
+      } else if (reply.toolResult('file_us_return').isEmpty) {
+        note = reply.reply.isEmpty ? 'E-filing could not start. Try again.' : reply.reply;
+      }
+      if (!mounted) return;
+      setState(() {
+        _note = note;
+        _context = _load();
+      });
+    } on MycaApiException catch (err) {
+      _failed(err);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _partnerView(_SignContext ctx) {
+    final text = Theme.of(context).textTheme;
+    final owed = ctx.review.owed > 0;
+    final resuming = ctx.efile.inProgress;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      children: [
+        Text(wholeWords(resuming ? 'Finish e-filing' : 'Ready to e-file'), style: text.headlineMedium),
+        const SizedBox(height: 8),
+        Text(owed ? 'You owe ${dollars(ctx.review.owed)}.' : 'Your refund is ${dollars(ctx.review.refund)}.', style: text.titleMedium),
+        const SizedBox(height: 12),
+        Text(
+          ctx.tins?.signed == true
+              ? 'Your return is e-filed through our e-file partner. We pass on your name, address, Social Security numbers, dependents and tax forms, '
+                  'so there you check the return and sign Form 8879. The IRS answer shows up here.'
+              : 'Your return is e-filed through our e-file partner. We pass on your name, address, dependents and tax forms, '
+                  'so there you only add your SSN, check the return and sign Form 8879. The IRS answer shows up here.',
+          key: const Key('usSign.partnerIntro'),
+          style: text.bodyLarge,
+        ),
+        if (ctx.states?.worthShowing ?? false) _stateFiling(ctx.states!),
+        if (ctx.tins != null && !resuming) ...[
+          const SizedBox(height: 12),
+          Material(
+            color: context.myca.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusControl), side: BorderSide(color: context.myca.line)),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              key: const Key('usSign.prefillTins'),
+              title: const Text('Fill in my Social Security numbers on the partner\'s screen for me'),
+              subtitle: Text(ctx.tins!.signed ? 'On, with your signed consent. Tap to read it or withdraw.' : 'Needs your signed consent. Without it you type them there.'),
+              trailing: Icon(ctx.tins!.signed ? Icons.check_circle : Icons.chevron_right, semanticLabel: ctx.tins!.signed ? 'On' : null),
+              onTap: _busy ? null : _openConsent,
+            ),
+          ),
+        ],
+        for (final r in ctx.efile.rejections) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: context.myca.warnSoft, borderRadius: BorderRadius.circular(radiusControl)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('The IRS sent it back: ${r.message}', style: text.bodyMedium),
+                if (r.fix.isNotEmpty) ...[const SizedBox(height: 4), Text(r.fix, style: text.bodySmall)],
+              ],
+            ),
+          ),
+        ],
+        if (ctx.efile.sandbox) ...[const SizedBox(height: 12), StatusTag(text: 'IRS test system: nothing is really filed', color: context.myca.warn)],
+        const SizedBox(height: 22),
+        if (!ctx.fee.filingOpen)
+          _notOpen()
+        else if ((_paidFee ?? ctx.fee).due)
+          UsFilingFeeCard(fee: ctx.fee, fees: _fees!, store: _store, onPaid: (fee) => setState(() => _paidFee = fee))
+        else
+          FilledButton(
+            key: const Key('usSign.partner'),
+            onPressed: _busy ? null : _continueWithPartner,
+            child: Text(_busy ? 'Opening…' : resuming ? 'Continue where you left off' : 'Continue to e-file'),
+          ),
+        if (resuming)
+          TextButton(key: const Key('usSign.partnerRefresh'), onPressed: _busy ? null : () => setState(() { _context = _load(); }), child: const Text('I have finished. Check again')),
+        _noteView(),
+      ],
+    );
+  }
+
+  Widget _stateFiling(UsStateFilingPackage states) {
+    final text = Theme.of(context).textTheme;
+    final year = '${widget.taxYear}';
+    return Container(
+      key: const Key('usSign.states'),
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: context.myca.surface, borderRadius: BorderRadius.circular(radiusControl), border: Border.all(color: context.myca.line)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Your state returns', style: text.titleSmall),
+          if (states.direct && states.routeNote.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(states.routeNote, key: const Key('usSign.stateRoute'), style: text.bodyMedium),
+          ],
+          for (final p in states.packages.where((p) => !p.partner)) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Your ${usStateName(p.state)} return${p.form.isEmpty ? '' : ' (${p.form})'} is prepared in MyCA. File it yourself; it is not sent with your federal return.',
+              key: Key('usSign.stateDirect.${p.state}'),
+              style: text.bodyMedium,
+            ),
+          ],
+          for (final p in states.packages.where((p) => p.partner)) ...[
+            const SizedBox(height: 6),
+            Text(
+              p.provisional
+                  ? provisionalNote(usStateName(p.state), year)
+                  : p.ready
+                      ? 'Your ${usStateName(p.state)} return${p.form.isEmpty ? '' : ' (${p.form})'} goes to our e-file partner with your federal return.'
+                      : 'Your ${usStateName(p.state)} return${p.form.isEmpty ? '' : ' (${p.form})'} has something to fix before it can go with your federal return. Open it under State returns.',
+              key: Key('usSign.state.${p.state}'),
+              style: text.bodyMedium,
+            ),
+          ],
+          for (final code in states.missing) ...[
+            const SizedBox(height: 6),
+            Text('MyCA can\'t send your ${usStateName(code)} return. File it on ${usStateName(code)}\'s tax website.', key: Key('usSign.stateMissing.$code'), style: text.bodyMedium),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _notOpen() => Container(
+        key: const Key('usSign.notOpen'),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: context.myca.warnSoft, borderRadius: BorderRadius.circular(radiusCard)),
+        child: Text(usFilingNotOpenLine, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: context.myca.ink)),
+      );
+
+  Widget _blockedView(UsReview review) {
+    final text = Theme.of(context).textTheme;
+    return ListView(
+      key: const Key('usSign.blocked'),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      children: [
+        Text('A few things to fix first', style: text.headlineMedium),
+        const SizedBox(height: 8),
+        Text('Your return can be signed once these are fixed. Open Review your return to fix each one.', style: text.bodyLarge),
+        for (final c in review.checks.where((c) => c.blocking)) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: context.myca.dangerSoft, borderRadius: BorderRadius.circular(radiusControl)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(c.message, style: text.titleSmall),
+                if (c.fix.isNotEmpty) ...[const SizedBox(height: 4), Text(c.fix, style: text.bodySmall)],
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 22),
+        FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Back to my return')),
+      ],
+    );
+  }
+
   Widget _filedView(UsEfileStatus efile) {
     final text = Theme.of(context).textTheme;
     return ListView(
@@ -305,7 +576,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
           style: text.bodyLarge,
         ),
         if (efile.submissionId.isNotEmpty) ...[const SizedBox(height: 12), Text('Submission ID ${efile.submissionId}', style: text.bodySmall)],
-        if (efile.sandbox) ...[const SizedBox(height: 12), const StatusTag(text: 'IRS test system: this return is not really filed', color: Palette.warn)],
+        if (efile.sandbox) ...[const SizedBox(height: 12), StatusTag(text: 'IRS test system: this return is not really filed', color: context.myca.warn)],
         const SizedBox(height: 22),
         FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Back to my return')),
       ],
@@ -323,15 +594,16 @@ class _UsSignScreenState extends State<UsSignScreen> {
           builder: (context, loaded) {
             if (loaded.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
             if (loaded.hasError) {
-              return EmptyNote(text: loaded.error is MycaApiException ? (loaded.error as MycaApiException).message : 'Your return could not be loaded.');
+              return UsLoadError(message: usLoadProblem(loaded.error, 'Your return could not be loaded.'), onRetry: () => setState(() { _context = _load(); }));
             }
             final ctx = loaded.data!;
             if (ctx.efile.filed) return _filedView(ctx.efile);
+            if (ctx.efile.partner) return _partnerView(ctx);
             if (!ctx.review.canFile) {
               return ListView(padding: const EdgeInsets.fromLTRB(20, 12, 20, 32), children: [UsUnsupportedNotice(forms: ctx.review.unsupported)]);
             }
             if (ctx.review.blocked) {
-              return const EmptyNote(text: 'Your return still has items to fix. Open Review your return and fix them, then come back to sign.');
+              return _blockedView(ctx.review);
             }
             final joint = ctx.status.filingStatus == 'mfj';
             final owed = ctx.review.owed > 0;
@@ -344,19 +616,22 @@ class _UsSignScreenState extends State<UsSignScreen> {
                   if (_signedSummary.isNotEmpty) Text(_signedSummary, style: text.bodyMedium),
                   const SizedBox(height: 8),
                   Text(owed ? 'You owe ${dollars(ctx.review.owed)}.' : 'Your refund is ${dollars(ctx.review.refund)}.', style: text.titleMedium),
+                  if (ctx.states?.worthShowing ?? false) _stateFiling(ctx.states!),
                   if (ctx.efile.sandbox) ...[
                     const SizedBox(height: 12),
-                    const StatusTag(text: 'IRS test system: nothing is really filed', color: Palette.warn),
+                    StatusTag(text: 'IRS test system: nothing is really filed', color: context.myca.warn),
                   ],
                   const SizedBox(height: 22),
-                  if ((_paidFee ?? ctx.fee).due)
+                  if (!ctx.fee.filingOpen)
+                    _notOpen()
+                  else if ((_paidFee ?? ctx.fee).due)
                     UsFilingFeeCard(fee: ctx.fee, fees: _fees!, store: _store, onPaid: (fee) => setState(() => _paidFee = fee))
                   else if (_filing == null)
                     FilledButton(key: const Key('usSign.prepare'), onPressed: _busy ? null : _prepareFiling, child: Text(_busy ? 'Checking…' : 'E-file with the IRS'))
                   else ...[
                     Container(
                       padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(color: Palette.warnSoft, borderRadius: BorderRadius.circular(radiusControl)),
+                      decoration: BoxDecoration(color: context.myca.warnSoft, borderRadius: BorderRadius.circular(radiusControl)),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -369,24 +644,28 @@ class _UsSignScreenState extends State<UsSignScreen> {
                     FilledButton(key: const Key('usSign.send'), onPressed: _busy ? null : _send, child: Text(_busy ? 'Sending…' : 'Send my return to the IRS')),
                     TextButton(onPressed: _busy ? null : _cancelFiling, child: const Text('Not yet')),
                   ],
-                  if (_note.isNotEmpty) ...[const SizedBox(height: 12), Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))],
+                  _noteView(),
                 ],
               );
             }
-            return ListView(
+            return UsLeaveGuard(
+              dirty: () => _typedSomething && !_busy,
+              listenable: Listenable.merge([_pin, _spousePin, _ipPin, _spouseIpPin, _routing, _account, _phone, _payDate]),
+              child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
                 Text(
                   'You sign your return with a five-digit PIN. This is your signature on IRS Form 8879, which authorizes MyCA to e-file for you.',
                   style: text.bodyLarge,
                 ),
+                if (ctx.states?.worthShowing ?? false) _stateFiling(ctx.states!),
                 const SizedBox(height: 18),
                 const SectionLabel('Your signature'),
-                _pinField(_pin, 'pin', 'Your signature PIN'),
-                if (joint) ...[const SizedBox(height: 12), _pinField(_spousePin, 'spousePin', 'Your spouse\'s signature PIN')],
+                _pinField(_pin, 'pin', 'Signature PIN'),
+                if (joint) ...[const SizedBox(height: 12), _pinField(_spousePin, 'spousePin', 'Spouse\'s signature PIN')],
                 const SizedBox(height: 22),
-                const SectionLabel('Prove it is you'),
-                Text('The IRS checks last year\'s adjusted gross income (AGI) to confirm who is signing.', style: text.bodySmall),
+                const SectionLabel('Confirm it is you'),
+                Text('The IRS matches last year\'s adjusted gross income (AGI) to confirm who is signing. It is on line 11 of your ${widget.taxYear - 1} Form 1040.', style: text.bodySmall),
                 SwitchListTile(
                   key: const Key('usSign.filedLastYear'),
                   contentPadding: EdgeInsets.zero,
@@ -395,9 +674,20 @@ class _UsSignScreenState extends State<UsSignScreen> {
                   onChanged: (v) => setState(() => _filedLastYear = v),
                 ),
                 if (_filedLastYear) ...[
-                  MoneyField(key: const Key('usSign.agi'), controller: _agi, label: '${widget.taxYear - 1} AGI (Form 1040, line 11)', errorText: _errors['agi']),
-                  if (joint) ...[const SizedBox(height: 12), MoneyField(key: const Key('usSign.spouseAgi'), controller: _spouseAgi, label: 'Your spouse\'s ${widget.taxYear - 1} AGI', errorText: _errors['spouseAgi'])],
-                ],
+                  MoneyField(key: const Key('usSign.agi'), controller: _agi, label: '${widget.taxYear - 1} AGI (Form 1040, line 11)', helper: _importedHelp(_agiImported, _agi, ctx.status.priorYearAgi), errorText: _errors['agi'], signed: true),
+                  if (joint) ...[
+                    const SizedBox(height: 12),
+                    MoneyField(
+                      key: const Key('usSign.spouseAgi'),
+                      controller: _spouseAgi,
+                      label: 'Your spouse\'s ${widget.taxYear - 1} AGI',
+                      helper: _importedHelp(_spouseAgiImported, _spouseAgi, ctx.status.priorYearAgi) ?? 'If you filed jointly last year, it is the same number.',
+                      errorText: _errors['spouseAgi'],
+                      signed: true,
+                    ),
+                  ],
+                ] else
+                  Text('We send 0 for last year\'s AGI, which is what the IRS expects when you did not file.', key: const Key('usSign.noPriorYear'), style: text.bodySmall),
                 const SizedBox(height: 12),
                 TextField(
                   key: const Key('usSign.ipPin'),
@@ -405,7 +695,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                   keyboardType: TextInputType.number,
                   obscureText: true,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-                  decoration: InputDecoration(labelText: 'Identity Protection PIN (if the IRS sent you one)', errorText: _errors['ipPin']),
+                  decoration: InputDecoration(labelText: 'IP PIN (optional)', helperText: 'Only if the IRS sent you an Identity Protection PIN', errorText: _errors['ipPin']),
                 ),
                 if (joint) ...[
                   const SizedBox(height: 12),
@@ -415,7 +705,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                     keyboardType: TextInputType.number,
                     obscureText: true,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-                    decoration: InputDecoration(labelText: 'Your spouse\'s Identity Protection PIN (if any)', errorText: _errors['spouseIpPin']),
+                    decoration: InputDecoration(labelText: 'Spouse\'s IP PIN (optional)', helperText: 'Only if the IRS sent your spouse one', errorText: _errors['spouseIpPin']),
                   ),
                 ],
                 const SizedBox(height: 22),
@@ -444,23 +734,26 @@ class _UsSignScreenState extends State<UsSignScreen> {
                   ),
                 if (_usesBank(ctx.review)) ...[const SizedBox(height: 8), ..._bankFields(debit: owed)],
                 const SizedBox(height: 22),
+                if (_largeText(context)) ...[
+                  Text(_jurat, style: text.bodyLarge),
+                  const SizedBox(height: 4),
+                ],
                 CheckboxListTile(
                   key: const Key('usSign.consent'),
                   contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,
                   value: _consent,
                   onChanged: (v) => setState(() => _consent = v ?? false),
-                  title: const Text(
-                    'Under penalties of perjury, I declare that I have examined this return and accompanying schedules and statements, and to the best of my knowledge and belief they are true, correct and complete. I authorize MyCA to send it to the IRS and to receive the IRS acknowledgment.',
-                  ),
-                  subtitle: _errors['consent'] == null ? null : Text(_errors['consent']!, style: const TextStyle(color: Palette.danger)),
+                  title: Text(_largeText(context) ? 'I declare and sign the above' : _jurat),
+                  subtitle: _errors['consent'] == null ? null : Text(_errors['consent']!, style: TextStyle(color: context.myca.danger)),
                 ),
-                if (_note.isNotEmpty) ...[const SizedBox(height: 12), Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))],
+                _noteView(),
                 const SizedBox(height: 18),
                 FilledButton(key: const Key('usSign.sign'), onPressed: _busy ? null : () => _sign(ctx), child: Text(_busy ? 'Signing…' : 'Sign my return')),
                 const SizedBox(height: 10),
-                Text('Signing does not send anything. You get one more look before your return goes to the IRS.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+                Text('Signing does not send anything. You get one more look before your return goes to the IRS.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
               ],
+            ),
             );
           },
         ),

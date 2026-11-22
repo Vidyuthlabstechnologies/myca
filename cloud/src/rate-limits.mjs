@@ -3,13 +3,23 @@ import { createHash } from 'node:crypto';
 export const LIMITS = Object.freeze({
   signIn: { max: 60, windowSeconds: 600 },
   ask: { max: 120, windowSeconds: 3600 },
+  askPaused: { max: 1, windowSeconds: 3600 },
+  whatsappStranger: { max: 2, windowSeconds: 86400 },
+  whatsappMenu: { max: 30, windowSeconds: 3600 },
   crash: { max: 30, windowSeconds: 3600 },
+  funnel: { max: 120, windowSeconds: 3600 },
+  referralClaim: { max: 10, windowSeconds: 3600 },
+  privacyRequest: { max: 10, windowSeconds: 86400 },
   upload: { max: 200, windowSeconds: 3600 },
   gstinCheck: { max: 120, windowSeconds: 3600 },
   quickoBusiness: { max: 300, windowSeconds: 3600 },
   quickoUser: { max: 200, windowSeconds: 3600 },
   portalSignInBusiness: { max: 10, windowSeconds: 3600 },
   portalSignInSubject: { max: 5, windowSeconds: 3600 },
+  storeView: { max: 600, windowSeconds: 3600 },
+  storeOrderIp: { max: 20, windowSeconds: 3600 },
+  storeOrderStore: { max: 300, windowSeconds: 86400 },
+  storeOrderAlert: { max: 1, windowSeconds: 900 },
 });
 
 function keyOf(kind, who) {

@@ -127,7 +127,8 @@ function usBooks() {
   return state;
 }
 
-test('Schedule SE comes from the Schedule C net profit with the statutory reduction, the wage base and the deductible half; tiny profits owe nothing', async () => {
+test('Schedule SE comes from the Schedule C net profit with the statutory reduction, the wage base and the deductible half; tiny profits owe nothing', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 15, 12).getTime() });
   const state = usBooks();
   await runTool(state, 'set_sales_tax_rate', { code: 'TX', ratePercent: 6.25, from: '2026-01-01' });
   await runTool(state, 'create_invoice', { partyName: 'Cafe Luna', lines: [{ description: 'Cakes', qty: 1, rate: 60000 }], date: '2026-03-01', taxJurisdiction: 'TX' });
@@ -155,7 +156,8 @@ test('Schedule SE comes from the Schedule C net profit with the statutory reduct
   assert.equal((await runTool(indianBooks(), 'schedule_se', {})).error, 'NOT_FOR_COUNTRY');
 });
 
-test('the Schedule C document, the CPA pack and the payroll files come out as files with the engine figures', async () => {
+test('the Schedule C document, the CPA pack and the payroll files come out as files with the engine figures', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 15, 12).getTime() });
   const state = usBooks();
   await runTool(state, 'set_sales_tax_rate', { code: 'TX', ratePercent: 6.25, from: '2026-01-01' });
   await runTool(state, 'set_sales_tax_nexus', { state: 'TX', frequency: 'monthly', from: '2026-01-01' });

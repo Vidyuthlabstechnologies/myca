@@ -1,17 +1,9 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { rules } from '../../sprint-load.mjs';
+import { LHDN_TABLES, LHDN_CODE_SOURCE as CODE_SOURCE, hasCode, codeName } from './lhdn-codes.mjs';
 
-const CODES = JSON.parse(readFileSync(new URL('./codes/lhdn-codes.json', import.meta.url), 'utf8'));
-const MSIC = new Map(JSON.parse(readFileSync(new URL('./codes/msic-codes.json', import.meta.url), 'utf8')).msic);
-const STATES = new Map(CODES.states);
-const STATE_BY_NAME = new Map(CODES.states.map(([code, name]) => [name.toLowerCase(), code]));
-const TAX_TYPES = new Map(CODES.taxTypes);
-const CLASSIFICATIONS = new Map(CODES.classifications);
-const PAYMENT_METHODS = new Map(CODES.paymentMethods);
-const COUNTRIES = new Set(CODES.countries);
-const CURRENCIES = new Set(CODES.currencies);
-const UNITS = new Set(CODES.units);
+const STATE_BY_NAME = new Map(LHDN_TABLES.states.map((row) => [row.name.toLowerCase(), row.code]));
+const TAX_TYPE_CODES = LHDN_TABLES.taxTypes.map((row) => row.code);
 
 export const DOCUMENT_TYPES = Object.freeze({
   invoice: '01',
@@ -36,9 +28,24 @@ const TIN = /^(?:IG\d{9,11}|(?:C|CS|D|E|F|FA|PT|TA|TC|TN|TR|TP|J|LE)\d{8,12}|EI\
 const PHONE = /^\+?[0-9]{8,15}$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ADJUSTMENTS = new Set(['02', '03', '04', '12', '13', '14']);
+export const SELF_BILLED_TYPES = Object.freeze(['self-billed-invoice', 'self-billed-credit-note', 'self-billed-debit-note', 'self-billed-refund-note']);
+const SELF_BILLED_CODES = new Set(['11', '12', '13', '14']);
+const CONSOLIDATED_CLASSIFICATION = '004';
+const RATE_DECIMALS = /^\d+(?:\.\d{1,6})?$/;
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
-export const LHDN_CODE_SOURCE = CODES.source;
+export const LHDN_CODE_SOURCE = CODE_SOURCE;
+
+export function isRealDate(value) {
+  const text = String(value || '');
+  if (!ISO_DATE.test(text)) return false;
+  const parsed = new Date(`${text}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === text;
+}
+
+export function isSelfBilled(type) {
+  return SELF_BILLED_CODES.has(DOCUMENT_TYPES[type || 'invoice']);
+}
 
 export function isTinFormat(value) {
   return TIN.test(String(value || '').trim().toUpperCase());
@@ -46,12 +53,12 @@ export function isTinFormat(value) {
 
 export function stateCode(value) {
   const text = String(value || '').trim();
-  if (STATES.has(text.padStart(2, '0'))) return text.padStart(2, '0');
+  if (/^\d{1,2}$/.test(text) && hasCode('states', text.padStart(2, '0'))) return text.padStart(2, '0');
   return STATE_BY_NAME.get(text.toLowerCase()) || '';
 }
 
 export function msicDescription(code) {
-  return MSIC.get(String(code || '')) || '';
+  return codeName('msic', String(code || ''));
 }
 
 const text = (value) => [{ _: String(value) }];
@@ -138,13 +145,16 @@ function partyProblems(party, role, { supplier }) {
   }
   if (supplier) {
     if (!/^\d{5}$/.test(String(party.msic || ''))) add('msic', 'the five-digit MSIC 2008 activity code is required');
-    else if (!MSIC.has(party.msic)) add('msic', 'not in the LHDN MSIC code table');
+    else if (!hasCode('msic', party.msic)) add('msic', 'not in the LHDN MSIC code table');
   }
   if (party.phone && !PHONE.test(String(party.phone).replace(/[\s-]/g, ''))) add('phone', 'digits with an optional leading +, 8 to 15 long');
   if (!party.phone && supplier) add('phone', 'the supplier contact number is required');
   const where = party.address || {};
   const country = String(where.country || 'MYS').toUpperCase();
-  if (!COUNTRIES.has(country)) add('address.country', 'an ISO 3166-1 alpha-3 code');
+  if (!hasCode('countries', country)) add('address.country', 'an ISO 3166-1 alpha-3 code');
+  if (party.tin === SPECIAL_TINS['foreign-supplier'] && role === 'supplier' && country === 'MYS') add('address.country', 'EI00000000030 is for a supplier outside Malaysia; give its country');
+  if (party.tin === SPECIAL_TINS['foreign-buyer'] && role === 'buyer' && country === 'MYS') add('address.country', 'EI00000000020 is for a buyer outside Malaysia; give its country');
+  if (party.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(party.email))) add('email', 'an email address');
   if (country === 'MYS' && !stateCode(where.state)) add('address.state', 'a Malaysian state name or LHDN state code 01 to 16');
   if (!String(where.city || '').trim()) add('address.city', 'the city is required');
   return problems;
@@ -156,33 +166,62 @@ export function documentProblems(input = {}) {
   const type = DOCUMENT_TYPES[input.type || 'invoice'];
   if (!type) add('type', `one of ${Object.keys(DOCUMENT_TYPES).join(', ')}`);
   if (!String(input.number || '').trim() || String(input.number).length > 50) add('number', 'the invoice number, at most 50 characters');
-  if (!ISO_DATE.test(String(input.issueDate || ''))) add('issueDate', 'YYYY-MM-DD, in UTC');
-  if (!/^\d{2}:\d{2}:\d{2}Z$/.test(String(input.issueTime || ''))) add('issueTime', 'HH:MM:SSZ, in UTC');
+  if (!isRealDate(input.issueDate)) add('issueDate', 'a real date, YYYY-MM-DD, in UTC');
+  if (!/^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\dZ$/.test(String(input.issueTime || ''))) add('issueTime', 'HH:MM:SSZ, in UTC');
   const currency = String(input.currency || 'MYR').toUpperCase();
-  if (!CURRENCIES.has(currency)) add('currency', 'an ISO 4217 code');
-  if (currency !== 'MYR' && !(Number(input.exchangeRate) > 0)) add('exchangeRate', 'needed when the invoice is not in ringgit');
+  if (!hasCode('currencies', currency)) add('currency', 'an ISO 4217 code');
+  const rate = input.exchangeRate;
+  if (currency !== 'MYR') {
+    if (!(typeof rate === 'number' && Number.isFinite(rate) && rate > 0)) add('exchangeRate', 'needed when the invoice is not in ringgit: ringgit for one unit of the invoice currency, greater than zero');
+    else if (!RATE_DECIMALS.test(String(rate))) add('exchangeRate', 'at most six decimal places');
+  } else if (rate !== undefined && rate !== null && Number(rate) !== 1) {
+    add('exchangeRate', 'a ringgit invoice has no exchange rate (or 1)');
+  }
   problems.push(...partyProblems(input.supplier, 'supplier', { supplier: true }));
   problems.push(...partyProblems(input.buyer, 'buyer', { supplier: false }));
   if (type && ADJUSTMENTS.has(type) && !(input.original && input.original.uuid)) add('original.uuid', 'a credit, debit or refund note names the LHDN UUID of the e-invoice it adjusts');
-  if (input.paymentMethod && !PAYMENT_METHODS.has(input.paymentMethod)) add('paymentMethod', 'an LHDN payment method code 01 to 08');
+  if (input.paymentMethod && !hasCode('paymentMethods', input.paymentMethod)) add('paymentMethod', 'an LHDN payment method code 01 to 08');
+  if (type && SELF_BILLED_CODES.has(type) && input.supplier && input.buyer && input.supplier.tin === input.buyer.tin) add('supplier.tin', 'a self-billed e-invoice is issued by the buyer for a different supplier');
+  if (input.period && (!isRealDate(input.period.from) || !isRealDate(input.period.to) || input.period.from > input.period.to)) add('period', 'from and to are real dates, from not after to');
   const lines = Array.isArray(input.lines) ? input.lines : [];
   if (!lines.length) add('lines', 'at least one line');
   lines.forEach((line, index) => {
     const at = `lines[${index}]`;
+    if (!line || typeof line !== 'object') { add(at, 'a line object'); return; }
     if (!String(line.description || '').trim()) add(`${at}.description`, 'required');
-    if (!CLASSIFICATIONS.has(String(line.classification || ''))) add(`${at}.classification`, 'an LHDN classification code such as 022 (others)');
-    if (!TAX_TYPES.has(String(line.taxType || ''))) add(`${at}.taxType`, `one of ${[...TAX_TYPES.keys()].join(', ')}`);
-    if (line.unitCode && !UNITS.has(line.unitCode)) add(`${at}.unitCode`, 'a UN/ECE recommendation 20 unit code such as C62 (one)');
-    if (!(Number(line.quantity ?? 1) > 0)) add(`${at}.quantity`, 'greater than zero');
-    if (!Number.isFinite(Number(line.unitPrice)) || Number(line.unitPrice) < 0) add(`${at}.unitPrice`, 'zero or more');
+    if (!hasCode('classifications', String(line.classification || ''))) add(`${at}.classification`, 'an LHDN classification code such as 022 (others)');
+    if (!hasCode('taxTypes', String(line.taxType || ''))) add(`${at}.taxType`, `one of ${TAX_TYPE_CODES.join(', ')}`);
+    if (line.unitCode && !hasCode('units', line.unitCode)) add(`${at}.unitCode`, 'a UN/ECE recommendation 20 unit code such as C62 (one)');
+    const quantity = Number(line.quantity ?? 1);
+    if (!(Number.isFinite(quantity) && quantity > 0)) add(`${at}.quantity`, 'greater than zero');
+    if (line.unitPrice === null || line.unitPrice === undefined || line.unitPrice === '' || !Number.isFinite(Number(line.unitPrice)) || Number(line.unitPrice) < 0) add(`${at}.unitPrice`, 'zero or more');
+    else if (Number(line.unitPrice) * quantity > 1e13) add(`${at}.unitPrice`, 'too large for an e-invoice line');
+    if (line.discount !== undefined && !(Number.isFinite(Number(line.discount)) && Number(line.discount) >= 0)) add(`${at}.discount`, 'zero or more');
+    else if (Number(line.discount || 0) > Number(line.unitPrice || 0) * quantity) add(`${at}.discount`, 'no more than the line amount');
+    const bp = line.taxRateBasisPoints;
+    if (bp !== undefined && !(Number.isInteger(Number(bp)) && Number(bp) >= 0 && Number(bp) <= 10000)) add(`${at}.taxRateBasisPoints`, 'a whole number of basis points from 0 to 10000 (800 is 8%)');
+    if ((line.taxType === '01' || line.taxType === '02') && !(Number(bp) > 0)) add(`${at}.taxRateBasisPoints`, 'sales or service tax needs its rate; use tax type 06 or E when no tax is charged');
     if (line.taxType === 'E' && !String(line.exemptionReason || '').trim()) add(`${at}.exemptionReason`, 'say why the line is exempt');
   });
-  if (input.consolidated && ISO_DATE.test(String(input.issueDate || ''))) {
+  const generalPublic = input.buyer && input.buyer.tin === SPECIAL_TINS['general-public'];
+  if (input.consolidated) {
+    if (!generalPublic) add('buyer.tin', 'a consolidated e-invoice is issued to the general public, TIN EI00000000010');
+    lines.forEach((line, index) => {
+      if (line && typeof line === 'object' && String(line.classification || '') !== CONSOLIDATED_CLASSIFICATION) add(`lines[${index}].classification`, 'every line of a consolidated e-invoice uses classification 004 (Consolidated e-Invoice)');
+    });
+  } else if (lines.some((line) => line && String(line.classification || '') === CONSOLIDATED_CLASSIFICATION)) {
+    add('consolidated', 'classification 004 is only for a consolidated e-invoice');
+  }
+  if (input.consolidated && isRealDate(input.issueDate)) {
     const mandate = rules.rule('my.einvoice.mandate', input.issueDate);
-    if (mandate.ok) {
+    if (mandate.ok && mandate.record.value.consolidationLimitSen) {
       const limit = mandate.record.value.consolidationLimitSen / 100;
       lines.forEach((line, index) => {
-        if (lineAmounts(line).net + lineAmounts(line).tax > limit) add(`lines[${index}]`, `a transaction above RM${limit.toLocaleString('en-MY')} needs its own e-invoice, not a consolidated one`);
+        if (!line || typeof line !== 'object') return;
+        const count = Number(line.transactions ?? 1);
+        const largest = line.largestTransaction !== undefined ? Number(line.largestTransaction) : (count <= 1 ? lineAmounts(line).net + lineAmounts(line).tax : NaN);
+        if (!Number.isFinite(largest)) add(`lines[${index}].largestTransaction`, 'a line that sums several receipts says its largest single receipt');
+        else if (largest > limit) add(`lines[${index}]`, `a transaction above RM${limit.toLocaleString('en-MY')} needs its own e-invoice, not a consolidated one`);
       });
     }
   }
@@ -239,7 +278,8 @@ export function buildMyInvoisDocument(input = {}) {
     _B: 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2',
     Invoice: [invoice],
   };
-  return { ok: true, document, totals: { net, tax, payable: round2(net + tax), currency } };
+  const rate = currency === 'MYR' ? 1 : Number(input.exchangeRate);
+  return { ok: true, document, totals: { net, tax, payable: round2(net + tax), currency, exchangeRate: rate, payableMyr: round2((net + tax) * rate), taxMyr: round2(tax * rate) } };
 }
 
 export function submissionEntry(document, codeNumber) {

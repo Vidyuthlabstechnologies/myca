@@ -13,7 +13,7 @@
 <header class="site-header">
   <div class="wrap">
     <nav>
-      <a class="brand" href="/" aria-label="MyCA home"><img src="/assets/logo.svg" alt="" width="26" height="26">MyCA</a>
+      <a class="brand" href="/" aria-label="MyCA home"><img src="/assets/logo.svg" alt="" width="26" height="26"><span>My<span class="ca">CA</span></span></a>
       <ul>
         <li class="hide-sm"><a href="/#how">How it works</a></li>
         <li><a href="/#pricing">Pricing</a></li>
@@ -24,34 +24,59 @@
 </header>
 <main class="prose">
 <div class="with-bahi"><img src="/assets/bahi/thinking.png" alt="Bahi, thinking" width="312" height="312"><h1>MyCA privacy policy</h1></div>
-<p class="note">Draft. The effective date, the company name and address, the support email, the grievance officer and the named processors are filled in by the owner before this page is published.</p>
+<p class="note">Draft. The effective date, the registered address, the support email and the grievance officer are filled in by the owner before this page is published.</p>
+
+<p>Data fiduciary: ML Dynamic Solutions Private Limited, CIN [CIN], [registered office address]. Support: [support email]. Grievance Officer: [name], [email], [phone]; see <a href="/grievance">Grievance Officer</a>.</p>
 
 <h2>What MyCA is</h2>
-<p>MyCA is an accounting and compliance app for small businesses. You enter your own sales, purchases, expenses, payroll and tax details. MyCA keeps those books and drafts returns from them. It does not file returns, move money or hold credentials for any government portal.</p>
+<p>MyCA is an accounting and compliance app for small businesses. You enter your own sales, purchases, expenses, payroll and tax details. MyCA keeps those books, drafts returns from them and, only when you confirm with the OTP the government portal sends, files GST returns through a licensed GST Suvidha Provider. MyCA does not move or hold money and never asks for or stores a password for a government portal.</p>
 
 <h2>What we collect and why</h2>
 <table>
 <tr><th>Data</th><th>Why</th><th>Where it is kept</th></tr>
-<tr><td>Phone number or Google account, name</td><td>To sign you in and to show who did what in a business</td><td>The hosted service in Google Cloud, Mumbai region</td></tr>
-<tr><td>Your books: invoices, bills, expenses, payroll, tax figures you enter</td><td>The service the app provides</td><td>The hosted service</td></tr>
+<tr><td>Google account (name, email) or phone number</td><td>To sign you in and to show who did what in a business</td><td>The hosted service in Google Cloud, Mumbai region</td></tr>
+<tr><td>A random device id made when you sign in</td><td>To let you see and sign out your devices</td><td>The hosted service</td></tr>
+<tr><td>Your books: invoices, bills, expenses, payroll, bank lines, tax figures, GSTIN and PAN</td><td>The service the app provides</td><td>The hosted service</td></tr>
+<tr><td>The owner's date of birth, only if you enter it</td><td>To apply the senior and super senior citizen income tax rules to a proprietor's return and advance tax</td><td>The hosted service</td></tr>
 <tr><td>Documents you choose to upload</td><td>To import entries or to read a bill into a draft purchase</td><td>The hosted service, addressed by a hash of their content</td></tr>
-<tr><td>Crash reports</td><td>To fix crashes; only if you turn them on</td><td>The hosted service, not linked to you</td></tr>
+<tr><td>Chat messages to the assistant</td><td>To carry out what you ask; recent turns are kept for context</td><td>The hosted service</td></tr>
+<tr><td>Google Play subscription records</td><td>To know which plan you have paid for</td><td>The hosted service</td></tr>
+<tr><td>Which setup steps you have reached in the app, such as adding a business, starting a trial or paying, and the invite code you joined with, if any</td><td>To see where people get stuck and to count invites; no names or amounts</td><td>The hosted service</td></tr>
+<tr><td>Crash reports</td><td>To fix crashes; only if you turn them on (off by default), with emails, tokens, GSTIN, PAN, phone numbers and amounts removed first</td><td>The hosted service, not linked to you, kept 90 days</td></tr>
 </table>
-<p>We do not collect location, contacts, messages, advertising identifiers or anything from other apps.</p>
+<p>We do not collect location, contacts, SMS, call logs, advertising identifiers or anything from other apps.</p>
 
 <h2>Who else sees it</h2>
+<p>Each of these is reached only when you use the feature, and only with what that feature needs.</p>
 <ul>
 <li>Members you invite to your business see what their role allows.</li>
-<li>When a language model is switched on, the text of a chat message that matches no built-in action, and the text or image of a bill you ask MyCA to read, go to the model provider to choose an action or copy out the fields. Figures are never computed by the model.</li>
-<li>When phone sign-in is on, your phone number goes to the SMS provider to deliver the sign-in code.</li>
-<li>Nobody else. We do not sell data and we run no advertising or analytics.</li>
+<li>Google, to check a Google sign-in and a Google Play subscription.</li>
+<li>The SMS provider, when phone sign-in is on: your phone number and the sign-in code.</li>
+<li>The GST Suvidha Provider (currently Quicko), when you file a GST return or use the e-way bill service through it: the return data, your GSTIN and the OTP step.</li>
+<li>The NIC e-invoice and e-way bill systems, when you generate an IRN or e-way bill: the invoice data.</li>
+<li>The language model provider, when a model is switched on: the text of a chat message that matches no built-in action, and the text or image of a bill you ask MyCA to read. Figures are never computed by the model.</li>
+<li>The WhatsApp gateway, when you send a reminder or link WhatsApp: the message and the recipient's number.</li>
+<li>The email relay, when you send an email from the app: the message and the addresses.</li>
+<li>Connected services you switch on yourself (a marketplace, payment or payroll system): what that connection syncs.</li>
+<li>Kit, our email list provider in the United States, if you join the MyCA US early-access list on this website: your email address, used only to tell you about the MyCA US launch. Every email has an unsubscribe link.</li>
+<li>Our hosting provider, Google Cloud, which stores everything above on our behalf.</li>
+<li>Nobody else. We do not sell data, we run no advertising and we use no third-party analytics.</li>
 </ul>
 
+<h2>Where it is kept, and transfers outside India</h2>
+<p>Your account and books are stored on Google Cloud in Mumbai, India, and our logs are kept in India. Two features can send information outside India, only when you use them: the language model provider, which may process a chat message or a bill in the United States, and the email relay, which runs on a worldwide network. We do not transfer personal data to any country the Government of India has restricted.</p>
+
 <h2>Your rights</h2>
-<p>You can see everything MyCA holds about your business inside the app. You can delete a business from the Businesses screen. You can delete your account yourself from the Businesses screen, or ask for it by writing to the support email. You are signed out at once, and thirty days later your name, phone number, email and Google account link are erased for good; signing in again before then cancels it. The steps are on the <a href="/delete-account">account deletion page</a>. Rights under the Digital Personal Data Protection Act, 2023 can be exercised through the same address.</p>
+<p>Under the Digital Personal Data Protection Act, 2023 you can ask what we hold and who we shared it with, have it corrected, completed or erased, withdraw your consent, nominate someone to act for you if you die or cannot act yourself, and complain. In the app: Your businesses, Your privacy rights; every request gets a reference number, an acknowledgement within 48 hours and an answer within 30 days. Or write to the <a href="/grievance">Grievance Officer</a>. You can also download everything MyCA holds about a business from the Businesses screen, delete a business there, and delete your account there or through the <a href="/delete-account">account deletion page</a>. Deleting your account withdraws your consent: you are signed out at once, and thirty days later your name, phone number, email and Google account link are erased for good; signing in again before then cancels it. If you are not satisfied with our answer you can complain to the Data Protection Board of India.</p>
+
+<h2>Children</h2>
+<p>MyCA is for people aged 18 and over who keep books for a business. Everyone confirms they are 18 or over before using it.</p>
 
 <h2>Retention and security</h2>
-<p>Books are kept while the business exists. Backups are kept for fourteen days. Data travels over HTTPS and is stored encrypted at rest. Sign-in codes expire in five minutes.</p>
+<p>Books are kept while the business exists and erased thirty days after you delete it. Backups are kept for fourteen days. Security logs and the record of who looked at your books are kept for one year, as the Digital Personal Data Protection Rules, 2025 require. Tax law asks you, the taxpayer, to keep your records for six years or more, so download a copy before deleting. Data travels over HTTPS and is stored encrypted at rest; the books are sealed again with a separate key. Sign-in codes expire in five minutes.</p>
+
+<h2>If there is a breach</h2>
+<p>If your personal data is exposed in a breach we will tell you without delay, in the app and by email where we have it, with what happened, when, what it means for you, what we are doing and what you can do, and we will report it to the Data Protection Board of India and to CERT-In within the times the law sets.</p>
 
 <h2>Changes</h2>
 <p>A new version of this notice is shown inside the app and must be accepted before continuing when anything material changes.</p>
@@ -59,14 +84,16 @@
 <footer class="site-footer">
   <div class="wrap row">
     <div>
-      <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="26" height="26">MyCA</a>
-      <p>Built in India for Indian businesses.<br>ML Dynamic Solutions Private Limited.</p>
+      <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="26" height="26"><span>My<span class="ca">CA</span></span></a>
+      <p>Built in India for Indian businesses.<br>ML Dynamic Solutions Private Limited.<br><small class="legal-line">MyCA is software by ML Dynamic Solutions Private Limited. It is not a firm of chartered accountants and does not give tax or legal advice. GST filing goes through a licensed GST Suvidha Provider; MyCA is not affiliated with GSTN, the Income Tax Department or NIC.</small></p>
     </div>
     <ul>
       <li><a href="/privacy">Privacy</a></li>
       <li><a href="/delete-account">Delete your account</a></li>
-      <li><a href="/status">Status</a></li>
-      <li><a href="/research">Market research</a></li>
+      <li><a href="/terms">Terms</a></li>
+      <li><a href="/refunds">Refunds</a></li>
+      <li><a href="/disclaimer">Disclaimer</a></li>
+      <li><a href="/grievance">Grievance Officer</a></li>
       <li><a href="https://github.com/Vidyuthlabstechnologies/myca">Source</a></li>
     </ul>
   </div>

@@ -3,10 +3,18 @@ import 'package:flutter/material.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../cloud/cloud_session.dart';
+import '../india/india_strings.dart';
+import '../my/my_strings.dart';
 import '../theme.dart';
+import '../uae/uae_cloud_strings.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_privacy_notice.dart';
+import '../uae/uae_strings.dart';
 
 class PrivacyNoticeScreen extends StatefulWidget {
-  const PrivacyNoticeScreen({super.key});
+  const PrivacyNoticeScreen({super.key, this.readOnly = false});
+
+  final bool readOnly;
 
   @override
   State<PrivacyNoticeScreen> createState() => _PrivacyNoticeScreenState();
@@ -17,6 +25,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
   String _error = '';
   bool _busy = false;
   bool _crashReports = false;
+  bool _adult = false;
 
   @override
   void didChangeDependencies() {
@@ -31,7 +40,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
       _error = '';
     });
     try {
-      await state.cloud!.acceptNotice(notice);
+      await state.cloud!.acceptNotice(notice, adult: _adult);
       if (_crashReports) await state.setCrashReports(true);
       await state.refresh();
     } on MycaApiException catch (err) {
@@ -56,7 +65,12 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final state = AppScope.of(context);
+    final malaysia = state.edition == 'MY';
+    String w(String english, String malay) => myMalayOr(context, english, malay);
+    final s = UaeStrings.of(context);
+    final ae = uaeEdition(context);
     return Scaffold(
+      appBar: widget.readOnly ? AppBar(title: Text(w(s.privacyNotice, 'Notis privasi'))) : null,
       body: SafeArea(
         child: FutureBuilder<PrivacyNotice>(
           future: _notice,
@@ -70,14 +84,14 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                     children: [
                       Text(
                         snap.error is MycaApiException
-                            ? (snap.error! as MycaApiException).message
-                            : 'The privacy notice could not be loaded.',
+                            ? s.cloudSaid((snap.error! as MycaApiException).message)
+                            : w(s.noticeNotLoaded, 'Notis privasi tidak dapat dimuatkan.'),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
                       FilledButton(
                         onPressed: _retry,
-                        child: const Text('Try again'),
+                        child: Text(w(s.tryAgain, 'Cuba lagi')),
                       ),
                     ],
                   ),
@@ -88,78 +102,132 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
             if (notice == null) {
               return const Center(child: CircularProgressIndicator());
             }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-                    children: [
-                      Text(notice.title, style: text.headlineMedium),
-                      if (notice.status.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          notice.status,
-                          style: text.bodyMedium?.copyWith(color: Palette.warn),
-                        ),
-                      ],
-                      for (final section in notice.sections) ...[
-                        const SizedBox(height: 20),
-                        Text(section.heading, style: text.titleMedium),
-                        const SizedBox(height: 6),
-                        Text(section.body, style: text.bodyLarge),
-                      ],
-                    ],
-                  ),
-                ),
-                Container(
-                  decoration: const BoxDecoration(
-                    color: Palette.surface,
-                    border: Border(top: BorderSide(color: Palette.line)),
-                  ),
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (_error.isNotEmpty) ...[
-                        Text(
-                          _error,
-                          style: const TextStyle(color: Palette.danger),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      Material(
-                        color: Colors.transparent,
-                        child: CheckboxListTile(
-                          key: const ValueKey('consent.crashReports'),
-                          contentPadding: EdgeInsets.zero,
-                          controlAffinity: ListTileControlAffinity.leading,
-                          value: _crashReports,
-                          onChanged: _busy
-                              ? null
-                              : (value) => setState(
-                                  () => _crashReports = value ?? false,
-                                ),
-                          title: const Text('Also send crash reports'),
-                          subtitle: const Text(
-                            'Off unless you tick it. Only what went wrong in the app, with names, amounts, GSTINs and phone numbers removed. You can change this later under Your business.',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      FilledButton(
-                        onPressed: _busy ? null : () => _agree(notice),
-                        child: Text(_busy ? 'Saving…' : 'I agree'),
-                      ),
-                      const SizedBox(height: 4),
-                      TextButton(
-                        onPressed: _busy ? null : state.signOut,
-                        child: const Text('Not now, sign me out'),
-                      ),
-                    ],
-                  ),
+            final us = state.edition == 'US';
+            final sections = ae ? [for (final section in uaeNoticeSections(s.ar)) (section.heading, section.body)] : [for (final section in notice.sections) (section.heading, section.body)];
+            final body = [
+              Text(ae ? uaeNoticeTitle(s.ar) : notice.title, style: text.headlineMedium),
+              if (notice.status.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  ae ? s.noticeDraft : notice.status,
+                  style: text.bodyMedium?.copyWith(color: paletteOf(context).warn),
                 ),
               ],
+              for (final (heading, words) in sections) ...[
+                const SizedBox(height: 20),
+                Semantics(header: true, child: Text(heading, style: text.titleMedium)),
+                const SizedBox(height: 6),
+                Text(words, style: text.bodyLarge),
+              ],
+            ];
+            final consent = [
+              if (_error.isNotEmpty) ...[
+                Text(
+                  s.cloudSaid(_error),
+                  style: TextStyle(color: paletteOf(context).danger),
+                ),
+                const SizedBox(height: 8),
+              ],
+              Material(
+                color: Colors.transparent,
+                child: CheckboxListTile(
+                  key: const ValueKey('consent.crashReports'),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: _crashReports,
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(
+                          () => _crashReports = value ?? false,
+                        ),
+                  title: Text(w(s.alsoCrashReports, 'Hantar juga laporan ranap')),
+                  subtitle: Text(
+                    malaysia
+                        ? w(
+                            'Off unless you tick it. Only what went wrong in the app, with names, amounts, TINs, MyKad numbers and phone numbers removed.',
+                            'Dimatikan melainkan anda menandakannya. Hanya perkara yang tidak kena dalam aplikasi, dengan nama, amaun, TIN, nombor MyKad dan nombor telefon dibuang.',
+                          )
+                        : ae
+                        ? s.alsoCrashReportsNote
+                        : us
+                        ? 'Off unless you check it. Only what went wrong in the app, with names, amounts, Social Security numbers and phone numbers removed. You can change this later under Your account.'
+                        : state.edition == 'GB'
+                        ? 'Off unless you tick it. Only what went wrong in the app, with names, amounts, tax references and phone numbers removed. You can change this later under Your business.'
+                        : inText(context, 'Off unless you tick it. Only what went wrong in the app, with names, amounts, GSTINs and phone numbers removed. You can change this later under Your business.'),
+                  ),
+                ),
+              ),
+              if (notice.requiresAdult)
+                Material(
+                  color: Colors.transparent,
+                  child: CheckboxListTile(
+                    key: const ValueKey('consent.adult'),
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: _adult,
+                    onChanged: _busy ? null : (value) => setState(() => _adult = value ?? false),
+                    title: Text(w(s.eighteenOrOver, 'Saya berumur 18 tahun atau lebih')),
+                  ),
+                ),
+              const SizedBox(height: 4),
+              FilledButton(
+                key: const ValueKey('consent.agree'),
+                onPressed: _busy || (notice.requiresAdult && !_adult) ? null : () => _agree(notice),
+                child: Text(_busy ? w(s.saving, 'Menyimpan…') : w(s.iAgree, 'Saya bersetuju')),
+              ),
+              const SizedBox(height: 4),
+              TextButton(
+                onPressed: _busy ? null : state.signOut,
+                child: Text(w(s.notNowSignOut, 'Bukan sekarang, log keluar')),
+              ),
+            ];
+            return LayoutBuilder(
+              builder: (context, box) {
+                final roomy = box.maxHeight >= 440 && MediaQuery.textScalerOf(context).scale(10) <= 13;
+                if (widget.readOnly) {
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                    children: body,
+                  );
+                }
+                if (!roomy) {
+                  return ListView(
+                    key: const ValueKey('consent.list'),
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                    children: [...body, const SizedBox(height: 20), const Divider(), const SizedBox(height: 8), ...consent],
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                        children: body,
+                      ),
+                    ),
+                    Container(
+                      constraints: BoxConstraints(maxHeight: box.maxHeight * 0.6),
+                      decoration: malaysia
+                          ? BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface,
+                              border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
+                            )
+                          : BoxDecoration(
+                              color: paletteOf(context).surface,
+                              border: Border(top: BorderSide(color: paletteOf(context).line)),
+                            ),
+                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: consent,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             );
           },
         ),

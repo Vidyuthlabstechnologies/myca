@@ -2,18 +2,27 @@ import 'package:flutter/material.dart';
 
 import '../api/models.dart';
 import '../app_state.dart';
+import '../india/india_strings.dart';
 import '../migration.dart';
 import '../registers.dart';
 import '../theme.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'party_screen.dart';
+import 'uae/uae_document_screen.dart';
 
 typedef PickedParty = ({String name, String gstin});
 
 Future<void> startEntry(BuildContext context, RegisterKind kind) async {
   final navigator = Navigator.of(context);
+  final ae = uaeEdition(context);
   final picked = await showPartyPicker(context, kind);
   if (picked == null) return;
+  if (ae) {
+    navigator.push(MaterialPageRoute<void>(builder: (_) => uaeEntryScreen(kind, picked)));
+    return;
+  }
   navigator.push(
     MaterialPageRoute<void>(
       builder: (_) => PartyScreen(
@@ -25,6 +34,10 @@ Future<void> startEntry(BuildContext context, RegisterKind kind) async {
     ),
   );
 }
+
+Widget uaeEntryScreen(RegisterKind kind, PickedParty party) => kind == RegisterKind.sales
+    ? UaeSaleScreen(partyName: party.name, partyTrn: party.gstin)
+    : UaePurchaseScreen(partyName: party.name, partyTrn: party.gstin);
 
 Future<PickedParty?> showPartyPicker(BuildContext context, RegisterKind kind) {
   return showModalBottomSheet<PickedParty>(
@@ -45,9 +58,6 @@ Future<PickedParty?> showNewPartySheet(
     builder: (_) => _NewPartySheet(kind: kind, initialName: initialName),
   );
 }
-
-String _one(RegisterKind kind) =>
-    kind == RegisterKind.sales ? 'customer' : 'supplier';
 
 class _PartyPicker extends StatefulWidget {
   const _PartyPicker({required this.kind});
@@ -90,6 +100,8 @@ class _PartyPickerState extends State<_PartyPicker> {
     final offerNew = typed.isNotEmpty && !hasPartyNamed(all, typed);
     final tint = sales ? Tint.sales : Tint.purchases;
     final text = Theme.of(context).textTheme;
+    final ae = uaeEdition(context) ? UaeStrings.of(context) : null;
+    final s = UaeStrings.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -106,7 +118,7 @@ class _PartyPickerState extends State<_PartyPicker> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              sales ? 'Who did you sell to?' : 'Who did you buy from?',
+              sales ? s.whoSoldTo : s.whoBoughtFrom,
               style: text.headlineSmall,
             ),
             const SizedBox(height: 14),
@@ -115,9 +127,11 @@ class _PartyPickerState extends State<_PartyPicker> {
               autofocus: all.isEmpty,
               textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
-                hintText: all.isEmpty
-                    ? 'Type the ${_one(widget.kind)} name'
-                    : 'Search or type a new name',
+                hintText: ae != null
+                    ? (all.isEmpty ? ae.typeName(sales) : ae.searchOrType)
+                    : all.isEmpty
+                    ? (sales ? inText(context, 'Type the customer name') : inText(context, 'Type the supplier name'))
+                    : s.searchOrType,
                 prefixIcon: const Icon(Icons.search),
               ),
               onChanged: (_) => setState(() {}),
@@ -133,13 +147,13 @@ class _PartyPickerState extends State<_PartyPicker> {
                   if (offerNew)
                     ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                      leading: const CircleAvatar(
+                      leading: CircleAvatar(
                         radius: 21,
                         backgroundColor: Palette.ink,
-                        child: Icon(Icons.add, color: Colors.white, size: 20),
+                        child: Icon(Icons.add, color: Palette.onInk, size: 20),
                       ),
-                      title: Text('Add “$typed”', style: text.titleMedium),
-                      subtitle: Text('New ${_one(widget.kind)}'),
+                      title: Text(s.addNamed(typed), style: text.titleMedium),
+                      subtitle: Text(s.newParty(sales)),
                       onTap: () => _addNew(typed),
                     ),
                   for (final party in matches)
@@ -151,15 +165,14 @@ class _PartyPickerState extends State<_PartyPicker> {
                         size: 42,
                       ),
                       title: Text(party.name, style: text.titleMedium),
-                      subtitle: Text(lastEntryLine(party.latest!, widget.kind)),
+                      subtitle: Text(UaeStrings.of(context).lastEntryLine(party.latest!, widget.kind)),
                       onTap: () => Navigator.of(
                         context,
-                      ).pop((name: party.name, gstin: party.gstin)),
+                      ).pop((name: party.name, gstin: ae != null && party.gstin.isEmpty ? party.latest!.partyTrn : party.gstin)),
                     ),
                   if (matches.isEmpty && !offerNew)
                     EmptyNote(
-                      text:
-                          'No ${_one(widget.kind)}s yet. Type a name to add the first one.',
+                      text: s.noPartiesYet(sales),
                     ),
                 ],
               ),
@@ -194,17 +207,31 @@ class _NewPartySheetState extends State<_NewPartySheet> {
   }
 
   void _submit() {
+    if (uaeEdition(context)) return _submitAe();
     final name = _name.text.trim();
     final gstin = _gstin.text.trim().toUpperCase();
-    final shape = gstinShapeError(gstin);
-    if (name.isEmpty) return setState(() => _error = 'Enter a name.');
+    final uk = AppScope.of(context).edition == 'GB';
+    final shape = uk ? null : gstinShapeError(gstin);
+    if (name.isEmpty) return setState(() => _error = UaeStrings.of(context).enterName);
     if (shape != null) return setState(() => _error = shape);
     Navigator.of(context).pop((name: name, gstin: gstin));
+  }
+
+  void _submitAe() {
+    final s = UaeStrings.of(context);
+    final name = _name.text.trim();
+    final trn = uaeCleanTrn(_gstin.text);
+    if (name.isEmpty) return setState(() => _error = s.enterName);
+    final problem = uaeTrnProblem(trn, length: s.trnLength, digitsOnly: s.trnDigitsOnly);
+    if (problem != null) return setState(() => _error = problem);
+    Navigator.of(context).pop((name: name, gstin: trn));
   }
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final ae = uaeEdition(context) ? UaeStrings.of(context) : null;
+    final uk = AppScope.of(context).edition == 'GB';
     return Padding(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -217,38 +244,44 @@ class _NewPartySheetState extends State<_NewPartySheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('New ${_one(widget.kind)}', style: text.headlineSmall),
+            Text(UaeStrings.of(context).newParty(widget.kind == RegisterKind.sales), style: text.headlineSmall),
             const SizedBox(height: 16),
             TextField(
               controller: _name,
               autofocus: widget.initialName.isEmpty,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Name'),
+              decoration: InputDecoration(labelText: UaeStrings.of(context).name),
+              onSubmitted: uk ? (_) => _submit() : null,
             ),
-            const SizedBox(height: 12),
+            if (!uk) const SizedBox(height: 12),
+            if (!uk)
             TextField(
+              key: const ValueKey('party.taxId'),
               controller: _gstin,
               autofocus: widget.initialName.isNotEmpty,
               textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(
-                labelText: 'GSTIN (optional)',
-                helperText:
-                    'Leave empty for a customer without GST registration',
-              ),
+              textDirection: ae != null ? TextDirection.ltr : null,
+              keyboardType: ae != null ? TextInputType.number : null,
+              decoration: ae != null
+                  ? InputDecoration(labelText: ae.trnOptional, helperText: ae.trnOptionalHint, helperMaxLines: 2)
+                  : InputDecoration(
+                      labelText: inText(context, 'GSTIN (optional)'),
+                      helperText: inText(context, 'Leave empty for a customer without GST registration'),
+                    ),
               onSubmitted: (_) => _submit(),
             ),
             if (_error.isNotEmpty) ...[
               const SizedBox(height: 10),
               Text(
                 _error,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Palette.danger,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
             const SizedBox(height: 18),
-            FilledButton(onPressed: _submit, child: const Text('Continue')),
+            FilledButton(onPressed: _submit, child: Text(UaeStrings.of(context).continueLabel)),
           ],
         ),
       ),

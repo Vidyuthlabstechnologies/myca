@@ -3,10 +3,15 @@ import 'package:flutter/material.dart';
 import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import '../india/india_strings.dart';
 import '../migration.dart';
 import '../proposal_flow.dart';
 import '../marks.dart';
 import '../theme.dart';
+import '../uae/uae_cloud_strings.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_migration.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'books_check_screen.dart';
 
@@ -62,7 +67,7 @@ class _MigrationFlowState extends State<MigrationFlow> {
             : BackButton(onPressed: _back),
         automaticallyImplyLeading: false,
         title: widget.bringMore
-            ? const Text('Bring in more books')
+            ? Text(UaeStrings.of(context).bringInMore)
             : _StepDots(step: _step),
       ),
       body: SafeArea(
@@ -140,20 +145,22 @@ class _SourceStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = UaeStrings.of(context);
+    final paths = uaeEdition(context) ? uaeMigrationPaths(s) : migrationPathsFor(AppScope.of(context).edition);
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
         _StepHeader(
           title: bringMore
-              ? 'Where is it coming from?'
-              : 'Where are your books today?',
+              ? s.whereFrom
+              : s.whereBooksToday,
           subtitle: bringMore
-              ? 'Everything is previewed before it is added, and rows already in your books are skipped.'
-              : 'Pick the closest one. You can bring more in later.',
+              ? s.previewedFirst
+              : s.pickClosest,
         ),
         Panel(
           children: [
-            for (final path in migrationPaths.where(
+            for (final path in paths.where(
               (path) => !bringMore || path.imports.isNotEmpty,
             ))
               RowCard(
@@ -196,9 +203,11 @@ class _BusinessStepState extends State<_BusinessStep> {
   Future<void> _save() async {
     final name = _name.text.trim();
     final gstin = _gstin.text.trim().toUpperCase();
-    final shape = gstinShapeError(gstin);
+    final uk = AppScope.of(context).edition == 'GB' || uaeEdition(context);
+    final s = UaeStrings.of(context);
+    final shape = uk ? null : gstinShapeError(gstin);
     if (name.isEmpty) {
-      return setState(() => _error = 'Enter your business name.');
+      return setState(() => _error = s.needBusinessName);
     }
     if (shape != null) return setState(() => _error = shape);
     final unchanged =
@@ -215,7 +224,7 @@ class _BusinessStepState extends State<_BusinessStep> {
       if (outcome.ok) return widget.onDone();
       setState(
         () => _error =
-            'MyCA did not accept that (${outcome.error}). Check the GSTIN.',
+            uk ? s.notAccepted(outcome.error) : inFormat(context, 'MyCA did not accept that ({error}). Check the GSTIN.', {'error': outcome.error}),
       );
     } on MycaApiException catch (err) {
       if (mounted) setState(() => _error = err.message);
@@ -226,32 +235,35 @@ class _BusinessStepState extends State<_BusinessStep> {
 
   @override
   Widget build(BuildContext context) {
+    final uk = AppScope.of(context).edition == 'GB' || uaeEdition(context);
+    final s = UaeStrings.of(context);
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
-        const _StepHeader(
-          title: 'Tell us about the business',
-          subtitle: 'This goes on your invoices and returns.',
+        _StepHeader(
+          title: s.aboutTheBusiness,
+          subtitle: s.onInvoices,
         ),
         TextField(
           controller: _name,
           textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(labelText: 'Business name'),
+          decoration: InputDecoration(labelText: s.businessName),
         ),
         const SizedBox(height: 14),
+        if (!uk)
         TextField(
           controller: _gstin,
           textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'GSTIN',
-            helperText: 'Leave empty if you are not registered for GST',
+            helperText: inText(context, 'Leave empty if you are not registered for GST'),
           ),
         ),
         if (_error.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text(
-            _error,
-            style: const TextStyle(
+            s.cloudSaid(_error),
+            style: TextStyle(
               color: Palette.danger,
               fontWeight: FontWeight.w600,
             ),
@@ -260,7 +272,7 @@ class _BusinessStepState extends State<_BusinessStep> {
         const SizedBox(height: 24),
         FilledButton(
           onPressed: _busy ? null : _save,
-          child: Text(_busy ? 'Saving…' : 'Continue'),
+          child: Text(_busy ? s.saving : s.continueLabel),
         ),
       ],
     );
@@ -331,9 +343,10 @@ class _ImportStepState extends State<_ImportStep> with ProposalFlow {
   Widget build(BuildContext context) {
     final path = widget.path;
     final options = path.imports;
+    final s = UaeStrings.of(context);
     final finishLabel = widget.bringMore
-        ? 'Done'
-        : (_brought || options.isEmpty ? 'Open my books' : 'Skip for now');
+        ? s.done
+        : (_brought || options.isEmpty ? s.openMyBooks : s.skipForNow);
     return Column(
       children: [
         Expanded(
@@ -343,8 +356,8 @@ class _ImportStepState extends State<_ImportStep> with ProposalFlow {
             children: [
               _StepHeader(
                 title: options.isEmpty
-                    ? 'You are all set'
-                    : 'Bring your books across',
+                    ? s.allSet
+                    : s.bringAcross,
                 subtitle: path.promise,
               ),
               if (options.isNotEmpty)
@@ -375,7 +388,7 @@ class _ImportStepState extends State<_ImportStep> with ProposalFlow {
             busy: busy,
             onPost: postPending,
             onDiscard: discardPending,
-            postLabel: 'Bring it in',
+            postLabel: s.bringItIn,
           )
         else
           Padding(

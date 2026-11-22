@@ -5,6 +5,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../cloud/cloud_session.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../invoice_pdf.dart';
 import '../proposal_flow.dart';
 import '../registers.dart';
@@ -12,23 +13,55 @@ import '../widgets.dart';
 import 'ca_screen.dart';
 import 'reminders_screen.dart';
 import '../theme.dart';
+import '../uae/uae_strings.dart';
 
-const _missingWords = {
-  'SELLER_GSTIN': 'your GSTIN',
-  'SELLER_ADDRESS': 'your business address',
-  'HSN': 'an HSN or SAC code on every item',
+String _missingWord(String lang, String code) => switch (code) {
+  'SELLER_GSTIN' => inLine(lang, 'your GSTIN'),
+  'SELLER_ADDRESS' => inLine(lang, 'your business address'),
+  'HSN' => inLine(lang, 'an HSN or SAC code on every item'),
+  _ => code.toLowerCase().replaceAll('_', ' '),
 };
 
-String missingNote(List<String> codes) {
-  final words = [
-    for (final code in codes)
-      _missingWords[code] ?? code.toLowerCase().replaceAll('_', ' '),
-  ];
+String missingNote(List<String> codes, [String lang = 'en']) {
+  final words = [for (final code in codes) _missingWord(lang, code)];
   if (words.isEmpty) return '';
   final list = words.length == 1
       ? words.single
-      : '${words.sublist(0, words.length - 1).join(', ')} and ${words.last}';
-  return 'This invoice does not carry $list. Check with your CA whether your buyer needs it before you send this.';
+      : inFill(inLine(lang, '{first} and {last}'), {'first': words.sublist(0, words.length - 1).join(', '), 'last': words.last});
+  return inFill(inLine(lang, 'This invoice does not carry {list}. Check with your CA whether your buyer needs it before you send this.'), {'list': list});
+}
+
+String _screenTitle(BuildContext context, bool quote, String id) {
+  if (!quote) return inFormat(context, 'Invoice {id}', {'id': id});
+  return switch (salesKindOfId(id)) {
+    'proforma' => inFormat(context, 'Proforma invoice {id}', {'id': id}),
+    'order' => inFormat(context, 'Sales order {id}', {'id': id}),
+    'challan' => inFormat(context, 'Delivery challan {id}', {'id': id}),
+    _ => inFormat(context, 'Quote {id}', {'id': id}),
+  };
+}
+
+String _documentTitle(BuildContext context, String title) => switch (title) {
+  'Tax invoice' => inText(context, 'Tax invoice'),
+  'Invoice' => inText(context, 'Invoice'),
+  'Quotation' => inText(context, 'Quotation'),
+  'Quote' => inText(context, 'Quote'),
+  'Proforma invoice' => inText(context, 'Proforma invoice'),
+  'Sales order' => inText(context, 'Sales order'),
+  'Delivery challan' => inText(context, 'Delivery challan'),
+  _ => title,
+};
+
+String _termsWords(BuildContext context, int? days) => days == null
+    ? ''
+    : days == 0
+    ? inText(context, 'Due on receipt')
+    : inFormat(context, 'Net {days}', {'days': days});
+
+String _overdueWords(BuildContext context, String dueDate, DateTime today) {
+  final parts = dueDate.split('-').map(int.parse).toList();
+  final days = DateTime(today.year, today.month, today.day).difference(DateTime(parts[0], parts[1], parts[2])).inDays;
+  return inCount(context, days, 'Overdue by 1 day', 'Overdue by {n} days');
 }
 
 class InvoiceScreen extends StatefulWidget {
@@ -100,8 +133,8 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
     final (amount, reason) = result;
     await propose(
       amount == null
-          ? 'Credit note for the whole of ${doc.id}: $reason'
-          : 'Credit note of ${rupees(amount)} against ${doc.id}: $reason',
+          ? inFormat(context, 'Credit note for the whole of {id}: {reason}', {'id': doc.id, 'reason': reason})
+          : inFormat(context, 'Credit note of {amount} against {id}: {reason}', {'amount': rupees(amount), 'id': doc.id, 'reason': reason}),
       'create_credit_note',
       {
         'invoiceId': doc.id,
@@ -119,7 +152,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
       builder: (sheet) => _AmendSheet(doc: doc),
     );
     if (result == null || !mounted) return;
-    await propose('Amend ${doc.id}: ${result['reason']}', 'amend_invoice', {'invoiceId': doc.id, ...result});
+    await propose(inFormat(context, 'Amend {id}: {reason}', {'id': doc.id, 'reason': '${result['reason']}'}), 'amend_invoice', {'invoiceId': doc.id, ...result});
   }
 
   Future<void> _transport(InvoiceDocument doc) async {
@@ -130,7 +163,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
     );
     if (result == null || !mounted) return;
     await propose(
-      'Transport for ${doc.id}: ${result['vehicleNo'] ?? ''} ${result['distanceKm']} km',
+      inFormat(context, 'Transport for {id}: {vehicle} {km} km', {'id': doc.id, 'vehicle': result['vehicleNo'] ?? '', 'km': '${result['distanceKm']}'}),
       'set_transport',
       {'invoiceId': doc.id, ...result},
     );
@@ -139,7 +172,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
   Future<void> _einvoice(InvoiceDocument doc) async {
     final cloud = AppScope.of(context).cloud;
     if (cloud == null) {
-      await propose('Generate the e-invoice (IRN) for ${doc.id}', 'govt_generate_irn', {
+      await propose(inFormat(context, 'Generate the e-invoice (IRN) for {id}', {'id': doc.id}), 'govt_generate_irn', {
         'invoiceId': doc.id,
       });
       return;
@@ -151,12 +184,12 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
         final pending = await cloud.pendingEinvoiceApprovals(doc.id);
         if (pending.isEmpty) {
           await cloud.requestEinvoiceApproval(doc.id);
-          if (mounted) setState(() => _note = 'This business is in live mode, so a real IRN needs a second person. Asked for approval: an owner or your accountant opens this invoice and taps Generate e-invoice to approve it.');
+          if (mounted) setState(() => _note = inText(context, 'This business is in live mode, so a real IRN needs a second person. Asked for approval: an owner or your accountant opens this invoice and taps Generate e-invoice to approve it.'));
           return;
         }
         final decided = await cloud.approve('${pending.first['approvalId']}');
         if (decided['error'] == 'MAKER_CHECKER_VIOLATION') {
-          if (mounted) setState(() => _note = 'Waiting for an owner or your accountant, other than you, to approve this e-invoice.');
+          if (mounted) setState(() => _note = inText(context, 'Waiting for an owner or your accountant, other than you, to approve this e-invoice.'));
           return;
         }
         if (decided['ok'] != true) {
@@ -167,7 +200,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
       }
       if (!mounted) return;
       setState(() => _note = out.ok
-          ? (out.sandbox ? 'Sandbox IRN issued on the NIC test IRP. It is not valid for a real supply.' : 'IRN issued: ${out.irn}')
+          ? (out.sandbox ? inText(context, 'Sandbox IRN issued on the NIC test IRP. It is not valid for a real supply.') : inFormat(context, 'IRN issued: {irn}', {'irn': out.irn}))
           : cloudMessage(out.error, out.hint));
       if (out.ok) _reload();
     } on MycaApiException catch (error) {
@@ -178,7 +211,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
   }
 
   Future<void> _ewayBill(InvoiceDocument doc) async {
-    await propose('Generate the e-way bill for ${doc.id}', 'govt_generate_ewb', {
+    await propose(inFormat(context, 'Generate the e-way bill for {id}', {'id': doc.id}), 'govt_generate_ewb', {
       'invoiceId': doc.id,
     });
   }
@@ -192,7 +225,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
     if (result == null || !mounted) return;
     final (amount, reason) = result;
     await propose(
-      'Debit note of ${rupees(amount ?? 0)} against ${doc.id}: $reason',
+      inFormat(context, 'Debit note of {amount} against {id}: {reason}', {'amount': rupees(amount ?? 0), 'id': doc.id, 'reason': reason}),
       'create_debit_note',
       {
         'invoiceId': doc.id,
@@ -207,7 +240,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
     final reply = await askMyCa(
       context,
       subject: {'kind': 'invoice', 'id': doc.id},
-      about: 'invoice ${doc.id} to ${doc.buyerName}',
+      about: inFormat(context, 'invoice {id} to {name}', {'id': doc.id, 'name': doc.buyerName}),
     );
     if (!mounted || reply.isEmpty) return;
     setState(() => _note = reply);
@@ -216,10 +249,10 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
   Future<void> _remind(InvoiceDocument doc) async {
     final draft = await showReminderSheet(
       context,
-      text: 'Follow up payment from ${doc.buyerName}',
+      text: inFormat(context, 'Follow up payment from {name}', {'name': doc.buyerName}),
     );
     if (draft == null || !mounted) return;
-    await propose('Remind me: ${draft.text}', 'add_reminder', {
+    await propose(UaeStrings.of(context).remindSaid(draft.text), 'add_reminder', {
       'text': draft.text,
       'due': draft.due,
       'invoiceId': doc.id,
@@ -234,7 +267,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
     );
     if (reason == null || !mounted) return;
     await propose(
-      'Cancel ${doc.id}${reason.isEmpty ? '' : ': $reason'}',
+      reason.isEmpty ? inFormat(context, 'Cancel {id}', {'id': doc.id}) : inFormat(context, 'Cancel {id}: {reason}', {'id': doc.id, 'reason': reason}),
       'cancel_invoice',
       {
         'invoiceId': doc.id,
@@ -247,6 +280,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
   Future<void> _send(InvoiceDocument doc, {required bool share}) async {
     final pdf = AppScope.of(context).pdf;
     final api = AppScope.of(context).api;
+    final lang = indiaLang(context);
     setState(() {
       _busy = true;
       _note = '';
@@ -265,8 +299,8 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
       );
       if (share) {
         note = done
-            ? 'Handed to the app you chose. MyCA cannot see whether it was delivered.'
-            : 'Not sent.';
+            ? inLine(lang, 'Handed to the app you chose. MyCA cannot see whether it was delivered.')
+            : inLine(lang, 'Not sent.');
       }
       try {
         await api.query('record_share', {
@@ -276,10 +310,10 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
         });
         recorded = done;
       } on Object {
-        note = '$note Could not note the share in the audit log.'.trim();
+        note = inFill(inLine(lang, '{note} Could not note the share in the audit log.'), {'note': note}).trim();
       }
     } on Object {
-      note = 'The PDF could not be prepared on this phone.';
+      note = inLine(lang, 'The PDF could not be prepared on this phone.');
     }
     if (!mounted) return;
     setState(() {
@@ -293,9 +327,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          '${widget.quote ? salesDocumentLabel(salesKindOfId(widget.invoiceId)) : 'Invoice'} ${widget.invoiceId}',
-        ),
+        title: Text(_screenTitle(context, widget.quote, widget.invoiceId)),
       ),
       body: FutureBuilder<InvoiceDocument?>(
         future: _document,
@@ -315,13 +347,13 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                     Text(
                       error is MycaApiException
                           ? error.message
-                          : 'This invoice could not be opened.',
+                          : inText(context, 'This invoice could not be opened.'),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
                     FilledButton(
                       onPressed: _reload,
-                      child: const Text('Try again'),
+                      child: Text(inText(context, 'Try again')),
                     ),
                   ],
                 ),
@@ -366,7 +398,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                   onAccept:
                       doc.canAccept &&
                           (doc.status == 'open' || doc.status == 'expired')
-                      ? () => propose('${doc.id} accepted', 'mark_quote', {
+                      ? () => propose(inFormat(context, '{id} accepted', {'id': doc.id}), 'mark_quote', {
                           'id': doc.id,
                           'outcome': 'accepted',
                         })
@@ -374,19 +406,19 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                   onDecline:
                       doc.canAccept &&
                           (doc.status == 'open' || doc.status == 'expired')
-                      ? () => propose('${doc.id} declined', 'mark_quote', {
+                      ? () => propose(inFormat(context, '{id} declined', {'id': doc.id}), 'mark_quote', {
                           'id': doc.id,
                           'outcome': 'declined',
                         })
                       : null,
                   onReturned: doc.canReturn && doc.status == 'open'
-                      ? () => propose('${doc.id} came back', 'mark_quote', {
+                      ? () => propose(inFormat(context, '{id} came back', {'id': doc.id}), 'mark_quote', {
                           'id': doc.id,
                           'outcome': 'returned',
                         })
                       : null,
                   onCancelDocument: doc.canCancelOrder && doc.status == 'open'
-                      ? () => propose('Cancel ${doc.id}', 'mark_quote', {
+                      ? () => propose(inFormat(context, 'Cancel {id}', {'id': doc.id}), 'mark_quote', {
                           'id': doc.id,
                           'outcome': 'cancelled',
                         })
@@ -398,7 +430,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                           doc.status != 'cancelled' &&
                           doc.status != 'returned'
                       ? () => propose(
-                          'Make ${doc.id} an invoice',
+                          inFormat(context, 'Make {id} an invoice', {'id': doc.id}),
                           'convert_quote',
                           {
                             'id': doc.id,
@@ -473,7 +505,7 @@ class _InvoiceBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final money = text.bodyLarge?.copyWith(fontFeatures: moneyFigures);
-    final missing = missingNote(doc.missing);
+    final missing = missingNote(doc.missing, indiaLang(context));
     return ListView(
       controller: scroll,
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
@@ -482,7 +514,7 @@ class _InvoiceBody extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
-              'This invoice is cancelled by a credit note. It stays in your books and in the return for its month.',
+              inText(context, 'This invoice is cancelled by a credit note. It stays in your books and in the return for its month.'),
               style: text.bodyMedium?.copyWith(
                 color: Palette.danger,
                 fontWeight: FontWeight.w500,
@@ -491,7 +523,7 @@ class _InvoiceBody extends StatelessWidget {
           ),
         _Sheet(
           children: [
-            Text(doc.title.toUpperCase(), style: text.labelSmall),
+            Text(_documentTitle(context, doc.title).toUpperCase(), style: text.labelSmall),
             const SizedBox(height: 6),
             Text(doc.sellerName, style: text.titleLarge),
             if (doc.sellerAddress.isNotEmpty)
@@ -508,7 +540,7 @@ class _InvoiceBody extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(doc.isQuote ? 'QUOTED TO' : 'BILL TO', style: text.labelSmall),
+                      Text(doc.isQuote ? inText(context, 'QUOTED TO') : inText(context, 'BILL TO'), style: text.labelSmall),
                       const SizedBox(height: 2),
                       Text(doc.buyerName, style: text.titleMedium),
                       if (doc.buyerAddress.isNotEmpty)
@@ -523,7 +555,7 @@ class _InvoiceBody extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('DATED', style: text.labelSmall),
+                      Text(inText(context, 'DATED'), style: text.labelSmall),
                       const SizedBox(height: 2),
                       Text(longDate(doc.date), textAlign: TextAlign.end, style: text.bodyMedium),
                     ],
@@ -533,16 +565,16 @@ class _InvoiceBody extends StatelessWidget {
             ),
             if (doc.isQuote) ...[
               const SizedBox(height: 12),
-              Text('VALID UNTIL', style: text.labelSmall),
+              Text(inText(context, 'VALID UNTIL'), style: text.labelSmall),
               const SizedBox(height: 2),
               Text(longDate(doc.validUntil), style: text.bodyMedium),
               Text(
                 switch (doc.status) {
-                  'accepted' => 'Accepted by the customer',
-                  'declined' => 'Declined by the customer',
-                  'invoiced' => 'Invoiced as ${doc.linkedId}',
-                  'expired' => 'Expired',
-                  _ => 'Open',
+                  'accepted' => inText(context, 'Accepted by the customer'),
+                  'declined' => inText(context, 'Declined by the customer'),
+                  'invoiced' => inFormat(context, 'Invoiced as {id}', {'id': doc.linkedId}),
+                  'expired' => inText(context, 'Expired'),
+                  _ => inText(context, 'Open'),
                 },
                 style: text.bodyMedium?.copyWith(
                   color: doc.status == 'declined' || doc.status == 'expired'
@@ -554,10 +586,10 @@ class _InvoiceBody extends StatelessWidget {
             ],
             if (doc.dueDate.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text('PAYMENT DUE', style: text.labelSmall),
+              Text(inText(context, 'PAYMENT DUE'), style: text.labelSmall),
               const SizedBox(height: 2),
               Text(
-                '${longDate(doc.dueDate)} (${termsLabel(doc.termsDays)})',
+                '${longDate(doc.dueDate)} (${_termsWords(context, doc.termsDays)})',
                 style: text.bodyMedium,
               ),
               if (dueWords(
@@ -566,7 +598,7 @@ class _InvoiceBody extends StatelessWidget {
                 open: !doc.cancelled && doc.balance > 0,
               ).startsWith('Overdue'))
                 Text(
-                  dueWords(doc.dueDate, AppScope.of(context).now(), open: true),
+                  _overdueWords(context, doc.dueDate, AppScope.of(context).now()),
                   style: text.bodyMedium?.copyWith(
                     color: Palette.danger,
                     fontWeight: FontWeight.w500,
@@ -575,7 +607,7 @@ class _InvoiceBody extends StatelessWidget {
             ],
             if (doc.placeOfSupply.label.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text('PLACE OF SUPPLY', style: text.labelSmall),
+              Text(inText(context, 'PLACE OF SUPPLY'), style: text.labelSmall),
               const SizedBox(height: 2),
               Text(doc.placeOfSupply.label, style: text.bodyMedium),
             ],
@@ -585,23 +617,19 @@ class _InvoiceBody extends StatelessWidget {
         _Sheet(
           children: [
             for (final line in doc.lines) ...[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      line.description.isEmpty ? 'Item' : line.description,
-                      style: text.titleMedium,
-                    ),
+              AmountRow(
+                align: CrossAxisAlignment.start,
+                start: Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Text(
+                    line.description.isEmpty ? inText(context, 'Item') : line.description,
+                    style: text.titleMedium,
                   ),
-                  const SizedBox(width: 12),
-                  Text(
-                    rupees(line.amount),
-                    style: text.titleMedium?.copyWith(
-                      fontFeatures: moneyFigures,
-                    ),
-                  ),
-                ],
+                ),
+                amount: rupees(line.amount),
+                style: text.titleMedium?.copyWith(
+                  fontFeatures: moneyFigures,
+                ),
               ),
               Text(
                 [
@@ -618,40 +646,42 @@ class _InvoiceBody extends StatelessWidget {
             ],
             const Divider(),
             const SizedBox(height: 10),
-            _Amount(name: doc.subtotalLabel, amount: doc.taxable, style: money),
+            _Amount(name: doc.isUs ? doc.subtotalLabel : inText(context, 'Taxable value'), amount: doc.taxable, style: money),
             for (final (name, amount) in doc.taxHeads)
               _Amount(name: name, amount: amount, style: money),
             const SizedBox(height: 6),
             _Amount(
-              name: 'Total',
+              name: inText(context, 'Total'),
               amount: doc.total,
               style: text.titleLarge?.copyWith(fontFeatures: moneyFigures),
             ),
             if (doc.received > 0 || doc.credited > 0 || doc.debited > 0) ...[
               const SizedBox(height: 6),
               if (doc.debited > 0)
-                _Amount(name: 'Added by debit note', amount: doc.debited, style: money),
+                _Amount(name: inText(context, 'Added by debit note'), amount: doc.debited, style: money),
               if (doc.received > 0)
-                _Amount(name: 'Received', amount: doc.received, style: money),
+                _Amount(name: inText(context, 'Received'), amount: doc.received, style: money),
               if (doc.credited > 0)
                 _Amount(
-                  name: 'Credited back',
+                  name: inText(context, 'Credited back'),
                   amount: doc.credited,
                   style: money,
                 ),
-              _Amount(name: 'Balance', amount: doc.balance, style: money),
+              _Amount(name: inText(context, 'Balance'), amount: doc.balance, style: money),
             ],
             for (final note in doc.creditNotes) ...[
               const SizedBox(height: 8),
               Text(
-                '${note.cancels ? 'Cancelled' : 'Credit note ${note.id}'} on ${longDate(note.date)}: ${note.reason}',
+                note.cancels
+                    ? inFormat(context, 'Cancelled on {date}: {reason}', {'date': longDate(note.date), 'reason': note.reason})
+                    : inFormat(context, 'Credit note {id} on {date}: {reason}', {'id': note.id, 'date': longDate(note.date), 'reason': note.reason}),
                 style: text.bodySmall,
               ),
             ],
             for (final note in doc.debitNotes) ...[
               const SizedBox(height: 8),
               Text(
-                'Debit note ${note.id} on ${longDate(note.date)}: ${note.reason}',
+                inFormat(context, 'Debit note {id} on {date}: {reason}', {'id': note.id, 'date': longDate(note.date), 'reason': note.reason}),
                 style: text.bodySmall,
               ),
             ],
@@ -665,16 +695,16 @@ class _InvoiceBody extends StatelessWidget {
           const SizedBox(height: 16),
           _Sheet(
             children: [
-              Text('E-INVOICE', style: text.labelSmall),
+              Text(inText(context, 'E-INVOICE'), style: text.labelSmall),
               const SizedBox(height: 6),
               Text(
                 ei.status == 'issued'
                     ? 'IRN ${ei.irn}'
                     : ei.status == 'mock'
-                    ? 'Simulated IRN ${ei.irn.length > 12 ? ei.irn.substring(0, 12) : ei.irn}…'
+                    ? inFormat(context, 'Simulated IRN {irn}…', {'irn': ei.irn.length > 12 ? ei.irn.substring(0, 12) : ei.irn})
                     : ei.status == 'sandbox'
-                    ? 'Sandbox IRN ${ei.irn.length > 12 ? ei.irn.substring(0, 12) : ei.irn}…'
-                    : 'No IRN yet',
+                    ? inFormat(context, 'Sandbox IRN {irn}…', {'irn': ei.irn.length > 12 ? ei.irn.substring(0, 12) : ei.irn})
+                    : inText(context, 'No IRN yet'),
                 style: text.titleMedium,
               ),
               const SizedBox(height: 4),
@@ -682,7 +712,7 @@ class _InvoiceBody extends StatelessWidget {
               if (onEinvoice != null) ...[
                 const SizedBox(height: 10),
                 ActionChip(
-                  label: const Text('Generate e-invoice'),
+                  label: Text(inText(context, 'Generate e-invoice')),
                   onPressed: busy ? null : onEinvoice,
                 ),
               ],
@@ -693,19 +723,21 @@ class _InvoiceBody extends StatelessWidget {
           const SizedBox(height: 16),
           _Sheet(
             children: [
-              Text('E-WAY BILL', style: text.labelSmall),
+              Text(inText(context, 'E-WAY BILL'), style: text.labelSmall),
               const SizedBox(height: 6),
               Text(
                 ewb.ewbNo.isNotEmpty
-                    ? 'E-way bill ${ewb.ewbNo}${ewb.ewbValidity.isEmpty ? '' : ', valid till ${ewb.ewbValidity}'}'
-                    : 'Needed for this invoice',
+                    ? ewb.ewbValidity.isEmpty
+                          ? inFormat(context, 'E-way bill {number}', {'number': ewb.ewbNo})
+                          : inFormat(context, 'E-way bill {number}, valid till {validity}', {'number': ewb.ewbNo, 'validity': ewb.ewbValidity})
+                    : inText(context, 'Needed for this invoice'),
                 style: text.titleMedium,
               ),
               const SizedBox(height: 4),
               Text(ewb.why, style: text.bodySmall),
               if (ewb.transportWords.isNotEmpty) ...[
                 const SizedBox(height: 6),
-                Text('Transport: ${ewb.transportWords}', style: text.bodyMedium),
+                Text(inFormat(context, 'Transport: {words}', {'words': ewb.transportWords}), style: text.bodyMedium),
               ],
               if (ewb.next.isNotEmpty) ...[
                 const SizedBox(height: 6),
@@ -717,12 +749,12 @@ class _InvoiceBody extends StatelessWidget {
                 children: [
                   if (onTransport != null)
                     ActionChip(
-                      label: Text(ewb.transportWords.isEmpty ? 'Add transport details' : 'Change transport'),
+                      label: Text(ewb.transportWords.isEmpty ? inText(context, 'Add transport details') : inText(context, 'Change transport')),
                       onPressed: busy ? null : onTransport,
                     ),
                   if (onEwayBill != null)
                     ActionChip(
-                      label: const Text('Generate e-way bill'),
+                      label: Text(inText(context, 'Generate e-way bill')),
                       onPressed: busy ? null : onEwayBill,
                     ),
                 ],
@@ -733,7 +765,9 @@ class _InvoiceBody extends StatelessWidget {
         if (doc.shares.isNotEmpty) ...[
           const SizedBox(height: 10),
           Text(
-            'Shared ${doc.shares.length == 1 ? 'once' : '${doc.shares.length} times'}, last on ${longDate(doc.shares.last.on.length >= 10 ? doc.shares.last.on.substring(0, 10) : doc.shares.last.on)}. Delivery is not something MyCA can know.',
+            inCount(context, doc.shares.length, 'Shared once, last on {date}. Delivery is not something MyCA can know.', 'Shared {n} times, last on {date}. Delivery is not something MyCA can know.', {
+              'date': longDate(doc.shares.last.on.length >= 10 ? doc.shares.last.on.substring(0, 10) : doc.shares.last.on),
+            }),
             style: text.bodySmall,
           ),
         ],
@@ -742,7 +776,7 @@ class _InvoiceBody extends StatelessWidget {
           width: double.infinity,
           child: FilledButton(
             onPressed: busy || doc.cancelled ? null : onShare,
-            child: Text(busy ? 'Preparing…' : 'Send to ${doc.buyerName}'),
+            child: Text(busy ? inText(context, 'Preparing…') : inFormat(context, 'Send to {name}', {'name': doc.buyerName})),
           ),
         ),
         const SizedBox(height: 8),
@@ -750,13 +784,13 @@ class _InvoiceBody extends StatelessWidget {
           width: double.infinity,
           child: OutlinedButton(
             onPressed: busy ? null : onPrint,
-            child: const Text('Print or save as PDF'),
+            child: Text(inText(context, 'Print or save as PDF')),
           ),
         ),
         const SizedBox(height: 10),
         Text(
           note.isEmpty
-              ? 'You choose WhatsApp, email or another app, and it goes from your own account. MyCA sends nothing by itself.'
+              ? inText(context, 'You choose WhatsApp, email or another app, and it goes from your own account. MyCA sends nothing by itself.')
               : note,
           style: note.isEmpty
               ? text.bodySmall
@@ -767,7 +801,7 @@ class _InvoiceBody extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: ActionChip(
-              label: const Text('Amend after filing'),
+              label: Text(inText(context, 'Amend after filing')),
               onPressed: busy ? null : onAmend,
             ),
           ),
@@ -780,34 +814,34 @@ class _InvoiceBody extends StatelessWidget {
             children: [
               if (onMakeInvoice != null)
                 ActionChip(
-                  label: const Text('Make invoice'),
+                  label: Text(inText(context, 'Make invoice')),
                   onPressed: busy ? null : onMakeInvoice,
                 ),
               if (onAccept != null)
                 ActionChip(
-                  label: const Text('Accepted'),
+                  label: Text(inText(context, 'Accepted')),
                   onPressed: busy ? null : onAccept,
                 ),
               if (onDecline != null)
                 ActionChip(
-                  label: const Text('Declined'),
+                  label: Text(inText(context, 'Declined')),
                   onPressed: busy ? null : onDecline,
                 ),
               if (onReturned != null)
                 ActionChip(
-                  label: const Text('Goods came back'),
+                  label: Text(inText(context, 'Goods came back')),
                   onPressed: busy ? null : onReturned,
                 ),
               if (onCancelDocument != null)
                 ActionChip(
-                  label: const Text('Cancel'),
+                  label: Text(inText(context, 'Cancel')),
                   onPressed: busy ? null : onCancelDocument,
                 ),
             ],
           ),
           const SizedBox(height: 6),
           Text(
-            'This posts nothing to your books. Making the invoice posts it, with the same lines.',
+            inText(context, 'This posts nothing to your books. Making the invoice posts it, with the same lines.'),
             style: text.bodySmall,
           ),
         ],
@@ -822,34 +856,34 @@ class _InvoiceBody extends StatelessWidget {
             children: [
               if (onRemind != null)
                 ActionChip(
-                  label: const Text('Remind me'),
+                  label: Text(inText(context, 'Remind me')),
                   onPressed: busy ? null : onRemind,
                 ),
               if (onAskCa != null)
                 ActionChip(
-                  label: const Text('Ask my CA'),
+                  label: Text(inText(context, 'Ask my CA')),
                   onPressed: busy ? null : onAskCa,
                 ),
               if (onCreditNote != null)
                 ActionChip(
-                  label: const Text('Credit note'),
+                  label: Text(inText(context, 'Credit note')),
                   onPressed: busy ? null : onCreditNote,
                 ),
               if (onDebitNote != null)
                 ActionChip(
-                  label: const Text('Debit note'),
+                  label: Text(inText(context, 'Debit note')),
                   onPressed: busy ? null : onDebitNote,
                 ),
               if (onCancel != null)
                 ActionChip(
-                  label: const Text('Cancel invoice'),
+                  label: Text(inText(context, 'Cancel invoice')),
                   onPressed: busy ? null : onCancel,
                 ),
             ],
           ),
           const SizedBox(height: 6),
           Text(
-            'A credit note, a debit note or a cancellation changes the amount with a new entry; the invoice itself is never changed.',
+            inText(context, 'A credit note, a debit note or a cancellation changes the amount with a new entry; the invoice itself is never changed.'),
             style: text.bodySmall,
           ),
         ],
@@ -886,11 +920,11 @@ class _TransportSheetState extends State<_TransportSheet> {
   void _done() {
     final distance = int.tryParse(_distance.text.trim());
     if (distance == null || distance < 1 || distance > 4000) {
-      return setState(() => _error = 'Enter the distance in whole kilometres, 1 to 4000.');
+      return setState(() => _error = inText(context, 'Enter the distance in whole kilometres, 1 to 4000.'));
     }
     final vehicle = _vehicle.text.replaceAll(RegExp(r'[\s-]+'), '').toUpperCase();
     if (_mode == 'road' && vehicle.isEmpty) {
-      return setState(() => _error = 'Enter the vehicle number, for example MH12AB1234.');
+      return setState(() => _error = inText(context, 'Enter the vehicle number, for example MH12AB1234.'));
     }
     Navigator.of(context).pop({
       'distanceKm': distance,
@@ -909,16 +943,21 @@ class _TransportSheetState extends State<_TransportSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Transport for ${widget.doc.id}', style: text.headlineSmall),
+          Text(inFormat(context, 'Transport for {id}', {'id': widget.doc.id}), style: text.headlineSmall),
           const SizedBox(height: 6),
-          Text('How the goods move. MyCA puts this on the e-way bill request; nothing is sent until you approve it.', style: text.bodySmall),
+          Text(inText(context, 'How the goods move. MyCA puts this on the e-way bill request; nothing is sent until you approve it.'), style: text.bodySmall),
           const SizedBox(height: 14),
           Wrap(
             spacing: 8,
             children: [
               for (final mode in const ['road', 'rail', 'air', 'ship'])
                 ChoiceChip(
-                  label: Text(mode[0].toUpperCase() + mode.substring(1)),
+                  label: Text(switch (mode) {
+                    'rail' => inText(context, 'Rail'),
+                    'air' => inText(context, 'Air'),
+                    'ship' => inText(context, 'Ship'),
+                    _ => inText(context, 'Road'),
+                  }),
                   selected: mode == _mode,
                   selectedColor: Palette.sunken,
                   showCheckmark: false,
@@ -930,28 +969,28 @@ class _TransportSheetState extends State<_TransportSheet> {
           TextField(
             controller: _vehicle,
             textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(labelText: 'Vehicle number'),
+            decoration: InputDecoration(labelText: inText(context, 'Vehicle number')),
           ),
           const SizedBox(height: 10),
           TextField(
             controller: _distance,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Distance in km'),
+            decoration: InputDecoration(labelText: inText(context, 'Distance in km')),
           ),
           const SizedBox(height: 10),
           TextField(
             controller: _transporter,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(labelText: 'Transporter (optional)'),
+            decoration: InputDecoration(labelText: inText(context, 'Transporter (optional)')),
           ),
           if (_error.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w600)),
+            Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w600)),
           ],
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: FilledButton(onPressed: _done, child: const Text('Preview')),
+            child: FilledButton(onPressed: _done, child: Text(inText(context, 'Preview'))),
           ),
         ],
       ),
@@ -997,13 +1036,13 @@ class _AmendSheetState extends State<_AmendSheet> {
 
   void _submit() {
     final reason = _reason.text.trim();
-    if (reason.isEmpty) return setState(() => _error = 'Say why the invoice is being amended.');
+    if (reason.isEmpty) return setState(() => _error = inText(context, 'Say why the invoice is being amended.'));
     final lines = <Map<String, Object?>>[];
     for (var i = 0; i < _lines.length; i += 1) {
       final qty = num.tryParse(_lines[i][0].text.trim());
       final rate = parseAmount(_lines[i][1].text);
       final gstRate = parseRate(_lines[i][2].text);
-      if (qty == null || qty <= 0 || rate == null || gstRate == null) return setState(() => _error = 'Line ${i + 1} needs a quantity, a rate and a GST rate.');
+      if (qty == null || qty <= 0 || rate == null || gstRate == null) return setState(() => _error = inFormat(context, 'Line {n} needs a quantity, a rate and a GST rate.', {'n': i + 1}));
       final line = widget.doc.lines[i];
       lines.add({'description': line.description, 'hsn': line.hsn, 'qty': qty, 'rate': rate, 'gstRate': gstRate});
     }
@@ -1025,32 +1064,32 @@ class _AmendSheetState extends State<_AmendSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Amend ${widget.doc.id}', style: text.headlineSmall),
+            Text(inFormat(context, 'Amend {id}', {'id': widget.doc.id}), style: text.headlineSmall),
             const SizedBox(height: 6),
-            Text('For an invoice whose GSTR-1 month is already filed. The difference posts to the books and the amendment goes in the next GSTR-1 with the original number and date.', style: text.bodySmall),
+            Text(inText(context, 'For an invoice whose GSTR-1 month is already filed. The difference posts to the books and the amendment goes in the next GSTR-1 with the original number and date.'), style: text.bodySmall),
             const SizedBox(height: 12),
-            TextField(controller: _gstin, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'Buyer GSTIN')),
+            TextField(controller: _gstin, textCapitalization: TextCapitalization.characters, decoration: InputDecoration(labelText: inText(context, 'Buyer GSTIN'))),
             for (var i = 0; i < _lines.length; i += 1) ...[
               const SizedBox(height: 10),
               Text(widget.doc.lines[i].description, style: text.bodyMedium),
               Row(
                 children: [
-                  Expanded(child: TextField(controller: _lines[i][0], keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Qty'))),
+                  Expanded(child: TextField(controller: _lines[i][0], keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: inText(context, 'Qty')))),
                   const SizedBox(width: 8),
-                  Expanded(flex: 2, child: TextField(controller: _lines[i][1], keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Rate'))),
+                  Expanded(flex: 2, child: TextField(controller: _lines[i][1], keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: inText(context, 'Rate')))),
                   const SizedBox(width: 8),
-                  Expanded(child: TextField(controller: _lines[i][2], keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'GST %'))),
+                  Expanded(child: TextField(controller: _lines[i][2], keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: inText(context, 'GST %')))),
                 ],
               ),
             ],
             const SizedBox(height: 10),
-            TextField(controller: _reason, decoration: const InputDecoration(labelText: 'Reason')),
+            TextField(controller: _reason, decoration: InputDecoration(labelText: inText(context, 'Reason'))),
             if (_error.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(_error, style: text.bodyMedium?.copyWith(color: Palette.danger)),
             ],
             const SizedBox(height: 14),
-            FilledButton(onPressed: _submit, child: const Text('Preview the amendment')),
+            FilledButton(onPressed: _submit, child: Text(inText(context, 'Preview the amendment'))),
           ],
         ),
       ),
@@ -1085,8 +1124,8 @@ class _CreditNoteSheetState extends State<_CreditNoteSheet> {
     if (reason.isEmpty) {
       return setState(
         () => _error = widget.debit
-            ? 'Say why: price revised, extra charge…'
-            : 'Say why: goods returned, price reduced…',
+            ? inText(context, 'Say why: price revised, extra charge…')
+            : inText(context, 'Say why: goods returned, price reduced…'),
       );
     }
     final raw = _amount.text.trim();
@@ -1096,8 +1135,8 @@ class _CreditNoteSheetState extends State<_CreditNoteSheet> {
       if (amount == null || amount <= 0) {
         return setState(
           () => _error = widget.debit
-              ? 'Enter the amount to add, with GST.'
-              : 'Enter the amount, or leave it blank for the whole invoice.',
+              ? inText(context, 'Enter the amount to add, with GST.')
+              : inText(context, 'Enter the amount, or leave it blank for the whole invoice.'),
         );
       }
     }
@@ -1115,21 +1154,21 @@ class _CreditNoteSheetState extends State<_CreditNoteSheet> {
         22,
         22 + MediaQuery.viewInsetsOf(context).bottom,
       ),
-      child: Column(
+      child: SingleChildScrollView(child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             widget.debit
-                ? 'Debit note against ${widget.doc.id}'
-                : 'Credit note against ${widget.doc.id}',
+                ? inFormat(context, 'Debit note against {id}', {'id': widget.doc.id})
+                : inFormat(context, 'Credit note against {id}', {'id': widget.doc.id}),
             style: text.headlineSmall,
           ),
           const SizedBox(height: 6),
           Text(
             widget.debit
-                ? 'Adds to what ${widget.doc.buyerName} owes, with GST at the invoice rates. The note goes into the GSTR-1 of its own month.'
-                : 'Up to ${rupees(left)} including GST. Leave the amount blank to credit the whole invoice.',
+                ? inFormat(context, 'Adds to what {name} owes, with GST at the invoice rates. The note goes into the GSTR-1 of its own month.', {'name': widget.doc.buyerName})
+                : inFormat(context, 'Up to {amount} including GST. Leave the amount blank to credit the whole invoice.', {'amount': rupees(left)}),
             style: text.bodySmall,
           ),
           const SizedBox(height: 14),
@@ -1138,8 +1177,8 @@ class _CreditNoteSheetState extends State<_CreditNoteSheet> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               labelText: widget.debit
-                  ? 'Amount to add, with GST'
-                  : 'Amount, with GST (optional)',
+                  ? inText(context, 'Amount to add, with GST')
+                  : inText(context, 'Amount, with GST (optional)'),
               prefixText: '₹ ',
             ),
           ),
@@ -1147,13 +1186,13 @@ class _CreditNoteSheetState extends State<_CreditNoteSheet> {
           TextField(
             controller: _reason,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(labelText: 'Reason'),
+            decoration: InputDecoration(labelText: inText(context, 'Reason')),
           ),
           if (_error.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
               _error,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Palette.danger,
                 fontWeight: FontWeight.w600,
               ),
@@ -1162,10 +1201,10 @@ class _CreditNoteSheetState extends State<_CreditNoteSheet> {
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: FilledButton(onPressed: _done, child: const Text('Preview')),
+            child: FilledButton(onPressed: _done, child: Text(inText(context, 'Preview'))),
           ),
         ],
-      ),
+      )),
     );
   }
 }
@@ -1202,26 +1241,26 @@ class _CancelSheetState extends State<_CancelSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Cancel ${widget.doc.id}?', style: text.headlineSmall),
+          Text(inFormat(context, 'Cancel {id}?', {'id': widget.doc.id}), style: text.headlineSmall),
           const SizedBox(height: 6),
           Text(
             widget.doc.received > 0
-                ? '${widget.doc.buyerName} has paid ${rupees(widget.doc.received)}; that becomes due back to them.'
-                : 'A credit note for the full ${rupees(widget.doc.total)} will be posted. You will see it before anything changes.',
+                ? inFormat(context, '{name} has paid {amount}; that becomes due back to them.', {'name': widget.doc.buyerName, 'amount': rupees(widget.doc.received)})
+                : inFormat(context, 'A credit note for the full {amount} will be posted. You will see it before anything changes.', {'amount': rupees(widget.doc.total)}),
             style: text.bodySmall,
           ),
           const SizedBox(height: 14),
           TextField(
             controller: _reason,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(labelText: 'Reason (optional)'),
+            decoration: InputDecoration(labelText: inText(context, 'Reason (optional)')),
           ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
               onPressed: () => Navigator.of(context).pop(_reason.text.trim()),
-              child: const Text('Preview'),
+              child: Text(inText(context, 'Preview')),
             ),
           ),
         ],
@@ -1245,11 +1284,10 @@ class _Amount extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          Expanded(child: Text(name, style: style)),
-          Text(rupees(amount), style: style),
-        ],
+      child: AmountRow(
+        start: Padding(padding: const EdgeInsets.only(right: 12), child: Text(name, style: style)),
+        amount: rupees(amount),
+        style: style,
       ),
     );
   }

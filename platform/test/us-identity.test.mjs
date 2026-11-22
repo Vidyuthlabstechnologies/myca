@@ -218,3 +218,13 @@ test('a tin field is masked only when it is a US SSN or ITIN, and audit events a
   const masked = appendAuditEvent(us, { action: 'set_us_taxpayer', metadata: { tin: '123456780', note: 'spouse 987-65-4320' } });
   assert.deepEqual(masked.metadata, { tin: '***-**-6780', note: 'spouse ***-**-4320' });
 });
+
+test('a sealed number whose check is cut short is refused, not opened', () => {
+  const { sealed } = sealTin('123-45-6780', { secret: KEY, scope: 'business-1:taxpayer' });
+  assert.equal(openTin(sealed, { secret: KEY, scope: 'business-1:taxpayer' }), '123456780');
+  for (const bytes of [4, 8, 12, 15]) {
+    const parts = sealed.split('.');
+    parts[2] = Buffer.from(parts[2], 'base64url').subarray(0, bytes).toString('base64url');
+    assert.throws(() => openTin(parts.join('.'), { secret: KEY, scope: 'business-1:taxpayer' }), `${bytes} bytes`);
+  }
+});

@@ -43,6 +43,37 @@ Money is shown in dollars with thousands grouping; dates read *April 15, 2026* a
 The app calls these tools; until the engine and e-file PRs land, the hub shows an error note on a
 live server because the tools are missing.
 
+## 2027 filing season: the fastest path (2026-11-13)
+
+The season opens in late January 2027 (tax year 2026). MyCA's own IRS route needs an EFIN, a US-person
+Responsible Official and ATS testing, which cannot all be in place by then. So for 2027 the return is
+e-filed through an embedded partner (Column Tax or April); MyCA does the preparation, the refund estimate,
+the review and the fee, then hands the filer to the partner prefilled. See
+[`docs/integrations/US-EFILE-PARTNER.md`](../../integrations/US-EFILE-PARTNER.md). The own-EFIN route
+stays built for 2028.
+
+What must be true by about 20 January 2027:
+
+- [ ] Partner contract signed and the five `MYCA_US_FILER_*` settings set (owner).
+- [ ] Stripe live on the US company (owner), so the $99 launch fee can be charged.
+- [ ] The US stack (`infra/cloud/countries/us.tfvars`, `us-central1`) applied through the
+      `production-us` rollout, so US returns stay in the US (owner runs it).
+- [ ] The US Play app created and the US listing done (owner, see below).
+- [ ] A US CPA or EA attests the tax year 2026 rule records (owner signs the partner; Column Tax's own
+      return engine is the one the IRS receives, so this mainly protects MyCA's estimate).
+- [ ] Fill the bracketed blanks in `deploy/public/us/terms.html` and `us/refunds.html` and in the US notice, then remove their `noindex` line (and `renderUsPrivacy`'s in `deploy/seo/build.mjs`) and add `us/privacy`, `us/terms`, `us/refunds` back to `renderSitemap`. The footer links to these pages come back by themselves once no blank is left (`usLegalReady` in `deploy/seo/build.mjs`); add them back by hand to the static footers of `us.html`, `us/terms.html` and `us/refunds.html`.
+- [ ] Once Column Tax or April signs and approves the wording, live copy may say "our IRS-authorized e-file partner"; until then it says "our e-file partner" (site, app sign screen, US notice, store listing).
+- [ ] Privacy notice names the US company as controller, with a real contact. The US notice
+      (`us-draft-2026-11-22`) names Quanzo AI as the company and Column Tax as the e-file partner
+      (chosen 2026-11-22, agreement not yet signed, so it still carries a bracketed note). Blanks left:
+      the US postal address, the support and privacy contact email, and the Column Tax signing note.
+      Confirm the company's full legal name (with Inc. or LLC). The IRC 7216 consent forms
+      (`cloud/src/us-7216.mjs`) name Quanzo AI as preparer and keep the partner blank until Column Tax
+      is configured. Full checklist: [`COMPLIANCE-REVIEW.md`](COMPLIANCE-REVIEW.md).
+- [ ] `MYCA_US_FILER_SEND_TINS=1` only once the partner contract allows SSNs in the prefill; even then
+      SSNs go only for filers who signed the partner consent.
+- [ ] Two-step sign-in is required to sign or file in production; tell support.
+
 ## Owner actions before a US launch
 
 ### Legal and IRS
@@ -55,7 +86,7 @@ live server because the tools are missing.
       the Qualified Individual and privacy contact.
 - [ ] Decide where US returns are stored. Recommended: a US region (`us-central1`) for US households.
 - [ ] EV TLS certificate for the filing domain, weekly external vulnerability scans, US registrar.
-- [ ] Decide whether two-step sign-in is required before signing (recommended: yes).
+- [x] Two-step sign-in is required before signing or filing in production (`cloud/src/us-safeguards.mjs`). Still to decide: require it at account creation.
 - [ ] Set `MYCA_PII_KEY` (32+ characters, in Secret Manager, different from `MYCA_BOOKS_KEY`) and
       `MYCA_REQUIRE_PII_KEY=1` in production before any US return is saved.
 
@@ -72,7 +103,7 @@ has no switch to India. CI builds both; it uploads the US bundle when `PLAY_US_T
 - [ ] *Data safety*: add Government ID (SSN/ITIN), financial info (bank account), and say it is
       encrypted in transit and at rest and can be deleted on request.
 - [ ] *Financial features* declaration: the app prepares and files tax returns.
-- [ ] Store listing in US English with US screenshots (the 1040 hub, forms, review, sign).
+- [ ] Store listing in US English with US screenshots (the 1040 hub, forms, review, sign). Text drafted in [`docs/release/PLAY-LISTING-US.md`](../../release/PLAY-LISTING-US.md), with the Data safety table.
 - [ ] The US price (see below) as a one-time in-app product, priced in USD for the US.
 
 ### App Store

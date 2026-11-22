@@ -99,9 +99,9 @@ variable "weekly_job_schedule" {
 }
 
 variable "log_retention_days" {
-  description = "Days the MyCA log bucket keeps the API, database and job logs (CERT-In directions of April 2022 ask for 180). The project _Default bucket is left alone."
+  description = "Days the MyCA log bucket keeps the API, database and job logs. The DPDP Rules 2025 ask for one year of processing logs; CERT-In directions of April 2022 ask for 180 days, in India. The project _Default bucket is left alone."
   type        = number
-  default     = 180
+  default     = 365
 }
 
 variable "daily_job_time_zone" {
@@ -138,6 +138,12 @@ variable "oidc_issuer" {
   description = "OpenID Connect issuer URL whose ID tokens the API accepts beside Google (for example a Keycloak realm or an Azure AD tenant). Leave \"unset\" to keep the route off."
   type        = string
   default     = "unset"
+}
+
+variable "apple_client_ids" {
+  description = "Audiences (iOS bundle id, optional Services ID) whose Sign in with Apple identity tokens the API accepts."
+  type        = list(string)
+  default     = []
 }
 
 variable "oidc_client_ids" {
@@ -182,6 +188,11 @@ variable "gsp_test_api_key" {
   type        = string
   default     = "unset"
   sensitive   = true
+
+  validation {
+    condition     = contains(["", "unset"], var.gsp_test_api_key) || !startswith(var.gsp_test_api_key, "key_live_")
+    error_message = "gsp_test_api_key holds a live key. Put live keys only in gsp_live_api_key."
+  }
 }
 
 variable "gsp_test_api_secret" {
@@ -189,6 +200,75 @@ variable "gsp_test_api_secret" {
   type        = string
   default     = "unset"
   sensitive   = true
+}
+
+variable "gsp_live_api_key" {
+  description = "Sandbox by Quicko LIVE API key (key_live_...). Used only when provider_mode is \"live\"; in test mode it is kept out of the running API. Fill it before go-live, then switching provider_mode is the whole change. Leave \"unset\" until Quicko issues it."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+
+  validation {
+    condition     = contains(["", "unset"], var.gsp_live_api_key) || startswith(var.gsp_live_api_key, "key_live_")
+    error_message = "gsp_live_api_key must be a live key (key_live_...). Test keys go in gsp_test_api_key."
+  }
+}
+
+variable "gsp_live_api_secret" {
+  description = "Sandbox by Quicko LIVE API secret paired with gsp_live_api_key."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "stripe_test_secret_key" {
+  description = "Stripe TEST secret key (sk_test_ or rk_test_), used while provider_mode is \"test\"."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+
+  validation {
+    condition     = contains(["", "unset"], var.stripe_test_secret_key) || startswith(var.stripe_test_secret_key, "sk_test_") || startswith(var.stripe_test_secret_key, "rk_test_")
+    error_message = "stripe_test_secret_key must start sk_test_ or rk_test_."
+  }
+}
+
+variable "stripe_test_webhook_secret" {
+  description = "Signing secret (whsec_) of the TEST-mode Stripe webhook endpoint."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "stripe_test_price_us_plus" {
+  description = "TEST-mode Stripe price id of MyCA Plus."
+  type        = string
+  default     = ""
+}
+
+variable "stripe_live_secret_key" {
+  description = "Stripe LIVE secret key (sk_live_ or rk_live_), used only when provider_mode is \"live\"."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+
+  validation {
+    condition     = contains(["", "unset"], var.stripe_live_secret_key) || startswith(var.stripe_live_secret_key, "sk_live_") || startswith(var.stripe_live_secret_key, "rk_live_")
+    error_message = "stripe_live_secret_key must start sk_live_ or rk_live_."
+  }
+}
+
+variable "stripe_live_webhook_secret" {
+  description = "Signing secret (whsec_) of the LIVE-mode Stripe webhook endpoint."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "stripe_live_price_us_plus" {
+  description = "LIVE-mode Stripe price id of MyCA Plus."
+  type        = string
+  default     = ""
 }
 
 variable "public_url" {
@@ -234,7 +314,7 @@ variable "sms_msg91_template_id" {
 }
 
 variable "model_api_key" {
-  description = "API key for the language model that reads bills and answers in Hindi and Telugu. Leave \"unset\" to run without a model (English rules only)."
+  description = "API key for the chat model that routes unmatched messages, reads bills and translates Hindi and Telugu (MYCA_MODEL_API_KEY, Anthropic Messages API). It is given to no other provider. Leave \"unset\" to run without a model (English rules only)."
   type        = string
   default     = "unset"
   sensitive   = true
@@ -247,7 +327,7 @@ variable "model_name" {
 }
 
 variable "model_base_url" {
-  description = "OpenAI-compatible base URL of the model provider. Empty uses the engine default."
+  description = "Base URL of the chat model provider, which must speak the Anthropic Messages API. Empty uses the engine default."
   type        = string
   default     = ""
 }
@@ -264,6 +344,12 @@ variable "play_product_pro" {
   default     = ""
 }
 
+variable "play_product_assured" {
+  description = "Google Play subscription product id for the MyCA Assured plan (a CA files GST and TDS monthly). Set only once a CA team is signed; empty leaves that plan unsold."
+  type        = string
+  default     = ""
+}
+
 variable "play_product_firm" {
   description = "Google Play subscription product id for the CA firm plan."
   type        = string
@@ -271,7 +357,7 @@ variable "play_product_firm" {
 }
 
 variable "plan_prices" {
-  description = "Monthly prices shown in the app, in rupees, used only until the app reads the Play Store price, for example \"pro=499,firm=1499\"."
+  description = "Monthly prices shown in the app, in rupees, used only until the app reads the Play Store price, for example \"pro=1999,firm=5999\"."
   type        = string
   default     = ""
 }
@@ -334,7 +420,7 @@ variable "gsp_api_secret" {
 }
 
 variable "gsp_environment" {
-  description = "Which Sandbox host gsp_api_key belongs to: test or live."
+  description = "Only used when provider_mode is simulated or dry-run. In test and live mode MYCA_GSP_ENV follows provider_mode, so the Quicko host always matches the mode."
   type        = string
   default     = "test"
 
@@ -408,6 +494,42 @@ variable "play_product_us_1040" {
 
 variable "stripe_secret_key" {
   description = "Stripe secret key of the US company (sk_live_ or sk_test_) for card checkout of US returns and MyCA Plus. Google Play's payments policy exempts tax preparation and filing from Play Billing. Leave \"unset\" to keep the Play product."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "us_filer" {
+  description = "Embedded US e-file partner for the 2027 season: column-tax or april. Empty keeps MyCA's own IRS MeF route (needs an EFIN). See docs/integrations/US-EFILE-PARTNER.md."
+  type        = string
+  default     = ""
+  validation {
+    condition     = contains(["", "column-tax", "april"], var.us_filer)
+    error_message = "us_filer must be empty, column-tax or april."
+  }
+}
+
+variable "us_filer_base_url" {
+  description = "HTTPS base URL of the e-file partner's API (sandbox or production), from the partner's onboarding."
+  type        = string
+  default     = ""
+}
+
+variable "us_filer_session_path" {
+  description = "Path of the partner's create-session endpoint, appended to us_filer_base_url."
+  type        = string
+  default     = "/v1/sessions"
+}
+
+variable "us_filer_api_key" {
+  description = "API key the e-file partner issued to MyCA. Leave \"unset\" until the partner contract is signed."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "us_filer_webhook_secret" {
+  description = "Secret (24+ characters) MyCA and the partner share to sign webhooks sent to /v1/us/filer/webhook."
   type        = string
   default     = "unset"
   sensitive   = true

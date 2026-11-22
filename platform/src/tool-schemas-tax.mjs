@@ -1,5 +1,5 @@
 import { IMS_MAX_KEY } from './ims.mjs';
-import { noArgs, tdsProperties, REGISTRATION_ARG } from './tool-schema-parts.mjs';
+import { noArgs, tdsProperties, REGISTRATION_ARG, INVOICE_ID, invoiceIdOr } from './tool-schema-parts.mjs';
 
 export const TAX_TOOL_SCHEMAS = {
   provider_doctor: noArgs,
@@ -57,6 +57,7 @@ export const TAX_TOOL_SCHEMAS = {
       csv: { type: 'string', minLength: 1 },
       period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
       fileName: { type: 'string', maxLength: 120 },
+      gstin: REGISTRATION_ARG,
     },
   },
   record_filing: {
@@ -69,6 +70,7 @@ export const TAX_TOOL_SCHEMAS = {
       arn: { type: 'string', pattern: '^[A-Za-z0-9 ]{10,24}$' },
       filedOn: { type: 'string' },
       filedBy: { type: 'string', maxLength: 60 },
+      form: { type: 'string', enum: ['24Q', '26Q', '138', '140', 'salary', 'other'] },
     },
   },
   import_tcs_statement: {
@@ -92,7 +94,7 @@ export const TAX_TOOL_SCHEMAS = {
     additionalProperties: false,
     required: ['invoiceId', 'amount'],
     properties: {
-      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      invoiceId: INVOICE_ID,
       amount: { type: 'number', exclusiveMinimum: 0 },
       date: { type: 'string', minLength: 10, maxLength: 10 },
       section: { type: 'string', maxLength: 6 },
@@ -292,13 +294,13 @@ export const TAX_TOOL_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     required: ['invoiceId'],
-    properties: { invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' } },
+    properties: { invoiceId: INVOICE_ID },
   },
   govt_generate_ewb: {
     type: 'object',
     additionalProperties: false,
     required: ['invoiceId'],
-    properties: { invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' }, caApprovalId: { type: 'string', maxLength: 40 } },
+    properties: { invoiceId: INVOICE_ID, caApprovalId: { type: 'string', maxLength: 40 } },
   },
   ask_tax: {
     type: 'object',
@@ -325,13 +327,13 @@ export const TAX_TOOL_SCHEMAS = {
   tax_plan: {
     type: 'object',
     additionalProperties: false,
-    properties: { fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' }, ageBand: { type: 'string', enum: ['below-60', '60-to-79', '80-plus'] }, salary: { type: 'number', minimum: 0, maximum: 1000000000000 }, businessIncome: { type: 'number', minimum: 0, maximum: 1000000000000 }, otherIncome: { type: 'number', minimum: 0, maximum: 1000000000000 }, section80C: { type: 'number', minimum: 0, maximum: 1000000000000 }, health80DSelf: { type: 'number', minimum: 0, maximum: 1000000000000 }, health80DParents: { type: 'number', minimum: 0, maximum: 1000000000000 }, selfSenior: { type: 'boolean' }, parentsSenior: { type: 'boolean' }, turnover: { type: 'number', minimum: 0, maximum: 1000000000000 }, digitalReceipts: { type: 'number', minimum: 0, maximum: 1000000000000 }, cashReceipts: { type: 'number', minimum: 0, maximum: 1000000000000 }, profession: { type: 'boolean' }, asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, actualProfit: { type: 'number', minimum: 0, maximum: 1000000000000 } },
+    properties: { fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' }, ageBand: { type: 'string', enum: ['below-60', '60-to-79', '80-plus'] }, dateOfBirth: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, depositInterest: { type: 'number', minimum: 0, maximum: 1000000000000 }, salary: { type: 'number', minimum: 0, maximum: 1000000000000 }, businessIncome: { type: 'number', minimum: 0, maximum: 1000000000000 }, otherIncome: { type: 'number', minimum: 0, maximum: 1000000000000 }, section80C: { type: 'number', minimum: 0, maximum: 1000000000000 }, health80DSelf: { type: 'number', minimum: 0, maximum: 1000000000000 }, health80DParents: { type: 'number', minimum: 0, maximum: 1000000000000 }, selfSenior: { type: 'boolean' }, parentsSenior: { type: 'boolean' }, turnover: { type: 'number', minimum: 0, maximum: 1000000000000 }, digitalReceipts: { type: 'number', minimum: 0, maximum: 1000000000000 }, cashReceipts: { type: 'number', minimum: 0, maximum: 1000000000000 }, profession: { type: 'boolean' }, asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, actualProfit: { type: 'number', minimum: 0, maximum: 1000000000000 } },
   },
   review_income_tax: {
     type: 'object',
     additionalProperties: false,
     required: ['regime'],
-    properties: { regime: { type: 'string', enum: ['old', 'new'] }, fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' }, ageBand: { type: 'string', enum: ['below-60', '60-to-79', '80-plus'] }, salary: { type: 'number', minimum: 0, maximum: 1000000000000 }, businessIncome: { type: 'number', minimum: 0, maximum: 1000000000000 }, otherIncome: { type: 'number', minimum: 0, maximum: 1000000000000 }, section80C: { type: 'number', minimum: 0, maximum: 1000000000000 }, health80DSelf: { type: 'number', minimum: 0, maximum: 1000000000000 }, health80DParents: { type: 'number', minimum: 0, maximum: 1000000000000 }, selfSenior: { type: 'boolean' }, parentsSenior: { type: 'boolean' }, turnover: { type: 'number', minimum: 0, maximum: 1000000000000 }, digitalReceipts: { type: 'number', minimum: 0, maximum: 1000000000000 }, cashReceipts: { type: 'number', minimum: 0, maximum: 1000000000000 }, profession: { type: 'boolean' }, asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, presumptive: { type: 'boolean' }, nonGstReceipts: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedStandardDeduction: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedDeductions: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedTotalIncome: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedRebate: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedTaxPayable: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedTds: { type: 'number', minimum: 0, maximum: 1000000000000 } },
+    properties: { regime: { type: 'string', enum: ['old', 'new'] }, fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' }, ageBand: { type: 'string', enum: ['below-60', '60-to-79', '80-plus'] }, dateOfBirth: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, depositInterest: { type: 'number', minimum: 0, maximum: 1000000000000 }, salary: { type: 'number', minimum: 0, maximum: 1000000000000 }, businessIncome: { type: 'number', minimum: 0, maximum: 1000000000000 }, otherIncome: { type: 'number', minimum: 0, maximum: 1000000000000 }, section80C: { type: 'number', minimum: 0, maximum: 1000000000000 }, health80DSelf: { type: 'number', minimum: 0, maximum: 1000000000000 }, health80DParents: { type: 'number', minimum: 0, maximum: 1000000000000 }, selfSenior: { type: 'boolean' }, parentsSenior: { type: 'boolean' }, turnover: { type: 'number', minimum: 0, maximum: 1000000000000 }, digitalReceipts: { type: 'number', minimum: 0, maximum: 1000000000000 }, cashReceipts: { type: 'number', minimum: 0, maximum: 1000000000000 }, profession: { type: 'boolean' }, asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, presumptive: { type: 'boolean' }, nonGstReceipts: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedStandardDeduction: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedDeductions: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedTotalIncome: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedRebate: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedTaxPayable: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedTds: { type: 'number', minimum: 0, maximum: 1000000000000 } },
   },
   dsc_certificates: { type: 'object', additionalProperties: false, properties: {} },
   dsc_sign: {
@@ -343,7 +345,42 @@ export const TAX_TOOL_SCHEMAS = {
   advance_tax: {
     type: 'object',
     additionalProperties: false,
-    properties: { regime: { type: 'string', enum: ['old', 'new'] }, presumptive: { type: 'boolean' }, otherIncome: { type: 'number', minimum: 0 }, asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
+    properties: { regime: { type: 'string', enum: ['old', 'new'] }, presumptive: { type: 'boolean' }, otherIncome: { type: 'number', minimum: 0 }, dateOfBirth: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
+  },
+  income_tax_interest: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['fy', 'dueDate', 'filedOn', 'taxOnTotalIncome'],
+    properties: {
+      fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' },
+      dueDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      filedOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      determinedOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      taxOnTotalIncome: { type: 'number', minimum: 0, maximum: 1000000000000 },
+      taxOnReturnedIncome: { type: 'number', minimum: 0, maximum: 1000000000000 },
+      tdsTcs: { type: 'number', minimum: 0, maximum: 1000000000000 },
+      relief: { type: 'number', minimum: 0, maximum: 1000000000000 },
+      lateFee: { type: 'number', minimum: 0, maximum: 1000000000000 },
+      advanceTaxPayments: { type: 'array', maxItems: 60, items: { type: 'object', additionalProperties: false, required: ['date', 'amount'], properties: { date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, amount: { type: 'number', minimum: 0, maximum: 1000000000000 } } } },
+      selfAssessmentPayments: { type: 'array', maxItems: 60, items: { type: 'object', additionalProperties: false, required: ['date', 'amount'], properties: { date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, amount: { type: 'number', minimum: 0, maximum: 1000000000000 } } } },
+      presumptive: { type: 'boolean' },
+      seniorNoBusiness: { type: 'boolean' },
+      excludedIncome: { type: 'array', maxItems: 20, items: { type: 'object', additionalProperties: false, required: ['kind', 'arisedOn', 'tax'], properties: { kind: { type: 'string', enum: ['capital-gains', 'lottery', 'new-business', 'dividend'] }, arisedOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, tax: { type: 'number', minimum: 0, maximum: 1000000000000 }, paidInRemainingInstalments: { type: 'boolean' } } } },
+    },
+  },
+  tds_interest: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      quarter: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' },
+      form: { type: 'string', enum: ['other', 'salary'] },
+      dueDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      filedOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      tds: { type: 'number', minimum: 0, maximum: 1000000000000 },
+      late: { type: 'array', maxItems: 200, items: { type: 'object', additionalProperties: false, required: ['amount', 'deductibleOn'], properties: { amount: { type: 'number', minimum: 0, maximum: 1000000000000 }, deductibleOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, deductedOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, paidOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, depositDueDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } } } },
+      basis: { type: 'string', enum: ['calendar', 'period'] },
+      asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
   },
   record_advance_tax: {
     type: 'object',
@@ -488,7 +525,7 @@ export const TAX_TOOL_SCHEMAS = {
   gstr9_draft: {
     type: 'object',
     additionalProperties: false,
-    properties: { fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' } },
+    properties: { fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' }, gstin: REGISTRATION_ARG },
   },
   gst_payable: {
     type: 'object',
@@ -507,6 +544,7 @@ export const TAX_TOOL_SCHEMAS = {
       igst: { type: 'number', minimum: 0 },
       cgst: { type: 'number', minimum: 0 },
       sgst: { type: 'number', minimum: 0 },
+      cess: { type: 'number', minimum: 0 },
     },
   },
   prepare_gstr1: {
@@ -543,14 +581,14 @@ export const TAX_TOOL_SCHEMAS = {
   govt_nic_mock: {
     type: 'object',
     additionalProperties: false,
-    properties: { invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' } },
+    properties: { invoiceId: INVOICE_ID },
   },
   govt_generate_irn: {
     type: 'object',
     additionalProperties: false,
     required: ['invoiceId'],
     properties: {
-      invoiceId: { type: 'string', pattern: '^(INV|CN|DN)-[0-9]{4,}$' },
+      invoiceId: invoiceIdOr(['CN', 'DN', 'BILL', 'SI']),
       provider: { type: 'string', enum: ['nic', 'sandbox'] },
       caApprovalId: { type: 'string' },
     },
@@ -706,9 +744,9 @@ export const TAX_TOOL_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     properties: {
-      holidaysText: { type: 'string' },
-      months: { type: 'array', items: { type: 'string' } },
-      asOfDate: { type: 'string' },
+      holidaysText: { type: 'string', maxLength: 20000 },
+      months: { type: 'array', minItems: 1, maxItems: 60, items: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+      asOfDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
     },
   },
   track_gst_returns: {

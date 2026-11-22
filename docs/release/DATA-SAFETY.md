@@ -30,9 +30,9 @@ them; they are still listed so the answers can be checked.
 | Personal info: User IDs | Yes: server-made user id, Google subject id | No | Required | Account management | No | `users.id`, `users.google_sub` |
 | Personal info: Phone number | Yes, with phone sign-in | Sent to the SMS provider to deliver the code | Optional | Account management | No | `cloud/src/auth.mjs`, `cloud/src/sms-sender.mjs` |
 | Personal info: Address | Only the business address the owner types for invoices | No | Optional | App functionality | No | `businesses` company profile |
-| Personal info: Other info (GSTIN, PAN of the business) | Yes | With the GSP when filing, with NIC for e-invoices and e-way bills | Optional | App functionality | No | `platform/src/portal-filing.mjs`, `platform/src/nic-actions.mjs` |
+| Personal info: Other info (GSTIN, PAN of the business; the owner's date of birth if entered, for senior citizen income tax) | Yes | With the GSP when filing, with NIC for e-invoices and e-way bills | Optional | App functionality | No | `platform/src/portal-filing.mjs`, `platform/src/nic-actions.mjs` |
 | Financial info: Purchase history (subscriptions) | Yes: the Play purchase token and plan | No | Optional | App functionality (entitlement) | No | `cloud/src/billing.mjs` |
-| Financial info: Other financial info (the books: invoices, bills, payroll, bank lines, tax figures) | Yes | With the GSP for filings, NIC for IRN, Plaid for US bank linking, and the connectors the owner switches on | Required (it is the product) | App functionality | No | `cloud/src/books-runner.mjs`; connectors in `cloud/src/govt-connectors.mjs`, `platform/src/channel-connectors.mjs` |
+| Financial info: Other financial info (the books: invoices, bills, payroll, bank lines, tax figures) | Yes | With the GSP for filings, NIC for IRN, Plaid for US and UK bank linking, and the connectors the owner switches on | Required (it is the product) | App functionality | No | `cloud/src/books-runner.mjs`; connectors in `cloud/src/govt-connectors.mjs`, `platform/src/channel-connectors.mjs` |
 | Photos and videos: Photos | Only a bill photo the owner picks or shares into the app | With the model provider, if the hosted service has a model switched on, to read the bill | Optional | App functionality | No (kept as the uploaded document) | `mobile/lib/screens/bill_capture_screen.dart`, `platform/src/document-reader.mjs` |
 | Files and docs | Bills, bank statements and backups the owner chooses | Bill text with the model provider, as above | Optional | App functionality | No | `platform/src/document-store.mjs` |
 | Messages: Other in-app messages (chat with the assistant) | Yes | Text that matches no built-in action goes to the model provider | Optional | App functionality | Partly: a chat that matches no tool is not stored as books; recent turns are kept for context (`platform/src/chat-memory.mjs`) | `cloud/src/api.mjs` ask route |
@@ -55,17 +55,19 @@ Every recipient is reached only when the feature is used and configured on the s
 | Model provider | Unmatched chat text; bill text or image | Only when the hosted service has a model key |
 | WhatsApp gateway (WAHA) | Message text and the recipient's number | Only when the owner sends a reminder or links WhatsApp |
 | Email relay (Cloudflare) | Message text and addresses | Sending an email from the app |
-| Plaid | Bank link | US edition, bank linking |
+| Plaid | Bank link | US and UK editions, bank linking |
 | Marketplace and payroll connectors (Amazon, Shopify, Razorpay, Zoho, Gusto) | What the connector syncs | Only after the owner connects one |
 
 ## Cross-check, 2026-11-10
 
 - Crash reports: the app now defaults to off and the notice has an unticked box, which matches "optional" above (#147).
 - Deletion: the app, the web page, `docs/operations/RETENTION.md` and the policy now all say "erased 30 days after the request".
-- The privacy policy (`docs/release/PRIVACY-POLICY.md`) names only the model and SMS providers under "Who else sees it". It must list the recipients in the table above before submission; that is issue #148, which also needs the Grievance Officer and legal address from the owner.
+- 2026-11-14: the privacy policy (`docs/release/PRIVACY-POLICY.md` and `deploy/public/privacy.html`) now lists every recipient in the table above and no longer says MyCA does not file returns. Issue #148 still needs the registered address, support email and Grievance Officer from the owner.
 - The policy says the hosted service runs in Google Cloud, Mumbai. Keep that line in step with where the API is actually deployed.
+
+- 2026-11-14 (compliance pass): the in-app India notice now lists every recipient, the two features that can process data outside India, one-year logs, the rights request screen and the Board; consent records an 18-or-over declaration. Nothing new is collected, so the Data safety answers do not change. The rights requests a person writes are "Messages: Other in-app messages", already declared.
 
 ## Still to do by a person
 
 - Paste these answers into the Play Console and screenshot the summary.
-- Update the privacy policy (#148) so it lists the same recipients.
+- Fill the bracketed fields in the privacy policy (#148): registered address, support email, Grievance Officer.

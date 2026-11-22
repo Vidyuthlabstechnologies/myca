@@ -6,6 +6,9 @@ import '../cloud/cloud_session.dart';
 import '../format.dart';
 import '../marks.dart';
 import '../theme.dart';
+import '../uae/uae_cloud_strings.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'recovery_codes_screen.dart';
 import 'two_step_setup_screen.dart';
@@ -63,6 +66,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
   }
 
   Future<bool> _sure(String title, String body, String action) async {
+    final s = UaeStrings.of(context);
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
@@ -70,7 +74,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
         title: Text(title),
         content: Text(body),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: const Text('Keep')),
+          TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: Text(s.keep)),
           FilledButton(onPressed: () => Navigator.of(dialog).pop(true), child: Text(action)),
         ],
       ),
@@ -90,16 +94,17 @@ class _SecurityScreenState extends State<SecurityScreen> {
     if (mounted) {
       setState(() {
         _note = '';
-        _error = 'Unlock to continue.';
+        _error = UaeStrings.of(context).unlockToContinue;
       });
     }
     return false;
   }
 
   Future<bool> _allowSignOut() async {
-    if (!await _sure('Sign out that device?', 'It stops working at once. Anyone holding it has to sign in again.', 'Sign out')) return false;
+    final s = UaeStrings.of(context);
+    if (!await _sure(s.signOutDevice, s.signOutDeviceBody, s.signOut)) return false;
     if (!mounted) return false;
-    return _stepUp('Sign out that device');
+    return _stepUp(s.signOutDeviceReason);
   }
 
   Future<void> _turnOn() async {
@@ -110,18 +115,20 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
   Future<void> _turnOff() async {
     final cloud = AppScope.of(context).cloud!;
-    final code = await _askCode('Turn off two-step sign-in?', 'Turn off');
+    final s = UaeStrings.of(context);
+    final code = await _askCode(s.turnOffTwoStep, s.turnOff);
     if (code == null) return;
     await _do(() async {
       await cloud.disableSecondStep(code);
-      return 'Two-step sign-in is off.';
+      return s.twoStepIsOff;
     });
   }
 
   Future<void> _newCodes() async {
     final cloud = AppScope.of(context).cloud!;
     final navigator = Navigator.of(context);
-    final code = await _askCode('Make new recovery codes?', 'Make new');
+    final s = UaeStrings.of(context);
+    final code = await _askCode(s.makeNewCodes, s.makeNew);
     if (code == null) return;
     await _do(() async {
       final codes = await cloud.newRecoveryCodes(code);
@@ -132,46 +139,54 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
   Future<void> _signOutDevice(SignedInDevice device) async {
     final cloud = AppScope.of(context).cloud!;
+    final s = UaeStrings.of(context);
     if (!await _allowSignOut()) return;
     await _do(() async {
       await cloud.signOutDevice(device.id);
-      return 'Signed out.';
+      return s.signedOut;
     });
   }
 
   Future<void> _signOutOthers() async {
     final cloud = AppScope.of(context).cloud!;
+    final s = UaeStrings.of(context);
     if (!await _allowSignOut()) return;
     await _do(() async {
       final revoked = await cloud.signOutOtherDevices();
-      return 'Signed out $revoked ${revoked == 1 ? 'device' : 'devices'}.';
+      return s.signedOutDevices(revoked);
     });
   }
 
-  String _day(String stamp) => stamp.length == 10 ? longDate(stamp) : sharedOn(stamp);
+  String _day(String stamp) {
+    if (!uaeEdition(context)) return stamp.length == 10 ? longDate(stamp) : sharedOn(stamp);
+    final s = UaeStrings.of(context);
+    return stamp.length == 10 ? s.longDate(stamp) : s.gulfTime(stamp);
+  }
 
   String _when(SignedInDevice device) {
+    final s = UaeStrings.of(context);
     final signedIn = _day(device.signedInOn);
     final active = _day(device.lastActive);
     return [
-      if (signedIn.isNotEmpty) 'Signed in $signedIn',
-      if (active.isNotEmpty) 'last active $active',
+      if (signedIn.isNotEmpty) s.signedInWhen(signedIn),
+      if (active.isNotEmpty) s.lastActiveWhen(active),
     ].join(' · ');
   }
 
   Widget _loading(AsyncSnapshot<Object?> loaded) => loaded.hasError
-      ? Text('${loaded.error}', style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))
+      ? Text(UaeStrings.of(context).cloudSaid('${loaded.error}'), style: TextStyle(color: paletteOf(context).danger, fontWeight: FontWeight.w500))
       : const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()));
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Security')),
+      appBar: AppBar(title: Text(s.security)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          const SectionLabel('Two-step sign-in'),
+          SectionLabel(s.twoStep),
           FutureBuilder<SecondStepStatus>(
             future: _status,
             builder: (context, loaded) {
@@ -182,21 +197,19 @@ class _SecurityScreenState extends State<SecurityScreen> {
                 children: [
                   RowCard(
                     leading: const TintTile(tint: Tint.ask, mark: Mark.confirm),
-                    title: 'Two-step sign-in',
-                    subtitle: status.enabled
-                        ? 'On · $left recovery ${left == 1 ? 'code' : 'codes'} left'
-                        : 'Off · ask for an authenticator code at every sign-in',
+                    title: s.twoStep,
+                    subtitle: status.enabled ? s.twoStepOn(left) : s.twoStepOff,
                     trailing: TextButton(
                       onPressed: _busy ? null : (status.enabled ? _turnOff : _turnOn),
-                      child: Text(status.enabled ? 'Turn off' : 'Turn on'),
+                      child: Text(status.enabled ? s.turnOff : s.turnOn),
                     ),
                   ),
                   if (status.enabled)
                     RowCard(
                       leading: const TintTile(tint: Tint.ask, mark: Mark.paper),
-                      title: 'New recovery codes',
-                      subtitle: 'Replaces the ones you have',
-                      trailing: TextButton(onPressed: _busy ? null : _newCodes, child: const Text('Make new')),
+                      title: s.newRecoveryCodes,
+                      subtitle: s.replacesCodes,
+                      trailing: TextButton(onPressed: _busy ? null : _newCodes, child: Text(s.makeNew)),
                     ),
                 ],
               );
@@ -204,14 +217,14 @@ class _SecurityScreenState extends State<SecurityScreen> {
           ),
           if (_error.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+            Text(s.cloudSaid(_error), style: TextStyle(color: paletteOf(context).danger, fontWeight: FontWeight.w500)),
           ],
           if (_note.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Text(_note, style: text.bodyMedium),
+            Text(s.cloudSaid(_note), style: text.bodyMedium),
           ],
           const SizedBox(height: 26),
-          const SectionLabel('Where you are signed in'),
+          SectionLabel(s.whereSignedIn),
           FutureBuilder<List<SignedInDevice>>(
             future: _devices,
             builder: (context, loaded) {
@@ -226,17 +239,17 @@ class _SecurityScreenState extends State<SecurityScreen> {
                         RowCard(
                           key: ValueKey('device.${device.id}'),
                           leading: const TintTile(tint: Tint.ask, mark: Mark.people),
-                          title: device.label,
+                          title: s.deviceLabel(device.label),
                           subtitle: _when(device),
                           trailing: device.current
-                              ? const StatusTag(text: 'This phone', color: Palette.accent)
-                              : TextButton(onPressed: _busy ? null : () => _signOutDevice(device), child: const Text('Sign out')),
+                              ? StatusTag(text: s.thisPhone, color: paletteOf(context).accent)
+                              : TextButton(onPressed: _busy ? null : () => _signOutDevice(device), child: Text(s.signOut)),
                         ),
                     ],
                   ),
                   if (devices.length > 1) ...[
                     const SizedBox(height: 12),
-                    OutlinedButton(onPressed: _busy ? null : _signOutOthers, child: const Text('Sign out other devices')),
+                    OutlinedButton(onPressed: _busy ? null : _signOutOthers, child: Text(s.signOutOthers)),
                   ],
                 ],
               );
@@ -248,7 +261,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
   }
 }
 
-TextStyle? _dialogText(BuildContext context) => Theme.of(context).textTheme.bodyMedium?.copyWith(color: Palette.ink);
+TextStyle? _dialogText(BuildContext context) => Theme.of(context).textTheme.bodyMedium?.copyWith(color: paletteOf(context).ink);
 
 class _CodeDialog extends StatefulWidget {
   const _CodeDialog({required this.title, required this.action});
@@ -276,6 +289,7 @@ class _CodeDialogState extends State<_CodeDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final s = UaeStrings.of(context);
     return AlertDialog(
       scrollable: true,
       contentTextStyle: _dialogText(context),
@@ -287,17 +301,17 @@ class _CodeDialogState extends State<_CodeDialog> {
         enableSuggestions: false,
         maxLength: 11,
         decoration: InputDecoration(
-          labelText: 'Code',
-          helperText: 'Code from your authenticator app or a recovery code',
+          labelText: s.code,
+          helperText: s.codeHelper,
           helperMaxLines: 3,
-          helperStyle: Theme.of(context).textTheme.bodySmall?.copyWith(color: Palette.ink),
+          helperStyle: Theme.of(context).textTheme.bodySmall?.copyWith(color: paletteOf(context).ink),
           counterText: '',
         ),
         onChanged: (_) => setState(() {}),
         onSubmitted: (_) => _done(),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(s.cancel)),
         FilledButton(onPressed: _code.text.trim().isEmpty ? null : _done, child: Text(widget.action)),
       ],
     );

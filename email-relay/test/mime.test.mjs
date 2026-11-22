@@ -85,3 +85,40 @@ test('the inbound payload carries at most ten attachments as base64, drops overs
   const sent = JSON.parse(calls[0].init.body);
   assert.equal(sent.attachments[0].name, 'GM-221.pdf');
 });
+
+test('a mail with broken base64 in a file or in an encoded header is read as far as it goes, and the worker still passes it on', async () => {
+  const hostile = [
+    'From: =?UTF-8?B?a?= <kiran@example.com>',
+    'To: x7k2p9q4m1@inbox.myca.in',
+    'Subject: =?UTF-8?B?YW=Jj?= =?no-such-charset?B?YWJj?=',
+    'MIME-Version: 1.0',
+    'Content-Type: multipart/mixed; boundary="b1"',
+    '',
+    '--b1',
+    'Content-Type: application/pdf; name="broken.pdf"',
+    'Content-Disposition: attachment; filename="broken.pdf"',
+    'Content-Transfer-Encoding: base64',
+    '',
+    'abc=d====',
+    '--b1',
+    'Content-Type: application/pdf; name="good.pdf"',
+    'Content-Disposition: attachment; filename="good.pdf"',
+    'Content-Transfer-Encoding: base64',
+    '',
+    PDF,
+    '--b1--',
+    '',
+  ].join('\r\n');
+  const mail = parseMail(hostile);
+  assert.equal(mail.attachments.length, 2);
+  assert.equal(Buffer.from(mail.attachments[1].bytes).toString(), '%PDF-1.4 fake bill');
+  assert.equal(addressOf(mail.from), 'kiran@example.com');
+  assert.equal(decodeWord('=?UTF-8?B?a?='), '');
+
+  const calls = [];
+  let rejected = '';
+  const env = { MYCA_API_URL: 'https://api.example.test', INBOUND_RELAY_TOKEN: 'r'.repeat(40), FETCH: async (url, init) => { calls.push({ url, init }); return new Response('{"ok":true}', { status: 200 }); } };
+  await worker.email({ raw: new Blob([hostile]).stream(), rawSize: hostile.length, from: 'kiran@example.com', to: 'x7k2p9q4m1@inbox.myca.in', setReject: (reason) => { rejected = reason; } }, env, {});
+  assert.equal(rejected, '');
+  assert.equal(JSON.parse(calls[0].init.body).attachments.at(-1).name, 'good.pdf');
+});

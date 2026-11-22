@@ -30,6 +30,7 @@ export function createState() {
     invoiceSeq: 0,
     invoiceSeqByFy: {},
     billSeq: 0,
+    selfInvoiceSeq: 0,
     transferSeq: 100000,
     imports: [],
     files: {},
@@ -85,9 +86,13 @@ export function createState() {
     channels: {},
     tcsStatements: [],
     tdsCreditStatements: [],
+    catalogue: {},
     skus: {},
     stockMoves: [],
     inventoryValuations: [],
+    offlineSeries: [],
+    loyalty: { settings: null, entries: [], seq: 0 },
+    inventoryCosting: null,
     portalSaves: {},
     gstr3bPortal: {},
     tdsFvuJobs: [],
@@ -145,6 +150,7 @@ export function serialize(state) {
     invoiceSeq: state.invoiceSeq,
     invoiceSeqByFy: state.invoiceSeqByFy || {},
     billSeq: state.billSeq || 0,
+    selfInvoiceSeq: state.selfInvoiceSeq || 0,
     transferSeq: state.transferSeq,
     imports: state.imports,
     attachments: state.attachments || {},
@@ -199,9 +205,13 @@ export function serialize(state) {
     channels: state.channels || {},
     tcsStatements: state.tcsStatements || [],
     tdsCreditStatements: state.tdsCreditStatements || [],
+    catalogue: state.catalogue || {},
     skus: state.skus || {},
     stockMoves: state.stockMoves || [],
     inventoryValuations: state.inventoryValuations || [],
+    offlineSeries: state.offlineSeries || [],
+    loyalty: state.loyalty || { settings: null, entries: [], seq: 0 },
+    inventoryCosting: state.inventoryCosting || null,
     portalSaves: state.portalSaves || {},
     gstr3bPortal: state.gstr3bPortal || {},
     tdsFvuJobs: state.tdsFvuJobs || [],
@@ -339,6 +349,7 @@ export function deserialize(raw) {
   state.invoiceSeq = raw.invoiceSeq || 0;
   state.invoiceSeqByFy = raw.invoiceSeqByFy && typeof raw.invoiceSeqByFy === 'object' ? raw.invoiceSeqByFy : {};
   state.billSeq = raw.billSeq || 0;
+  state.selfInvoiceSeq = raw.selfInvoiceSeq || 0;
   state.transferSeq = raw.transferSeq || 100000;
   state.imports = raw.imports || [];
   state.files = {};
@@ -394,9 +405,13 @@ export function deserialize(raw) {
   state.channels = raw.channels && typeof raw.channels === 'object' ? raw.channels : {};
   state.tcsStatements = Array.isArray(raw.tcsStatements) ? raw.tcsStatements : [];
   state.tdsCreditStatements = Array.isArray(raw.tdsCreditStatements) ? raw.tdsCreditStatements : [];
+  state.catalogue = raw.catalogue && typeof raw.catalogue === 'object' && !Array.isArray(raw.catalogue) ? raw.catalogue : {};
   state.skus = raw.skus && typeof raw.skus === 'object' ? raw.skus : {};
   state.stockMoves = Array.isArray(raw.stockMoves) ? raw.stockMoves : [];
   state.inventoryValuations = Array.isArray(raw.inventoryValuations) ? raw.inventoryValuations : [];
+  state.offlineSeries = Array.isArray(raw.offlineSeries) ? raw.offlineSeries : [];
+  state.loyalty = raw.loyalty && typeof raw.loyalty === 'object' && Array.isArray(raw.loyalty.entries) ? { settings: raw.loyalty.settings && typeof raw.loyalty.settings === 'object' ? raw.loyalty.settings : null, entries: raw.loyalty.entries, seq: Number(raw.loyalty.seq || 0) } : { settings: null, entries: [], seq: 0 };
+  state.inventoryCosting = raw.inventoryCosting && typeof raw.inventoryCosting === 'object' ? raw.inventoryCosting : null;
   state.portalSaves = raw.portalSaves && typeof raw.portalSaves === 'object' ? raw.portalSaves : {};
   state.gstr3bPortal = raw.gstr3bPortal && typeof raw.gstr3bPortal === 'object' ? raw.gstr3bPortal : {};
   state.tdsFvuJobs = Array.isArray(raw.tdsFvuJobs) ? raw.tdsFvuJobs : [];

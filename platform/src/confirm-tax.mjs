@@ -1,6 +1,7 @@
+import { irnTurnoverProblems, irnWarnings } from './nic-config.mjs';
 import { planAdvanceTaxPayment } from './advance-tax.mjs';
 import { checkAnswer, stepText } from './gst-review.mjs';
-import { keyTooLongErrors, parse2bFile } from './gstr2b-check.mjs';
+import { keyTooLongErrors, parse2bFile, twobFor } from './gstr2b-check.mjs';
 import { planImsDecision, pinImsRows, IMS_DECISION_WORDS, IMS_SELECTS } from './ims.mjs';
 import { isReturnPeriod } from './return-period.mjs';
 import { planBillTds } from './invoice.mjs';
@@ -17,6 +18,7 @@ import { filingRows } from './deadline-run.mjs';
 import { money, REVIEW_REASONS } from './confirm-words.mjs';
 
 export function gstPaymentPreview(state, args) {
+  if (countryOf(state) !== 'IN') return { blockers: ['That is for a different country edition, so nothing was posted.'], summary: '', effects: [], figures: {} };
   const plan = planGstPayment(state, args);
   if (!plan.ok) {
     const reason = { INVALID_PERIOD: 'Say the month as YYYY-MM, for example 2026-09.', INVALID_DATE: 'That is not a date I can read.', FUTURE_DATE: 'That date has not come yet.', PERIOD_LOCKED: `That date is in a locked period (through ${plan.lockThrough}).`, ALREADY_RECORDED: `The GST payment for ${plan.period} is already recorded (paid ${plan.paidOn}).`, BAD_CPIN: 'A CPIN is the fourteen-digit challan number from the GST portal.', NOTHING_DUE: `Nothing is due for ${plan.period}: no tax to pay and no credit to set off.` }[plan.error] || plan.error;
@@ -41,6 +43,7 @@ const FILING_REASONS = {
   DEPOSIT_NOT_A_FILING: () => 'A TDS deposit is recorded with its challan, not an ARN. Say "deposited TDS, challan" followed by the reference.',
   ALREADY_RECORDED: (p) => `${p.returnType} for ${p.period} is already recorded as filed on ${p.filedOn} (ARN ${p.arn}).`,
   ARN_USED: (p) => `ARN ${p.arn} is already recorded against another return.`,
+  TDS_FORM_REQUIRED: () => 'Say which TDS statement was filed: 24Q for salary, or 26Q for other payments.',
 };
 
 const ADVANCE_REASONS = { BAD_AMOUNT: 'The amount has to be more than zero.', INVALID_DATE: 'That is not a date I can read.', FUTURE_DATE: 'A payment cannot be dated in the future.', PERIOD_LOCKED: 'That date is inside the locked period.' };
@@ -96,7 +99,7 @@ export function creditOpeningPreview(state, args) {
   const o = plan.opening;
   return {
     blockers: [],
-    summary: `GST credit balance at the start of ${o.period}: IGST ${money(o.igst)}, CGST ${money(o.cgst)}, SGST ${money(o.sgst)}, ${money(o.total)} in all${plan.was ? ` (replaces the balance set for ${plan.was.period})` : ''}.`,
+    summary: `GST credit balance at the start of ${o.period}: IGST ${money(o.igst)}, CGST ${money(o.cgst)}, SGST ${money(o.sgst)}, ${money(o.total)} in all${o.cess != null ? `, and cess ${money(o.cess)}` : ''}${plan.was ? ` (replaces the balance set for ${plan.was.period})` : ''}.`,
     effects: ["From that month on, the amount to pay counts this credit brought forward, set off before the month's own credit."],
     figures: { period: o.period, igst: o.igst, cgst: o.cgst, sgst: o.sgst },
   };
@@ -179,7 +182,7 @@ export function gstr2bPreview(state, args) {
   const { rows, errors } = parse2bFile(args.csv);
   if (!rows.length) return { blockers: ['No GSTR-2B rows could be read from this file. Use the CSV downloaded from the GST portal.'], summary: '', effects: [], figures: {} };
   const suppliers = new Set(rows.map((row) => row.supplierGstin)).size;
-  const replaces = state.gstr2b && Object.hasOwn(state.gstr2b, args.period);
+  const replaces = Boolean(twobFor(state, args.period, args.gstin));
   return {
     blockers: [],
     summary: `GSTR-2B for ${args.period}: ${rows.length} ${rows.length === 1 ? 'entry' : 'entries'} from ${suppliers} ${suppliers === 1 ? 'supplier' : 'suppliers'}${errors.length ? `; ${errors.length} ${errors.length === 1 ? 'row' : 'rows'} could not be read and will be left out` : ''}.${replaces ? ' This replaces the 2B already added for that month.' : ''}`,
@@ -347,10 +350,13 @@ export function billTdsPreview(state, args) {
 export function irnPreview(state, args, cancel) {
   const inv = (state.invoices || []).find((i) => i.id === args.invoiceId);
   const what = cancel ? 'Cancel the IRN for' : 'Send';
+  const turnover = inv && !cancel ? irnTurnoverProblems(state, inv).map((problem) => problem.words) : [];
+  const warnings = inv && !cancel ? irnWarnings(state, inv) : [];
   return {
-    blockers: inv ? [] : [`${args.invoiceId} is not in these books.`],
+    blockers: inv ? turnover : [`${args.invoiceId} is not in these books.`],
     summary: `${what} ${args.invoiceId}${inv ? ` (${inv.partyName}, ${money(inv.total)})` : ''} to the e-invoice portal.`,
     effects: [
+      ...warnings,
       'Nothing leaves this machine unless live calls are switched on.',
       'A live call still needs a CA approval bound to this exact payload, made by someone other than the requester.',
     ],

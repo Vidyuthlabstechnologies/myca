@@ -35,6 +35,27 @@ const usStates = <(String, String)>[
   ('WY', 'Wyoming'),
 ];
 
+const knownFieldTypes = {'money', 'text', 'ein', 'code', 'yesno', 'state', 'date', 'term', 'days'};
+
+const fieldChoices = <String, List<(String, String)>>{
+  'propertyType': [
+    ('1', 'Single family residence'),
+    ('2', 'Multi-family residence'),
+    ('3', 'Vacation or short-term rental'),
+    ('4', 'Commercial'),
+    ('5', 'Land'),
+    ('6', 'Royalties'),
+    ('7', 'Self-rental'),
+    ('8', 'Other'),
+  ],
+  'recoveryClass': [
+    ('residential', 'Residential rental (27.5 years)'),
+    ('nonresidential', 'Nonresidential (39 years)'),
+  ],
+};
+
+const ownRecordKinds = {'Rental property', '2441-PROVIDER'};
+
 class UsFieldSpec {
   const UsFieldSpec(this.key, this.label, {this.box = '', this.type = 'money', this.required = false});
 
@@ -54,6 +75,11 @@ class UsFieldSpec {
   final String box;
   final String type;
   final bool required;
+
+  bool get known => knownFieldTypes.contains(type);
+  String get boxLabel => box.isEmpty ? label : 'Box $box';
+
+  List<(String, String)>? get choices => type == 'code' ? fieldChoices[key] : null;
 }
 
 class UsFormKind {
@@ -68,6 +94,8 @@ class UsFormKind {
   final String title;
   final String description;
   final List<UsFieldSpec> fields;
+
+  bool get ownRecords => ownRecordKinds.contains(kind);
 }
 
 const _payer = UsFieldSpec('payer', 'Payer or employer name', type: 'text', required: true);
@@ -144,6 +172,7 @@ const builtInFormKinds = <UsFormKind>[
     UsFieldSpec('payer', 'Lender name', type: 'text', required: true),
     UsFieldSpec('mortgageInterest', 'Mortgage interest received', box: '1', required: true),
     UsFieldSpec('outstandingPrincipal', 'Outstanding mortgage principal', box: '2'),
+    UsFieldSpec('mortgageInsurancePremiums', 'Mortgage insurance premiums (deductible from 2026)', box: '5'),
     UsFieldSpec('pointsPaid', 'Points paid on purchase', box: '6'),
     UsFieldSpec('propertyTax', 'Property tax (if shown)', box: '10'),
   ]),
@@ -168,6 +197,17 @@ UsFormKind? formKindOf(String kind, [List<UsFormKind> kinds = builtInFormKinds])
   }
   return null;
 }
+
+String wordsFromKey(String key) {
+  final spaced = key.replaceAllMapped(RegExp(r'(?<=[a-z0-9])([A-Z])'), (m) => ' ${m[1]!.toLowerCase()}');
+  return spaced.isEmpty ? key : '${spaced[0].toUpperCase()}${spaced.substring(1)}';
+}
+
+UsFormKind fallbackFormKind(String kind, Map<String, Object?> amounts) => UsFormKind(kind, kind, 'Copy each box from your $kind.', [
+      const UsFieldSpec('payer', 'Payer name', type: 'text', required: true),
+      for (final entry in amounts.entries)
+        if (entry.key != 'payer') UsFieldSpec(entry.key, wordsFromKey(entry.key), type: entry.value is num ? 'money' : entry.value is bool ? 'yesno' : entry.value is String ? 'text' : 'kept'),
+    ]);
 
 Future<List<UsFormKind>> loadFormKinds(MycaApi api) async {
   try {
@@ -195,6 +235,8 @@ class UsReturnStatus {
     required this.owed,
     required this.readyToSign,
     this.taxpayerName = '',
+    this.priorYearAgi,
+    this.priorYearJoint = false,
   });
 
   factory UsReturnStatus.fromJson(Object? json, {required int fallbackYear}) {
@@ -207,6 +249,8 @@ class UsReturnStatus {
       owed: _num(data['owed']),
       readyToSign: data['readyToSign'] == true,
       taxpayerName: _text(data['taxpayerName']),
+      priorYearAgi: _map(data['priorYear'])['agi'] is num ? _map(data['priorYear'])['agi'] as num : null,
+      priorYearJoint: _map(data['priorYear'])['joint'] == true,
     );
   }
 
@@ -217,12 +261,14 @@ class UsReturnStatus {
   final num owed;
   final bool readyToSign;
   final String taxpayerName;
+  final num? priorYearAgi;
+  final bool priorYearJoint;
 
   bool done(String id) => steps.any((s) => s.id == id && s.done);
 }
 
 class UsTaxForm {
-  const UsTaxForm({required this.id, required this.kind, required this.payer, required this.amounts, required this.source, this.owner = 'taxpayer'});
+  const UsTaxForm({required this.id, required this.kind, required this.payer, required this.amounts, required this.source, this.owner = 'taxpayer', this.payerTin = ''});
 
   factory UsTaxForm.fromJson(Object? json) {
     final map = _map(json);
@@ -236,6 +282,7 @@ class UsTaxForm {
       amounts: amounts,
       source: _text(map['source']),
       owner: _text(map['owner']).isEmpty ? 'taxpayer' : _text(map['owner']),
+      payerTin: _text(map['payerTin']).isEmpty ? _text(raw['payerTin']) : _text(map['payerTin']),
     );
   }
 
@@ -245,6 +292,9 @@ class UsTaxForm {
   final Map<String, Object?> amounts;
   final String source;
   final String owner;
+  final String payerTin;
+
+  Map<String, Object?> get editable => {...amounts, if (payer.isNotEmpty) 'payer': payer, if (payerTin.isNotEmpty) 'payerTin': payerTin};
 
   num get headline {
     final spec = formKindOf(kind);
@@ -258,8 +308,20 @@ class UsTaxForm {
   num get withheld => _num(amounts['federalWithheld']);
 }
 
+const _optionLabels = <String, Map<String, String>>{
+  'itemize': {'auto': 'Whichever saves more', 'yes': 'Itemize my deductions', 'no': 'Take the standard deduction'},
+  'careStudentOrDisabled': {'none': 'Neither of us', 'taxpayer': 'Me', 'spouse': 'My spouse'},
+};
+
+String optionLabel(String question, String value) {
+  final named = _optionLabels[question]?[value];
+  if (named != null) return named;
+  if (question.endsWith('Months') && int.tryParse(value) != null) return value == '1' ? '1 month' : '$value months';
+  return value;
+}
+
 class UsQuestion {
-  const UsQuestion({required this.id, required this.text, required this.help, required this.kind, required this.options, required this.answer});
+  const UsQuestion({required this.id, required this.text, required this.help, required this.kind, required this.options, required this.answer, this.negative = false});
 
   factory UsQuestion.fromJson(Object? json) {
     final map = _map(json);
@@ -270,11 +332,11 @@ class UsQuestion {
         if (o is Map) {
           options.add((_text(o['value']), _text(o['label']).isEmpty ? _text(o['value']) : _text(o['label'])));
         } else {
-          options.add((_text(o), _text(o)));
+          options.add((_text(o), optionLabel(_text(map['id']), _text(o))));
         }
       }
     }
-    return UsQuestion(id: _text(map['id']), text: _text(map['text']), help: _text(map['help']), kind: _text(map['kind']).isEmpty ? 'yesno' : _text(map['kind']), options: options, answer: map['answer']);
+    return UsQuestion(id: _text(map['id']), text: _text(map['text']), help: _text(map['help']), kind: _text(map['kind']).isEmpty ? 'yesno' : _text(map['kind']), options: options, answer: map['answer'], negative: map['negative'] == true);
   }
 
   final String id;
@@ -283,8 +345,15 @@ class UsQuestion {
   final String kind;
   final List<(String, String)> options;
   final Object? answer;
+  final bool negative;
 
   bool get answered => answer != null && '$answer'.isNotEmpty;
+
+  String get inputKind {
+    if (kind == 'choice') return options.isEmpty ? 'text' : 'choice';
+    if (const {'yesno', 'amount', 'count', 'text'}.contains(kind)) return kind;
+    return options.isNotEmpty ? 'choice' : 'text';
+  }
 }
 
 class UsReviewLine {
@@ -316,7 +385,7 @@ class UsUnsupportedForm {
 }
 
 class UsReview {
-  const UsReview({required this.lines, required this.refund, required this.owed, required this.checks, this.unsupported = const []});
+  const UsReview({required this.lines, required this.refund, required this.owed, required this.checks, this.unsupported = const [], this.filingStatus = '', this.computed = true});
 
   factory UsReview.fromJson(Object? json) {
     final data = _map(json);
@@ -330,6 +399,8 @@ class UsReview {
           for (final u in data['unsupported'] as List)
             if (u is Map && _text(u['form']).isNotEmpty && u['required'] != false) UsUnsupportedForm(_text(u['form']), _text(u['reason'])) else if (u is String && u.isNotEmpty) UsUnsupportedForm(u, ''),
       ],
+      filingStatus: _text(data['filingStatus']),
+      computed: data['computed'] != false,
     );
   }
 
@@ -338,6 +409,8 @@ class UsReview {
   final num owed;
   final List<UsCheck> checks;
   final List<UsUnsupportedForm> unsupported;
+  final String filingStatus;
+  final bool computed;
 
   bool get blocked => checks.any((c) => c.blocking);
   bool get canFile => unsupported.isEmpty;
@@ -360,7 +433,7 @@ class UsRejection {
 }
 
 class UsEfileStatus {
-  const UsEfileStatus({required this.status, required this.mode, required this.submissionId, required this.acceptedAt, required this.rejections});
+  const UsEfileStatus({required this.status, required this.mode, required this.submissionId, required this.acceptedAt, required this.rejections, this.route = 'mef'});
 
   factory UsEfileStatus.fromJson(Object? json) {
     final data = _map(json);
@@ -370,6 +443,7 @@ class UsEfileStatus {
       submissionId: _text(data['submissionId']),
       acceptedAt: _text(data['acceptedAt']),
       rejections: [for (final r in _maps(data['rejections'])) UsRejection(code: _text(r['code']), message: _text(r['message']), fix: _text(r['fix']), step: _text(r['step']))],
+      route: _text(data['route']).isEmpty ? 'mef' : _text(data['route']),
     );
   }
 
@@ -381,8 +455,14 @@ class UsEfileStatus {
   final String acceptedAt;
   final List<UsRejection> rejections;
 
+  /// 'partner' when the return is filed through the embedded e-file partner (2027 season),
+  /// 'mef' when MyCA transmits to the IRS itself.
+  final String route;
+
   bool get filed => status == 'submitted' || status == 'accepted';
   bool get sandbox => mode != 'live';
+  bool get partner => route == 'partner';
+  bool get inProgress => status == 'in_progress';
 }
 
 int currentTaxYear(DateTime now) => now.month >= 11 ? now.year : now.year - 1;
@@ -418,7 +498,7 @@ const noIncomeTaxStates = {'AK', 'FL', 'NV', 'NH', 'SD', 'TN', 'TX', 'WA', 'WY'}
 
 bool stateHasIncomeTax(String code) => code.isNotEmpty && !noIncomeTaxStates.contains(code.toUpperCase());
 
-const stateReturnNote = "File your state return on your state's website. We'll give you the numbers it needs.";
+const stateReturnNote = 'Your state return is prepared from this federal return. Find it under State returns.';
 
 String unsupportedFormsLine(List<UsUnsupportedForm> forms) {
   final names = [for (final f in forms) f.form];

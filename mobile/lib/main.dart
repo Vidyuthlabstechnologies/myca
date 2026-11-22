@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:ui';
 
-import 'package:myca_design/myca_design.dart' show MycaDesign;
+import 'package:myca_design/myca_design.dart' show MycaDesign, MycaPalette;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
@@ -13,7 +14,10 @@ import 'api/http_myca_api.dart';
 import 'app_config.dart';
 import 'app_services.dart';
 import 'app_state.dart';
+import 'format.dart' show formatLanguage;
+import 'india/india_strings.dart';
 import 'brand.dart';
+import 'cloud/apple_auth.dart';
 import 'cloud/cloud_session.dart';
 import 'cloud/google_auth.dart';
 import 'cloud/keystore_token_store.dart';
@@ -22,6 +26,9 @@ import 'cloud/plaid_link.dart';
 import 'crash_reports.dart';
 import 'lock/app_lock.dart';
 import 'notifications.dart';
+import 'offline/offline_billing.dart';
+import 'offline/offline_files.dart';
+import 'package:path_provider/path_provider.dart';
 import 'lock/device_app_lock.dart';
 import 'screens/bill_capture_screen.dart';
 import 'screens/business_setup_screen.dart';
@@ -34,10 +41,19 @@ import 'screens/migration_flow.dart';
 import 'screens/sign_in_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/us/us_return_home_screen.dart';
+import 'growth.dart';
+import 'screens/my/my_home_screen.dart';
+import 'screens/my/my_profile_screens.dart';
+import 'screens/my/my_welcome_screen.dart';
+import 'my/my_strings.dart';
 import 'shared_file.dart';
 import 'theme.dart';
+import 'us/us_text_scaler.dart';
 import 'tour/tour.dart';
 import 'tour/tour_coach.dart';
+import 'uae/uae_cloud_strings.dart';
+import 'uae/uae_format.dart';
+import 'uae/uae_strings.dart';
 
 void main() {
   LicenseRegistry.addLicense(() async* {
@@ -81,8 +97,12 @@ void main() {
         shareText: shareTextFromDevice,
         pdf: const PdfActions(share: sharePdfFromDevice, print: printPdfFromDevice),
         crashes: crashes,
+        funnel: config.hosted ? FunnelTracker(store: DeviceFunnelStore(), edition: editionFor(appFlavor)) : null,
         google: config.hosted && config.googleServerClientId.isNotEmpty && defaultTargetPlatform != TargetPlatform.windows
             ? DeviceGoogleAuth(config.googleServerClientId)
+            : null,
+        apple: config.hosted && appleSignInOffered(platform: defaultTargetPlatform, edition: editionFor(appFlavor))
+            ? DeviceAppleAuth()
             : null,
         oidc: config.hosted && config.oidcClientId.isNotEmpty
             ? OidcAuth(
@@ -95,10 +115,30 @@ void main() {
         openLink: (url) => launchUrl(url, mode: LaunchMode.externalApplication),
         edition: editionFor(appFlavor),
         installationId: deviceInstallationId,
+        languages: const DeviceLanguageStore(),
+        offline: OfflineBilling(DirectoryOfflineFiles(getApplicationSupportDirectory)),
       ),
     ),
   );
 }
+
+class DeviceLanguageStore implements LanguageStore {
+  const DeviceLanguageStore();
+
+  static const _key = 'app.language';
+
+  @override
+  Future<String> load() async => (await SharedPreferences.getInstance()).getString(_key) ?? '';
+
+  @override
+  Future<void> save(String code) async => (await SharedPreferences.getInstance()).setString(_key, code);
+}
+
+final _myDesign = MycaDesign.forFlavor('my');
+
+const _myDelegates = [MyStrings.delegate, ...MycaDesign.localizationsDelegates];
+
+Locale? _myLocale(String language) => MyStrings.supportedLanguages.contains(language) ? Locale(language, 'MY') : null;
 
 class MycaApp extends StatefulWidget {
   const MycaApp({super.key, required this.state});
@@ -111,7 +151,7 @@ class MycaApp extends StatefulWidget {
 
 class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
   final _navigator = GlobalKey<NavigatorState>();
-  late final _tour = TourController(navigator: _navigator, onFinished: _tourFinished);
+  late final _tour = TourController(navigator: _navigator, onFinished: _tourFinished, shareText: widget.state.shareText);
   final _messenger = GlobalKey<ScaffoldMessengerState>();
   bool _openingShared = false;
 
@@ -168,38 +208,50 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
     return TourScope(
       tour: _tour,
       child: ListenableBuilder(
-        listenable: _tour,
+        listenable: Listenable.merge([_tour, widget.state.languageChoice]),
         builder: (context, _) => AppScope(
           state: _tour.sample ?? widget.state,
           child: MaterialApp(
             navigatorKey: _navigator,
             navigatorObservers: [_tour.observer],
             scaffoldMessengerKey: _messenger,
-            title: 'MyCA',
+            title: widget.state.edition == 'MY' ? 'MyCA Malaysia' : 'MyCA',
             debugShowCheckedModeBanner: false,
-            theme: widget.state.edition == 'US' ? MycaDesign.forFlavor('us').light : mycaTheme(),
-            builder: (context, child) => ListenableBuilder(
+            theme: widget.state.edition == 'MY' ? _myDesign.light : widget.state.edition == 'AE' ? uaeDesign.light : widget.state.edition == 'US' ? usAppTheme() : widget.state.edition == 'GB' ? MycaDesign.forFlavor('uk').light : mycaTheme(),
+            darkTheme: widget.state.edition == 'MY' ? _myDesign.dark : widget.state.edition == 'AE' ? uaeDesign.dark : widget.state.edition == 'US' ? usAppTheme(brightness: Brightness.dark) : widget.state.edition == 'GB' ? MycaDesign.forFlavor('uk').dark : mycaTheme(Brightness.dark),
+            themeMode: ThemeMode.system,
+            localizationsDelegates: widget.state.edition == 'MY' ? _myDelegates : widget.state.edition == 'AE' ? MycaDesign.localizationsDelegates : widget.state.edition == 'IN' ? indiaLocalizationsDelegates : null,
+            supportedLocales: widget.state.edition == 'MY' ? const [Locale('en', 'MY'), Locale('ms', 'MY')] : widget.state.edition == 'AE' ? uaeDesign.supportedLocales : widget.state.edition == 'IN' ? indiaLocales : const [Locale('en', 'US')],
+            locale: widget.state.edition == 'MY' ? _myLocale(widget.state.language) : widget.state.edition == 'IN' ? indiaChosenLocale(widget.state.language) : null,
+            localeResolutionCallback: widget.state.edition == 'MY' ? (device, supported) => device?.languageCode == 'ms' ? const Locale('ms', 'MY') : const Locale('en', 'MY') : widget.state.edition == 'AE' ? uaeResolveLocale : widget.state.edition == 'IN' ? indiaResolveLocale : null,
+            builder: (context, child) => PaletteSync(
+              brightness: Theme.of(context).brightness,
+              child: ListenableBuilder(
               listenable: widget.state,
-              builder: (context, _) => Stack(
+              builder: (context, _) {
+                formatLanguage = indiaLang(context);
+                return Stack(
                 children: [
                   if (widget.state.testServer)
                     Column(
                       children: [
-                        const TestServerBanner(),
+                        TestServerBanner(sandbox: widget.state.sandboxServer),
                         Expanded(
                           child: MediaQuery.removePadding(
                             context: context,
                             removeTop: true,
-                            child: _Readable(child: child ?? const SizedBox.shrink()),
+                            child: _Readable(us: widget.state.edition == 'US', child: child ?? const SizedBox.shrink()),
                           ),
                         ),
                       ],
                     )
                   else if (child != null)
-                    _Readable(child: child),
-                  if (_tour.active && !widget.state.locked) TourCoach(tour: _tour),
+                    _Readable(us: widget.state.edition == 'US', child: child),
+                  if (_tour.coaching && !widget.state.locked) TourCoach(tour: _tour),
                   if (widget.state.locked) AppScope(state: widget.state, child: const LockScreen()),
                 ],
+                );
+              },
               ),
             ),
             home: const AppGate(),
@@ -210,19 +262,68 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
   }
 }
 
+class PaletteSync extends StatefulWidget {
+  const PaletteSync({super.key, required this.brightness, required this.child});
+
+  final Brightness brightness;
+  final Widget child;
+
+  @override
+  State<PaletteSync> createState() => _PaletteSyncState();
+}
+
+class _PaletteSyncState extends State<PaletteSync> {
+  static void _rebuild(Element element) {
+    element.markNeedsBuild();
+    element.visitChildElements(_rebuild);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (Palette.brightness != widget.brightness) {
+      Palette.brightness = widget.brightness;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.visitChildElements(_rebuild);
+      });
+    }
+    return widget.child;
+  }
+}
+
+
+const usDarkHint = Color(0xFF888C91);
+
+ThemeData usAppTheme({Brightness brightness = Brightness.light}) {
+  final design = MycaDesign.forFlavor('us');
+  final base = brightness == Brightness.dark ? design.dark : design.light;
+  const roomy = WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 10));
+  return base.copyWith(
+    inputDecorationTheme: base.inputDecorationTheme.copyWith(
+      helperMaxLines: 4,
+      errorMaxLines: 4,
+      hintStyle: brightness == Brightness.dark ? base.inputDecorationTheme.hintStyle?.copyWith(color: usDarkHint) : null,
+    ),
+    filledButtonTheme: FilledButtonThemeData(style: (base.filledButtonTheme.style ?? const ButtonStyle()).copyWith(padding: roomy)),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: (base.outlinedButtonTheme.style ?? const ButtonStyle()).copyWith(padding: roomy)),
+  );
+}
+
 class _Readable extends StatelessWidget {
-  const _Readable({required this.child});
+  const _Readable({required this.child, this.us = false});
 
   static const widest = 720.0;
 
   final Widget child;
+  final bool us;
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
+    final outer = MediaQuery.of(context);
+    final media = us ? outer.copyWith(textScaler: UsTextScaler.wrap(outer.textScaler)) : outer;
+    final child = us ? MediaQuery(data: media, child: this.child) : this.child;
     if (media.size.width <= widest + 120) return child;
     return ColoredBox(
-      color: Palette.sunken,
+      color: Theme.of(context).extension<MycaPalette>()?.sunken ?? Palette.sunken,
       child: Center(
         child: SizedBox(
           width: widest,
@@ -237,7 +338,9 @@ class _Readable extends StatelessWidget {
 }
 
 class TestServerBanner extends StatelessWidget {
-  const TestServerBanner({super.key});
+  const TestServerBanner({super.key, this.sandbox = false});
+
+  final bool sandbox;
 
   @override
   Widget build(BuildContext context) {
@@ -249,9 +352,13 @@ class TestServerBanner extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Text(
-            'Test environment: nothing is filed, paid or sent',
+            indiaLang(context) != 'en'
+                ? (sandbox ? inText(context, 'Sandbox mode: nothing is filed with the government yet') : inText(context, 'Test environment: nothing is filed, paid or sent'))
+                : sandbox
+                ? myMalayOr(context, UaeStrings.of(context).serverBanner(true), 'Mod kotak pasir: belum ada apa-apa difailkan kepada kerajaan')
+                : myMalayOr(context, UaeStrings.of(context).serverBanner(false), 'Persekitaran ujian: tiada apa difailkan, dibayar atau dihantar'),
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Palette.onInk, fontWeight: FontWeight.w600),
           ),
         ),
       ),
@@ -269,12 +376,13 @@ class AppGate extends StatelessWidget {
     if (state.loading && snapshot == null) {
       return const Scaffold(body: Center(child: BrandMark(size: 72)));
     }
-    if (!state.welcomed) return const WelcomeScreen();
+    final malaysia = state.edition == 'MY';
+    if (!state.welcomed) return malaysia ? const MyWelcomeScreen() : const WelcomeScreen();
     final cloud = state.cloud;
     if (cloud != null && !cloud.signedIn) return const PhoneSignInScreen();
     if (cloud != null && cloud.needsConsent) return const PrivacyNoticeScreen();
     if (cloud != null && cloud.needsName) return const NameScreen();
-    if (cloud != null && !cloud.ready) return const BusinessSetupScreen();
+    if (cloud != null && !cloud.ready) return malaysia ? const MySetupScreen() : const BusinessSetupScreen();
     if (snapshot == null) {
       return Scaffold(
         body: Center(
@@ -286,15 +394,16 @@ class AppGate extends StatelessWidget {
                 const BrandMark(size: 56),
                 const SizedBox(height: 24),
                 Text(
-                  'MyCA is out of reach',
+                  malaysia ? MyStrings.of(context).outOfReach : indiaLang(context) != 'en' ? inText(context, 'MyCA is out of reach') : UaeStrings.of(context).outOfReach,
+                  textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 8),
-                Text(state.error, textAlign: TextAlign.center),
+                Text(UaeStrings.of(context).cloudSaid(state.error), textAlign: TextAlign.center),
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: state.refresh,
-                  child: const Text('Try again'),
+                  child: Text(malaysia ? MyStrings.of(context).tryAgain : UaeStrings.of(context).tryAgain),
                 ),
               ],
             ),
@@ -304,6 +413,7 @@ class AppGate extends StatelessWidget {
     }
     if (snapshot.activeUser == null) return SignInScreen(snapshot: snapshot);
     if (snapshot.company.household) return UsReturnHomeScreen(snapshot: snapshot);
+    if (malaysia || snapshot.company.country == 'MY') return MyHomeScreen(snapshot: snapshot);
     if (!state.migrated) return MigrationFlow(snapshot: snapshot);
     return HomeScreen(snapshot: snapshot);
   }

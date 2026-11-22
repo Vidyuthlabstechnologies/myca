@@ -67,6 +67,66 @@ the same moment make one of them fail with "That code was already used".
 MYCA_SMOKE_URL=http://127.0.0.1:8080 MYCA_SMOKE_PHONE=9876501234 MYCA_SMOKE_PHONE_2=9876501235 MYCA_SMOKE_CODE=482913 flutter test --concurrency=1 test_smoke
 ```
 
+## MyCA Malaysia (flavor `my`)
+
+`flutter build apk --debug --flavor my` builds MyCA Malaysia: application id
+`com.mldynamic.myca.my`, label "MyCA Malaysia" ("MyCA Malaysia Test" for the test build), the
+`MycaDesign.forFlavor('my')` light and dark themes, en-MY with Bahasa Melayu (the phone's language,
+or the translate button on every MY screen; the choice is kept), ringgit as `RM1,234.50` and dates
+as `dd/MM/yyyy`. The privacy notice is fetched with `?region=MY`. Every figure comes from the MY
+tools on the server through `/api/query` and `/api/propose` + `/api/confirm`; the app checks only
+the shape of what is typed (TIN, MyKad, BRN, postcode, phone, amounts, dates).
+
+| Path | Purpose |
+|---|---|
+| `lib/my/my_strings.dart` | Every MY string in English and Malay |
+| `lib/my/my_tools.dart` | Calls to the MY tools and their response models |
+| `lib/my/my_codes.dart`, `lib/my/my_code_tables.dart`, `assets/my/msic.json` | LHDN code tables for the pickers (states, tax types, units, classifications, currencies, countries, 1,175 MSIC codes) |
+| `lib/screens/my/` | Welcome, business setup and details (`validate_my_tin`, `set_my_einvoice_profile`), home with the e-invoice obligation card (`my_einvoice_required`), e-invoice create, check, send, status, QR and share, cancel within 72 hours with a countdown, credit, debit and refund notes against any validated e-invoice; self-billed e-invoices and notes for a foreign supplier, an individual or an agent (`issue_my_self_billed_einvoice`); e-invoice list (sent from `my_einvoices`, received from `my_received_einvoices` with reject), monthly consolidated e-invoice (`issue_my_consolidated_einvoice`, late reason), SST registration and SST-02, income tax estimator, plans |
+| `lib/tour/sample_malaysia.dart` | Sandbox books for every MY tool |
+| `tool/my_screenshots_test.dart` | Renders the MY screens to `build/my_screens/390x844/` and `build/my_screens/360x640/` (not committed) |
+
+The home asks once for the annual turnover (and the highest related, holding or shareholder company
+turnover), keeps it on the phone per business, and shows whether e-invoicing is required or exempt
+and why: exempt below RM3 million from 1 September 2026 (RM1 million before), unless a related
+company has RM3 million or more. The shared sign-in, privacy notice, name, invitation, test banner
+and Report this answer screens read in Malay when the MY app is set to Bahasa Melayu; the MY sign-in
+uses Google first and `+60` for a mobile number. The income tax estimate always says it is not yet reviewed by a Malaysian tax agent
+and that it is prepared in MyCA and filed by the taxpayer in MyTax. Plans are RM299, RM699 and
+RM1,999 a year through Google Play (products `myca_my_starter_yearly`, `myca_my_business_yearly`,
+`myca_my_pro_yearly`).
+
+```bash
+flutter test test/my_*_test.dart
+flutter test tool/my_screenshots_test.dart
+ANDROID_HOME=/opt/android-sdk flutter build apk --debug --flavor my
+```
+
+### Sandbox triggers
+
+"Explore with sample books first" on the MY welcome opens Teratai Digital Sdn Bhd. Its books hold a
+valid, an invalid, an older (past 72 hours) and a consolidated e-invoice and one received from a
+supplier. In the sandbox, and in the tests that use the same books:
+
+- a business TIN ending `9999` is not found at LHDN;
+- a buyer TIN ending `0000` comes back invalid (CF321);
+- an invoice number containing `REJECT` is rejected by LHDN (DS302);
+- a consolidated line whose largest receipt is above RM10,000 is refused;
+- a consolidated month more than 7 days after it ended needs the late reason;
+- a number already sent is refused (`EINVOICE_ALREADY_SENT`), self-billed ones included;
+- a self-billed e-invoice to a supplier TIN ending `0000` comes back invalid (CF321), and one whose
+  number contains `REJECT` is rejected (DS302);
+- `my_einvoice_required` mirrors the rule: RM3 million exemption from 1 September 2026, RM1 million
+  before, no rule before 2026, and a related company at RM3 million or more removes the exemption.
+
+### Malay strings for native review
+
+Every Malay string in `lib/my/my_strings.dart` (the second argument of each `_t(english, malay)`,
+320 entries, plus `monthShort`) is a draft written without a native speaker. Please have a native
+Bahasa Melayu reviewer check all of them, especially the tax terms: e-Invois, e-Invois disatukan,
+bil kendiri, cukai jualan, cukai perkhidmatan, tahun taksiran, pelepasan, rebat, PCB, zakat, ambang,
+kotak pasir (sandbox), and the LHDN error messages.
+
 ## Running against the local server
 
 The server only answers `127.0.0.1` and needs a per-launch token, so the phone reaches
@@ -203,7 +263,10 @@ client before Google sign-in works on an iPhone:
 | First `CFBundleURLSchemes` entry (`REPLACE_WITH_REVERSED_GOOGLE_IOS_CLIENT_ID`) | The same id reversed, `com.googleusercontent.apps.…` |
 
 The second URL type, scheme `com.mldynamic.myca`, carries the OpenID Connect redirect
-and needs no change. Camera, photo library and Face ID usage strings are set; the
+and needs no change. Sign in with Apple (the `sign_in_with_apple` package, MIT) is
+offered only in the US app on iOS (`appleSignInOffered`, `lib/cloud/apple_auth.dart`): the
+US build adds `Runner/RunnerUS.entitlements`, and the button shows once the server reports
+`apple: true`. Widget tests use a fake `AppleAuth`. Camera, photo library and Face ID usage strings are set; the
 system picker asks for the camera only if the owner opens it. Reminders use the same
 `flutter_local_notifications` schedule on both platforms, asking iOS for permission
 once. Sharing a file into the app from another app is Android only; on iOS the owner

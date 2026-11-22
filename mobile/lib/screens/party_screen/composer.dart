@@ -31,9 +31,8 @@ class _ActionChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = sales
-        ? (again ? 'Another sale' : 'Sale')
-        : (again ? 'Another bill' : 'Bill');
+    final s = UaeStrings.of(context);
+    final label = s.documentChip(sales, again);
     return SafeArea(
       top: false,
       child: Padding(
@@ -55,34 +54,32 @@ class _ActionChips extends StatelessWidget {
                     sales ? Icons.south_west : Icons.north_east,
                     size: 18,
                   ),
-                  label: Text(sales ? 'Payment received' : 'Paid'),
+                  label: Text(s.paymentChip(sales)),
                   onPressed: busy ? null : onPayment,
                 ),
               if (onTdsWithheld != null)
                 ActionChip(
-                  label: const Text('TDS withheld'),
+                  label: Text(inText(context, 'TDS withheld')),
                   onPressed: busy ? null : onTdsWithheld,
                 ),
               if (onQuote != null)
                 ActionChip(
-                  label: const Text('Quote, order or challan'),
+                  label: Text(inText(context, 'Quote, order or challan')),
                   onPressed: busy ? null : onQuote,
                 ),
               if (onDebitNote != null)
                 ActionChip(
-                  label: const Text('Debit note'),
+                  label: Text(inText(context, 'Debit note')),
                   onPressed: busy ? null : onDebitNote,
                 ),
               if (onTerms != null)
                 ActionChip(
-                  label: Text(
-                    terms == null ? 'Set terms' : 'Terms: ${termsLabel(terms)}',
-                  ),
+                  label: Text(terms == null || s.ar ? s.termsChip(terms) : inFormat(context, 'Terms: {terms}', {'terms': _termsWords(context, terms!)})),
                   onPressed: busy ? null : onTerms,
                 ),
               if (onSupplierTerms != null)
                 ActionChip(
-                  label: const Text('Supplier terms'),
+                  label: Text(inText(context, 'Supplier terms')),
                   onPressed: busy ? null : onSupplierTerms,
                 ),
             ],
@@ -100,8 +97,10 @@ class _ComposerCard extends StatelessWidget {
     required this.onCancel,
     required this.onSubmit,
     required this.children,
+    required this.maxHeight,
   });
 
+  final double maxHeight;
   final String title;
   final String error;
   final VoidCallback onCancel;
@@ -120,12 +119,7 @@ class _ComposerCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(radiusCard),
           border: Border.all(color: Palette.line),
         ),
-        constraints: BoxConstraints(
-          maxHeight:
-              (MediaQuery.sizeOf(context).height -
-                  MediaQuery.viewInsetsOf(context).bottom) *
-              0.62,
-        ),
+        constraints: BoxConstraints(maxHeight: maxHeight),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -140,7 +134,7 @@ class _ComposerCard extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Cancel',
+                    tooltip: UaeStrings.of(context).cancel,
                     icon: const Icon(Icons.close),
                     onPressed: onCancel,
                   ),
@@ -152,14 +146,14 @@ class _ComposerCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   error,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Palette.danger,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
               const SizedBox(height: 12),
-              FilledButton(onPressed: onSubmit, child: const Text('Preview')),
+              FilledButton(onPressed: onSubmit, child: Text(UaeStrings.of(context).preview)),
             ],
           ),
         ),

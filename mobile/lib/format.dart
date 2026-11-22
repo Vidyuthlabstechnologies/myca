@@ -1,11 +1,25 @@
 import 'package:myca_design/myca_design.dart' show MycaCountry, MycaDateStyle, MycaFormat;
 
+import 'india/india_strings.dart' show inFill, inLine;
+
 String moneyCountry = 'IN';
 
+String formatLanguage = 'en';
+
 final _us = MycaFormat(MycaCountry.of('US'));
+final _ae = MycaFormat(MycaCountry.of('AE'));
+
+final _gb = MycaFormat(MycaCountry.of('GB'));
+
+String get moneyPrefix => moneyCountry == 'AE' ? 'AED ' : moneyCountry == 'GB' ? '£ ' : '₹ ';
+
+String get salesTaxName => moneyCountry == 'GB' || moneyCountry == 'AE' ? 'VAT' : 'GST';
 
 String rupees(num amount) {
   if (moneyCountry == 'US') return dollars(amount);
+  if (moneyCountry == 'MY') return ringgit(amount);
+  if (moneyCountry == 'GB') return pounds(amount);
+  if (moneyCountry == 'AE') return _ae.money(amount);
   final negative = amount < 0;
   final fixed = amount.abs().toStringAsFixed(2);
   final dot = fixed.indexOf('.');
@@ -26,6 +40,38 @@ String rupees(num amount) {
 
 String dollars(num amount) => _us.money(amount);
 
+String ringgit(num amount) {
+  final negative = amount < 0;
+  final fixed = amount.abs().toStringAsFixed(2);
+  final dot = fixed.indexOf('.');
+  var whole = fixed.substring(0, dot);
+  final groups = <String>[];
+  while (whole.length > 3) {
+    groups.insert(0, whole.substring(whole.length - 3));
+    whole = whole.substring(0, whole.length - 3);
+  }
+  groups.insert(0, whole);
+  return '${negative ? '-' : ''}RM${groups.join(',')}${fixed.substring(dot)}';
+}
+
+String dayMonthYear(String iso) {
+  final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(iso.trim());
+  if (match == null) return iso;
+  return '${match.group(3)}/${match.group(2)}/${match.group(1)}';
+}
+
+String? isoFromDayMonthYear(String typed) {
+  final match = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$').firstMatch(typed.trim());
+  if (match == null) return null;
+  final day = int.parse(match.group(1)!);
+  final month = int.parse(match.group(2)!);
+  final year = int.parse(match.group(3)!);
+  final date = DateTime.tryParse('${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}');
+  if (date == null || date.month != month || date.day != day) return null;
+  return isoDate(date);
+}
+String pounds(num amount) => _gb.money(amount);
+
 String isoDate(DateTime date) =>
     '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
@@ -44,11 +90,45 @@ const _months = [
   'December',
 ];
 
+String _month(int month) => formatLanguage == 'en'
+    ? _months[month - 1]
+    : switch (month) {
+        1 => inLine(formatLanguage, 'January'),
+        2 => inLine(formatLanguage, 'February'),
+        3 => inLine(formatLanguage, 'March'),
+        4 => inLine(formatLanguage, 'April'),
+        5 => inLine(formatLanguage, 'May'),
+        6 => inLine(formatLanguage, 'June'),
+        7 => inLine(formatLanguage, 'July'),
+        8 => inLine(formatLanguage, 'August'),
+        9 => inLine(formatLanguage, 'September'),
+        10 => inLine(formatLanguage, 'October'),
+        11 => inLine(formatLanguage, 'November'),
+        _ => inLine(formatLanguage, 'December'),
+      };
+
+String _shortMonth(int month) => formatLanguage == 'en'
+    ? _months[month - 1].substring(0, 3)
+    : switch (month) {
+        1 => inLine(formatLanguage, 'Jan'),
+        2 => inLine(formatLanguage, 'Feb'),
+        3 => inLine(formatLanguage, 'Mar'),
+        4 => inLine(formatLanguage, 'Apr'),
+        5 => inLine(formatLanguage, 'May'),
+        6 => inLine(formatLanguage, 'Jun'),
+        7 => inLine(formatLanguage, 'Jul'),
+        8 => inLine(formatLanguage, 'Aug'),
+        9 => inLine(formatLanguage, 'Sep'),
+        10 => inLine(formatLanguage, 'Oct'),
+        11 => inLine(formatLanguage, 'Nov'),
+        _ => inLine(formatLanguage, 'Dec'),
+      };
+
 String monthLabel(String period) {
   final parts = period.split('-');
   final month = parts.length == 2 ? int.tryParse(parts[1]) : null;
   if (month == null || month < 1 || month > 12) return period;
-  return '${_months[month - 1]} ${parts[0]}';
+  return '${_month(month)} ${parts[0]}';
 }
 
 String sharedOn(String timestamp) {
@@ -62,7 +142,8 @@ String longDate(String iso) {
   final day = parts.length == 3 ? int.tryParse(parts[2]) : null;
   if (month == null || day == null || month < 1 || month > 12) return iso;
   if (moneyCountry == 'US') return '${_months[month - 1]} $day, ${parts[0]}';
-  return '$day ${_months[month - 1]} ${parts[0]}';
+  if (moneyCountry == 'MY') return dayMonthYear(iso);
+  return '$day ${_month(month)} ${parts[0]}';
 }
 
 String usDate(String iso) => _us.isoDate(iso, style: MycaDateStyle.short);
@@ -92,10 +173,10 @@ String shortFileName(String name, [int limit = 120]) {
 }
 
 String dueLabel(int daysUntil) {
-  if (daysUntil < 0) return '${-daysUntil} days overdue';
-  if (daysUntil == 0) return 'Due today';
-  if (daysUntil == 1) return 'Due tomorrow';
-  return 'Due in $daysUntil days';
+  if (daysUntil < 0) return inFill(inLine(formatLanguage, '{n} days overdue'), {'n': -daysUntil});
+  if (daysUntil == 0) return inLine(formatLanguage, 'Due today');
+  if (daysUntil == 1) return inLine(formatLanguage, 'Due tomorrow');
+  return inFill(inLine(formatLanguage, 'Due in {n} days'), {'n': daysUntil});
 }
 
 String _scaled(double value) =>
@@ -104,6 +185,7 @@ String _scaled(double value) =>
 String compactRupees(num amount) {
   final abs = amount.abs().toDouble();
   final sign = amount < 0 ? '-' : '';
+  if (moneyCountry == 'AE') return _ae.moneyCompact(amount);
   if (abs == 0) return '₹0';
   if (abs >= 1e7) return '$sign₹${_scaled(abs / 1e7)} cr';
   if (abs >= 1e5) return '$sign₹${_scaled(abs / 1e5)} L';
@@ -115,7 +197,7 @@ String compactRupees(num amount) {
 }
 
 String termsLabel(int? days) =>
-    days == null ? '' : (days == 0 ? 'Due on receipt' : 'Net $days');
+    days == null ? '' : (days == 0 ? inLine(formatLanguage, 'Due on receipt') : inFill(inLine(formatLanguage, 'Net {n}'), {'n': days}));
 
 String dueWords(String dueDate, DateTime today, {required bool open}) {
   if (dueDate.isEmpty || !open) return '';
@@ -124,9 +206,10 @@ String dueWords(String dueDate, DateTime today, {required bool open}) {
   final days = due
       .difference(DateTime(today.year, today.month, today.day))
       .inDays;
-  if (days < 0) return 'Overdue by ${-days} ${days == -1 ? 'day' : 'days'}';
-  if (days == 0) return 'Due today';
-  return 'Due ${longDate(dueDate)}';
+  if (days == -1) return inFill(inLine(formatLanguage, 'Overdue by {n} day'), {'n': 1});
+  if (days < 0) return inFill(inLine(formatLanguage, 'Overdue by {n} days'), {'n': -days});
+  if (days == 0) return inLine(formatLanguage, 'Due today');
+  return inFill(inLine(formatLanguage, 'Due {date}'), {'date': longDate(dueDate)});
 }
 
 final _isoDay = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$');
@@ -137,5 +220,5 @@ String readableDay(String text) {
   final month = int.parse(match.group(2)!);
   final day = int.parse(match.group(3)!);
   if (month < 1 || month > 12 || day < 1 || day > 31) return text;
-  return '$day ${_months[month - 1].substring(0, 3)} ${match.group(1)}';
+  return '$day ${_shortMonth(month)} ${match.group(1)}';
 }

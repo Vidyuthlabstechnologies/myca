@@ -1,9 +1,10 @@
 import 'models.dart';
 
 class MycaApiException implements Exception {
-  const MycaApiException(this.message);
+  const MycaApiException(this.message, {this.code = ''});
 
   final String message;
+  final String code;
 
   @override
   String toString() => message;
@@ -13,7 +14,7 @@ abstract class MycaApi {
   Future<Snapshot> snapshot();
   Future<SignInResult> signIn(String userId, String pin);
   Future<void> signOut();
-  Future<ChatReply> chat(String message);
+  Future<ChatReply> chat(String message, {String lang = 'en'});
   Future<ChatReply> propose(String name, Map<String, Object?> args);
   Future<ChatReply> confirm(String token);
   Future<ChatReply> discard();

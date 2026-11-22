@@ -27,7 +27,7 @@ locals {
   }, local.play_key_given ? { MYCA_PLAY_SERVICE_ACCOUNT_JSON = var.play_service_account_json } : {}, local.gsp_key_given ? { MYCA_GSP_API_KEY = var.gsp_api_key, MYCA_GSP_API_SECRET = var.gsp_api_secret } : {}, local.optional_secrets)
   play_key_given = nonsensitive(trimspace(var.play_service_account_json) != "")
   gsp_key_given  = nonsensitive(trimspace(var.gsp_api_key) != "" && trimspace(var.gsp_api_secret) != "")
-  play_products  = { for name, id in { MYCA_PLAY_PRODUCT_ESSENTIALS = var.play_product_essentials, MYCA_PLAY_PRODUCT_PRO = var.play_product_pro, MYCA_PLAY_PRODUCT_FIRM = var.play_product_firm } : name => id if id != "" }
+  play_products  = { for name, id in { MYCA_PLAY_PRODUCT_ESSENTIALS = var.play_product_essentials, MYCA_PLAY_PRODUCT_PRO = var.play_product_pro, MYCA_PLAY_PRODUCT_ASSURED = var.play_product_assured, MYCA_PLAY_PRODUCT_FIRM = var.play_product_firm } : name => id if id != "" }
   secret_names   = concat(["MYCA_TOKEN_SECRET", "MYCA_BOOKS_KEY", "MYCA_CONNECTOR_KEY", "MYCA_JOB_TOKEN", "MYCA_INBOUND_RELAY_TOKEN", "MYCA_WHATSAPP_VERIFY_TOKEN", "MYCA_PLAY_NOTIFY_TOKEN", "MYCA_WAHA_WEBHOOK_SECRET", "MYCA_DATABASE_URL", "MYCA_DATABASE_CA"], local.play_key_given ? ["MYCA_PLAY_SERVICE_ACCOUNT_JSON"] : [], local.gsp_key_given ? ["MYCA_GSP_API_KEY", "MYCA_GSP_API_SECRET"] : [], local.optional_secret_names)
   production     = !var.pilot_sign_in_codes_in_logs
   environment = merge(
@@ -249,7 +249,7 @@ resource "aws_apprunner_service" "api" {
     }
     precondition {
       condition     = length(local.play_products) == 0 || local.play_key_given
-      error_message = "The API refuses to start with Play products but no Play service account key. Set play_service_account_json to the JSON key of the service account invited in Play Console, or leave play_product_essentials, play_product_pro and play_product_firm empty."
+      error_message = "The API refuses to start with Play products but no Play service account key. Set play_service_account_json to the JSON key of the service account invited in Play Console, or leave play_product_essentials, play_product_pro, play_product_assured and play_product_firm empty."
     }
   }
 

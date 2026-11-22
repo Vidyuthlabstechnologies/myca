@@ -10,8 +10,8 @@ export const RECURRING_KINDS = ['invoice', 'bill', 'expense'];
 export const RECURRING_EVERY = { week: { days: 7 }, month: { months: 1 }, quarter: { months: 3 }, 'half-year': { months: 6 }, year: { months: 12 } };
 const MAX_PER_RUN = 24;
 const ARG_KEYS = {
-  invoice: ['partyName', 'partyGstin', 'lines', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'partyAddress', 'registrationGstin'],
-  bill: ['partyName', 'partyGstin', 'lines', 'salesTaxPaid', 'registrationGstin'],
+  invoice: ['partyName', 'partyGstin', 'partyState', 'lines', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'partyAddress', 'registrationGstin'],
+  bill: ['partyName', 'partyGstin', 'partyState', 'lines', 'salesTaxPaid', 'registrationGstin', 'reverseCharge', 'originCountry', 'partyAddress', 'itcEligible'],
   expense: ['narration', 'amount', 'gstRate', 'mode', 'payee', 'supplierGstin', 'head'],
 };
 

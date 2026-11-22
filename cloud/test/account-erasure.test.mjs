@@ -44,7 +44,7 @@ test('deleting an account erases the person from every table after the grace per
   const email = 'leaving.person@example.com';
   const google = await api.call('POST', '/v1/auth/google', { body: { idToken: googleToken({ sub: googleSub, email, name: 'Leaving Person' }), deviceLabel: 'pixel' } });
   assert.equal(google.status, 200, google.text);
-  await api.call('POST', '/v1/me/consent', { token: google.body.accessToken, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version } });
+  await api.call('POST', '/v1/me/consent', { token: google.body.accessToken, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version, adult: true } });
 
   const userId = owner.user.id;
   const googleUserId = google.body.user.id;

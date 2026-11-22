@@ -1,10 +1,12 @@
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createState } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
 import { chat } from '../src/router.mjs';
 import { listAccounts, trialBalance } from '../src/ledger.mjs';
 import { planUsFromChat } from '../src/us-intent.mjs';
+
+mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 15, 12).getTime() });
 
 const acc = (state, code) => listAccounts(state.ledger).find((a) => a.code === code);
 
@@ -127,14 +129,15 @@ test('withholding is recorded, never computed; Schedule C and estimated tax date
   const rent = c.data.expenses.find((row) => row.line === '20b');
   assert.equal(rent.amount, 2000);
   const meals = c.data.expenses.find((row) => row.line === '24b');
-  assert.equal(meals.amount, 80);
+  assert.equal(meals.amount, 40);
+  assert.equal(meals.paid, 80);
   assert.match(meals.note, /50%/);
   const club = c.data.expenses.find((row) => row.label.startsWith('Club'));
   assert.equal(club.deductible, false);
   assert.equal(c.data.excluded, 50);
   const payrollTaxes = c.data.expenses.find((row) => row.line === '23');
   assert.equal(payrollTaxes.amount, run.data.totals.employerTaxes);
-  assert.equal(c.data.totalExpenses, 2000 + 80 + run.data.totals.employerTaxes);
+  assert.equal(c.data.totalExpenses, 2000 + 40 + run.data.totals.employerTaxes);
   assert.equal(c.data.netProfit, 675.25 - c.data.totalExpenses);
   const reply = await chat(state, 'schedule c for 2026');
   assert.match(reply.reply, /Line 20b Rent or lease: other business property: \$2,000\.00/);

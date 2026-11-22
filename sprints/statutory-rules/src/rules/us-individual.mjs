@@ -3,6 +3,8 @@ const RP_2025 = 'Rev. Proc. 2024-40 as modified by Public Law 119-21 (One Big Be
 const RP_2026 = 'Rev. Proc. 2025-32 (inflation adjustments for 2026, including the Public Law 119-21 amendments)';
 const RP_2027 = 'Rev. Proc. 2026-35 (inflation adjustments for 2027)';
 const READ_2027 = 'figures read from the revenue procedure text, irs.gov/pub/irs-drop/rp-26-35.pdf, on 2026-11-12';
+const CHECKED_2026 = 'checked against the text of Rev. Proc. 2025-32 (irs.gov/pub/irs-drop/rp-25-32.pdf) on 2026-11-15 and the figures match';
+const CHECKED_2025 = 'checked against the text of Rev. Proc. 2024-40 (irs.gov/pub/irs-drop/rp-24-40.pdf) on 2026-11-15 and the figures match';
 const NOT_REREAD = 'figures as stated in published IRS guidance and secondary summaries read on 2026-11-11; the revenue procedure text not re-read for this record';
 
 const bands = (tops) => {
@@ -33,7 +35,7 @@ export const RULES = [
     ...year(2025),
     act: 'IRC',
     section: '1(j); 1(f)',
-    source: `IRC section 1(j) rate schedules made permanent by Public Law 119-21 section 70101, inflation-adjusted for 2025 by ${RP_2025} (${NOT_REREAD})`,
+    source: `IRC section 1(j) rate schedules made permanent by Public Law 119-21 section 70101, inflation-adjusted for 2025 by ${RP_2025} (${CHECKED_2025})`,
     attestations: []
   },
   {
@@ -48,7 +50,7 @@ export const RULES = [
     ...year(2026),
     act: 'IRC',
     section: '1(j); 1(f)',
-    source: `IRC section 1(j) as made permanent by Public Law 119-21 section 70101; ${RP_2026} section 4.01 (${NOT_REREAD})`,
+    source: `IRC section 1(j) as made permanent by Public Law 119-21 section 70101; ${RP_2026} section 4.01 (${CHECKED_2026})`,
     attestations: []
   },
   {
@@ -83,7 +85,7 @@ export const RULES = [
     ...year(2026),
     act: 'IRC',
     section: '63(c)',
-    source: `IRC section 63(c) as amended by Public Law 119-21; ${RP_2026} section 4.15 (${NOT_REREAD})`,
+    source: `IRC section 63(c) as amended by Public Law 119-21; ${RP_2026} section 4.15 (${CHECKED_2026})`,
     attestations: []
   },
   {
@@ -103,7 +105,7 @@ export const RULES = [
     ...year(2025),
     act: 'IRC',
     section: '1(h); 1(j)(5)',
-    source: `IRC section 1(h) and 1(j)(5); maximum zero and fifteen per cent rate amounts from ${RP_2025} (${NOT_REREAD}). Unrecaptured section 1250 gain and collectibles are not encoded`,
+    source: `IRC section 1(h) and 1(j)(5); maximum zero and fifteen per cent rate amounts from ${RP_2025} (${CHECKED_2025}). Unrecaptured section 1250 gain and collectibles are not encoded`,
     attestations: []
   },
   {
@@ -113,7 +115,7 @@ export const RULES = [
     ...year(2026),
     act: 'IRC',
     section: '1(h); 1(j)(5)',
-    source: `IRC section 1(h) and 1(j)(5); ${RP_2026} section 4.03 (${NOT_REREAD})`,
+    source: `IRC section 1(h) and 1(j)(5); ${RP_2026} section 4.03 (${CHECKED_2026})`,
     attestations: []
   },
   {
@@ -124,6 +126,17 @@ export const RULES = [
     act: 'IRC',
     section: '1(h); 1(j)(5)',
     source: `IRC section 1(h) and 1(j)(5); ${RP_2027} section 3.03 (${READ_2027})`,
+    attestations: []
+  },
+  {
+    id: 'us.federal.individual.early-distribution-tax',
+    value: { basisPoints: 1000 },
+    basis: 'additional_tax_as_basis_points_of_the_taxable_part_of_an_early_distribution_from_a_qualified_retirement_plan_or_ira_with_no_exception',
+    effectiveFrom: '2020-01-01',
+    effectiveTo: null,
+    act: 'IRC',
+    section: '72(t)(1)',
+    source: `IRC section 72(t)(1): a 10 percent additional tax on the part of an early distribution included in gross income; reported on Schedule 2 (Form 1040) line 8 without Form 5329 when box 7 of Form 1099-R shows code 1 and no exception applies (Instructions for Schedule 2, line 8). Not indexed. Registry coverage starts 1 January 2020 (${NOT_REREAD})`,
     attestations: []
   },
   {
@@ -154,7 +167,7 @@ export const RULES = [
     ...year(2026),
     act: 'IRC',
     section: '24(h)',
-    source: `IRC section 24(h) as amended by Public Law 119-21 section 70104; ${RP_2026}: maximum credit two thousand two hundred dollars, refundable base amount one thousand seven hundred dollars (${NOT_REREAD})`,
+    source: `IRC section 24(h) as amended by Public Law 119-21 section 70104; ${RP_2026}: maximum credit two thousand two hundred dollars, refundable base amount one thousand seven hundred dollars (${CHECKED_2026})`,
     attestations: []
   },
   {
@@ -180,7 +193,7 @@ export const RULES = [
     ...year(2025),
     act: 'IRC',
     section: '32(b); 32(i); 32(j)',
-    source: `IRC section 32(b) credit and phase-out percentages; earned income amounts, phase-out thresholds and the investment income limit from ${RP_2025} (maximum credits six hundred forty-nine, four thousand three hundred twenty-eight, seven thousand one hundred fifty-two and eight thousand forty-six dollars) (${NOT_REREAD}). The IRS EIC table works in fifty-dollar bands, encoded as bandCents`,
+    source: `IRC section 32(b) credit and phase-out percentages; earned income amounts, phase-out thresholds and the investment income limit from ${RP_2025} (maximum credits six hundred forty-nine, four thousand three hundred twenty-eight, seven thousand one hundred fifty-two and eight thousand forty-six dollars) (${CHECKED_2025}). The IRS EIC table works in fifty-dollar bands, encoded as bandCents`,
     attestations: []
   },
   {
@@ -196,7 +209,7 @@ export const RULES = [
     ...year(2026),
     act: 'IRC',
     section: '32(b); 32(i); 32(j)',
-    source: `IRC section 32; ${RP_2026} section 4.06 (maximum credits six hundred sixty-four, four thousand four hundred twenty-seven, seven thousand three hundred sixteen and eight thousand two hundred thirty-one dollars; investment income limit twelve thousand two hundred dollars) (${NOT_REREAD})`,
+    source: `IRC section 32; ${RP_2026} section 4.06 (maximum credits six hundred sixty-four, four thousand four hundred twenty-seven, seven thousand three hundred sixteen and eight thousand two hundred thirty-one dollars; investment income limit twelve thousand two hundred dollars) (${CHECKED_2026})`,
     attestations: []
   },
   {
@@ -318,7 +331,7 @@ export const RULES = [
     ...year(2025),
     act: 'IRC',
     section: '221',
-    source: `IRC section 221; phase-out range from ${RP_2025} (${NOT_REREAD})`,
+    source: `IRC section 221; phase-out range from ${RP_2025} (${CHECKED_2025})`,
     attestations: []
   },
   {
@@ -328,7 +341,7 @@ export const RULES = [
     ...year(2026),
     act: 'IRC',
     section: '221',
-    source: `IRC section 221; ${RP_2026} section 4.24 (${NOT_REREAD})`,
+    source: `IRC section 221; ${RP_2026} section 4.24 (${CHECKED_2026})`,
     attestations: []
   },
   {
@@ -387,32 +400,52 @@ export const RULES = [
   },
   {
     id: 'us.federal.individual.qbi',
-    value: { basisPoints: 2000, thresholdCents: { mfj: 394600 * D, qss: 394600 * D, mfs: 197300 * D, single: 197300 * D, hoh: 197300 * D } },
+    value: { basisPoints: 2000, thresholdCents: { mfj: 394600 * D, qss: 197300 * D, mfs: 197300 * D, single: 197300 * D, hoh: 197300 * D } },
     basis: 'qualified_business_income_deduction_simplified_computation_available_at_or_below_the_taxable_income_threshold',
     ...year(2025),
     act: 'IRC',
     section: '199A',
-    source: `IRC section 199A made permanent by Public Law 119-21 section 70105; threshold amounts from ${RP_2025} (${NOT_REREAD}). Above the threshold, the wage and property limits and specified service rules apply and are not encoded`,
+    source: `IRC section 199A made permanent by Public Law 119-21 section 70105; threshold amounts from ${RP_2025} (${CHECKED_2025}). Above the threshold, the wage and property limits and specified service rules apply and are not encoded`,
     attestations: []
   },
   {
     id: 'us.federal.individual.qbi',
-    value: { basisPoints: 2000, thresholdCents: { mfj: 403500 * D, qss: 403500 * D, mfs: 201775 * D, single: 201750 * D, hoh: 201750 * D } },
+    value: { basisPoints: 2000, thresholdCents: { mfj: 403500 * D, qss: 201750 * D, mfs: 201775 * D, single: 201750 * D, hoh: 201750 * D } },
     basis: 'qualified_business_income_deduction_simplified_computation_available_at_or_below_the_taxable_income_threshold',
     ...year(2026),
     act: 'IRC',
     section: '199A',
-    source: `IRC section 199A as amended by Public Law 119-21 section 70105; ${RP_2026} section 4.26 (${NOT_REREAD}). The minimum deduction for active QBI of at least one thousand dollars from 2026 is not encoded`,
+    source: `IRC section 199A as amended by Public Law 119-21 section 70105; ${RP_2026} section 4.26 (${CHECKED_2026}). The minimum deduction for active QBI is the separate record us.federal.individual.qbi-minimum`,
     attestations: []
   },
   {
     id: 'us.federal.individual.qbi',
-    value: { basisPoints: 2000, thresholdCents: { mfj: 416600 * D, qss: 416600 * D, mfs: 208325 * D, single: 208300 * D, hoh: 208300 * D } },
+    value: { basisPoints: 2000, thresholdCents: { mfj: 416600 * D, qss: 208300 * D, mfs: 208325 * D, single: 208300 * D, hoh: 208300 * D } },
     basis: 'qualified_business_income_deduction_simplified_computation_available_at_or_below_the_taxable_income_threshold',
     ...year(2027),
     act: 'IRC',
     section: '199A',
-    source: `IRC section 199A as amended by Public Law 119-21 section 70105; ${RP_2027} section 3.28 (${READ_2027}). The minimum deduction for active QBI (four hundred fifteen dollars when QBI is at least one thousand thirty dollars in 2027) is not encoded`,
+    source: `IRC section 199A as amended by Public Law 119-21 section 70105; ${RP_2027} section 3.28 (${READ_2027}). The minimum deduction for active QBI is the separate record us.federal.individual.qbi-minimum`,
+    attestations: []
+  },
+  {
+    id: 'us.federal.individual.qbi-minimum',
+    value: { minimumCents: 400 * D, activeQbiFloorCents: 1000 * D },
+    basis: 'minimum_qualified_business_income_deduction_when_aggregate_qbi_from_active_trades_or_businesses_in_which_the_taxpayer_materially_participates_reaches_the_floor',
+    ...year(2026),
+    act: 'IRC',
+    section: '199A(i)',
+    source: 'IRC section 199A(i) added by Public Law 119-21 section 70105(b), effective for tax years beginning after December 31, 2025 (section 70105(c)): the deduction is the greater of the computed amount or four hundred dollars when aggregate QBI from active qualified trades or businesses (material participation under section 469(h)) is at least one thousand dollars; indexed only after 2026, so Rev. Proc. 2025-32 gives no 2026 adjustment; draft 2026 Form 8995 lines 15 to 17 (www.irs.gov/pub/irs-dft/f8995--dft.pdf) read 2026-11-14',
+    attestations: []
+  },
+  {
+    id: 'us.federal.individual.qbi-minimum',
+    value: { minimumCents: 415 * D, activeQbiFloorCents: 1030 * D },
+    basis: 'minimum_qualified_business_income_deduction_when_aggregate_qbi_from_active_trades_or_businesses_in_which_the_taxpayer_materially_participates_reaches_the_floor',
+    ...year(2027),
+    act: 'IRC',
+    section: '199A(i)',
+    source: `IRC section 199A(i) added by Public Law 119-21 section 70105(b); four hundred fifteen dollars when aggregate active QBI is at least one thousand thirty dollars, from ${RP_2027} (${READ_2027})`,
     attestations: []
   },
   {
@@ -460,22 +493,22 @@ export const RULES = [
   },
   {
     id: 'us.federal.individual.educator-expenses',
-    value: { maxPerEducatorCents: 350 * D },
-    basis: 'above_the_line_deduction_for_unreimbursed_classroom_expenses_of_an_eligible_educator',
+    value: { maxPerEducatorCents: 350 * D, excessItemized: true },
+    basis: 'above_the_line_deduction_for_unreimbursed_classroom_expenses_of_an_eligible_educator_with_the_excess_over_the_limit_an_itemized_deduction_outside_the_miscellaneous_itemized_deductions',
     ...year(2026),
     act: 'IRC',
-    section: '62(a)(2)(D)',
-    source: `IRC section 62(a)(2)(D); ${RP_2026}: three hundred fifty dollars (${NOT_REREAD})`,
+    section: '62(a)(2)(D), 67(b)(13)',
+    source: `IRC section 62(a)(2)(D); ${RP_2026} section 3.12: three hundred fifty dollars, read from irs.gov/pub/irs-drop/rp-25-32.pdf on 2026-11-21. Public Law 119-21 section 70110(b) adds section 67(b)(13) and 67(g): from taxable years beginning after December 31, 2025, educator expenses figured without the dollar limitation (and with interscholastic sports administrators and coaches as eligible educators) are an itemized deduction that is not a miscellaneous itemized deduction, read from the enrolled bill text, congress.gov/119/bills/hr1/BILLS-119hr1enr.pdf, on 2026-11-21; the part above the limit is taken on Schedule A line 16`,
     attestations: []
   },
   {
     id: 'us.federal.individual.educator-expenses',
-    value: { maxPerEducatorCents: 350 * D },
-    basis: 'above_the_line_deduction_for_unreimbursed_classroom_expenses_of_an_eligible_educator',
+    value: { maxPerEducatorCents: 350 * D, excessItemized: true },
+    basis: 'above_the_line_deduction_for_unreimbursed_classroom_expenses_of_an_eligible_educator_with_the_excess_over_the_limit_an_itemized_deduction_outside_the_miscellaneous_itemized_deductions',
     ...year(2027),
     act: 'IRC',
-    section: '62(a)(2)(D)',
-    source: `IRC section 62(a)(2)(D); ${RP_2027} section 3.13: three hundred fifty dollars (${READ_2027})`,
+    section: '62(a)(2)(D), 67(b)(13)',
+    source: `IRC section 62(a)(2)(D); ${RP_2027} section 3.13: three hundred fifty dollars (${READ_2027}); the excess is an itemized deduction under section 67(b)(13) added by Public Law 119-21 section 70110(b)`,
     attestations: []
   },
 ];

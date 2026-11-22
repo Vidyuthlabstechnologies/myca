@@ -8,6 +8,7 @@ import '../app_state.dart';
 import '../attention.dart';
 import '../excel.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -30,6 +31,13 @@ const _heldReasons = {
 
 String heldReason(String code) =>
     _heldReasons[code] ?? code.toLowerCase().replaceAll('_', ' ');
+
+String _heldLine(BuildContext context, String number, String code) => switch (code) {
+  'INVALID_GSTIN' => inFormat(context, '{number} is left out: the buyer GSTIN is not valid.', {'number': number}),
+  'INVALID_RATE' => inFormat(context, '{number} is left out: the GST rate is not one in force on that date.', {'number': number}),
+  'MISSING_PLACE_OF_SUPPLY' => inFormat(context, '{number} is left out: the place of supply is missing.', {'number': number}),
+  _ => inFormat(context, '{number} is left out: {reason}.', {'number': number, 'reason': heldReason(code)}),
+};
 
 class TaxesScreen extends StatefulWidget {
   const TaxesScreen({super.key});
@@ -105,7 +113,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
           period: quarter.quarter,
           tool: 'tds_review',
           answerTool: 'tds_review_answer',
-          title: quarter.kind == 'salary' ? 'Review the salary TDS statement' : 'Review the TDS statement',
+          title: quarter.kind == 'salary' ? inText(context, 'Review the salary TDS statement') : inText(context, 'Review the TDS statement'),
           extraArgs: quarter.kind == 'salary' ? const {'form': 'salary'} : const {},
         ),
       ),
@@ -131,13 +139,14 @@ class _TaxesScreenState extends State<TaxesScreen> {
 
   Future<void> _recordGstPayment(PeriodGst gst) async {
     final state = AppScope.of(context);
+    final lang = indiaLang(context);
     num toPay = 0;
     try {
       final payable = toolData(await state.api.query('gst_payable', {'period': gst.period, ..._regArgs}));
       final heads = payable['toPay'];
       if (heads is Map && heads['total'] is num) toPay = heads['total'] as num;
       if (payable['paid'] is Map) {
-        setState(() => _entriesNote = 'The GST payment for ${monthLabel(gst.period)} is already recorded.');
+        setState(() => _entriesNote = inFill(inLine(lang, 'The GST payment for {month} is already recorded.'), {'month': monthLabel(gst.period)}));
         return;
       }
     } on MycaApiException catch (err) {
@@ -155,6 +164,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
 
   Future<void> _saveQuarterly({required bool iff}) async {
     final state = AppScope.of(context);
+    final lang = indiaLang(context);
     setState(() => _entriesNote = '');
     var note = '';
     try {
@@ -163,11 +173,11 @@ class _TaxesScreenState extends State<TaxesScreen> {
       final quarter = period.isEmpty ? '' : 'Q${((int.parse(month) + 8) % 12) ~/ 3 + 1} ${_fyOf(period)}';
       final data = toolData(await state.api.query(iff ? 'export_iff' : 'export_gstr1_quarter', iff ? {'period': period, ..._regArgs} : {'quarter': quarter, ..._regArgs}));
       if (data.isEmpty) {
-        note = iff ? 'The IFF file could not be prepared for this month.' : 'The quarterly file could not be prepared.';
+        note = iff ? inLine(lang, 'The IFF file could not be prepared for this month.') : inLine(lang, 'The quarterly file could not be prepared.');
       } else {
         final name = data['fileName'] as String;
         final saved = await state.saveTextFile(name, const JsonEncoder.withIndent('  ').convert(data));
-        note = saved ? 'Saved $name. ${data['note'] ?? ''}' : 'Not saved.';
+        note = saved ? inFill(inLine(lang, 'Saved {name}. {note}'), {'name': name, 'note': data['note'] ?? ''}) : inLine(lang, 'Not saved.');
       }
     } on MycaApiException catch (err) {
       note = err.message;
@@ -193,16 +203,17 @@ class _TaxesScreenState extends State<TaxesScreen> {
 
   Future<void> _saveGstr9() async {
     final state = AppScope.of(context);
+    final lang = indiaLang(context);
     setState(() => _entriesNote = '');
     var note = '';
     try {
       final data = toolData(await state.api.query('gstr9_draft'));
       if (data.isEmpty) {
-        note = 'The GSTR-9 draft could not be prepared.';
+        note = inLine(lang, 'The GSTR-9 draft could not be prepared.');
       } else {
         final name = 'GSTR9_draft_${data['gstin'] ?? ''}_${data['fy'] ?? ''}.json';
         final saved = await state.saveTextFile(name, const JsonEncoder.withIndent('  ').convert(data));
-        note = saved ? 'Saved $name: the annual return tables from the months so far, for your CA to complete and file.' : 'Not saved.';
+        note = saved ? inFill(inLine(lang, 'Saved {name}: the annual return tables from the months so far, for your CA to complete and file.'), {'name': name}) : inLine(lang, 'Not saved.');
       }
     } on MycaApiException catch (err) {
       note = err.message;
@@ -213,6 +224,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
 
   Future<void> _saveFilingPack(String period) async {
     final state = AppScope.of(context);
+    final lang = indiaLang(context);
     setState(() => _entriesNote = '');
     var note = '';
     try {
@@ -227,7 +239,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
       final payable = toolData(results[2]);
       final trialBalance = toolData(results[3]);
       if (summary.isEmpty) {
-        note = 'The filing pack could not be prepared.';
+        note = inLine(lang, 'The filing pack could not be prepared.');
       } else {
         final data = <String, Object?>{
           'gstin': gstr1['gstin'] ?? '',
@@ -241,8 +253,8 @@ class _TaxesScreenState extends State<TaxesScreen> {
         final name = 'filing_pack_${data['gstin']}_$period.json';
         final saved = await state.saveTextFile(name, const JsonEncoder.withIndent('  ').convert(data));
         note = saved
-            ? 'Saved $name: GSTR-1, GSTR-3B, the amount to pay and the trial balance in one file for your CA to file on GSTN.'
-            : 'Not saved.';
+            ? inFill(inLine(lang, 'Saved {name}: GSTR-1, GSTR-3B, the amount to pay and the trial balance in one file for your CA to file on GSTN.'), {'name': name})
+            : inLine(lang, 'Not saved.');
       }
     } on MycaApiException catch (err) {
       note = err.message;
@@ -253,19 +265,22 @@ class _TaxesScreenState extends State<TaxesScreen> {
 
   Future<void> _saveForm16A(TdsQuarter quarter) async {
     final state = AppScope.of(context);
+    final lang = indiaLang(context);
     setState(() => _tdsNote = '');
     var note = '';
     try {
       final data = toolData(await state.api.query('tds_certificates', {'quarter': quarter.quarter}));
       final rows = data['certificates'] as List<Object?>? ?? const <Object?>[];
       if (data.isEmpty || rows.isEmpty) {
-        note = 'No Form 16A draft for ${quarter.quarter}: nothing was deducted in it.';
+        note = inFill(inLine(lang, 'No Form 16A draft for {quarter}: nothing was deducted in it.'), {'quarter': quarter.quarter});
       } else {
         final name = data['fileName'] as String;
         final saved = await state.saveTextFile(name, data['csv'] as String);
-        note = saved
-            ? 'Saved $name with ${rows.length == 1 ? '1 deductee' : '${rows.length} deductees'}. The certificates themselves are generated on TRACES once the statement is processed.'
-            : 'Not saved.';
+        note = !saved
+            ? inLine(lang, 'Not saved.')
+            : rows.length == 1
+            ? inFill(inLine(lang, 'Saved {name} with 1 deductee. The certificates themselves are generated on TRACES once the statement is processed.'), {'name': name})
+            : inFill(inLine(lang, 'Saved {name} with {n} deductees. The certificates themselves are generated on TRACES once the statement is processed.'), {'name': name, 'n': rows.length});
       }
     } on MycaApiException catch (err) {
       note = err.message;
@@ -321,6 +336,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
 
   Future<void> _saveFile(PeriodGst gst) async {
     final state = AppScope.of(context);
+    final lang = indiaLang(context);
     setState(() {
       _saving = true;
       _fileNote = '';
@@ -332,7 +348,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
       });
       final data = toolData(body);
       if (data.isEmpty) {
-        note = 'The file could not be prepared.';
+        note = inLine(lang, 'The file could not be prepared.');
       } else {
         final name = 'GSTR1_${data['gstin'] ?? ''}_${gst.gstr1.fp}.json';
         final saved = await state.saveTextFile(
@@ -340,8 +356,8 @@ class _TaxesScreenState extends State<TaxesScreen> {
           const JsonEncoder.withIndent('  ').convert(data),
         );
         note = saved
-            ? 'Saved $name. Upload it in the GST offline tool or send it to your CA.'
-            : 'Not saved.';
+            ? inFill(inLine(lang, 'Saved {name}. Upload it in the GST offline tool or send it to your CA.'), {'name': name})
+            : inLine(lang, 'Not saved.');
       }
     } on MycaApiException catch (err) {
       note = err.message;
@@ -355,6 +371,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
 
   Future<void> _saveEntries(String period, {bool tally = false, bool trialBalance = false}) async {
     final state = AppScope.of(context);
+    final lang = indiaLang(context);
     setState(() => _entriesNote = '');
     var note = '';
     try {
@@ -364,18 +381,24 @@ class _TaxesScreenState extends State<TaxesScreen> {
             : await state.api.query(tally ? 'export_tally' : 'export_entries', {'period': period}),
       );
       if (data.isEmpty) {
-        note = trialBalance ? 'The trial balance could not be prepared.' : 'The entries could not be prepared.';
+        note = trialBalance ? inLine(lang, 'The trial balance could not be prepared.') : inLine(lang, 'The entries could not be prepared.');
       } else {
         final name = data['fileName'] as String;
         final count = (trialBalance ? data['accounts'] : data['count']) as num;
         final saved = await state.saveTextFile(name, data[tally ? 'xml' : 'csv'] as String);
-        note = saved
-            ? trialBalance
-                  ? 'Saved $name with ${count == 1 ? '1 account' : '$count accounts'}${data['balanced'] == false ? ' (it does not tie; ask your CA to look)' : ''}. Send it to your CA.'
-                  : tally
-                  ? 'Saved $name with ${count == 1 ? '1 voucher' : '$count vouchers'}. Import it in Tally (Import Data) or send it to your CA.'
-                  : 'Saved $name with ${count == 1 ? '1 entry' : '$count entries'}. Send it to your CA.'
-            : 'Not saved.';
+        final parts = {'name': name, 'n': count};
+        final ties = data['balanced'] != false;
+        note = !saved
+            ? inLine(lang, 'Not saved.')
+            : trialBalance
+            ? (count == 1
+                  ? (ties ? inFill(inLine(lang, 'Saved {name} with 1 account. Send it to your CA.'), parts) : inFill(inLine(lang, 'Saved {name} with 1 account (it does not tie; ask your CA to look). Send it to your CA.'), parts))
+                  : (ties ? inFill(inLine(lang, 'Saved {name} with {n} accounts. Send it to your CA.'), parts) : inFill(inLine(lang, 'Saved {name} with {n} accounts (it does not tie; ask your CA to look). Send it to your CA.'), parts)))
+            : tally
+            ? (count == 1
+                  ? inFill(inLine(lang, 'Saved {name} with 1 voucher. Import it in Tally (Import Data) or send it to your CA.'), parts)
+                  : inFill(inLine(lang, 'Saved {name} with {n} vouchers. Import it in Tally (Import Data) or send it to your CA.'), parts))
+            : (count == 1 ? inFill(inLine(lang, 'Saved {name} with 1 entry. Send it to your CA.'), parts) : inFill(inLine(lang, 'Saved {name} with {n} entries. Send it to your CA.'), parts));
       }
     } on MycaApiException catch (err) {
       note = err.message;
@@ -422,7 +445,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                 Text(item.why, style: text.bodyLarge),
                 if (item.moneyAtRisk > 0) ...[
                   const SizedBox(height: 16),
-                  Text('AT RISK', style: text.labelSmall),
+                  Text(inText(context, 'AT RISK'), style: text.labelSmall),
                   Text(
                     rupees(item.moneyAtRisk),
                     style: text.headlineMedium?.copyWith(
@@ -435,7 +458,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: () => Navigator.of(sheet).pop(),
-                    child: const Text('Got it'),
+                    child: Text(inText(context, 'Got it')),
                   ),
                 ),
                 if (item.id.isNotEmpty) ...[
@@ -453,7 +476,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                         if (!mounted || reply.isEmpty) return;
                         setState(() => _fileNote = reply);
                       },
-                      child: const Text('Ask my CA'),
+                      child: Text(inText(context, 'Ask my CA')),
                     ),
                   ),
                 ],
@@ -468,7 +491,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Taxes and filings')),
+      appBar: AppBar(title: Text(inText(context, 'Taxes and filings'))),
       body: FutureBuilder<Today>(
         future: _today,
         builder: (context, state) {
@@ -482,13 +505,13 @@ class _TaxesScreenState extends State<TaxesScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '${state.error ?? 'Could not load.'}',
+                    '${state.error ?? inText(context, 'Could not load.')}',
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: _reload,
-                    child: const Text('Try again'),
+                    child: Text(inText(context, 'Try again')),
                   ),
                 ],
               ),
@@ -504,8 +527,8 @@ class _TaxesScreenState extends State<TaxesScreen> {
               children: [
                 SectionLabel(
                   open.isEmpty
-                      ? 'Nothing needs you right now'
-                      : 'Needs you (${open.length})',
+                      ? inText(context, 'Nothing needs you right now')
+                      : inFormat(context, 'Needs you ({n})', {'n': open.length}),
                 ),
                 if (open.isNotEmpty)
                   Panel(
@@ -518,7 +541,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                           ),
                           title: item.title,
                           subtitle: item.moneyAtRisk > 0
-                              ? 'At risk: ${rupees(item.moneyAtRisk)}'
+                              ? inFormat(context, 'At risk: {amount}', {'amount': rupees(item.moneyAtRisk)})
                               : item.why,
                           trailing: const Chevron(),
                           onTap: () => _explain(item),
@@ -599,7 +622,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                               ),
                             ),
                       child: Text(
-                        'Review the ${monthLabel(gst.period)} return',
+                        inFormat(context, 'Review the {month} return', {'month': monthLabel(gst.period)}),
                       ),
                     ),
                   ),
@@ -608,7 +631,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: () => _recordGstPayment(gst),
-                      child: const Text('Record the GST payment'),
+                      child: Text(inText(context, 'Record the GST payment')),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -616,7 +639,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: () => _saveEntries(gst.period),
-                      child: const Text('Save entries for your CA'),
+                      child: Text(inText(context, 'Save entries for your CA')),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -624,7 +647,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: () => _saveExcel('entries', {'period': gst.period}),
-                      child: const Text('Save entries as Excel'),
+                      child: Text(inText(context, 'Save entries as Excel')),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -632,7 +655,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: _saveGstr9,
-                      child: const Text('Save the GSTR-9 draft'),
+                      child: Text(inText(context, 'Save the GSTR-9 draft')),
                     ),
                   ),
                   if (AppScope.of(context).snapshot?.company.quarterlyGst ?? false) ...[
@@ -641,7 +664,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                       width: double.infinity,
                       child: OutlinedButton(
                         onPressed: () => _saveQuarterly(iff: false),
-                        child: const Text('Save the quarterly GSTR-1'),
+                        child: Text(inText(context, 'Save the quarterly GSTR-1')),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -649,7 +672,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                       width: double.infinity,
                       child: OutlinedButton(
                         onPressed: () => _saveQuarterly(iff: true),
-                        child: const Text('Save the IFF for this month'),
+                        child: Text(inText(context, 'Save the IFF for this month')),
                       ),
                     ),
                   ],
@@ -658,7 +681,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: _closeYear,
-                      child: const Text('Close the year'),
+                      child: Text(inText(context, 'Close the year')),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -666,7 +689,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: () => _saveEntries(gst.period, tally: true),
-                      child: const Text('Save a Tally file'),
+                      child: Text(inText(context, 'Save a Tally file')),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -674,7 +697,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: () => _saveFilingPack(gst.period),
-                      child: const Text('Save the filing pack for your CA'),
+                      child: Text(inText(context, 'Save the filing pack for your CA')),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -682,7 +705,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: () => _saveEntries(gst.period, trialBalance: true),
-                      child: const Text('Save the trial balance'),
+                      child: Text(inText(context, 'Save the trial balance')),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -690,7 +713,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: () => _saveExcel('trial_balance'),
-                      child: const Text('Save as Excel'),
+                      child: Text(inText(context, 'Save as Excel')),
                     ),
                   ),
                   if (_entriesNote.isNotEmpty)
@@ -720,8 +743,8 @@ class _TaxesScreenState extends State<TaxesScreen> {
                               if (!tds.deductor)
                                 RowCard(
                                   leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
-                                  title: 'Deduct TDS on bills',
-                                  subtitle: 'Add your TAN if you deduct TDS on contractors, fees or rent',
+                                  title: inText(context, 'Deduct TDS on bills'),
+                                  subtitle: inText(context, 'Add your TAN if you deduct TDS on contractors, fees or rent'),
                                   trailing: const Chevron(),
                                   onTap: () => _openTds(tds),
                                 )
@@ -729,43 +752,49 @@ class _TaxesScreenState extends State<TaxesScreen> {
                                 for (final month in tds.months.reversed.take(3))
                                   RowCard(
                                     leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
-                                    title: '${rupees(month.deducted)} deducted in ${monthLabel(month.month)}',
-                                    subtitle: month.depositBy.isEmpty ? '' : 'Deposit by ${longDate(month.depositBy)}',
+                                    title: inFormat(context, '{amount} deducted in {month}', {'amount': rupees(month.deducted), 'month': monthLabel(month.month)}),
+                                    subtitle: month.depositBy.isEmpty ? '' : inFormat(context, 'Deposit by {date}', {'date': longDate(month.depositBy)}),
                                   ),
                                 RowCard(
                                   leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
-                                  title: tds.due > 0 ? '${rupees(tds.due)} still to deposit' : 'Nothing left to deposit',
+                                  title: tds.due > 0 ? inFormat(context, '{amount} still to deposit', {'amount': rupees(tds.due)}) : inText(context, 'Nothing left to deposit'),
                                   subtitle: tds.due > 0
-                                      ? 'Record a challan once you have paid it'
-                                      : 'Deducted ${rupees(tds.deducted)}, deposited ${rupees(tds.deposited)}',
+                                      ? inText(context, 'Record a challan once you have paid it')
+                                      : inFormat(context, 'Deducted {deducted}, deposited {deposited}', {'deducted': rupees(tds.deducted), 'deposited': rupees(tds.deposited)}),
                                   trailing: tds.due > 0 ? const Chevron() : null,
                                   onTap: tds.due > 0 ? () => _openTds(tds) : null,
                                 ),
                                 for (final quarter in tds.quarters.reversed.take(4))
                                   RowCard(
                                     leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
-                                    title: '${quarter.kind == 'salary' ? 'Salary TDS statement' : 'TDS statement'} for ${quarter.quarter}',
+                                    title: quarter.kind == 'salary'
+                                        ? inFormat(context, 'Salary TDS statement for {quarter}', {'quarter': quarter.quarter})
+                                        : inFormat(context, 'TDS statement for {quarter}', {'quarter': quarter.quarter}),
                                     subtitle: quarter.filedArn.isNotEmpty
-                                        ? 'Filed, ARN ${quarter.filedArn}'
+                                        ? inFormat(context, 'Filed, ARN {arn}', {'arn': quarter.filedArn})
                                         : quarter.approved
-                                            ? 'Approved · ${rupees(quarter.deducted)} deducted${quarter.shortfall > 0 ? ', ${rupees(quarter.shortfall)} still to deposit' : ''}'
-                                            : '${rupees(quarter.deducted)} deducted${quarter.dueDate.isEmpty ? '' : ' · due by ${longDate(quarter.dueDate)}'} · review it',
+                                            ? (quarter.shortfall > 0
+                                                ? inFormat(context, 'Approved · {deducted} deducted, {shortfall} still to deposit', {'deducted': rupees(quarter.deducted), 'shortfall': rupees(quarter.shortfall)})
+                                                : inFormat(context, 'Approved · {deducted} deducted', {'deducted': rupees(quarter.deducted)}))
+                                            : quarter.dueDate.isEmpty
+                                                ? inFormat(context, '{deducted} deducted · review it', {'deducted': rupees(quarter.deducted)})
+                                                : inFormat(context, '{deducted} deducted · due by {date} · review it', {'deducted': rupees(quarter.deducted), 'date': longDate(quarter.dueDate)}),
                                     trailing: const Chevron(),
                                     onTap: () => _openTdsReview(quarter),
                                   ),
                                 if (tds.quarters.any((q) => q.kind != 'salary'))
                                   RowCard(
                                     leading: const TintTile(tint: Tint.taxes, mark: Mark.comingUp),
-                                    title: 'Form 16A drafts',
-                                    subtitle: 'One per deductee for ${tds.quarters.lastWhere((q) => q.kind != 'salary').quarter}, for checking before TRACES issues them',
+                                    title: inText(context, 'Form 16A drafts'),
+                                    subtitle: inFormat(context, 'One per deductee for {quarter}, for checking before TRACES issues them', {'quarter': tds.quarters.lastWhere((q) => q.kind != 'salary').quarter}),
                                     trailing: const Chevron(),
                                     onTap: () => _saveForm16A(tds.quarters.lastWhere((q) => q.kind != 'salary')),
                                   ),
                               ],
                               RowCard(
                                 leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
-                                title: 'Form 26AS check',
-                                subtitle: 'TDS your customers deducted, compared with 26AS',
+                                title: inText(context, 'Form 26AS check'),
+                                subtitle: inText(context, 'TDS your customers deducted, compared with 26AS'),
                                 trailing: const Chevron(),
                                 onTap: () => Navigator.of(context).push(
                                   MaterialPageRoute<void>(builder: (_) => const TdsCreditScreen()),
@@ -774,8 +803,8 @@ class _TaxesScreenState extends State<TaxesScreen> {
                               if (_portalAllowed)
                                 RowCard(
                                   leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
-                                  title: 'Income tax checks',
-                                  subtitle: 'Read Form 16 or 26AS, check a PAN, section 206AB or a bank account',
+                                  title: inText(context, 'Income tax checks'),
+                                  subtitle: inText(context, 'Read Form 16 or 26AS, check a PAN, section 206AB or a bank account'),
                                   trailing: const Chevron(),
                                   onTap: () => Navigator.of(context).push(
                                     MaterialPageRoute<void>(builder: (_) => const QuickoScreen()),
@@ -794,7 +823,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                   },
                 ),
                 const SizedBox(height: 26),
-                const SectionLabel('Filed'),
+                SectionLabel(inText(context, 'Filed')),
                 FutureBuilder<List<FiledReturn>>(
                   future: _filed,
                   builder: (context, snap) {
@@ -807,19 +836,20 @@ class _TaxesScreenState extends State<TaxesScreen> {
                               tint: Tint.ask,
                               mark: Mark.comingUp,
                             ),
-                            title: '${item.label} for ${monthLabel(item.period)}',
-                            subtitle:
-                                'Filed ${longDate(item.filedOn)}${item.late ? ', after the due date' : ''} · ARN ${item.arn}',
+                            title: inFormat(context, '{form} for {month}', {'form': item.label, 'month': monthLabel(item.period)}),
+                            subtitle: item.late
+                                ? inFormat(context, 'Filed {date}, after the due date · ARN {arn}', {'date': longDate(item.filedOn), 'arn': item.arn})
+                                : inFormat(context, 'Filed {date} · ARN {arn}', {'date': longDate(item.filedOn), 'arn': item.arn}),
                           ),
                         RowCard(
                           leading: const TintTile(
                             tint: Tint.ask,
                             mark: Mark.comingUp,
                           ),
-                          title: 'Record a filing',
+                          title: inText(context, 'Record a filing'),
                           subtitle: filed.isEmpty
-                              ? 'Filed a return on the portal or through your CA? Keep its ARN here.'
-                              : 'Add another return with its ARN',
+                              ? inText(context, 'Filed a return on the portal or through your CA? Keep its ARN here.')
+                              : inText(context, 'Add another return with its ARN'),
                           trailing: const Chevron(),
                           onTap: () => _recordFiling(today.deadlines),
                         ),
@@ -829,7 +859,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                 ),
                 if (upcoming.isNotEmpty) ...[
                   const SizedBox(height: 26),
-                  const SectionLabel('Coming up'),
+                  SectionLabel(inText(context, 'Coming up')),
                   Panel(
                     children: [
                       for (final deadline in upcoming)
@@ -838,7 +868,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                             tint: Tint.ask,
                             mark: Mark.comingUp,
                           ),
-                          title: '${deadline.label} for ${monthLabel(deadline.period)}',
+                          title: inFormat(context, '{form} for {month}', {'form': deadline.label, 'month': monthLabel(deadline.period)}),
                           subtitle:
                               '${dueLabel(deadline.daysUntil)}, ${longDate(deadline.dueDate)}',
                         ),
@@ -888,11 +918,11 @@ class _PeriodCard extends StatelessWidget {
     return _Card(
       children: [
         Text(
-          'GST FOR ${monthLabel(gst.period).toUpperCase()}',
+          inFormat(context, 'GST FOR {month}', {'month': monthLabel(gst.period).toUpperCase()}),
           style: text.labelSmall,
         ),
         const SizedBox(height: 6),
-        Text(
+        Amount(
           rupees(gst.outputTax.total),
           style: text.displaySmall?.copyWith(
             fontWeight: FontWeight.w400,
@@ -900,46 +930,52 @@ class _PeriodCard extends StatelessWidget {
           ),
         ),
         Text(
-          'Tax on ${gst.salesCount == 1 ? '1 sale' : '${gst.salesCount} sales'} of ${rupees(gst.taxableSales)}',
+          inCount(context, gst.salesCount, 'Tax on 1 sale of {amount}', 'Tax on {n} sales of {amount}', {'amount': rupees(gst.taxableSales)}),
           style: text.bodyMedium,
         ),
         const SizedBox(height: 14),
         const Divider(),
         const SizedBox(height: 10),
-        _HeadsRow(label: 'Tax on sales', heads: gst.outputTax),
+        _HeadsRow(label: inText(context, 'Tax on sales'), heads: gst.outputTax),
         const SizedBox(height: 10),
-        _HeadsRow(label: 'Credit on purchases', heads: gst.inputCredit),
+        _HeadsRow(label: inText(context, 'Credit on purchases'), heads: gst.inputCredit),
         const SizedBox(height: 14),
         const Divider(),
         const SizedBox(height: 10),
         if (gst.payment case final pay?) ...[
-          _HeadsRow(label: 'To pay in cash', heads: pay.cash),
+          _HeadsRow(label: inText(context, 'To pay in cash'), heads: pay.cash),
           const SizedBox(height: 6),
           Text(
             pay.broughtForwardKnown
-                ? 'Credit brought forward ${rupees(pay.broughtForward.total)} · credit used ${rupees(pay.creditUsed)}'
-                : 'Credit used ${rupees(pay.creditUsed)}',
+                ? inFormat(context, 'Credit brought forward {forward} · credit used {used}', {'forward': rupees(pay.broughtForward.total), 'used': rupees(pay.creditUsed)})
+                : inFormat(context, 'Credit used {used}', {'used': rupees(pay.creditUsed)}),
             style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
           ),
           if (pay.carried.total > 0)
             Text(
-              'Credit carried forward ${rupees(pay.carried.total)}',
+              inFormat(context, 'Credit carried forward {amount}', {'amount': rupees(pay.carried.total)}),
               style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
             ),
           if (pay.filedArn.isNotEmpty)
-            Text('Filed, ARN ${pay.filedArn}.', style: text.bodySmall)
+            Text(inFormat(context, 'Filed, ARN {arn}.', {'arn': pay.filedArn}), style: text.bodySmall)
           else if (pay.late case final late?)
             Text(
-              'If paid today, ${late.days} ${late.days == 1 ? 'day' : 'days'} late: interest ${rupees(late.interest)} and late fee ${rupees(late.lateFee)}, ${rupees(late.total)} in all.',
+              inCount(
+                context,
+                late.days,
+                'If paid today, 1 day late: interest {interest} and late fee {fee}, {total} in all.',
+                'If paid today, {n} days late: interest {interest} and late fee {fee}, {total} in all.',
+                {'interest': rupees(late.interest), 'fee': rupees(late.lateFee), 'total': rupees(late.total)},
+              ),
               style: text.bodyMedium?.copyWith(fontFeatures: moneyFigures),
             )
           else if (pay.dueDate.isNotEmpty)
-            Text('Due by ${longDate(pay.dueDate)}.', style: text.bodyMedium),
+            Text(inFormat(context, 'Due by {date}.', {'date': longDate(pay.dueDate)}), style: text.bodyMedium),
           const SizedBox(height: 8),
           Text(pay.notes.join(' '), style: text.bodySmall),
         ] else
           Text(
-            'The amount to pay could not be worked out for this month.',
+            inText(context, 'The amount to pay could not be worked out for this month.'),
             style: text.bodySmall,
           ),
       ],
@@ -959,14 +995,10 @@ class _HeadsRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(child: Text(label, style: text.titleMedium)),
-            Text(
-              rupees(heads.total),
-              style: text.titleMedium?.copyWith(fontFeatures: moneyFigures),
-            ),
-          ],
+        AmountRow(
+          start: Text(label, style: text.titleMedium),
+          amount: rupees(heads.total),
+          style: text.titleMedium?.copyWith(fontFeatures: moneyFigures),
         ),
         const SizedBox(height: 2),
         Text(
@@ -1000,23 +1032,29 @@ class _Gstr1Card extends StatelessWidget {
     return _Card(
       children: [
         Text(
-          'GSTR-1 FILE FOR ${monthLabel(gst.period).toUpperCase()}',
+          inFormat(context, 'GSTR-1 FILE FOR {month}', {'month': monthLabel(gst.period).toUpperCase()}),
           style: text.labelSmall,
         ),
         const SizedBox(height: 8),
         if (file.empty && file.held.isEmpty)
-          Text('No sales to report for this month.', style: text.bodyLarge)
+          Text(inText(context, 'No sales to report for this month.'), style: text.bodyLarge)
         else ...[
           Text(
-            '${file.b2b} to registered buyers · ${file.b2cl} large to unregistered · ${file.b2cs} summary ${file.b2cs == 1 ? 'row' : 'rows'}',
+            inCount(
+              context,
+              file.b2cs,
+              '{b2b} to registered buyers · {b2cl} large to unregistered · {n} summary row',
+              '{b2b} to registered buyers · {b2cl} large to unregistered · {n} summary rows',
+              {'b2b': file.b2b, 'b2cl': file.b2cl},
+            ),
             style: text.bodyLarge,
           ),
           for (final held in file.held)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                '${held.number} is left out: ${heldReason(held.code)}.',
-                style: const TextStyle(
+                _heldLine(context, held.number, held.code),
+                style: TextStyle(
                   color: Palette.danger,
                   fontWeight: FontWeight.w500,
                 ),
@@ -1028,7 +1066,7 @@ class _Gstr1Card extends StatelessWidget {
             child: OutlinedButton(
               onPressed: saving || file.empty ? null : onSave,
               child: Text(
-                saving ? 'Preparing…' : 'Save file for the GST portal',
+                saving ? inText(context, 'Preparing…') : inText(context, 'Save file for the GST portal'),
               ),
             ),
           ),
@@ -1038,7 +1076,7 @@ class _Gstr1Card extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: file.empty ? null : () => onPortal!('gstr1'),
-                child: const Text('File GSTR-1 on the GST portal'),
+                child: Text(inText(context, 'File GSTR-1 on the GST portal')),
               ),
             ),
             const SizedBox(height: 8),
@@ -1046,15 +1084,15 @@ class _Gstr1Card extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () => onPortal!('gstr3b'),
-                child: const Text('File GSTR-3B on the GST portal'),
+                child: Text(inText(context, 'File GSTR-3B on the GST portal')),
               ),
             ),
           ],
           const SizedBox(height: 8),
           Text(
             onPortal == null
-                ? 'MyCA does not upload or file this. You or your CA do that on the GST portal.'
-                : 'Save the file to upload it yourself, or file GSTR-1 and GSTR-3B on the GST portal from here with the portal OTP.',
+                ? inText(context, 'MyCA does not upload or file this. You or your CA do that on the GST portal.')
+                : inText(context, 'Save the file to upload it yourself, or file GSTR-1 and GSTR-3B on the GST portal from here with the portal OTP.'),
             style: text.bodySmall,
           ),
         ],

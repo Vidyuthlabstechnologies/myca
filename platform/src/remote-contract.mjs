@@ -4,7 +4,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   ...ENGINE_READ_TOOLS,
   'company_profile',
   'list_invoices',
-  'invoice_document', 'invoice_template', 'settlement_status', 'marketplace_credits', 'tds_credit_check', 'stock_position', 'stock_moves', 'inventory_valuations', 'sku_margins', 'daily_close', 'registrations',
+  'invoice_document', 'invoice_template', 'settlement_status', 'marketplace_credits', 'tds_credit_check', 'stock_position', 'find_item', 'offline_kit', 'catalogue_view', 'stock_alerts', 'store_orders', 'loyalty_balance', 'inventory_costing', 'stock_moves', 'inventory_valuations', 'sku_margins', 'daily_close', 'registrations',
   'record_share',
   'eway_bill_status',
   'list_expenses',
@@ -38,6 +38,8 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'check_itr_json',
   'tax_plan',
   'review_income_tax',
+  'income_tax_interest',
+  'tds_interest',
   'supplier_payout_file',
   'run_report',
   'list_payroll_imports',
@@ -60,6 +62,10 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'us_return_review',
   'us_form_kinds',
   'us_supported_forms',
+  'us_brokerage_csv',
+  'us_refund_boost',
+  'us_amended_return',
+  'us_state_tax',
   'us_withholding_check',
   'us_estimated_payments',
   'read_irs_letter',
@@ -118,7 +124,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'search_tan', 'lookup_ifsc', 'verify_bank_account', 'mca_company', 'gstins_for_pan',
 ]);
 
-export const COMPANY_PROFILE_FIELDS = ['name', 'gstin', 'pan', 'state', 'address', 'city', 'pin', 'entityType', 'invoiceNumbering', 'invoiceTemplate'];
+export const COMPANY_PROFILE_FIELDS = ['name', 'gstin', 'pan', 'state', 'address', 'city', 'pin', 'entityType', 'invoiceNumbering', 'invoiceTemplate', 'composition', 'lutNumber'];
 
 export function isRemoteQuery(name) {
   return REMOTE_QUERY_TOOLS.has(String(name));

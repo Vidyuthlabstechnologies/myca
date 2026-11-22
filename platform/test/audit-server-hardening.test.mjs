@@ -108,3 +108,11 @@ test('H16: the packaged app listens on a random port and opens the window on the
   assert.match(main, /createWindow\(started\.port\)/, 'the window uses the bound port, not the requested one');
   assert.match(main, /loadURL\(`http:\/\/127\.0\.0\.1:\$\{port\}/);
 });
+
+test('the page printed to PDF is written to a temp file nobody can guess or pre-create, and the print window runs no script', () => {
+  const main = readFileSync(new URL('../desktop/main.cjs', import.meta.url), 'utf8');
+  assert.match(main, /myca-print-\$\{randomBytes\(12\)\.toString\('hex'\)\}\.html/);
+  assert.match(main, /flag: 'wx', mode: 0o600/);
+  assert.doesNotMatch(main, /myca-print-\$\{Date\.now\(\)\}/);
+  assert.match(main, /javascript: false/);
+});

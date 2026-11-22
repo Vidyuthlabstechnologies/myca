@@ -95,13 +95,26 @@ Each test file creates and drops its own database.
 MYCA_LISTEN_HOST=127.0.0.1 MYCA_DATABASE_URL=postgres://myca@127.0.0.1:54329/myca_dev MYCA_TOKEN_SECRET=<32+ random characters> MYCA_BOOKS_KEY=<32+ random characters> MYCA_DEV_OTP=1 PORT=8080 npm run dev
 ```
 
+For MyCA US with every outside service faked (Stripe test checkout, Google Play, the e-file
+partner, the MeF simulator), use `node scripts/us-sandbox.mjs` from the repository root instead:
+see `docs/release/US-SANDBOX.md`. `node scripts/us-sandbox.mjs --check` walks the whole US path
+and exits 0 when it works.
+
 `MYCA_GOOGLE_CLIENT_IDS` lists the OAuth client ids (comma-separated) whose Google ID
 tokens the API accepts; set it to the web client id the app passes as
 `MYCA_GOOGLE_SERVER_CLIENT_ID`. `MYCA_OIDC_ISSUER` with `MYCA_OIDC_CLIENT_IDS` turns on
 `POST /v1/auth/oidc` for any OpenID Connect issuer (a firm's Keycloak, Azure AD or
 Okta): the issuer's keys are found through its discovery document, or at
 `MYCA_OIDC_JWKS_URL` when given, and `GET /v1/auth/methods` names the issuer so the app
-can show the button. `MYCA_DOCUMENT_BUCKET` names a Cloud Storage bucket; when set,
+can show the button. `MYCA_APPLE_CLIENT_IDS` turns on `POST /v1/auth/apple`
+(`src/apple.mjs`): the identity token is checked against Apple's keys at
+`https://appleid.apple.com/auth/keys`, issuer `https://appleid.apple.com`, one of the listed
+audiences, and a nonce that must be the SHA-256 hex of the `rawNonce` the app sends with it.
+The account is keyed by Apple's subject (stored as `oidc_issuer`/`oidc_sub`); Apple's
+verified email, often a private relay address, is kept when given and never cleared when a
+later token leaves it out, and `fullName` (sent by the app on the first sign-in only) fills
+an empty name. MyCA keeps no Apple refresh token, so there is nothing to revoke at Apple
+when `DELETE /v1/me` runs. `MYCA_DOCUMENT_BUCKET` names a Cloud Storage bucket; when set,
 uploaded document bytes go there under `businesses/<id>/<sha256>` with the Cloud Run
 service account's token from the metadata server, and Postgres keeps only the index
 row (`location = 'gcs'`). Without it the bytes stay in Postgres, as they do in tests. `MYCA_DEV_OTP=1` prints phone sign-in codes to the
@@ -210,12 +223,37 @@ Filing a return stays a CA's step on the portal by design. `infra/cloud` inputs:
 | `public_url` | `MYCA_PUBLIC_URL` | the https custom domain, used for OAuth redirect URIs |
 | `enable_channel_pulls` | `MYCA_ENABLE_CHANNEL_PULLS` | read-only Amazon, Shopify and Razorpay report pulls with each business's own keys |
 
+## Limits on what is posted
+
+A preview is confirmed once: sending the same confirmation again reports the first posting,
+and a code from a preview that was replaced or discarded posts nothing. Every write to one
+business takes the row lock on its books, so two people confirming together post once. A
+number that no rule bounds is refused above 1e11 (`MAX_EXACT_AMOUNT`, ₹10,000 crore), and so
+is a document whose lines come to more than that, because past that size a total can no
+longer be kept to the last paisa and the posted figure would differ from the preview.
+
+## Limits on what is fetched and read
+
+No request this server makes follows a redirect. A link from a provider's answer is fetched
+only after `platform/src/outbound.mjs` has checked it (https, no credentials, a public host,
+and for an Amazon report an `amazonaws.com` host), and an answer is read up to a cap (16 MB
+of connector JSON, 32 MB for a report file) and then dropped with `RESPONSE_TOO_LARGE`.
+Outside local development the server does not start when a URL the operator sets is plain
+http, carries a user name or password, or is a cloud metadata address. A crash report line
+is cut to 4,000 characters before it is scrubbed. On WhatsApp a number that belongs to no
+business is answered twice a day (`whatsappStranger`) and a member's business list thirty
+times an hour (`whatsappMenu`); the nightly job deletes message ids older than 30 days and
+reports them as `purge.whatsappRows`.
+
 ## Plans and billing
 
-Subscriptions are sold through Google Play Billing in the Android app. Every business gets Pro
-free for 14 days from the day it is created, then Free (30 invoices a month, the owner only)
-unless it pays for Pro or CA firm. E-invoicing, connectors and inviting people need a paid plan.
-Nothing is gated until the Play products are configured.
+Subscriptions are sold through Google Play Billing in the Android app. A person gets Pro free
+for 14 days from the day they create their first business; a business they create later shares
+that same trial and does not start a new one, so deleting a business and creating it again
+gains nothing. After the trial a business is read-only unless it pays for a plan. A demo
+business does not use up the trial, and its name, GSTIN and registrations cannot be changed.
+E-invoicing, connectors and inviting people need a paid plan. Nothing is gated until the Play
+products are configured.
 
 | Route | Who | What |
 |---|---|---|
@@ -246,7 +284,13 @@ How it holds together:
 - A cancelled subscription keeps its plan until the paid period ends; `on_hold` and `paused`
   drop to Free at once; three grace days follow the paid period otherwise.
 - Customers cancel or change payment method in Google Play. Switching plans means cancelling
-  and subscribing to the other one.
+  and subscribing to the other one. Once a newer purchase pays for the business, a late notice
+  for the old purchase changes nothing, and sending the old token again answers
+  `PURCHASE_SUPERSEDED`; a purchase Play links to the current one always replaces it.
+- A CA firm's applied invite credits run after the paid period ends, also once Google reports
+  the subscription expired. A credit is earned only when the invited person owns a business with
+  a live paid subscription that the firm's owner is not a member of.
+- Open invitations hold a seat: the member limit counts members plus invitations still open.
 - The API calls Google as its Cloud Run service account through the metadata server, so no key
   file is needed. `MYCA_PLAY_SERVICE_ACCOUNT_JSON` is there for running elsewhere.
 
@@ -266,11 +310,14 @@ terraform apply -var-file=myca.tfvars \
 
 Play setup (after `terraform apply`):
 
-1. Play Console > Monetize > Subscriptions: create three subscriptions, for example
-   `myca_essentials`, `myca_pro` and `myca_firm`. Give each a monthly and a yearly
-   auto-renewing base plan: Essentials ₹399 a month or ₹3,999 a year, Pro ₹799 or ₹7,999, CA
-   firm ₹2,499 or ₹24,999. Set `play_product_essentials`, `play_product_pro` and
-   `play_product_firm` to their product ids. There is no free plan: after the 14-day Pro
+1. Play Console > Monetize > Subscriptions: create the subscriptions, for example
+   `myca_essentials`, `myca_pro`, `myca_assured` and `myca_firm`. Give each a monthly and a
+   yearly auto-renewing base plan: Essentials ₹999 a month or ₹9,999 a year, Pro ₹1,999 or
+   ₹19,999, MyCA Assured ₹4,999 or ₹49,999, CA firm ₹5,999 or ₹59,999. Set
+   `play_product_essentials`, `play_product_pro`, `play_product_assured` and
+   `play_product_firm` to their product ids. Create MyCA Assured only once a CA team is signed
+   to review and file each Assured business's GST and TDS returns every month: until its
+   product id is set it shows in the app as a plan that cannot be bought yet. There is no free plan: after the 14-day Pro
    trial the books stay readable and exportable, and nothing new is posted until a plan is
    bought.
 2. Play Console > Users and permissions: invite the `api_service_account` output with "View
@@ -307,6 +354,7 @@ The server logs one `startup: services` line listing which optional services are
 | `MYCA_BODY_BUDGET_BYTES` | no | from memory limit | no | Total bytes of request bodies held at once. |
 | `MYCA_GOOGLE_CLIENT_IDS` | for Google sign-in | | no | Comma list of accepted OAuth client ids (web + Android). |
 | `MYCA_OIDC_ISSUER`, `MYCA_OIDC_CLIENT_IDS`, `MYCA_OIDC_JWKS_URL` | for OIDC sign-in | | no | A firm's identity provider. |
+| `MYCA_APPLE_CLIENT_IDS` | for Sign in with Apple (US iOS app) | | no | Comma list of accepted audiences: the bundle id `com.mldynamic.myca.us`, plus a Services ID if a web flow is added. Off when unset. |
 | `MYCA_SMS_PROVIDER` | for phone sign-in | | no | `twilio`, `msg91` or `whatsapp`. |
 | `MYCA_SMS_TWILIO_SID`, `MYCA_SMS_TWILIO_TOKEN`, `MYCA_SMS_TWILIO_FROM` | with twilio | | token yes | Twilio sender. |
 | `MYCA_SMS_MSG91_AUTHKEY`, `MYCA_SMS_MSG91_TEMPLATE_ID` | with msg91 | | authkey yes | MSG91 sender. |
@@ -314,7 +362,9 @@ The server logs one `startup: services` line listing which optional services are
 | `MYCA_TEST_PHONES`, `MYCA_TEST_CODE` | staging only | | code yes | Test numbers that sign in with a fixed six-digit code and no SMS. Refused in production. |
 | `MYCA_REVIEWER_SIGN_IN`, `MYCA_REVIEWER_PHONE`, `MYCA_REVIEWER_CODE` | for the Play reviewer | off | code yes | One reviewer number with a fixed code. Every business it creates is a demo business, it cannot accept invitations, and each code request is logged. Turn it off by setting `MYCA_REVIEWER_SIGN_IN` to `off`. On Google Cloud, set the Terraform variables `reviewer_phone` and `reviewer_code` instead; an empty `reviewer_phone` keeps it off. |
 | `MYCA_DEV_OTP` | local only | | no | Prints codes to the log; refused in production. |
-| `MYCA_ADMIN_USER_IDS` | for the crash digest | | no | Comma list of user ids that may read `GET /v1/admin/crashes?days=N`. |
+| `MYCA_ADMIN_USER_IDS` | for the crash digest and funnel | | no | Comma list of user ids that may read `GET /v1/admin/crashes?days=N` and `GET /v1/admin/funnel?days=N&edition=india|us`. |
+| `MYCA_SITE_URL` | for invite links | | no | Public https origin of the website. `GET /v1/me/referral` returns `<origin>/r/<code>`; empty returns the code only. |
+| `MYCA_REFERRAL_REWARD` | no | | no | Short text a CA firm sees as its invite reward. Only firms earn rewards (owner decision 2026-11-14): when a client a firm invited pays, `referral_credits` records one credit (one month, status `earned`) for the firm's owner. At the firm's next Play renewal (a later `current_end` on its `firm` subscription) earned credits become `applied` and add to `subscriptions.credit_months`; each month keeps the firm plan 30 days past the paid end. Empty uses the built-in firm reward text. |
 | `MYCA_PROVIDER_ENV` | no | `off` | no | Provider environment for the engines. Staging allows only `off` or `sandbox`. |
 | `MYCA_MOCK_MODE` | staging | | no | `1` makes every provider simulated (`providerMode: simulated`). |
 | `MYCA_ENABLE_LIVE_CALLS` | never on hosted today | off | no | The live switch for government, model and write actions. |
@@ -322,7 +372,7 @@ The server logs one `startup: services` line listing which optional services are
 | `MYCA_GSP_ENV`, `MYCA_GSP_BASE_URL` | for the GST portal | | no | GSP host selection. |
 | `MYCA_GSP_API_KEY`, `MYCA_GSP_API_SECRET`, `MYCA_GSP_TEST_API_KEY`, `MYCA_GSP_TEST_API_SECRET`, `MYCA_GSP_LIVE_API_KEY`, `MYCA_GSP_LIVE_API_SECRET` | for the GST portal | | yes | GSP (Quicko / Sandbox) keys. The live pair is refused in staging. |
 | `MYCA_MODEL_API_KEY`, `MYCA_MODEL`, `MYCA_MODEL_BASE_URL` | for the chat model | built-in patterns | key yes | Model used by the chat router (`platform/src/model-adapter.mjs`). This, not `NVIDIA_NIM_API_KEY`, is what the chat reads. |
-| `NVIDIA_NIM_API_KEY` / `NIM_API_KEY`, `NVIDIA_NIM_BASE_URL`, `NVIDIA_NIM_MODEL` | no | | key yes | Only the NIM tool (`nim-client.mjs`), not the chat router. |
+| `NVIDIA_NIM_API_KEY` / `NIM_API_KEY`, `NVIDIA_NIM_BASE_URL`, `NVIDIA_NIM_MODEL` | no | | key yes | Only the NIM tool (`nim-client.mjs`), which answers a message that starts with "ask nim". Leave it unset on the hosted service: Terraform no longer sets it, and it must never hold the chat model's key, because it is sent to NVIDIA. |
 | `MYCA_WHATSAPP_PROVIDER` | no | `waha` when `MYCA_WAHA_URL` is set, else `meta` | no | WhatsApp route. |
 | `MYCA_WAHA_URL`, `MYCA_WAHA_API_KEY`, `MYCA_WAHA_SESSION`, `MYCA_WAHA_WEBHOOK_SECRET` | for WAHA | | key and secret yes | Self-hosted WhatsApp gateway. The URL must be https outside local development. |
 | `MYCA_WHATSAPP_VERIFY_TOKEN`, `MYCA_WHATSAPP_APP_SECRET`, `MYCA_WHATSAPP_PHONE_NUMBER_ID`, `MYCA_WHATSAPP_ACCESS_TOKEN` | for Meta WhatsApp | | all but the number id | Meta Cloud API. |
@@ -344,7 +394,7 @@ The server logs one `startup: services` line listing which optional services are
 | `MYCA_PLAY_SERVICE_ACCOUNT_JSON` | Play billing outside Cloud Run | metadata server on Cloud Run | yes | Play Developer API access. Refused in staging. |
 | `MYCA_PLAY_PUSH_AUDIENCE`, `MYCA_PLAY_PUSH_SERVICE_ACCOUNT` | for Play notifications | | no | Pub/Sub push with OIDC authentication: the audience set on the push subscription and the service account it signs as. Preferred. |
 | `MYCA_PLAY_NOTIFY_TOKEN` | alternative to push auth | | yes | Shared token, sent only in the `x-myca-notify-token` header. A `?token=` in the URL is refused so it never reaches access logs. |
-| `MYCA_PLAN_PRICES` | no | built-in prices | no | Display prices, e.g. `essentials=399,pro=799,firm=2499`. |
+| `MYCA_PLAN_PRICES` | no | built-in prices | no | Display prices, e.g. `essentials=999,pro=1999,assured=4999,firm=5999`. |
 | `MYCA_DOCUMENT_BUCKET` | no | documents in Postgres | no | Cloud Storage bucket for document bytes (GCS only). |
 | `MYCA_TALLY_HOST`, `MYCA_TALLY_PORT`, `MYCA_LISTEN_HOST`, `MYCA_API_TOKEN`, `MYCA_TOKEN_IN_PAGE`, `MYCA_REQUIRE_SAFE_STORAGE` | desktop only | | | Read by the Windows app's local server, not the hosted API. |
 
@@ -369,4 +419,4 @@ The server logs one `startup: services` line listing which optional services are
   direct-to-storage uploads.
 - A business may hold 200 MB of documents in total (\`MAX_BUSINESS_BYTES\`); beyond that an upload answers 413 STORAGE_FULL.
 
-`MYCA_BOOKS_KEY` seals every business's books row (AES-256-GCM, a key derived per business) and every user's authenticator key (`user_totp`, a key derived per user). It is optional locally and required on Cloud Run; Terraform generates it into Secret Manager. Rotating it means re-sealing every row of both, so keep it where the database password is kept.
+`MYCA_BOOKS_KEY` seals every business's books row (AES-256-GCM, a key derived per business) and every user's authenticator key (`user_totp`, a key derived per user). It is optional locally and required on Cloud Run; Terraform generates it into Secret Manager. Rotating it means re-sealing every row of both and of the shared copies, which `npm run reseal` does in one transaction (`DEPLOYMENT.md`, "Change the books key"); keep it where the database password is kept.

@@ -116,7 +116,7 @@ export function planRetagFromChat(state, text) {
 
 export function planExpenseFromChat(state, text, today = localToday()) {
   const raw = normalizeChat(text);
-  if (!isExpenseIntent(raw) || /\bINV-\d+\b/i.test(raw)) return null;
+  if (!isExpenseIntent(raw) || /\bINV-(?:[A-Z]{2}\d{4}-)?\d+\b/i.test(raw)) return null;
   if (isQuestion(raw) || isNegated(raw)) return null;
   const customer = knownCustomerIn(state, raw);
   if (customer && !STARTS_AS_EXPENSE.test(raw)) return null;

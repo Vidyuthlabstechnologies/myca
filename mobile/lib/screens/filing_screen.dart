@@ -5,6 +5,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../proposal_flow.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -24,6 +25,7 @@ class _RecordFilingScreenState extends State<RecordFilingScreen>
   final _arn = TextEditingController();
   late Deadline? _chosen = widget.returns.isEmpty ? null : widget.returns.first;
   DateTime? _filedOn;
+  String _tdsForm = '';
   String _error = '';
   bool _posted = false;
 
@@ -57,23 +59,24 @@ class _RecordFilingScreenState extends State<RecordFilingScreen>
     final chosen = _chosen;
     final arn = _arn.text.replaceAll(RegExp(r'\s+'), '').toUpperCase();
     if (chosen == null) {
-      return setState(() => _error = 'Choose the return that was filed.');
+      return setState(() => _error = inText(context, 'Choose the return that was filed.'));
     }
     if (!RegExp(r'^[A-Z0-9]{10,20}$').hasMatch(arn)) {
       return setState(
-        () => _error =
-            'Enter the acknowledgement number (ARN) as printed: 10 to 20 letters and digits.',
+        () => _error = inText(context, 'Enter the acknowledgement number (ARN) as printed: 10 to 20 letters and digits.'),
       );
     }
     final filedOn = isoDate(_filedOn ?? AppScope.of(context).now());
     setState(() => _error = '');
     await propose(
-      '${chosen.label} for ${monthLabel(chosen.period)} filed on ${longDate(filedOn)}, ARN $arn',
+      inFormat(context, '{form} for {month} filed on {date}, ARN {arn}', {'form': chosen.label, 'month': monthLabel(chosen.period), 'date': longDate(filedOn), 'arn': arn}),
       'record_filing',
       {
         'returnType': chosen.returnType,
         'period': chosen.period,
         if (widget.gstin.isNotEmpty) 'gstin': widget.gstin,
+        if (chosen.returnType == 'TDS_QUARTERLY' && _tdsForm.isNotEmpty)
+          'form': _tdsForm,
         'arn': arn,
         'filedOn': filedOn,
       },
@@ -85,7 +88,7 @@ class _RecordFilingScreenState extends State<RecordFilingScreen>
     final text = Theme.of(context).textTheme;
     final today = AppScope.of(context).now();
     return Scaffold(
-      appBar: AppBar(title: const Text('Record a filing')),
+      appBar: AppBar(title: Text(inText(context, 'Record a filing'))),
       body: Column(
         children: [
           Expanded(
@@ -93,35 +96,58 @@ class _RecordFilingScreenState extends State<RecordFilingScreen>
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               children: [
                 Text(
-                  'For a return already filed on the GST portal or by your CA. MyCA files nothing; it keeps the acknowledgement and stops showing the return as due.',
+                  inText(context, 'For a return already filed on the GST portal or by your CA. MyCA files nothing; it keeps the acknowledgement and stops showing the return as due.'),
                   style: text.bodyMedium,
                 ),
                 const SizedBox(height: 16),
                 if (widget.returns.isEmpty)
-                  const EmptyNote(text: 'No return is waiting to be filed.')
+                  EmptyNote(text: inText(context, 'No return is waiting to be filed.'))
                 else if (!_posted && pending == null) ...[
                   DropdownButtonFormField<Deadline>(
                     initialValue: _chosen,
                     isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Return'),
+                    decoration: InputDecoration(labelText: inText(context, 'Return')),
                     items: [
                       for (final item in widget.returns)
                         DropdownMenuItem(
                           value: item,
                           child: Text(
-                            '${item.label} for ${monthLabel(item.period)} · due ${longDate(item.dueDate)}',
+                            inFormat(context, '{form} for {month} · due {date}', {'form': item.label, 'month': monthLabel(item.period), 'date': longDate(item.dueDate)}),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                     ],
-                    onChanged: (value) => setState(() => _chosen = value),
+                    onChanged: (value) => setState(() {
+                      _chosen = value;
+                      _tdsForm = '';
+                    }),
                   ),
+                  if (_chosen?.returnType == 'TDS_QUARTERLY') ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        for (final option in [
+                          ('24Q', inText(context, 'Salary (24Q)')),
+                          ('26Q', inText(context, 'Other payments (26Q)')),
+                        ])
+                          ChoiceChip(
+                            label: Text(option.$2),
+                            selected: _tdsForm == option.$1,
+                            onSelected: (on) => setState(
+                              () => _tdsForm = on ? option.$1 : '',
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   TextField(
                     controller: _arn,
                     textCapitalization: TextCapitalization.characters,
-                    decoration: const InputDecoration(
-                      labelText: 'Acknowledgement number (ARN)',
+                    decoration: InputDecoration(
+                      labelText: inText(context, 'Acknowledgement number (ARN)'),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -129,7 +155,7 @@ class _RecordFilingScreenState extends State<RecordFilingScreen>
                     spacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text('Filed on', style: text.bodyMedium),
+                      Text(inText(context, 'Filed on'), style: text.bodyMedium),
                       ActionChip(
                         label: Text(longDate(isoDate(_filedOn ?? today))),
                         onPressed: _pickDate,
@@ -138,12 +164,12 @@ class _RecordFilingScreenState extends State<RecordFilingScreen>
                   ),
                   if (_error.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    Text(_error, style: const TextStyle(color: Palette.danger)),
+                    Text(_error, style: TextStyle(color: Palette.danger)),
                   ],
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: busy ? null : _preview,
-                    child: const Text('Preview'),
+                    child: Text(inText(context, 'Preview')),
                   ),
                 ],
                 for (final entry in entries) entry.toBubble(),
@@ -151,7 +177,7 @@ class _RecordFilingScreenState extends State<RecordFilingScreen>
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('Done'),
+                    child: Text(inText(context, 'Done')),
                   ),
                 ],
               ],

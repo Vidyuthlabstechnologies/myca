@@ -67,7 +67,7 @@ test('the Play reviewer signs in with the fixed code, only ever gets demo busine
   const signed = await signInWith(api, '+919400000031', '480213');
   assert.equal(signed.status, 200, signed.text);
   const token = signed.body.accessToken;
-  await api.call('POST', '/v1/me/consent', { token, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version } });
+  await api.call('POST', '/v1/me/consent', { token, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version, adult: true } });
   const created = await api.call('POST', '/v1/businesses', { token, body: { name: 'Real Looking Co', state: '27' } });
   assert.equal(created.status, 200, created.text);
   assert.equal(created.body.business.demo, true, 'whatever the reviewer asks for is a demo business');

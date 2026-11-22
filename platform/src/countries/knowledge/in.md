@@ -43,9 +43,15 @@ themselves live in `sprints/statutory-rules`.
 
 ## Payments
 
-- Monthly plans are ₹399 (Essentials), ₹799 (Pro) and ₹2,499 (CA firm); there is no free plan
-  (settled 2026-11-10). They are software subscriptions, which Google's policy requires to go
-  through Play billing.
+- Monthly plans are ₹999 (Essentials), ₹1,999 (Pro), ₹4,999 (MyCA Assured, a CA reviews and
+  files GST and TDS every month) and ₹5,999 (CA firm); yearly they are ₹9,999, ₹19,999, ₹49,999
+  and ₹59,999. There is no free plan (settled 2026-11-10; premium prices settled 2026-11-14).
+  They are software subscriptions, which Google's policy requires to go through Play billing.
+  MyCA Assured is not sold until a CA team is signed.
+- MyCA makes no promise to pay a customer's penalties or interest. The promise is accuracy: if a
+  return MyCA filed is wrong because of MyCA's mistake, MyCA corrects and refiles it at no
+  charge (settled 2026-11-14).
+  Source: `mobile/lib/screens/plan_screen.dart`
   Source: `cloud/src/billing.mjs` and
   https://support.google.com/googleplay/android-developer/answer/10281818?hl=en
 

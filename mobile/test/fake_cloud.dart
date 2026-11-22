@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 class FakeCloud {
+  final List<Map<String, Object?>> privacyRequests = [];
   static const code = '428913';
   static const challengeId = '11111111-1111-4111-8111-111111111111';
   static const businessId = '22222222-2222-4222-8222-222222222222';
@@ -11,6 +12,7 @@ class FakeCloud {
   final requests = <String>[];
   final businesses = <Map<String, Object?>>[];
   final createdBodies = <Map<String, Object?>>[];
+  final requestedPhones = <String>[];
   final invoices = <Map<String, Object?>>[];
   final uploads = <String, String>{};
   final quickoCalls = <Map<String, Object?>>[];
@@ -51,11 +53,21 @@ class FakeCloud {
   bool approverIsSomeoneElse = false;
   bool filingSimulated = false;
   String serverEnvironment = '';
+  String providerMode = 'live';
   final filingApprovals = <Map<String, Object?>>[];
   int plaidLinkTokens = 0;
   int gustoConnects = 0;
   bool connectorsUnavailable = false;
   bool pullsOn = true;
+  Map<String, Object?>? Function(String action, Map<String, dynamic> body)? booksAnswer;
+  final recordedPurchases = <String>[];
+  List<Map<String, Object?>> plans = [
+    {'id': 'essentials', 'title': 'Essentials', 'monthlyRupees': 999, 'yearlyRupees': 9999, 'productId': '', 'buyable': false, 'limits': {'invoicesPerMonth': null, 'members': 2}, 'features': ['books', 'post', 'chat', 'gst-reports', 'team']},
+    {'id': 'pro', 'title': 'Pro', 'monthlyRupees': 1999, 'yearlyRupees': 19999, 'productId': '', 'buyable': false, 'opening': true, 'limits': {'invoicesPerMonth': null, 'members': 5}, 'features': ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team']},
+    {'id': 'assured', 'title': 'MyCA Assured', 'monthlyRupees': 4999, 'yearlyRupees': 49999, 'productId': '', 'buyable': false, 'limits': {'invoicesPerMonth': null, 'members': 5}, 'features': ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team', 'ca-assured', 'accuracy-promise', 'priority-support']},
+    {'id': 'firm', 'title': 'CA firm', 'monthlyRupees': 5999, 'yearlyRupees': 59999, 'productId': '', 'buyable': false, 'limits': {'invoicesPerMonth': null, 'members': 25}, 'features': ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team', 'priority-support']},
+  ];
+  Map<String, Object?> subscription = {'plan': 'pro', 'planTitle': 'Pro', 'enforced': true, 'trial': {'daysLeft': 12}};
 
   Map<String, Object?> _connectorView(String channel) {
     final spec = connectorSpecs[channel]!;
@@ -85,11 +97,16 @@ class FakeCloud {
   int exports = 0;
   final replaced = <Map<String, dynamic>>[];
   final crashReports = <Map<String, Object?>>[];
+  final funnelSteps = <Map<String, Object?>>[];
+  final claimedCodes = <String>[];
+  int referralInvited = 0;
   bool crashServerDown = false;
   bool noticeAccepted = true;
   bool phoneOn = true;
   bool googleOn = true;
   bool oidcOn = false;
+  bool appleOn = false;
+  final appleBodies = <Map<String, dynamic>>[];
   String oidcIssuer = 'https://login.firm.example';
   String oidcToken = 'oidc-id-token';
   final deviceLabels = <String>[];
@@ -162,7 +179,21 @@ class FakeCloud {
 
     if (path == '/v1/health/live') {
       if (serverEnvironment.isEmpty) return _json(404, {'ok': false, 'error': 'NOT_FOUND'});
-      return _json(200, {'ok': true, 'environment': serverEnvironment, 'providerMode': 'sandbox', 'version': 'test'});
+      return _json(200, {'ok': true, 'environment': serverEnvironment, 'providerMode': providerMode, 'version': 'test'});
+    }
+    if (path == '/v1/privacy-notice' && request.url.queryParameters['region'] == 'MY') {
+      return _json(200, {
+        'ok': true,
+        'notice': {
+          'document': 'privacy',
+          'version': 'my-test',
+          'title': 'How MyCA uses your information (Malaysia)',
+          'status': 'Draft for legal review.',
+          'sections': [
+            {'heading': 'Where it is kept', 'body': 'Malaysian data is kept in Google Cloud Singapore under PDPA section 129.'},
+          ],
+        },
+      });
     }
     if (path == '/v1/privacy-notice' && request.url.queryParameters['region'] == 'US') {
       return _json(200, {
@@ -184,6 +215,9 @@ class FakeCloud {
         'notice': {
           'document': 'privacy',
           'version': 'v-test',
+          'requiresAdult': true,
+          'contact': {'grievanceOfficer': {'name': 'Asha Rao', 'email': 'grievance@myca.test', 'phone': '[phone, optional]'}},
+          'links': {'terms': 'https://myca.test/terms', 'refunds': 'https://myca.test/refunds', 'grievance': 'https://myca.test/grievance'},
           'title': 'How MyCA uses your information',
           'status': 'Draft for legal review.',
           'sections': [
@@ -194,7 +228,22 @@ class FakeCloud {
       });
     }
     if (path == '/v1/auth/methods') {
-      return _json(200, {'ok': true, 'phone': phoneOn, 'google': googleOn, 'oidc': oidcOn, if (oidcOn) 'oidcIssuer': oidcIssuer});
+      return _json(200, {'ok': true, 'phone': phoneOn, 'google': googleOn, 'apple': appleOn, 'oidc': oidcOn, if (oidcOn) 'oidcIssuer': oidcIssuer});
+    }
+    if (path == '/v1/auth/apple') {
+      deviceLabels.add('${body['deviceLabel']}');
+      appleBodies.add(Map<String, dynamic>.from(body));
+      if (!appleOn) return _json(503, {'ok': false, 'error': 'APPLE_SIGN_IN_UNAVAILABLE'});
+      if (body['idToken'] != 'apple-id-token') return _json(400, {'ok': false, 'error': 'INVALID_APPLE_TOKEN'});
+      if ('${body['rawNonce'] ?? ''}'.length < 16) return _json(400, {'ok': false, 'error': 'APPLE_NONCE_MISMATCH'});
+      final fullName = body['fullName'];
+      if (userName.isEmpty && fullName is Map) userName = '${fullName['givenName'] ?? ''} ${fullName['familyName'] ?? ''}'.trim();
+      if (secondStepOn) return _json(200, _secondStep());
+      return _json(200, {
+        ..._issue(),
+        'user': {'id': 'u1', 'name': userName, 'isNew': businesses.isEmpty},
+        'consent': {'document': 'privacy', 'version': 'v-test', 'accepted': noticeAccepted},
+      });
     }
     if (path == '/v1/auth/oidc') {
       deviceLabels.add('${body['deviceLabel']}');
@@ -221,6 +270,8 @@ class FakeCloud {
     }
     if (path == '/v1/auth/otp') {
       if (!phoneOn) return _json(503, {'ok': false, 'error': 'PHONE_SIGN_IN_UNAVAILABLE'});
+      requestedPhones.add('${body['phone']}');
+      if (RegExp(r'^\+1[2-9]\d{2}[2-9]\d{6}$|^\+9715\d{8}$').hasMatch('${body['phone']}')) return _json(200, {'ok': true, 'challengeId': challengeId, 'expiresInSeconds': 300});
       final phone = '${body['phone']}'.replaceAll(' ', '');
       if (!RegExp(r'^(\+91)?[6-9]\d{9}$').hasMatch(phone)) return _json(400, {'ok': false, 'error': 'INVALID_PHONE'});
       return _json(200, {'ok': true, 'challengeId': challengeId, 'expiresInSeconds': 300});
@@ -267,8 +318,18 @@ class FakeCloud {
       access = 'expired';
       return _json(401, {'ok': false, 'error': 'UNAUTHENTICATED', 'reason': 'TOKEN_EXPIRED'});
     }
+    if (path == '/v1/me/privacy-requests' && request.method == 'POST') {
+      if (body['kind'] == 'grievance' && '${body['message'] ?? ''}'.isEmpty) return _json(400, {'ok': false, 'error': 'MESSAGE_REQUIRED'});
+      final made = {'reference': 'DPR-20261114-ABC${privacyRequests.length}', 'kind': body['kind'], 'status': 'open', 'message': body['message'] ?? '', 'reply': '', 'createdAt': '2026-11-14T00:00:00.000Z', 'dueAt': '2026-12-14T00:00:00.000Z'};
+      privacyRequests.insert(0, made);
+      return _json(200, {'ok': true, 'request': made, 'replyWithinDays': 30});
+    }
+    if (path == '/v1/me/privacy-requests' && request.method == 'GET') {
+      return _json(200, {'ok': true, 'requests': privacyRequests, 'replyWithinDays': 30});
+    }
     if (path == '/v1/me/consent' && request.method == 'POST') {
       if (body['version'] != 'v-test' && body['version'] != 'us-test') return _json(400, {'ok': false, 'error': 'NOTICE_CHANGED'});
+      if (body['version'] == 'v-test' && body['adult'] != true) return _json(400, {'ok': false, 'error': 'ADULT_REQUIRED'});
       noticeAccepted = true;
       consents.add('${body['document']}@${body['version']}');
       return _json(200, {'ok': true});
@@ -286,6 +347,21 @@ class FakeCloud {
       final reports = (body['reports'] as List).cast<Map<String, Object?>>();
       crashReports.addAll(reports);
       return _json(200, {'ok': true, 'accepted': reports.length, 'refused': 0});
+    }
+    if (path == '/v1/funnel' && request.method == 'POST') {
+      final steps = (body['steps'] as List).cast<Map<String, Object?>>();
+      funnelSteps.addAll(steps);
+      return _json(200, {'ok': true, 'accepted': steps.length, 'refused': 0});
+    }
+    if (path == '/v1/me/referral' && request.method == 'GET') {
+      return _json(200, {'ok': true, 'code': 'AB2CD3EF', 'link': 'https://myca.example/r/AB2CD3EF', 'invited': referralInvited, 'converted': 0, 'reward': null});
+    }
+    if (path == '/v1/me/referral/claim' && request.method == 'POST') {
+      final code = '${body['code']}'.toUpperCase();
+      if (code == 'AB2CD3EF') return _json(200, {'ok': false, 'error': 'OWN_CODE'});
+      if (claimedCodes.isNotEmpty) return _json(200, {'ok': false, 'error': 'ALREADY_CLAIMED'});
+      claimedCodes.add(code);
+      return _json(200, {'ok': true});
     }
     if (path == '/v1/me' && request.method == 'GET') {
       return _json(200, {
@@ -372,6 +448,7 @@ class FakeCloud {
       businesses.add(joined);
       return _json(200, {'ok': true, 'business': joined});
     }
+    if (path == '/v1/plans' && request.method == 'GET') return _json(200, {'ok': true, 'plans': plans});
     if (path == '/v1/businesses' && request.method == 'GET') return _json(200, {'ok': true, 'businesses': businesses});
     if (path == '/v1/businesses' && request.method == 'POST') {
       if (body['demo'] == true) {
@@ -381,10 +458,24 @@ class FakeCloud {
         return _json(200, {'ok': true, 'business': demo, 'seeded': 12});
       }
       final gstin = '${body['gstin'] ?? ''}';
+      if (body['country'] == 'GB' || body['country'] == 'AE') {
+        company = {'name': body['name'], 'gstin': '', 'state': '', 'country': body['country']};
+        final made = {'id': businessId, 'name': body['name'], 'gstin': '', 'role': 'owner', 'country': body['country'], 'kind': 'business'};
+        businesses.add(made);
+        createdBodies.add(Map<String, Object?>.from(body));
+        return _json(200, {'ok': true, 'business': made});
+      }
       if (body['country'] == 'US') {
         final household = body['kind'] == 'household';
         company = {'name': body['name'], 'gstin': '', 'state': '', 'country': 'US', if (household) 'entityType': 'household'};
         final made = {'id': businessId, 'name': body['name'], 'gstin': '', 'role': 'owner', 'country': 'US', 'kind': household ? 'household' : 'business'};
+        businesses.add(made);
+        createdBodies.add(Map<String, Object?>.from(body));
+        return _json(200, {'ok': true, 'business': made});
+      }
+      if (body['country'] == 'MY') {
+        company = {'name': body['name'], 'gstin': '', 'state': '', 'country': 'MY'};
+        final made = {'id': businessId, 'name': body['name'], 'gstin': '', 'role': 'owner', 'country': 'MY', 'kind': 'business'};
         businesses.add(made);
         createdBodies.add(Map<String, Object?>.from(body));
         return _json(200, {'ok': true, 'business': made});
@@ -407,6 +498,19 @@ class FakeCloud {
       });
     }
     final books = '/v1/businesses/$businessId';
+    if (path == '/v1/plans' && request.method == 'GET') {
+      return _json(200, {
+        'ok': true,
+        'plans': [
+          {'id': 'essentials', 'title': 'Essentials', 'monthlyRupees': 999, 'yearlyRupees': 9999, 'buyable': false, 'features': ['books', 'post', 'chat', 'gst-reports', 'team'], 'limits': {'members': 2}},
+          {'id': 'pro', 'title': 'Pro', 'monthlyRupees': 1999, 'yearlyRupees': 19999, 'buyable': false, 'features': ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team'], 'limits': {'members': 5}},
+          {'id': 'assured', 'title': 'MyCA Assured', 'monthlyRupees': 4999, 'yearlyRupees': 49999, 'buyable': false, 'features': ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team', 'ca-assured'], 'limits': {'members': 5}},
+        ],
+      });
+    }
+    if (path == '$books/subscription' && request.method == 'GET') {
+      return _json(200, {'ok': true, 'plan': 'trial', 'planTitle': 'Pro', 'enforced': false, 'trial': {'daysLeft': 12}});
+    }
     if (path == '$books/members' && request.method == 'GET') {
       return _json(200, {
         'ok': true,
@@ -419,7 +523,7 @@ class FakeCloud {
     }
     if (path == '$books/invitations' && request.method == 'POST') {
       final phone = '${body['phone']}'.replaceAll(' ', '');
-      if (!RegExp(r'^(\+91)?[6-9]\d{9}$').hasMatch(phone)) return _json(400, {'ok': false, 'error': 'INVALID_PHONE'});
+      if (!RegExp(r'^(\+91)?[6-9]\d{9}$|^\+9715\d{8}$').hasMatch(phone)) return _json(400, {'ok': false, 'error': 'INVALID_PHONE'});
       invited.add('$phone:${body['role']}');
       final open = {'id': 'inv-${invited.length}', 'phoneHint': 'xxxxxxx${phone.substring(phone.length - 3)}', 'role': body['role']};
       openInvites.add(open);
@@ -638,6 +742,7 @@ class FakeCloud {
       members.removeWhere((m) => m['id'] == id);
       return _json(200, {'ok': true});
     }
+    if (path == '$books/subscription' && request.method == 'GET') return _json(200, {'ok': true, ...subscription});
     if (path == '$books/snapshot') {
       return _json(200, {
         'ok': true,
@@ -671,7 +776,15 @@ class FakeCloud {
       sharedAsOf = '2026-10-07T12:45:00.000Z';
       return _json(200, {'ok': true, 'sharedAsOf': sharedAsOf});
     }
+    if (path == '$books/subscription' && request.method == 'POST') {
+      recordedPurchases.add('${body['productId']}:${body['purchaseToken']}');
+      final plan = '${body['productId']}'.replaceAll('myca_', '').replaceAll('_yearly', '').replaceAll('_monthly', '').replaceAll('_', '-');
+      subscription = {'plan': plan, 'planTitle': plan == 'my-growth' ? 'Growth' : plan, 'subscription': {'status': 'active', 'plan': plan, 'renews': true, 'currentEnd': '2027-10-05T00:00:00.000Z'}};
+      return _json(200, {'ok': true, 'entitlement': subscription});
+    }
     if (path == '$books/query') {
+      final answered = booksAnswer?.call('query', body);
+      if (answered != null) return _json(200, answered);
       return _json(200, switch (body['name']) {
         'expense_heads' => {'ok': true, 'data': const <Object?>[]},
         'business_summary' => {'ok': false, 'error': 'X'},
@@ -704,6 +817,8 @@ class FakeCloud {
       return _json(200, {'ok': true, 'sha256': 'hash-${uploads.length}', 'bytes': content.length});
     }
     if (path == '$books/propose') {
+      final answered = booksAnswer?.call('propose', body);
+      if (answered != null) return _json(200, answered);
       final args = (body['args'] as Map?) ?? const {};
       if ('${body['name']}'.startsWith('import_')) {
         if (!uploads.containsKey(args['documentSha256'])) return _json(400, {'ok': false, 'error': 'IMPORT_NEEDS_UPLOAD'});
@@ -723,6 +838,8 @@ class FakeCloud {
       });
     }
     if (path == '$books/confirm') {
+      final answered = booksAnswer?.call('confirm', body);
+      if (answered != null) return _json(200, answered);
       invoices.add({'id': 'INV-0001', 'date': '2026-10-06', 'partyName': 'Kiran', 'partyGstin': '', 'total': 9440, 'status': 'posted'});
       return _json(200, {'reply': 'Posted INV-0001 to Kiran for ₹9,440.00.', 'posted': true, 'confirmed': true});
     }

@@ -3,12 +3,20 @@ import 'package:flutter/material.dart';
 import '../api/models.dart';
 import '../cloud/cloud_session.dart';
 import '../app_state.dart';
+import '../india/india_language_picker.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../theme.dart';
+import '../uae/uae_cloud_strings.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_emirates.dart';
+import '../uae/uae_strings.dart';
+import '../uk/uk_plan_screen.dart';
 import '../widgets.dart';
 import 'businesses_screen.dart';
 import 'connections_screen.dart';
 import 'connectors_screen.dart';
+import 'invite_screen.dart';
 import 'migration_flow.dart';
 import 'people_screen.dart';
 import 'plan_screen.dart';
@@ -19,11 +27,14 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
   final state = AppScope.of(context);
   final company = snapshot.company;
   final user = snapshot.activeUser;
+  final ae = uaeEdition(context) ? UaeStrings.of(context) : null;
+  final aeTrn = '${uaeProfile.value?['trn'] ?? ''}';
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     builder: (sheet) {
       final text = Theme.of(sheet).textTheme;
+      final s = UaeStrings.of(sheet);
       return SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -33,15 +44,36 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
             children: [
               Text(company.name, style: text.headlineSmall),
               const SizedBox(height: 4),
-              Text(
-                company.gstin.isEmpty
-                    ? 'Not registered for GST'
-                    : 'GSTIN ${company.gstin}',
-                style: text.bodyMedium,
-              ),
+              if (ae == null && state.edition != 'GB')
+                Text(
+                  company.gstin.isEmpty
+                      ? inText(sheet, 'Not registered for GST')
+                      : 'GSTIN ${company.gstin}',
+                  style: text.bodyMedium,
+                )
+              else if (ae != null && aeTrn.isNotEmpty)
+                Text(ae.trnOf(aeTrn), style: text.bodyMedium),
               if (user != null)
-                Text('Signed in as ${user.name}', style: text.bodyMedium),
+                Text(s.signedInAs(user.name), style: text.bodyMedium),
               const SizedBox(height: 18),
+              if (state.edition == 'IN') ...[
+                Panel(
+                  children: [
+                    RowCard(
+                      key: const Key('business.language'),
+                      leading: const TintTile(tint: Tint.ask, letter: 'अ'),
+                      title: inText(sheet, 'Language'),
+                      subtitle: indiaLanguage(indiaChosenLocale(state.language) == null ? indiaLang(sheet) : state.language).nativeName,
+                      trailing: const Chevron(),
+                      onTap: () {
+                        navigator.pop();
+                        showIndiaLanguageSheet(context);
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
               if (state.cloud != null) ...[
                 if (user?.role != 'accountant') ...[
                   _BriefSwitch(cloud: state.cloud!),
@@ -51,28 +83,39 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                   children: [
                     RowCard(
                       leading: const TintTile(tint: Tint.ask, mark: Mark.people),
-                      title: 'People',
-                      subtitle: 'Who can work in these books',
+                      title: s.people,
+                      subtitle: s.peopleSubtitle,
                       trailing: const Chevron(),
                       onTap: () {
                         navigator.pop();
                         navigator.push(MaterialPageRoute<void>(builder: (_) => const PeopleScreen()));
                       },
                     ),
+                    if (ae == null)
                     RowCard(
                       leading: const TintTile(tint: Tint.ask, mark: Mark.confirm),
-                      title: 'Plan and billing',
-                      subtitle: 'Your plan, trial and what it includes',
+                      title: inText(sheet, 'Plan and billing'),
+                      subtitle: inText(sheet, 'Your plan, trial and what it includes'),
                       trailing: const Chevron(),
                       onTap: () {
                         navigator.pop();
-                        navigator.push(MaterialPageRoute<void>(builder: (_) => const PlanScreen()));
+                        navigator.push(MaterialPageRoute<void>(builder: (_) => state.edition == 'GB' ? const UkPlanScreen() : const PlanScreen()));
+                      },
+                    ),
+                    RowCard(
+                      leading: const TintTile(tint: Tint.ask, mark: Mark.people),
+                      title: s.inviteOwner,
+                      subtitle: s.inviteOwnerSubtitle,
+                      trailing: const Chevron(),
+                      onTap: () {
+                        navigator.pop();
+                        navigator.push(MaterialPageRoute<void>(builder: (_) => const InviteScreen()));
                       },
                     ),
                     RowCard(
                       leading: const TintTile(tint: Tint.ask, mark: Mark.confirm),
-                      title: 'Security',
-                      subtitle: 'Two-step sign-in and where you are signed in',
+                      title: s.security,
+                      subtitle: s.securitySubtitle,
                       trailing: const Chevron(),
                       onTap: () {
                         navigator.pop();
@@ -82,19 +125,19 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                     if (user?.role == 'owner')
                       RowCard(
                         leading: const TintTile(tint: Tint.ask, mark: Mark.otherApp),
-                        title: 'Connections',
-                        subtitle: 'A POS or an inbox that feeds these books',
+                        title: s.connections,
+                        subtitle: s.connectionsSubtitle,
                         trailing: const Chevron(),
                         onTap: () {
                           navigator.pop();
                           navigator.push(MaterialPageRoute<void>(builder: (_) => const ConnectionsScreen()));
                         },
                       ),
-                    if (user?.role == 'owner')
+                    if (user?.role == 'owner' && ae == null && state.edition != 'GB')
                       RowCard(
                         leading: const TintTile(tint: Tint.ask, mark: Mark.cloudBooks),
-                        title: 'Connections to banks and apps',
-                        subtitle: company.country == 'US' ? 'Plaid, TaxJar, Gusto and Track1099' : 'Amazon, Shopify, Razorpay and Zoho',
+                        title: inText(sheet, 'Connections to banks and apps'),
+                        subtitle: company.country == 'US' ? 'Plaid, TaxJar, Gusto and Track1099' : inText(sheet, 'Amazon, Shopify, Razorpay and Zoho'),
                         trailing: const Chevron(),
                         onTap: () {
                           navigator.pop();
@@ -103,8 +146,8 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                       ),
                     RowCard(
                       leading: const TintTile(tint: Tint.ask, mark: Mark.switchBooks),
-                      title: 'Your businesses',
-                      subtitle: 'Switch business or answer an invitation',
+                      title: s.yourBusinesses,
+                      subtitle: s.yourBusinessesSubtitle,
                       trailing: const Chevron(),
                       onTap: () {
                         navigator.pop();
@@ -123,7 +166,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Text(
-                    'Set a screen lock on this phone to protect MyCA with it.',
+                    s.setScreenLock,
                     style: text.bodyMedium,
                   ),
                 ),
@@ -131,7 +174,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                   color: Palette.surface,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(radiusCard),
-                    side: const BorderSide(color: Palette.line),
+                    side: BorderSide(color: Palette.line),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
@@ -160,11 +203,11 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Bring in more books',
+                                  s.bringInMore,
                                   style: text.titleMedium,
                                 ),
                                 Text(
-                                  'Tally, Zoho or a bank statement',
+                                  ae == null ? s.bringInMoreSubtitle : ae.bringInMoreAe,
                                   style: text.bodyMedium,
                                 ),
                               ],
@@ -182,7 +225,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                   navigator.pop();
                   state.signOut();
                 },
-                child: const Text('Sign out'),
+                child: Text(s.signOut),
               ),
             ],
           ),
@@ -223,7 +266,7 @@ class _BriefSwitchState extends State<_BriefSwitch> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          const SnackBar(content: Text('Could not change the Monday brief setting.')),
+          SnackBar(content: Text(UaeStrings.of(context).briefFailed)),
         );
       }
     } finally {
@@ -233,21 +276,20 @@ class _BriefSwitchState extends State<_BriefSwitch> {
 
   @override
   Widget build(BuildContext context) {
+    final s = UaeStrings.of(context);
     return Material(
       color: Palette.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radiusCard),
-        side: const BorderSide(color: Palette.line),
+        side: BorderSide(color: Palette.line),
       ),
       child: SwitchListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 14),
         title: Text(
-          'Monday brief on WhatsApp',
+          s.mondayBrief,
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        subtitle: const Text(
-          'Every Monday at 7 am: cash and runway, sales against last week, who owes you and for how long, what is due, and the one thing to do.',
-        ),
+        subtitle: Text(s.mondayBriefSubtitle),
         value: _on ?? false,
         activeTrackColor: Palette.ink,
         onChanged: _on == null || _busy ? null : _set,
@@ -268,11 +310,13 @@ class _CrashSwitch extends StatelessWidget {
       builder: (context, _) => SwitchListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 4),
         title: Text(
-          'Send crash reports',
+          UaeStrings.of(context).crashReports,
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        subtitle: const Text(
-          'Only what went wrong in the app. Names, amounts, GSTINs and phone numbers are removed before it leaves the phone.',
+        subtitle: Text(
+          uaeEdition(context)
+              ? UaeStrings.of(context).crashReportsAe
+              : inText(context, 'Only what went wrong in the app. Names, amounts, GSTINs and phone numbers are removed before it leaves the phone.'),
         ),
         value: state.crashReportsOn,
         activeTrackColor: Palette.ink,
@@ -293,8 +337,8 @@ class _LockSwitch extends StatelessWidget {
       listenable: state,
       builder: (context, _) => SwitchListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-        title: Text('App lock', style: Theme.of(context).textTheme.titleMedium),
-        subtitle: const Text('Ask for your fingerprint, face or screen lock to open MyCA'),
+        title: Text(UaeStrings.of(context).appLock, style: Theme.of(context).textTheme.titleMedium),
+        subtitle: Text(UaeStrings.of(context).appLockSubtitle),
         value: state.lockEnabled,
         activeTrackColor: Palette.ink,
         onChanged: (enabled) => state.setLockEnabled(enabled),

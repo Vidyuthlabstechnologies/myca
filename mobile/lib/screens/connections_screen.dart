@@ -7,6 +7,8 @@ import '../cloud/cloud_session.dart';
 import '../format.dart';
 import '../marks.dart';
 import '../theme.dart';
+import '../uae/uae_cloud_strings.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 
 const _sourceHelp = {
@@ -53,19 +55,20 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
   Future<void> _copyAddress(String email) async {
     await Clipboard.setData(ClipboardData(text: email));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Copied $email')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(UaeStrings.of(context).copiedText(email))));
   }
 
   Future<void> _turnOff(InboundKey key) async {
     final cloud = AppScope.of(context).cloud!;
+    final s = UaeStrings.of(context);
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
-        title: Text('Turn off ${key.label}?'),
-        content: const Text('Anything it sends from now on is refused. What it already recorded stays in the books.'),
+        title: Text(s.turnOffKey(key.label)),
+        content: Text(s.turnOffKeyBody),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: const Text('Keep')),
-          FilledButton(onPressed: () => Navigator.of(dialog).pop(true), child: const Text('Turn off')),
+          TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: Text(s.keep)),
+          FilledButton(onPressed: () => Navigator.of(dialog).pop(true), child: Text(s.turnOff)),
         ],
       ),
     );
@@ -82,12 +85,13 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Connections')),
+      appBar: AppBar(title: Text(s.connections)),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _add,
         icon: const Icon(Icons.add, size: 20),
-        label: const Text('Connect something'),
+        label: Text(s.connectSomething),
       ),
       body: FutureBuilder<List<InboundKey>>(
         future: _keys,
@@ -95,7 +99,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
           final keys = loaded.data;
           if (keys == null) {
             return Center(
-              child: loaded.hasError ? Text('${loaded.error}', textAlign: TextAlign.center) : const CircularProgressIndicator(),
+              child: loaded.hasError ? Text(s.cloudSaid('${loaded.error}'), textAlign: TextAlign.center) : const CircularProgressIndicator(),
             );
           }
           final on = keys.where((k) => k.enabled).toList();
@@ -104,17 +108,17 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
             children: [
               Text(
-                'Other systems that put entries or documents into these books on their own. Each gets its own key; turn it off here any time.',
+                s.connectionsIntro,
                 style: text.bodyMedium,
               ),
               if (_error.isNotEmpty) ...[
                 const SizedBox(height: 10),
-                Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                Text(s.cloudSaid(_error), style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
               ],
               const SizedBox(height: 16),
-              if (on.isEmpty) Text('Nothing is connected yet.', style: text.bodyMedium),
+              if (on.isEmpty) Text(s.nothingConnected, style: text.bodyMedium),
               if (on.isNotEmpty) ...[
-                const SectionLabel('Connected'),
+                SectionLabel(s.connected),
                 Panel(
                   children: [
                     for (final key in on)
@@ -122,27 +126,27 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                         leading: TintTile(tint: Tint.ask, mark: key.source == 'pos' ? Mark.sales : Mark.paper),
                         title: key.label,
                         subtitle: key.source == 'pos'
-                            ? 'Today: ${key.todayCount == 1 ? '1 sale' : '${key.todayCount} sales'}, ${rupees(key.todayTotal)}'
+                            ? s.posToday(key.todayCount, rupees(key.todayTotal))
                             : key.email.isEmpty
-                                ? sourceLabel(key.source)
-                                : 'Forward bills to ${key.email}',
+                                ? s.sourceLabel(key.source)
+                                : s.forwardBillsTo(key.email),
                         onTap: key.email.isEmpty ? null : () => _copyAddress(key.email),
-                        trailing: TextButton(onPressed: () => _turnOff(key), child: const Text('Turn off')),
+                        trailing: TextButton(onPressed: () => _turnOff(key), child: Text(s.turnOff)),
                       ),
                   ],
                 ),
               ],
               if (off.isNotEmpty) ...[
                 const SizedBox(height: 26),
-                const SectionLabel('Turned off'),
+                SectionLabel(s.turnedOff),
                 Panel(
                   children: [
                     for (final key in off)
                       RowCard(
                         leading: TintTile(tint: Tint.ask, mark: key.source == 'pos' ? Mark.sales : Mark.paper),
                         title: key.label,
-                        subtitle: sourceLabel(key.source),
-                        trailing: const StatusTag(text: 'Off', color: Palette.muted),
+                        subtitle: s.sourceLabel(key.source),
+                        trailing: StatusTag(text: s.off, color: Palette.muted),
                       ),
                   ],
                 ),
@@ -179,7 +183,7 @@ class _NewKeySheetState extends State<_NewKeySheet> {
   }
 
   Future<void> _create() async {
-    if (_label.text.trim().isEmpty) return setState(() => _error = 'Name the system, for example "Counter till".');
+    if (_label.text.trim().isEmpty) return setState(() => _error = UaeStrings.of(context).nameTheSystem);
     setState(() {
       _error = '';
       _busy = true;
@@ -197,19 +201,21 @@ class _NewKeySheetState extends State<_NewKeySheet> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     final made = _made;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: made == null
             ? [
-                Text('Connect something', style: text.titleLarge),
+                Text(s.connectSomething, style: text.titleLarge),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _label,
-                  decoration: const InputDecoration(labelText: 'What is it?', hintText: 'Counter till, Mail inbox'),
+                  decoration: InputDecoration(labelText: s.whatIsIt, hintText: s.whatIsItHint),
                   textCapitalization: TextCapitalization.sentences,
                 ),
                 const SizedBox(height: 12),
@@ -218,48 +224,50 @@ class _NewKeySheetState extends State<_NewKeySheet> {
                   children: [
                     for (final source in _sourceHelp.keys)
                       ChoiceChip(
-                        label: Text(sourceLabel(source)),
+                        label: Text(s.sourceLabel(source)),
                         selected: _source == source,
                         onSelected: (_) => setState(() => _source = source),
                       ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(_sourceHelp[_source]!, style: text.bodyMedium),
+                Text(s.sourceHelp(_source), style: text.bodyMedium),
                 if (_error.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text(_error, style: const TextStyle(color: Palette.danger)),
+                  Text(s.cloudSaid(_error), style: TextStyle(color: Palette.danger)),
                 ],
                 const SizedBox(height: 16),
-                FilledButton(onPressed: _busy ? null : _create, child: const Text('Create key')),
+                FilledButton(onPressed: _busy ? null : _create, child: Text(s.createKey)),
               ]
             : [
-                Text('${made.label} is connected', style: text.titleLarge),
+                Text(s.isConnected(made.label), style: text.titleLarge),
                 const SizedBox(height: 8),
-                Text('Give this key to the system once. It is shown only now; if it is lost, turn this connection off and make a new one.', style: text.bodyMedium),
+                Text(s.giveKeyOnce, style: text.bodyMedium),
                 const SizedBox(height: 12),
                 SelectableText(made.secret, style: text.bodyLarge?.copyWith(fontFamily: 'monospace')),
                 if (made.email.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  Text('Or forward bills by mail to this address; it stays on the Connections list.', style: text.bodyMedium),
+                  Text(s.orForwardBills, style: text.bodyMedium),
                   const SizedBox(height: 6),
                   SelectableText(made.email, style: text.bodyLarge),
                 ],
                 const SizedBox(height: 12),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     OutlinedButton(
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: made.secret));
                         if (mounted) setState(() => _copied = true);
                       },
-                      child: Text(_copied ? 'Copied' : 'Copy key'),
+                      child: Text(_copied ? s.copied : s.copyKey),
                     ),
-                    const SizedBox(width: 8),
-                    FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Done')),
+                    FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(s.done)),
                   ],
                 ),
               ],
+        ),
       ),
     );
   }

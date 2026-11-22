@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /r/
+
+Sitemap: https://__SITE_ORIGIN__/sitemap.xml

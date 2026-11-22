@@ -1054,6 +1054,8 @@ document.getElementById('setupFresh').addEventListener('click', () => {
 });
 }
 
+document.getElementById('reviewerForm')?.addEventListener('submit', (event) => event.preventDefault());
+
 refresh().then(() => {
   addBubble('bot', 'Books are open. Book a voucher in the strip, or ask for trial balance / GSTR-1 JSON.', 'ready');
 }).catch((err) => {

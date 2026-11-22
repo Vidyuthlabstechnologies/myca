@@ -1,11 +1,21 @@
+import { usBrokerageCsv } from './us-brokerage-import.mjs';
+import { usRefundBoost } from './us-refund-boost.mjs';
+import { usStateTax } from './us-state-tax.mjs';
+import { importUsPriorYear } from './us-prior-year.mjs';
+import { usAmendedReturn, startUsAmendedReturn, setUsAmendedReturn } from './us-amended.mjs';
 import { tally, bank, gstin, filing, audit } from './sprint-load.mjs';
 import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
 import { importSettlement, settlementStatus } from './settlements.mjs';
 import { importMarketplaceOrders, postSettlement } from './marketplace-orders.mjs';
 import { setChannelIdentity, importTcsStatement, import26asCredits, marketplaceCredits } from './marketplace-credits.mjs';
 import { recordTdsWithheld, tdsCreditCheck } from './tds-credits.mjs';
-import { setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins, stockMoves } from './sku-margins.mjs';
+import { offlineKit, registerOfflineDevice, postOfflineSales } from './offline-sales.mjs';
+import { loyaltyInvoice, loyaltyAfterInvoice, loyaltyAfterCreditNote, setLoyaltySettings, loyaltyBalance, loyaltyAdjust } from './loyalty.mjs';
+import { findItem, setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins, stockMoves } from './sku-margins.mjs';
 import { dailyClose } from './daily-close.mjs';
+import { setCatalogueSettings, setCatalogueItems, catalogueView, storeOrders, storeOrderAction } from './catalogue.mjs';
+import { setCostingMethod, inventoryCosting, stockAlerts } from './inventory-costing.mjs';
+import { withItemUnits, moveDocumentStock, returnDocumentStock, expiredSale } from './document-stock.mjs';
 import { regArg, companyAs, forRegistration, setRegistration, retireRegistration, listRegistrations } from './registrations.mjs';
 import { recordStockTransfer } from './stock-transfers.mjs';
 import { valueInventory, listInventoryValuations } from './inventory.mjs';
@@ -26,6 +36,7 @@ import { weeklyBrief } from './weekly-brief.mjs';
 import { monthCloseOf, approveMonthClose } from './month-close.mjs';
 import { restockPlan, setSkuSupply, recordPurchaseOrder } from './restock.mjs';
 import { advanceTax, recordAdvanceTaxPayment } from './advance-tax.mjs';
+import { incomeTaxInterest, tdsInterestFor } from './it-interest.mjs';
 import { setSupplierBank, supplierPayoutFile } from './supplier-bank.mjs';
 import { attachDocument } from './receipt-match.mjs';
 import { saveReport, runReport, listReports, deleteReport } from './reports.mjs';
@@ -40,7 +51,7 @@ const { auditRun } = audit;
 import { listAccounts, journal, trialBalance, verifyChain, createTransfers, paise } from './ledger.mjs';
 import { createInvoice, recordReceipt, recordPayment, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice, addBillTds } from './invoice.mjs';
 import { invoiceDocument, quoteDocument } from './invoice-document.mjs';
-import { createQuote, markQuote, convertQuote, listQuotes } from './quotes.mjs';
+import { createQuote, markQuote, convertQuote, listQuotes, invoiceArgsFromQuote, checkConvert } from './quotes.mjs';
 import { addRecurring, stopRecurring, listRecurring, runRecurring } from './recurring.mjs';
 import { postExpense, retagExpense, listExpenses, expenseHeads } from './expenses.mjs';
 import { businessSummary } from './business-summary.mjs';
@@ -55,7 +66,7 @@ import { auditTrail } from './audit-trail.mjs';
 import { import2b, creditAtRisk, reconcileDocuments } from './gstr2b-check.mjs';
 import { imsReview, decideIms } from './ims.mjs';
 import { booksCheck } from './books-check.mjs';
-import { deadlineRun, filingRows } from './deadline-run.mjs';
+import { askedMonths, deadlineRun, filingRows } from './deadline-run.mjs';
 import { listFilings, recordFiling } from './filings.mjs';
 import { draftSupplierReminder, recordSupplierReminder } from './supplier-reminders.mjs';
 import { addEmployee, changeSalary, endEmployment, listEmployees, setEmployeeBank } from './employees.mjs';
@@ -116,6 +127,7 @@ import { clearIntegrationConnection, integrationReadiness, setIntegrationConnect
 import { listClients, registerClient, setActiveClient, listDocuments, uploadDocument, getDocumentContent } from './ca-api.mjs';
 import { lockPeriod, unlockPeriod, isPeriodLocked, lockThrough } from './period-lock.mjs';
 import { localToday, postingDate } from './dates.mjs';
+import { booksAatoOpts, fyLabelOf, isFyLabel, previousFyLabel } from './aato.mjs';
 import { documentsForPeriod, fpOf, taxByHead } from './return-period.mjs';
 import { buildInvoiceShare, shareLink, queueNotification, listOutbox, sendNotification } from './notifications.mjs';
 import { providerDoctor } from './provider-doctor.mjs';
@@ -136,7 +148,7 @@ import { appendAuditEvent } from './ca-api.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { seedDemo } from './store.mjs';
 import { ENGINE_TOOL_DEFS } from './countries/manifests.mjs';
-import { runEngineTool } from './countries/engines.mjs';
+import { runEngineTool, engineBooks } from './countries/engines.mjs';
 
 function ok(data) {
   return { ok: true, data };
@@ -192,8 +204,8 @@ export const TOOLS = [
   {
     name: 'set_company',
     title: 'Set business profile',
-    description: 'Set this book\'s own business identity (name, GSTIN, PAN, state, FY, address; country and EIN before anything is posted). Affects future postings only; history is untouched.',
-    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType', 'country', 'ein', 'invoiceNumbering'],
+    description: 'Set this book\'s own business identity (name, GSTIN, PAN, state, FY, address; country and EIN before anything is posted). In India also aggregate turnover (aato, rupees) for a financial year (aatoFy, default the last one), which sets HSN digits and the 30-day e-invoice window, and the owner\'s date of birth for a proprietor\'s income tax. Affects future postings only; history is untouched.',
+    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType', 'country', 'ein', 'invoiceNumbering', 'composition', 'lutNumber', 'aato', 'aatoFy', 'ownerDateOfBirth'],
     run: (state, args = {}) => {
       const company = state.company;
       const patch = {};
@@ -235,6 +247,11 @@ export const TOOLS = [
         if (st && !/^\d{2}$/.test(st)) return fail('INVALID_STATE_CODE');
         patch.state = st;
       }
+      const gstinAfter = patch.gstin ?? company.gstin ?? '';
+      const stateAfter = patch.state ?? company.state ?? '';
+      if (gstinAfter && stateAfter && !['97', '99'].includes(gstinAfter.slice(0, 2)) && stateAfter !== gstinAfter.slice(0, 2)) {
+        return fail('STATE_NOT_GSTIN_STATE', { state: stateAfter, gstinState: gstinAfter.slice(0, 2), hint: 'The state is the first two digits of the GSTIN.' });
+      }
       if (args.pan != null) {
         const pan = String(args.pan).trim().toUpperCase();
         if (pan && !/^[A-Z]{5}\d{4}[A-Z]$/.test(pan)) return fail('INVALID_PAN');
@@ -252,6 +269,26 @@ export const TOOLS = [
         const pin = String(args.pin).trim();
         if (pin && !/^\d{6}$/.test(pin)) return fail('INVALID_PIN');
         patch.pin = pin ? Number(pin) : '';
+      }
+      if (args.composition != null) {
+        if (typeof args.composition !== 'boolean') return fail('BAD_COMPOSITION', { hint: 'true or false' });
+        patch.composition = args.composition;
+      }
+      if (args.lutNumber != null) {
+        patch.lutNumber = String(args.lutNumber).trim().toUpperCase().replace(/[^A-Z0-9/-]/g, '').slice(0, 20);
+      }
+      if (args.aato != null && args.aato !== '') {
+        const amount = Number(args.aato);
+        if (!Number.isFinite(amount) || amount < 0) return fail('BAD_AATO', { hint: 'Aggregate turnover of the year in rupees, 0 or more.' });
+        const aatoFy = args.aatoFy == null || args.aatoFy === '' ? previousFyLabel(fyLabelOf(localToday())) : String(args.aatoFy).trim();
+        if (!isFyLabel(aatoFy)) return fail('INVALID_FY', { aatoFy, hint: 'A financial year like 2025-26.' });
+        if (aatoFy > fyLabelOf(localToday())) return fail('FUTURE_FY', { aatoFy });
+        patch.aatoByFy = { ...(company.aatoByFy || {}), [aatoFy]: Math.round(amount * 100) / 100 };
+      } else if (args.aatoFy != null && args.aatoFy !== '') return fail('AATO_REQUIRED', { hint: 'Give the aggregate turnover with its year.' });
+      if (args.ownerDateOfBirth != null) {
+        const dob = String(args.ownerDateOfBirth).trim();
+        if (dob && (!postingDate(dob) || dob > localToday())) return fail('INVALID_DATE', { ownerDateOfBirth: dob, hint: 'YYYY-MM-DD, not in the future.' });
+        patch.ownerDateOfBirth = dob;
       }
       Object.assign(company, patch);
       if (company.name && company.setupNeeded) delete company.setupNeeded;
@@ -403,7 +440,7 @@ export const TOOLS = [
     name: 'set_transport',
     title: 'Transport details',
     description: 'Record how the goods on an invoice move (vehicle, distance, transporter, mode) for the e-way bill. Changes no figure.',
-    args: ['invoiceId', 'vehicleNo', 'distanceKm', 'transporterName', 'transporterId', 'mode', 'docNo'],
+    args: ['invoiceId', 'vehicleNo', 'distanceKm', 'transporterName', 'transporterId', 'mode', 'docNo', 'docDate'],
     run: (state, args = {}) => setTransport(state, args),
   },
   {
@@ -590,16 +627,35 @@ export const TOOLS = [
   {
     name: 'create_invoice',
     title: 'Create invoice',
-    description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here.',
-    args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'partyAddress'],
-    run: (state, args) => (countryOf(state) === 'US' ? createUsInvoice(state, args) : createInvoice(state, args)),
+    description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the UAE 5% VAT by emirate; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here. In India set supplyType SEZWP (supply to an SEZ unit or developer with IGST), SEZWOP (to an SEZ under LUT or bond, no tax) or DEXP (deemed export, taxed as usual; buyer GSTIN required); SEZ supplies are always IGST. A line may carry compensation cess as cessRate (percent of the taxable value) and/or cessPerUnit (rupees per unit). In India, when loyalty points are on, a sale to a named customer earns points; redeemPoints uses that customer\'s points as a discount on the bill, which lowers the value GST is charged on.',
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'partyAddress', 'exportSale', 'supplyType', 'redeemPoints'],
+    run: (state, args) => {
+      const own = engineBooks(countryOf(state), 'create_invoice')?.(state, args);
+      if (own != null) return own;
+      if (countryOf(state) === 'US') return createUsInvoice(state, args);
+      const expired = countryOf(state) === 'IN' ? expiredSale(state, args) : null;
+      if (expired) return expired;
+      const result = loyaltyInvoice(state, withItemUnits(state, args));
+      if (result.ok && countryOf(state) === 'IN') {
+        const stockWarnings = moveDocumentStock(state, result.invoice, args, 'sale');
+        if (stockWarnings.length) result.stockWarnings = stockWarnings;
+      }
+      return result;
+    },
   },
   {
     name: 'create_purchase',
     title: 'Record purchase bill',
-    description: 'Book a supplier invoice: purchases + AP (with GST input credit in India; in the US any sales tax paid is part of the cost).',
-    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo', 'salesTaxPaid', 'documentSha256'],
-    run: (state, args) => (countryOf(state) === 'US' ? createUsPurchase(state, args) : createPurchase(state, args)),
+    description: 'Book a supplier invoice: purchases + AP (with GST input credit in India; in the US any sales tax paid is part of the cost). In India set reverseCharge for a purchase where you pay the GST (an unregistered supplier or a notified service), or originCountry for an import of services; MyCA then books the tax as payable by you and numbers a self-invoice (SI-nnnn) that can get an IRN as RCMDOM or RCMIMP.',
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo', 'salesTaxPaid', 'documentSha256', 'reverseCharge', 'originCountry', 'partyAddress'],
+    run: (state, args) => {
+      const own = engineBooks(countryOf(state), 'create_purchase')?.(state, args);
+      if (own != null) return own;
+      if (countryOf(state) === 'US') return createUsPurchase(state, args);
+      const result = createPurchase(state, withItemUnits(state, args));
+      if (result.ok && countryOf(state) === 'IN') moveDocumentStock(state, result.invoice, args, 'purchase');
+      return result;
+    },
   },
   {
     name: 'print_invoice',
@@ -613,21 +669,31 @@ export const TOOLS = [
     title: 'Invoice to show or send',
     description: 'One posted sales invoice with seller, buyer, place of supply, lines, tax by head, receipts and balance, for display or a PDF. Read-only.',
     args: ['id'],
-    run: (state, args = {}) => invoiceDocument(state, args.id),
+    run: (state, args = {}) => engineBooks(countryOf(state), 'invoice_document')?.(state, args) ?? invoiceDocument(state, args.id),
   },
   {
     name: 'create_credit_note',
     title: 'Credit note',
     description: 'Reduce a posted sales invoice by a credit note (goods returned, price reduced, or the whole invoice) with reversing entries. Never edits the invoice.',
     args: ['invoiceId', 'amount', 'date', 'reason'],
-    run: (state, args) => createCreditNote(state, args),
+    run: (state, args) => (engineBooks(countryOf(state), 'create_credit_note')?.(state, args) ?? loyaltyAfterCreditNote(state, createCreditNote(state, args))),
   },
   {
     name: 'cancel_invoice',
     title: 'Cancel invoice',
     description: 'Cancel a posted sales invoice by a credit note for its full value; the invoice stays in the journal and the return of its period.',
     args: ['invoiceId', 'date', 'reason'],
-    run: (state, args) => cancelInvoice(state, args),
+    run: (state, args) => {
+      const own = engineBooks(countryOf(state), 'cancel_invoice')?.(state, args);
+      if (own != null) return own;
+      const result = loyaltyAfterCreditNote(state, cancelInvoice(state, args));
+      if (result.ok && countryOf(state) === 'IN') {
+        const note = result.creditNote || result.note || {};
+        const back = returnDocumentStock(state, String(args.invoiceId || '').trim().toUpperCase(), note.date || args.date, note.id || '');
+        if (back.length) result.stockReturned = back.length;
+      }
+      return result;
+    },
   },
   {
     name: 'create_debit_note',
@@ -820,6 +886,55 @@ export const TOOLS = [
     run: (state, args = {}) => usWithholdingCheck(state, args),
   },
   {
+    name: 'us_brokerage_csv',
+    title: 'Read a brokerage or crypto CSV',
+    description: 'Reads a broker 1099-B or Form 8949 CSV export (Schwab, Fidelity, Robinhood, Koinly, CoinTracker and similar) or an exchange trade history (Coinbase-style buys and sells, matched first in, first out) into 1099-B sales ready for add_us_tax_form, with short- and long-term totals and rows it could not read. US only. Read-only.',
+    args: ['csv', 'taxYear', 'payer'],
+    run: (state, args = {}) => usBrokerageCsv(state, args),
+  },
+  {
+    name: 'import_us_prior_year',
+    title: 'Bring last year into this US return',
+    description: 'Starts a personal Form 1040 from last year: from the MyCA return of the year before it copies the filing status, people, sealed SSNs, dependents and address, and fills last year\'s AGI, total tax, the refund applied to this year, capital loss carryovers the Form 8995 qualified business and REIT/PTP loss carryforwards and the traditional IRA basis (Form 8606 line 14); or reads them from last year\'s Form 1040 PDF made by other tax software or a preparer (documentSha256 from /api/upload: the IRS form fields, or the printed lines, with Schedule D and the Capital Loss Carryover Worksheet when included; each figure says where it was found and how sure the reading is, and the PDF\'s tax year, name and SSN last four are checked against this return), or takes those figures as typed from a return prepared elsewhere (agi, totalTax, overpaymentApplied, shortTermLossCarryover, longTermLossCarryover, qbiLossCarryforward, qbiReitPtpLossCarryforward, iraBasis), typed figures winning over the PDF. Lists the forms to expect again from last year\'s payers. Answers already given are kept unless overwrite is true. US only.',
+    args: ['taxYear', 'documentSha256', 'figures', 'copyProfile', 'overwrite'],
+    run: (state, args = {}) => importUsPriorYear(state, args),
+  },
+  {
+    name: 'us_amended_return',
+    title: 'See the US amended return (Form 1040-X)',
+    description: 'The Form 1040-X for a started amendment: lines 1 to 23 with column A (the original return), B (the net change) and C (the corrected return computed as usual), the refund or amount owed after the original refund and payments, Part I dependents when they changed, the Part II explanation, the refund-claim deadline (3 years from filing or 2 years from paying) and whether the IRS takes it electronically. Says when no amendment is started. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usAmendedReturn(state, args),
+  },
+  {
+    name: 'start_us_amended_return',
+    title: 'Start a US amended return (Form 1040-X)',
+    description: 'Starts amending a filed personal Form 1040: keeps the original figures as column A, from the return MyCA filed and the IRS accepted, or as typed from a return filed elsewhere (original: agi, deduction, qbiDeduction, schedule1ADeduction, taxableIncome, tax, credits, otherTaxes, totalTax, withholding, estimatedPayments, eic, refundableCredits, refund, appliedToNextYear, amountOwed; originalFilingStatus; originalDependents). Then the return is changed as usual and us_amended_return shows the 1040-X. Also takes the explanation, original filing date, last payment date, amount paid with the original and the part of a new refund to apply to next year. restart starts over. US only.',
+    args: ['taxYear', 'original', 'originalFilingStatus', 'originalDependents', 'explanation', 'originalFiledOn', 'lastPaymentOn', 'paidWithReturn', 'applyToNextYear', 'originalPaper', 'restart'],
+    run: (state, args = {}) => startUsAmendedReturn(state, args),
+  },
+  {
+    name: 'set_us_amended_return',
+    title: 'Update the US amended return (Form 1040-X)',
+    description: 'Changes a started Form 1040-X: the Part II explanation of changes, the date the original was filed, the date tax was last paid, the amount paid with or after the original return (line 16), the part of a new refund applied to next year (line 23), whether the original was filed on paper, and for a return filed outside MyCA the original figures, filing status and dependents. null clears a setting. US only.',
+    args: ['taxYear', 'original', 'originalFilingStatus', 'originalDependents', 'explanation', 'originalFiledOn', 'lastPaymentOn', 'paidWithReturn', 'applyToNextYear', 'originalPaper'],
+    run: (state, args = {}) => setUsAmendedReturn(state, args),
+  },
+  {
+    name: 'us_refund_boost',
+    title: 'Find more US refund',
+    description: 'Checks the started return for common deductions, credits and filing-status choices it does not use yet (IRA, HSA, student loan interest, educator expenses, self-employed health and retirement, tips, overtime, car loan interest, charity, medical, itemizing, head of household) and works out what each is worth by running the return again. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usRefundBoost(state, args),
+  },
+  {
+    name: 'us_state_tax',
+    title: 'Estimate US state income tax',
+    description: 'Says what the started federal return means for state income tax in the state lived in: no return in the eight states with no individual income tax, and for Colorado, Georgia, Illinois, Kentucky, Louisiana, Michigan and North Carolina (tax years 2025 and 2026) and Arizona and Iowa (tax year 2025) an estimate from the federal figures, the state exemptions or standard deduction and the flat rate, set against state tax withheld on the W-2s. Lists what the estimate leaves out. It does not prepare or file a state return. US only. Read-only.',
+    args: ['taxYear', 'state'],
+    run: (state, args = {}) => usStateTax(state, args),
+  },
+  {
     name: 'us_estimated_payments',
     title: 'Plan US estimated tax payments',
     description: 'The Form 1040-ES instalments (dates and amounts) needed to avoid an underpayment penalty, given the expected net side income on top of the return, and which safe harbor sets them. Pass filingStatus if no return is started. US only. Read-only.',
@@ -836,7 +951,7 @@ export const TOOLS = [
   {
     name: 'us_form_kinds',
     title: 'US tax form kinds',
-    description: 'The tax forms a personal return accepts (W-2, 1099-INT, 1099-DIV, 1099-B, 1099-NEC, 1099-MISC, 1099-G, 1099-R, SSA-1099, 1098, 1098-E, 1098-T), each with its boxes as field keys, labels and types. US only. Read-only.',
+    description: 'The tax forms a personal return accepts (W-2, 1099-INT, 1099-DIV, 1099-B, 1099-NEC, 1099-MISC, 1099-G, 1099-R, SSA-1099, 1098, 1098-E, 1098-T, 1095-A, 1099-SA, 5498-SA), each with its boxes as field keys, labels and types. US only. Read-only.',
     args: [],
     run: () => usFormKinds(),
   },
@@ -871,7 +986,7 @@ export const TOOLS = [
   {
     name: 'add_us_tax_form',
     title: 'Add a US tax form',
-    description: 'Add a W-2, 1099, SSA-1099 or 1098 to a personal Form 1040, with the payer, whose form it is (taxpayer or spouse) and the box amounts keyed as us_form_kinds lists them. US only.',
+    description: 'Add a W-2, 1099, SSA-1099, 1098 or a child and dependent care provider (kind 2441-PROVIDER, for Form 2441), an energy improvement or clean energy item installed on the home in 2025 (kind 5695-ITEM, for Form 5695) or a rental property or royalty source (kind Rental property, its address as the payer, for Schedule E) to a personal Form 1040, with the payer, whose form it is (taxpayer or spouse) and the box amounts keyed as us_form_kinds lists them. US only.',
     args: ['taxYear', 'kind', 'owner', 'payer', 'payerTin', 'fields', 'source', 'documentId'],
     run: (state, args = {}) => addUsTaxForm(state, args),
   },
@@ -916,8 +1031,8 @@ export const TOOLS = [
   {
     name: 'file_us_return',
     title: 'E-file the federal return with the IRS',
-    description: 'Build the IRS MeF submission for the signed Form 1040 and transmit it. In sandbox mode (no IRS credentials, or the IRS test system) the return is checked by a local simulator or IRS assurance testing and nothing reaches the IRS production system. Refuses if the return is not signed or changed after signing. US only. Cannot be undone once accepted.',
-    args: ['taxYear', 'caApprovalId'],
+    description: 'E-file the Form 1040. On MyCA\'s own route (MeF): build the IRS submission for the signed return and transmit it; refuses if the return is not signed or changed after signing. On the 2027 partner route (MYCA_US_FILER set): open a filing session with the IRS-authorised e-file partner, prefilled from the return, and give back the link where the filer signs Form 8879 and the partner transmits; the partner\'s webhook then records submitted, accepted or rejected. In sandbox mode a local simulator answers and nothing reaches the IRS. US only. Cannot be undone once accepted.',
+    args: ['taxYear', 'caApprovalId', 'partnerScope', 'contact'],
     run: async (state, args = {}) => {
       const out = await fileUsReturn(state, args, resolveToolActor(args, 'actorId', 'owner'));
       return out.ok ? ok(out) : fail(out.error, out);
@@ -1056,8 +1171,8 @@ export const TOOLS = [
   {
     name: 'record_receipt',
     title: 'Record receipt',
-    description: 'Receive payment against an invoice (bank or cash) and post the AR settlement.',
-    args: ['invoiceId', 'amount', 'mode', 'date'],
+    description: 'Receive payment against an invoice (bank or cash) and post the AR settlement. A receipt dated before the invoice is refused unless advance is true (the customer paid in advance).',
+    args: ['invoiceId', 'amount', 'mode', 'date', 'advance'],
     run: (state, args) => recordReceipt(state, args),
   },
   {
@@ -1117,8 +1232,8 @@ export const TOOLS = [
   {
     name: 'gstr9_draft',
     title: 'GSTR-9 annual return draft',
-    description: 'A draft of the annual return for a financial year from the twelve monthly figures: outward supplies and tax by head (table 4 and 5 where known), credit and debit notes, input credit availed by head (table 6), reversals (table 7), GSTR-2B against credit availed (table 8 where 2B was added), tax paid in cash and by credit (table 9), and the HSN summary (table 17). Read-only; files nothing.',
-    args: ['fy'],
+    description: 'A draft of the annual return for a financial year from the twelve monthly figures: outward supplies and tax by head (table 4 and 5 where known), credit and debit notes, input credit availed by head (table 6), reversals (table 7), GSTR-2B against credit availed (table 8 where 2B was added), tax paid in cash and by credit (table 9), and the HSN summary (table 17). One draft per GSTIN: give gstin for a registration other than the principal one. Read-only; files nothing.',
+    args: ['fy', 'gstin'],
     run: (state, args = {}) => gstr9Draft(state, args),
   },
   {
@@ -1135,8 +1250,8 @@ export const TOOLS = [
   {
     name: 'set_gst_credit_opening',
     title: 'GST credit balance',
-    description: 'Record the electronic credit ledger balance by head at the start of a month, from the GST portal, so set-off counts credit brought forward from earlier months.',
-    args: ['period', 'igst', 'cgst', 'sgst'],
+    description: 'Record the electronic credit ledger balance by head (IGST, CGST, SGST and compensation cess) at the start of a month, from the GST portal, so set-off counts credit brought forward from earlier months.',
+    args: ['period', 'igst', 'cgst', 'sgst', 'cess'],
     run: (state, args = {}) => setCreditOpening(state, args),
   },
   {
@@ -1150,7 +1265,7 @@ export const TOOLS = [
       const docs = documentsForPeriod(state, args.period, '', regd.gstin);
       if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
       const salesText = invoicesToSalesCsv(docs.invoices);
-      const result = filingPrep({ salesText, supplierState: regd.registration.state, fy: state.company.fy });
+      const result = filingPrep({ salesText, supplierState: regd.registration.state });
       return ok({ period: docs.period, periods: docs.periods, gstin: regd.gstin, salesText, gstr1: result.gstr1, eInvoice: result.summary });
     },
   },
@@ -1167,6 +1282,7 @@ export const TOOLS = [
         channels: state.channels,
         grossTurnover: args.grossTurnover,
         currentGrossTurnover: args.currentGrossTurnover,
+        ...booksAatoOpts(state, args.fp),
       });
       return json.error ? fail(json.error, { hint: json.hint }) : ok(json);
     },
@@ -1236,7 +1352,7 @@ export const TOOLS = [
     title: 'Quote, proforma, sales order or delivery challan',
     description: 'Make a sales document for a customer with GST worked out as on an invoice: a quotation (kind quote, the default, QT-), a proforma invoice (proforma, PI-), a sales order (order, SO-) or a delivery challan for goods moved without a sale (challan, DC-, with the reason: job-work, approval, line-sale, exhibition, own-use or other). Quotes and proformas are valid for a number of days (30 unless given). It posts nothing to the books and is not in any return until it becomes an invoice.',
     args: ['partyName', 'partyGstin', 'lines', 'date', 'validDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'kind', 'reason'],
-    run: (state, args = {}) => createQuote(state, args),
+    run: (state, args = {}) => createQuote(state, countryOf(state) === 'IN' ? withItemUnits(state, args) : args),
   },
   {
     name: 'mark_quote',
@@ -1250,7 +1366,17 @@ export const TOOLS = [
     title: 'Invoice from quote, proforma, order or challan',
     description: 'Raise the tax invoice for a quote, proforma, sales order or delivery challan with the same lines, linked both ways. A declined, cancelled, returned or already-invoiced document is refused, and so is a job-work challan, which is not a sale.',
     args: ['id', 'date'],
-    run: (state, args = {}) => convertQuote(state, args),
+    run: (state, args = {}) => {
+      const checked = countryOf(state) === 'IN' ? checkConvert(state, args) : null;
+      const expired = checked?.ok ? expiredSale(state, invoiceArgsFromQuote(checked.quote, args)) : null;
+      if (expired) return expired;
+      const result = loyaltyAfterInvoice(state, convertQuote(state, args));
+      if (result.ok && result.invoice && countryOf(state) === 'IN') {
+        const stockWarnings = moveDocumentStock(state, result.invoice, invoiceArgsFromQuote(result.quote, args), 'sale');
+        if (stockWarnings.length) result.stockWarnings = stockWarnings;
+      }
+      return result;
+    },
   },
   {
     name: 'list_quotes',
@@ -1492,15 +1618,15 @@ export const TOOLS = [
   {
     name: 'import_gstr2b',
     title: 'Add GSTR-2B',
-    description: 'Store the GSTR-2B statement for one month (the CSV from the GST portal) so purchase bills can be checked against what suppliers reported. Posts nothing to the ledger; a second file for the same month replaces the first.',
-    args: ['csv', 'period', 'fileName'],
+    description: 'Store the GSTR-2B statement for one month (the CSV from the GST portal) so purchase bills can be checked against what suppliers reported. Posts nothing to the ledger; a second file for the same month replaces the first. Give gstin for a registration other than the principal one; each GSTIN keeps its own 2B.',
+    args: ['csv', 'period', 'fileName', 'gstin'],
     run: (state, args = {}) => import2b(state, args),
   },
   {
     name: 'credit_at_risk',
     title: 'Credit at risk',
-    description: 'For one month: the input credit on purchase bills that GSTR-2B does not support (not reported, not available, different amounts or date, or no supplier bill number), by supplier, and 2B entries not in your books. Read-only.',
-    args: ['period'],
+    description: 'For one month: the input credit on purchase bills that GSTR-2B does not support (not reported, not available, different amounts or date, or no supplier bill number), by supplier, and 2B entries not in your books. One GSTIN at a time: give gstin for a registration other than the principal one. Read-only.',
+    args: ['period', 'gstin'],
     run: (state, args = {}) => creditAtRisk(state, args),
   },
   {
@@ -1605,7 +1731,7 @@ export const TOOLS = [
       if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
       const salesText = invoicesToSalesCsv(docs.invoices);
       const inwardText = purchasesToInwardCsv(docs.purchases);
-      const filed = filingPrep({ salesText, inwardText, supplierState: regd.registration.state, fy: state.company.fy });
+      const filed = filingPrep({ salesText, inwardText, supplierState: regd.registration.state });
       const payment = paymentFor(state, docs.period, { gstin: regd.gstin });
       if (!payment.ok) return fail(payment.error, payment);
       return ok({
@@ -1654,7 +1780,7 @@ export const TOOLS = [
   {
     name: 'govt_generate_irn',
     title: 'Generate e-invoice IRN',
-    description: 'Build NIC Invoice JSON from a posted tax invoice, credit note (CN-) or debit note (DN-) and generate its IRN through the action gate (live switch and a matching CA approval). A note carries the original invoice as PrecDocDtls.',
+    description: 'Build NIC Invoice JSON from a posted tax invoice, credit note (CN-), debit note (DN-) or reverse charge self-invoice (SI-, or its BILL- number; sent as RCMDOM or RCMIMP with the supplier as URP) and generate its IRN through the action gate (live switch and a matching CA approval). A note carries the original invoice as PrecDocDtls.',
     args: ['invoiceId', 'provider', 'caApprovalId'],
     run: async (state, args = {}) => {
       if (!args.invoiceId) return fail('invoiceId required, e.g. INV-0001');
@@ -1982,12 +2108,12 @@ export const TOOLS = [
           }
         }
       }
-      const result = filingPrep({
-        aisText: ais,
-        tds26Text: tds26,
-        incomeText: income,
-        fy: state.company.fy,
-      });
+      let result;
+      try {
+        result = filingPrep({ aisText: ais, tds26Text: tds26, incomeText: income, fy: state.company.fy });
+      } catch {
+        return fail('NO_RULES_FOR_FY', { fy: state.company.fy, hint: 'No income-tax rules are recorded for this financial year yet; nothing was computed.' });
+      }
       return ok(result.itr);
     },
   },
@@ -2007,7 +2133,12 @@ export const TOOLS = [
           }
         }
       }
-      const result = filingPrep({ paymentsText: payments, fy: state.company.fy });
+      let result;
+      try {
+        result = filingPrep(payments ? { paymentsText: payments, fy: state.company.fy } : {});
+      } catch {
+        return fail('NO_RULES_FOR_FY', { fy: state.company.fy, hint: 'No TDS rules are recorded for this financial year yet; nothing was computed.' });
+      }
       return ok(result.tds);
     },
   },
@@ -2169,9 +2300,93 @@ export const TOOLS = [
   {
     name: 'set_sku_cost',
     title: 'SKU cost',
-    description: 'Record a product\'s unit cost (and name, HSN) so margins by SKU and channel can be computed. The cost is what you paid per unit, landed. Owner only.',
-    args: ['sku', 'cost', 'name', 'hsn', 'gstRate', 'on'],
+    description: 'Record a product\'s unit cost (and name, HSN, GST rate, barcode, selling price, GST unit of quantity and reorder level) so margins by SKU and channel can be computed, a scanned barcode fills a bill, bills and GSTR-1 carry the unit, and low stock is flagged. The cost is what you paid per unit, landed. Owner only.',
+    args: ['sku', 'cost', 'name', 'hsn', 'gstRate', 'barcode', 'price', 'unit', 'reorderLevel', 'reorderQty', 'on'],
     run: (state, args = {}) => setSkuCost(state, args),
+  },
+  {
+    name: 'find_item',
+    title: 'Find an item by barcode or SKU',
+    description: 'Look up a product by its scanned barcode or its SKU: name, selling price, HSN, GST rate and stock on hand, for counter billing. Read-only.',
+    args: ['code'],
+    run: (state, args = {}) => findItem(state, args),
+  },
+  {
+    name: 'offline_kit',
+    title: 'Offline billing kit',
+    description: 'Everything a phone needs to bill without a connection: the business, the lock date, items with price, GST rate and stock, parties, open invoices, the rule 46(e) limit and the phone\'s own invoice series. India only; for the app, never the assistant. Read-only.',
+    args: ['deviceId'],
+    run: (state, args = {}) => offlineKit(state, args),
+  },
+  {
+    name: 'register_offline_device',
+    title: 'Give a phone its invoice series',
+    description: 'Give a phone its own invoice series (MA, MB, ...) for bills made without a connection. The same device always gets the same series back. India only; for the app, never the assistant.',
+    args: ['deviceId', 'deviceName'],
+    run: (state, args = {}) => registerOfflineDevice(state, args),
+  },
+  {
+    name: 'post_offline_sales',
+    title: 'Sync offline bills',
+    description: 'Post bills, receipts and new items made on a phone without a connection, at most 20 at a time. The GST is worked out again and a bill whose figures differ from what was printed is not posted; one already synced is not posted again. India only; for the app, never the assistant.',
+    args: ['deviceId', 'sales', 'receipts', 'items'],
+    run: (state, args = {}) => postOfflineSales(state, args),
+  },
+  {
+    name: 'catalogue_settings',
+    title: 'Online store settings',
+    description: 'Switch the online store on or off and set what buyers see on its shareable link: the store name, a short description, the WhatsApp number orders go to, an optional address and city, whether prices (with GST) and in-stock or out-of-stock show, whether the GSTIN shows, and the link name (3 to 40 lowercase letters, digits and hyphens). Costs, quantities and the books are never shown. India only. Owner only.',
+    args: ['enabled', 'storeName', 'description', 'whatsapp', 'address', 'city', 'showPrices', 'showStock', 'showGstin', 'slug'],
+    run: (state, args = {}) => setCatalogueSettings(state, args),
+  },
+  {
+    name: 'catalogue_items',
+    title: 'Items in the online store',
+    description: 'Publish or hide saved items (SKUs) in the online store, each with an optional short description and category. Name, price, HSN and GST rate come from the saved item. India only. Owner only.',
+    args: ['items'],
+    run: (state, args = {}) => setCatalogueItems(state, args),
+  },
+  {
+    name: 'catalogue_view',
+    title: 'Online store',
+    description: 'The online store: its settings and link, every saved item with whether it is published, and exactly what the public page shows. Read-only.',
+    args: [],
+    run: (state) => catalogueView(state),
+  },
+  {
+    name: 'store_orders',
+    title: 'Online store orders',
+    description: 'Order requests buyers sent from the online store, newest first, optionally only new, accepted, declined or fulfilled ones. Read-only.',
+    args: ['status'],
+    run: (state, args = {}) => storeOrders(state, args),
+  },
+  {
+    name: 'store_order_action',
+    title: 'Answer an online store order',
+    description: 'Answer an order request from the online store: accept it, which makes a quote for the buyer at the items\' saved prices and GST rates, decline it, or mark it fulfilled. To decline many at once give ids (a list of order numbers) or fromPhone (every open order from that mobile number) with action decline. Owner only.',
+    args: ['id', 'ids', 'fromPhone', 'action'],
+    run: (state, args = {}) => storeOrderAction(state, args),
+  },
+  {
+    name: 'loyalty_settings',
+    title: 'Loyalty points settings',
+    description: 'Turn customer loyalty points on or off and set the rules: points earned per rupees of the bill (on the value before GST or the total), the value of one point, the fewest points used at a time, the most of a bill points can pay (percent of the value before GST) and the months until points expire (0 never). Owner only. Indian shops.',
+    args: ['enabled', 'earnPoints', 'earnPerRupees', 'earnOn', 'pointValue', 'minRedeemPoints', 'maxRedeemPercent', 'expiryMonths'],
+    run: (state, args = {}) => setLoyaltySettings(state, args),
+  },
+  {
+    name: 'loyalty_balance',
+    title: 'Loyalty points balance',
+    description: 'One customer\'s loyalty points (balance, value, points expiring soon, recent history and a WhatsApp line to send), or every customer ranked by points with the shop\'s outstanding points liability in rupees. Read-only.',
+    args: ['partyName', 'partyGstin', 'asOf', 'limit'],
+    run: (state, args = {}) => loyaltyBalance(state, args),
+  },
+  {
+    name: 'loyalty_adjust',
+    title: 'Adjust loyalty points',
+    description: 'Add bonus points to a customer or take points away by hand, with the reason, kept in the points book and the audit trail. Owner only.',
+    args: ['partyName', 'partyGstin', 'points', 'reason', 'date'],
+    run: (state, args = {}) => loyaltyAdjust(state, args),
   },
   {
     name: 'import_sku_costs',
@@ -2188,8 +2403,8 @@ export const TOOLS = [
   {
     name: 'record_stock',
     title: 'Stock in or out',
-    description: 'Record stock received, sent to a warehouse or counted: a positive quantity adds, a negative removes, at a location (own, amazon, flipkart, a warehouse name). Marketplace orders move stock out of the channel\'s location on import; returns move it back.',
-    args: ['sku', 'qty', 'location', 'date', 'note', 'kind'],
+    description: 'Record stock received, sent to a warehouse or counted: a positive quantity adds, a negative removes, at a location (own, amazon, flipkart, a warehouse name); toLocation moves stock between two locations of the business. Stock in may carry its cost per unit (a lot) and a batch number with its expiry; stock out may name the batch, and warns when the batch has expired. Marketplace orders move stock out of the channel\'s location on import; returns move it back.',
+    args: ['sku', 'qty', 'location', 'toLocation', 'date', 'note', 'kind', 'unitCost', 'batch', 'expiry'],
     run: (state, args = {}) => recordStock(state, args),
   },
   {
@@ -2219,6 +2434,27 @@ export const TOOLS = [
     description: 'The valuations posted so far, the latest, and what stock on hand is worth now against what is posted. Read-only.',
     args: [],
     run: (state) => listInventoryValuations(state),
+  },
+  {
+    name: 'set_costing_method',
+    title: 'Inventory costing method',
+    description: 'Choose how stock is costed: FIFO or weighted average (AS 2 allows these two; LIFO is not allowed). Stock already on hand becomes the opening lot at its recorded cost; stock values, cost of goods, margins and valuations use the method from then. A later change needs a reason and is kept in the audit trail. Owner only.',
+    args: ['method', 'reason'],
+    run: (state, args = {}) => setCostingMethod(state, args),
+  },
+  {
+    name: 'inventory_costing',
+    title: 'Inventory costing',
+    description: 'The costing method and its history, the lots on hand per SKU with their cost, the value of stock, and the cost of goods out between two dates by the chosen method. Read-only.',
+    args: ['asOf', 'from', 'to'],
+    run: (state, args = {}) => inventoryCosting(state, args),
+  },
+  {
+    name: 'stock_alerts',
+    title: 'Expiring soon and low stock',
+    description: 'Batches that expire within a number of days (30 by default), batches already expired and still on hand, and items at or below their reorder level. Read-only.',
+    args: ['days', 'asOf'],
+    run: (state, args = {}) => stockAlerts(state, args),
   },
   {
     name: 'sku_margins',
@@ -2738,7 +2974,9 @@ export const TOOLS = [
     description: 'Statutory due dates for the firm and every registered client (GSTR-1/3B, PMT-06, TDS, PF, advance tax, ITR, GSTR-9) from the dated rules, as of today. Due dates never roll over weekends or holidays.',
     run: (state, args = {}) => {
       const asOfDate = /^\d{4}-\d{2}-\d{2}$/.test(String(args.asOfDate || '')) ? args.asOfDate : localToday();
-      const run = deadlineRun(state, { asOfDate, months: args.months, holidaysText: args.holidaysText || '' });
+      const window = askedMonths(args.months, asOfDate);
+      if (!window.ok) return fail(window.error);
+      const run = deadlineRun(state, { asOfDate, months: window.months, holidaysText: String(args.holidaysText || '') });
       return ok({ asOfDate, ...run });
     },
   },
@@ -2975,14 +3213,14 @@ export const TOOLS = [
     name: 'tax_plan',
     title: 'Plan income tax: old or new regime',
     description: 'For a resident individual or proprietor: tax for a financial year under both regimes from the dated rules, which is cheaper and by how much, the extra old-regime deductions that would break even, unused 80C and 80D limits, the 87A rebate edge, and presumptive income under 44AD or 44ADA from turnover (6% on digital receipts, 8% on the rest, or 50% for a profession) against actual profit. Amounts in rupees. Headed "for your CA to confirm". Read-only.',
-    args: ['fy', 'ageBand', 'salary', 'businessIncome', 'otherIncome', 'section80C', 'health80DSelf', 'health80DParents', 'selfSenior', 'parentsSenior', 'turnover', 'digitalReceipts', 'cashReceipts', 'profession', 'actualProfit', 'asOf'],
+    args: ['fy', 'ageBand', 'dateOfBirth', 'depositInterest', 'salary', 'businessIncome', 'otherIncome', 'section80C', 'health80DSelf', 'health80DParents', 'selfSenior', 'parentsSenior', 'turnover', 'digitalReceipts', 'cashReceipts', 'profession', 'actualProfit', 'asOf'],
     run: (state, args = {}) => taxPlan(state, args),
   },
   {
     name: 'review_income_tax',
     title: 'Review a prepared income tax return',
     description: "Check the figures of an income tax return someone prepared (regime, income, deductions, and the standard deduction, total income, rebate, tax and TDS the return shows) against MyCA's own computation from the dated rules, and list errors, risks and money left on the table with the rule behind each: deductions not allowed or over the limit, a missed 87A rebate or marginal relief, the other regime being cheaper, TDS in the books or Form 26AS not claimed, profit below the presumptive rate, and turnover that does not match the year's GST sales in the books. Amounts in rupees. Read-only.",
-    args: ['fy', 'regime', 'ageBand', 'salary', 'businessIncome', 'otherIncome', 'section80C', 'health80DSelf', 'health80DParents', 'selfSenior', 'parentsSenior', 'presumptive', 'turnover', 'digitalReceipts', 'cashReceipts', 'profession', 'nonGstReceipts', 'claimedStandardDeduction', 'claimedDeductions', 'claimedTotalIncome', 'claimedRebate', 'claimedTaxPayable', 'claimedTds', 'asOf'],
+    args: ['fy', 'regime', 'ageBand', 'dateOfBirth', 'depositInterest', 'salary', 'businessIncome', 'otherIncome', 'section80C', 'health80DSelf', 'health80DParents', 'selfSenior', 'parentsSenior', 'presumptive', 'turnover', 'digitalReceipts', 'cashReceipts', 'profession', 'nonGstReceipts', 'claimedStandardDeduction', 'claimedDeductions', 'claimedTotalIncome', 'claimedRebate', 'claimedTaxPayable', 'claimedTds', 'asOf'],
     run: (state, args = {}) => reviewIncomeTaxReturn(state, args),
   },
   {
@@ -3090,8 +3328,22 @@ export const TOOLS = [
     name: 'advance_tax',
     title: 'Advance tax to set aside',
     description: 'For an individual or proprietor: profit for the financial year to date scaled to twelve months (both figures shown), tax under the chosen regime from the dated rules, less TDS credit from Form 26AS or marketplace settlements, split into the instalments due 15 June, 15 September, 15 December and 15 March (or the whole by 15 March when presumptive), with what is met, missed or next. Headed "for your CA to confirm" with its assumptions. Read-only.',
-    args: ['regime', 'presumptive', 'otherIncome', 'asOf'],
+    args: ['regime', 'presumptive', 'otherIncome', 'dateOfBirth', 'asOf'],
     run: (state, args = {}) => advanceTax(state, args),
+  },
+  {
+    name: 'income_tax_interest',
+    title: 'Income tax interest under 234A, 234B and 234C',
+    description: 'Interest for a financial year from the figures given: 234A for a return filed after the due date, 234B when advance tax paid is under 90% of the assessed tax (recomputed after each self-assessment payment), and 234C for each instalment paid short (15, 45, 75 and 100 percent; none for June at 12% or September at 36%; only 15 March when presumptive; tax on capital gains, lottery, dividend or new business income arising later can be left out of earlier instalments). Months or part count as full months and amounts are rounded down to Rs 100 (Rule 119A); self-assessment tax goes first to interest (s.140A). Amounts in rupees. Headed "for your CA to confirm". Read-only.',
+    args: ['fy', 'dueDate', 'filedOn', 'determinedOn', 'taxOnTotalIncome', 'taxOnReturnedIncome', 'tdsTcs', 'relief', 'lateFee', 'advanceTaxPayments', 'selfAssessmentPayments', 'presumptive', 'seniorNoBusiness', 'excludedIncome'],
+    run: (state, args = {}) => incomeTaxInterest(args),
+  },
+  {
+    name: 'tds_interest',
+    title: 'TDS late fee and interest (234E, 201(1A))',
+    description: 'The late fee of Rs 200 a day under 234E for a TDS statement filed after its due date, capped at the TDS in it (from the quarter\'s draft when a quarter is given, or the due date, filing date and TDS given), and interest under 201(1A) on amounts given: 1% a month or part from the date tax was deductible to the date deducted, and 1.5% from deduction to payment when paid after the 7th of the next month (30 April for March). Months counted by calendar month as TRACES does unless basis is "period". Amounts in rupees. Read-only.',
+    args: ['quarter', 'form', 'dueDate', 'filedOn', 'tds', 'late', 'basis', 'asOf'],
+    run: (state, args = {}) => tdsInterestFor(state, args),
   },
   {
     name: 'record_advance_tax',
@@ -3172,8 +3424,8 @@ export const TOOLS = [
   {
     name: 'record_filing',
     title: 'Record a filed return',
-    description: 'Record that a return was filed outside MyCA (on the portal or by the CA), with its acknowledgement (ARN) and date. The return must be one MyCA lists for this business. Files nothing.',
-    args: ['returnType', 'period', 'arn', 'filedOn', 'filedBy'],
+    description: 'Record that a return was filed outside MyCA (on the portal or by the CA), with its acknowledgement (ARN) and date. The return must be one MyCA lists for this business; for a TDS statement say the form, 24Q (salary) or 26Q (other payments). Files nothing.',
+    args: ['returnType', 'period', 'arn', 'filedOn', 'filedBy', 'form'],
     run: (state, args = {}) => recordFiling(state, args, filingRows(state, args.filedOn)),
   },
   {

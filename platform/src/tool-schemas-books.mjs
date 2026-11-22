@@ -1,5 +1,92 @@
 import { REPORT_KEYS } from './report-sheets.mjs';
-import { noArgs, salaryComponent } from './tool-schema-parts.mjs';
+import { noArgs, salaryComponent, REGISTRATION_ARG, INVOICE_ID, OFFLINE_DEVICE_ID_PATTERN, MAX_OFFLINE_ENTRIES, OFFLINE_RECEIPT_MODES } from './tool-schema-parts.mjs';
+
+const OFFLINE_DEVICE_ID = { type: 'string', pattern: OFFLINE_DEVICE_ID_PATTERN };
+const OFFLINE_REF = { type: 'string', minLength: 8, maxLength: 64 };
+const ISO_DAY = { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' };
+const RUPEES = { type: 'number', minimum: 0 };
+
+const OFFLINE_LINE = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['description', 'qty', 'rate', 'gstRate'],
+  properties: {
+    description: { type: 'string', minLength: 1, maxLength: 200 },
+    sku: { type: 'string', maxLength: 64 },
+    hsn: { type: 'string', maxLength: 8 },
+    qty: { type: 'number', exclusiveMinimum: 0 },
+    unit: { type: 'string', maxLength: 20 },
+    rate: RUPEES,
+    gstRate: { type: 'number', minimum: 0, maximum: 40 },
+    cessRate: { type: 'number', minimum: 0 },
+    cessPerUnit: { type: 'number', minimum: 0 },
+  },
+};
+
+const OFFLINE_SALE = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['ref', 'id', 'date', 'lines', 'printed'],
+  properties: {
+    ref: OFFLINE_REF,
+    id: { type: 'string', pattern: '^INV-[A-Z]{2}[0-9]{4}-[0-9]{4,}$' },
+    date: ISO_DAY,
+    createdAt: { type: 'string', maxLength: 40 },
+    partyName: { type: 'string', maxLength: 120 },
+    partyGstin: { type: 'string', maxLength: 15 },
+    partyState: { type: 'string', maxLength: 2 },
+    partyAddress: { type: 'string', maxLength: 200 },
+    lines: { type: 'array', minItems: 1, maxItems: 100, items: OFFLINE_LINE },
+    printed: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['taxable', 'cgst', 'sgst', 'igst', 'total'],
+      properties: { taxable: RUPEES, cgst: RUPEES, sgst: RUPEES, igst: RUPEES, total: RUPEES },
+    },
+    payment: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['amount', 'mode'],
+      properties: { amount: { type: 'number', exclusiveMinimum: 0 }, mode: { type: 'string', enum: [...OFFLINE_RECEIPT_MODES] } },
+    },
+    voided: {
+      type: 'object',
+      additionalProperties: false,
+      properties: { reason: { type: 'string', maxLength: 200 }, at: { type: 'string', maxLength: 40 } },
+    },
+    acceptEngineFigures: { type: 'boolean' },
+    exportSale: { type: 'object' },
+    supplyType: { type: 'string', maxLength: 10 },
+  },
+};
+
+const OFFLINE_RECEIPT = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['ref', 'invoiceId', 'amount', 'date', 'mode'],
+  properties: {
+    ref: OFFLINE_REF,
+    invoiceId: INVOICE_ID,
+    amount: { type: 'number', exclusiveMinimum: 0 },
+    date: ISO_DAY,
+    mode: { type: 'string', enum: [...OFFLINE_RECEIPT_MODES] },
+  },
+};
+
+const OFFLINE_ITEM = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['ref', 'sku', 'name', 'price', 'gstRate'],
+  properties: {
+    ref: OFFLINE_REF,
+    sku: { type: 'string', minLength: 1, maxLength: 64 },
+    name: { type: 'string', minLength: 1, maxLength: 120 },
+    price: RUPEES,
+    gstRate: { type: 'number', minimum: 0, maximum: 40 },
+    hsn: { type: 'string', maxLength: 8 },
+    barcode: { type: 'string', maxLength: 32 },
+  },
+};
 
 export const BOOKS_TOOL_SCHEMAS = {
   company_profile: noArgs,
@@ -19,6 +106,11 @@ export const BOOKS_TOOL_SCHEMAS = {
       pin: { type: 'string' },
       entityType: { type: 'string' },
       invoiceNumbering: { type: 'string', enum: ['continuous', 'yearly'] },
+      composition: { type: 'boolean' },
+      lutNumber: { type: 'string', maxLength: 20 },
+      aato: { type: 'number', minimum: 0 },
+      aatoFy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' },
+      ownerDateOfBirth: { type: 'string', pattern: '^([0-9]{4}-[0-9]{2}-[0-9]{2})?$' },
     },
   },
   list_clients: noArgs,
@@ -330,7 +422,133 @@ export const BOOKS_TOOL_SCHEMAS = {
       name: { type: 'string', maxLength: 120 },
       hsn: { type: 'string', maxLength: 8 },
       gstRate: { type: 'number', minimum: 0, maximum: 28 },
+      barcode: { type: 'string', maxLength: 32 },
+      price: { type: 'number', minimum: 0 },
+      unit: { type: 'string', maxLength: 20 },
+      reorderLevel: { type: 'number', minimum: 0 },
+      reorderQty: { type: 'number', minimum: 0 },
       on: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
+  offline_kit: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['deviceId'],
+    properties: { deviceId: OFFLINE_DEVICE_ID },
+  },
+  register_offline_device: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['deviceId'],
+    properties: { deviceId: OFFLINE_DEVICE_ID, deviceName: { type: 'string', maxLength: 60 } },
+  },
+  post_offline_sales: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['deviceId'],
+    properties: {
+      deviceId: OFFLINE_DEVICE_ID,
+      sales: { type: 'array', maxItems: MAX_OFFLINE_ENTRIES, items: OFFLINE_SALE },
+      receipts: { type: 'array', maxItems: MAX_OFFLINE_ENTRIES, items: OFFLINE_RECEIPT },
+      items: { type: 'array', maxItems: MAX_OFFLINE_ENTRIES, items: OFFLINE_ITEM },
+    },
+  },
+  catalogue_settings: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      enabled: { type: 'boolean' },
+      storeName: { type: 'string', maxLength: 80 },
+      description: { type: 'string', maxLength: 300 },
+      whatsapp: { type: 'string', maxLength: 20 },
+      address: { type: 'string', maxLength: 200 },
+      city: { type: 'string', maxLength: 60 },
+      showPrices: { type: 'boolean' },
+      showStock: { type: 'boolean' },
+      showGstin: { type: 'boolean' },
+      slug: { type: 'string', maxLength: 40 },
+    },
+  },
+  catalogue_items: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['items'],
+    properties: {
+      items: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 200,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['sku'],
+          properties: {
+            sku: { type: 'string', minLength: 1, maxLength: 64 },
+            published: { type: 'boolean' },
+            description: { type: 'string', maxLength: 200 },
+            category: { type: 'string', maxLength: 40 },
+          },
+        },
+      },
+    },
+  },
+  catalogue_view: { type: 'object', additionalProperties: false, properties: {} },
+  store_orders: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { status: { type: 'string', enum: ['all', 'new', 'accepted', 'declined', 'fulfilled'] } },
+  },
+  store_order_action: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['action'],
+    properties: {
+      id: { type: 'string', pattern: '^ORD-[0-9]{4,}$' },
+      ids: { type: 'array', minItems: 1, maxItems: 200, items: { type: 'string', pattern: '^ORD-[0-9]{4,}$' } },
+      fromPhone: { type: 'string', minLength: 10, maxLength: 20 },
+      action: { type: 'string', enum: ['accept', 'decline', 'fulfil'] },
+    },
+  },
+  find_item: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['code'],
+    properties: { code: { type: 'string', minLength: 1, maxLength: 64 } },
+  },
+  loyalty_settings: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      enabled: { type: 'boolean' },
+      earnPoints: { type: 'integer', minimum: 1, maximum: 1000 },
+      earnPerRupees: { type: 'number', minimum: 1, maximum: 1000000 },
+      earnOn: { type: 'string', enum: ['taxable', 'total'] },
+      pointValue: { type: 'number', minimum: 0.01, maximum: 1000 },
+      minRedeemPoints: { type: 'integer', minimum: 0, maximum: 1000000 },
+      maxRedeemPercent: { type: 'number', exclusiveMinimum: 0, maximum: 100 },
+      expiryMonths: { type: 'integer', minimum: 0, maximum: 120 },
+    },
+  },
+  loyalty_balance: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      partyName: { type: 'string', maxLength: 120 },
+      partyGstin: { type: 'string', maxLength: 15 },
+      asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      limit: { type: 'integer', minimum: 1, maximum: 500 },
+    },
+  },
+  loyalty_adjust: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['partyName', 'points', 'reason'],
+    properties: {
+      partyName: { type: 'string', minLength: 1, maxLength: 120 },
+      partyGstin: { type: 'string', maxLength: 15 },
+      points: { type: 'integer', minimum: -10000000, maximum: 10000000 },
+      reason: { type: 'string', minLength: 1, maxLength: 200 },
+      date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
     },
   },
   import_sku_costs: {
@@ -349,7 +567,27 @@ export const BOOKS_TOOL_SCHEMAS = {
       date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
       note: { type: 'string', maxLength: 200 },
       kind: { type: 'string', enum: ['in', 'out', 'adjust'] },
+      toLocation: { type: 'string', maxLength: 40 },
+      unitCost: { type: 'number', minimum: 0 },
+      batch: { type: 'string', maxLength: 20 },
+      expiry: { type: 'string', pattern: '^([0-9]{4}-[0-9]{2}(-[0-9]{2})?|[0-9]{2}/[0-9]{4})$' },
     },
+  },
+  set_costing_method: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['method'],
+    properties: { method: { type: 'string', maxLength: 20 }, reason: { type: 'string', maxLength: 300 } },
+  },
+  inventory_costing: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, from: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, to: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
+  },
+  stock_alerts: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { days: { type: 'integer', minimum: 1, maximum: 365 }, asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
   },
   stock_position: {
     type: 'object',
@@ -671,7 +909,7 @@ export const BOOKS_TOOL_SCHEMAS = {
   credit_at_risk: {
     type: 'object',
     additionalProperties: false,
-    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }, gstin: REGISTRATION_ARG },
   },
   export_entries: {
     type: 'object',

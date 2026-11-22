@@ -26,7 +26,7 @@ const oidc = (token) => api.call('POST', '/v1/auth/oidc', { body: { idToken: tok
 
 test('the methods list names the issuer when OIDC sign-in is on', async () => {
   const out = await api.call('GET', '/v1/auth/methods');
-  assert.deepEqual(out.body, { ok: true, phone: true, google: true, oidc: true, oidcIssuer: OIDC_ISSUER });
+  assert.deepEqual(out.body, { ok: true, phone: true, google: true, apple: false, oidc: true, oidcIssuer: OIDC_ISSUER });
 });
 
 test('a token from the configured issuer signs a user in, keeps them across sign-ins, and the user works like any other', async () => {
@@ -44,7 +44,7 @@ test('a token from the configured issuer signs a user in, keeps them across sign
   assert.equal(again.body.user.id, out.body.user.id);
   assert.equal(again.body.user.isNew, false);
   const token = again.body.accessToken;
-  assert.equal((await api.call('POST', '/v1/me/consent', { token, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version } })).status, 200);
+  assert.equal((await api.call('POST', '/v1/me/consent', { token, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version, adult: true } })).status, 200);
   const created = await api.call('POST', '/v1/businesses', { token, body: { name: 'Kumar Agencies', state: '36' } });
   assert.equal(created.status, 200, created.text);
 });

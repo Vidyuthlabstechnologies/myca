@@ -46,7 +46,7 @@ function booksWithInvoice() {
 }
 
 test('scoped transports: every action declares the transport functions it may call', () => {
-  const groups = new Set(['sandbox', 'nic', 'nim', 'notifications', 'reachability', 'channel', 'tally', 'irs']);
+  const groups = new Set(['sandbox', 'nic', 'nim', 'notifications', 'reachability', 'channel', 'tally', 'irs', 'usFiler']);
   for (const [id, entry] of Object.entries(ACTION_CLASSES)) {
     assert.ok(Array.isArray(entry.uses), id);
     assert.ok(Number.isInteger(entry.timeoutMs) && entry.timeoutMs > 0, id);

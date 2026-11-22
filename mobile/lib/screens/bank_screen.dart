@@ -6,23 +6,18 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../excel.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../proposal_flow.dart';
 import '../registers.dart';
 import '../theme.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'head_picker.dart';
 import 'party_picker.dart';
 
 const _filters = {'all': 'All', 'unmatched': 'Not matched yet', 'matched': 'Matched', 'booked': 'Booked', 'ignored': 'Ignored'};
-
-const _emptyWords = {
-  'all': 'No statement lines yet.',
-  'unmatched': 'Nothing waiting to be matched.',
-  'matched': 'No matched lines yet.',
-  'booked': 'No booked lines yet.',
-  'ignored': 'No ignored lines.',
-};
 
 const _builtInAccounts = [
   OwnAccount(id: '1001', label: 'Cash', kind: 'cash', maskedNumber: '', ifsc: '', balance: 0, builtIn: true),
@@ -78,7 +73,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
     _recon = _load();
   });
 
-  String get _windowWords => _older ? 'Showing two years' : 'Showing the last 90 days';
+  String get _windowWords => UaeStrings.of(context).windowWords(_older);
 
   @override
   Future<void> onPosted() async {
@@ -113,7 +108,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
       title: title,
       children: [
         for (final account in accounts)
-          ChoiceChip(label: Text(account.label), selected: false, onSelected: (_) => Navigator.of(sheet).pop(account)),
+          ChoiceChip(label: Text(UaeStrings.of(context).accountLabel(account.label)), selected: false, onSelected: (_) => Navigator.of(sheet).pop(account)),
       ],
     ),
   );
@@ -125,40 +120,41 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
       builder: (_) => _LineSheet(line: line),
     );
     if (choice == null || !mounted) return;
+    final s = UaeStrings.of(context);
     if (choice.kind == 'unlink') {
-      return propose('Unlink ${line.id}', 'unmatch_bank_line', {'lineId': line.id});
+      return propose(s.unlinkSaid(line.id), 'unmatch_bank_line', {'lineId': line.id});
     }
     final remember = {if (choice.remember) 'remember': true};
     final suggestion = choice.suggestion;
     if (suggestion != null && suggestion.kind != 'transfer') {
-      return _match(line, suggestion.words, {...suggestion.matchArgs, if (suggestion.kind != 'books') ...remember});
+      return _match(line, s.bankSuggestionWords(suggestion), {...suggestion.matchArgs, if (suggestion.kind != 'books') ...remember});
     }
     switch (choice.kind) {
       case 'receipt':
         final party = await showPartyPicker(context, RegisterKind.sales);
         if (party == null || !mounted) return;
-        await _match(line, 'Receipt from ${party.name}', {'kind': 'receipt', 'partyName': party.name, ...remember});
+        await _match(line, s.bankMatchSaid('receipt', party: party.name), {'kind': 'receipt', 'partyName': party.name, ...remember});
       case 'payment':
         final party = await showPartyPicker(context, RegisterKind.purchases);
         if (party == null || !mounted) return;
-        await _match(line, 'Payment to ${party.name}', {'kind': 'payment', 'partyName': party.name, ...remember});
+        await _match(line, s.bankMatchSaid('payment', party: party.name), {'kind': 'payment', 'partyName': party.name, ...remember});
       case 'expense':
-        final head = await showHeadPicker(context, title: 'Which head is it?');
+        final head = await showHeadPicker(context, title: s.whichHeadIsIt);
         if (head == null || !mounted) return;
-        await _match(line, 'Expense under ${head.name}', {'kind': 'expense', 'head': head.code, ...remember});
+        await _match(line, s.bankMatchSaid('expense', head: s.accountName(head.name)), {'kind': 'expense', 'head': head.code, ...remember});
       case 'charge':
-        await _match(line, 'Bank charge', {'kind': 'charge', ...remember});
+        await _match(line, s.bankMatchSaid('charge'), {'kind': 'charge', ...remember});
       case 'interest':
-        await _match(line, 'Interest earned', {'kind': 'interest', ...remember});
+        await _match(line, s.bankMatchSaid('interest'), {'kind': 'interest', ...remember});
       case 'transfer':
         final others = (recon.accounts.isEmpty ? _builtInAccounts : recon.accounts).where((a) => a.id != _account).toList();
-        final other = await _pickAccount(others, line.isIn ? 'Which account did it come from?' : 'Which account did it go to?');
+        final other = await _pickAccount(others, s.accountFromOrTo(line.isIn));
         if (other == null || !mounted) return;
-        await _match(line, 'Transfer ${line.isIn ? 'from' : 'to'} ${other.label}', {'kind': 'transfer', 'otherAccount': other.id, ...remember});
+        await _match(line, s.bankMatchSaid('transfer', account: s.accountLabel(other.label), isIn: line.isIn), {'kind': 'transfer', 'otherAccount': other.id, ...remember});
       case 'ignore':
         final note = await showModalBottomSheet<String>(context: context, isScrollControlled: true, builder: (_) => const _NoteSheet());
         if (note == null || !mounted) return;
-        await _match(line, note.isEmpty ? 'Ignore' : 'Ignore: $note', {'kind': 'ignore', if (note.isNotEmpty) 'note': note, ...remember});
+        await _match(line, s.bankMatchSaid('ignore', note: note), {'kind': 'ignore', if (note.isNotEmpty) 'note': note, ...remember});
     }
   }
 
@@ -194,7 +190,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
       builder: (_) => _TransferSheet(accounts: accounts, from: _account, today: today),
     );
     if (draft == null || !mounted) return;
-    await propose('Transfer ${rupees(draft.amount)} from ${draft.from.label} to ${draft.to.label}', 'record_transfer', {
+    await propose(UaeStrings.of(context).transferSaid(rupees(draft.amount), UaeStrings.of(context).accountLabel(draft.from.label), UaeStrings.of(context).accountLabel(draft.to.label)), 'record_transfer', {
       'fromAccount': draft.from.id,
       'toAccount': draft.to.id,
       'amount': draft.amount,
@@ -203,7 +199,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
     });
   }
 
-  Future<void> _bookCharges() => propose('Book the bank charges and interest', 'book_bank_charges', {'account': _account});
+  Future<void> _bookCharges() => propose(UaeStrings.of(context).bookChargesSaid, 'book_bank_charges', {'account': _account});
 
   Future<void> _rules(BankReconciliation? recon) async {
     final accounts = await _accounts(recon);
@@ -215,9 +211,9 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
     );
     if (action == null || !mounted) return;
     final remove = action.remove;
-    if (remove != null) return propose('Remove the rule ${remove.id}', 'remove_bank_rule', {'id': remove.id});
+    if (remove != null) return propose(UaeStrings.of(context).removeRuleSaid(remove.id), 'remove_bank_rule', {'id': remove.id});
     final rule = action.add;
-    if (rule != null) await propose('Rule: ${rule.words}', 'add_bank_rule', rule.args);
+    if (rule != null) await propose(UaeStrings.of(context).ruleSaid(UaeStrings.of(context).ruleWords(rule)), 'add_bank_rule', rule.args);
   }
 
   Future<void> _addAccount() async {
@@ -227,18 +223,19 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
       builder: (_) => const _AccountSheet(),
     );
     if (draft == null || !mounted) return;
-    await propose('Add the account ${draft['label']}', 'set_bank_account', draft);
+    await propose(UaeStrings.of(context).addAccountSaid('${draft['label']}'), 'set_bank_account', draft);
   }
 
   Future<void> _saveExcel() async {
     final state = AppScope.of(context);
+    final aeStrings = uaeEdition(context) ? UaeStrings.of(context) : null;
     setState(() {
       _saving = true;
       _note = '';
     });
     var note = '';
     try {
-      note = await saveXlsx(state, toolData(await state.api.query('export_xlsx', {'report': 'bank_reconciliation', 'account': _account})));
+      note = await saveXlsx(state, toolData(await state.api.query('export_xlsx', {'report': 'bank_reconciliation', 'account': _account})), aeStrings);
     } on MycaApiException catch (err) {
       note = err.message;
     }
@@ -249,24 +246,25 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
     });
   }
 
-  Widget _actions(BankReconciliation? recon) => Wrap(
+  Widget _actions(BankReconciliation? recon, UaeStrings s) => Wrap(
     spacing: 8,
     runSpacing: 8,
     children: [
-      ActionChip(label: const Text('Bring in a statement'), onPressed: busy ? null : _bringIn),
-      ActionChip(label: const Text('Record a transfer'), onPressed: busy ? null : () => _transfer(recon)),
-      ActionChip(label: const Text('Book bank charges'), onPressed: busy ? null : _bookCharges),
-      ActionChip(label: const Text('Rules'), onPressed: busy ? null : () => _rules(recon)),
-      ActionChip(label: const Text('Add an account'), onPressed: busy ? null : _addAccount),
-      ActionChip(label: const Text('Save as Excel'), onPressed: busy || _saving ? null : _saveExcel),
+      ActionChip(label: Text(s.bringInStatement), onPressed: busy ? null : _bringIn),
+      ActionChip(label: Text(s.recordTransfer), onPressed: busy ? null : () => _transfer(recon)),
+      ActionChip(label: Text(s.bookBankCharges), onPressed: busy ? null : _bookCharges),
+      ActionChip(label: Text(s.rules), onPressed: busy ? null : () => _rules(recon)),
+      ActionChip(label: Text(s.addAccount), onPressed: busy ? null : _addAccount),
+      ActionChip(label: Text(s.saveAsExcel), onPressed: busy || _saving ? null : _saveExcel),
     ],
   );
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Bank')),
+      appBar: AppBar(title: Text(s.bank)),
       body: FutureBuilder<BankReconciliation?>(
         future: _recon,
         builder: (context, snap) {
@@ -286,7 +284,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
                         children: [
                           for (final account in recon.accounts)
                             ChoiceChip(
-                              label: Text(account.label),
+                              label: Text(s.accountLabel(account.label)),
                               selected: account.id == _account,
                               selectedColor: Palette.sunken,
                               showCheckmark: false,
@@ -299,7 +297,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
                     if (loading)
                       const Center(child: CircularProgressIndicator())
                     else if (recon == null || recon.empty)
-                      Text('Bring in a bank statement and MyCA shows it next to your books.', style: text.bodyMedium)
+                      Text(s.bankEmptyNote, style: text.bodyMedium)
                     else ...[
                       _Totals(totals: recon.totals),
                       const SizedBox(height: 6),
@@ -311,7 +309,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
                         children: [
                           for (final entry in _filters.entries)
                             ChoiceChip(
-                              label: Text(entry.value),
+                              label: Text(s.bankFilter(entry.key)),
                               selected: _filter == entry.key,
                               selectedColor: Palette.sunken,
                               showCheckmark: false,
@@ -321,7 +319,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
                       ),
                       const SizedBox(height: 12),
                       if (lines.isEmpty)
-                        Text(_emptyWords[_filter]!, style: text.bodyMedium)
+                        Text(s.bankEmpty(_filter), style: text.bodyMedium)
                       else
                         Panel(
                           children: [
@@ -329,12 +327,12 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
                               RowCard(
                                 key: ValueKey('bank.${line.id}'),
                                 leading: TintTile(tint: line.isIn ? Tint.sales : Tint.purchases, mark: line.isIn ? Mark.bringIn : Mark.expense),
-                                title: line.title,
-                                subtitle: line.subtitle,
+                                title: s.bankLineTitle(line),
+                                subtitle: s.bankLineSubtitle(line),
                                 trailing: ConstrainedBox(
                                   constraints: const BoxConstraints(maxWidth: 120),
                                   child: Text(
-                                    line.statusWords,
+                                    s.bankStatus(line.status),
                                     key: ValueKey('bank.status.${line.id}'),
                                     textAlign: TextAlign.end,
                                     maxLines: 2,
@@ -349,25 +347,25 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
                       const SizedBox(height: 4),
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: TextButton(onPressed: busy ? null : _toggleWindow, child: Text(_older ? 'Show recent' : 'Show older')),
+                        child: TextButton(onPressed: busy ? null : _toggleWindow, child: Text(s.showOlder(_older))),
                       ),
                       if (recon.books.isNotEmpty) ...[
                         const SizedBox(height: 16),
-                        SectionLabel(recon.lines.isEmpty ? 'In the books, not on a statement yet' : 'In the books, not on the statement'),
+                        SectionLabel(s.inBooksNotOnStatement(recon.lines.isEmpty)),
                         Panel(
                           children: [
                             for (final row in recon.books)
                               RowCard(
                                 leading: const TintTile(tint: Tint.ask, mark: Mark.paper),
-                                title: row.title,
-                                subtitle: row.subtitle,
+                                title: s.bankBooksTitle(row),
+                                subtitle: s.bankBooksSubtitle(row),
                               ),
                           ],
                         ),
                       ],
                     ],
                     const SizedBox(height: 16),
-                    _actions(recon),
+                    _actions(recon, s),
                     if (_note.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text(_note, style: text.bodyMedium),
@@ -392,17 +390,18 @@ class _Totals extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = UaeStrings.of(context);
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
         _Figure(
-          label: totals.statementOn.isEmpty ? 'Statement balance' : 'Statement balance on ${longDate(totals.statementOn)}',
-          value: totals.statementBalanceWords,
+          label: s.statementBalanceOn(totals.statementOn),
+          value: s.statementBalanceWords(totals),
         ),
-        _Figure(label: 'In the books', value: rupees(totals.booksBalance)),
-        _Figure(label: 'Difference', value: totals.differenceWords),
-        _Figure(label: 'Lines', value: totals.unmatchedWords),
+        _Figure(label: s.inTheBooks, value: rupees(totals.booksBalance)),
+        _Figure(label: s.difference, value: totals.differenceWords),
+        _Figure(label: s.lines, value: s.unmatchedWords(totals)),
       ],
     );
   }
@@ -430,7 +429,7 @@ class _Figure extends StatelessWidget {
         children: [
           Text(label, style: text.bodySmall),
           const SizedBox(height: 2),
-          Text(value, style: text.titleMedium?.copyWith(fontFeatures: moneyFigures)),
+          Amount(value, style: text.titleMedium?.copyWith(fontFeatures: moneyFigures)),
         ],
       ),
     );
@@ -499,6 +498,7 @@ class _LineSheetState extends State<_LineSheet> {
     final text = Theme.of(context).textTheme;
     final match = line.match;
     final hint = _partyHint;
+    final s = UaeStrings.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
       child: ConstrainedBox(
@@ -507,13 +507,13 @@ class _LineSheetState extends State<_LineSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(line.title, style: text.headlineSmall, maxLines: 3, overflow: TextOverflow.ellipsis),
+            Text(s.bankLineTitle(line), style: text.headlineSmall, maxLines: 3, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 4),
-            Text(line.detailWords, style: text.bodySmall),
+            Text(s.bankLineDetail(line), style: text.bodySmall),
             if (line.tieBreak)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text('The running balance does not tie at this line. Check the statement.', style: text.bodySmall?.copyWith(color: Palette.warn)),
+                child: Text(s.runningBalanceOff, style: text.bodySmall?.copyWith(color: Palette.warn)),
               ),
             const SizedBox(height: 10),
             Flexible(
@@ -521,44 +521,44 @@ class _LineSheetState extends State<_LineSheet> {
                 shrinkWrap: true,
                 children: [
                   if (!line.open) ...[
-                    if (match != null) Text(match.words, style: text.bodyMedium),
+                    if (match != null) Text(s.bankMatchWords(match), style: text.bodyMedium),
                     const SizedBox(height: 12),
                     if (line.linked)
-                      FilledButton(onPressed: () => _pick('unlink'), child: const Text('Unlink'))
+                      FilledButton(onPressed: () => _pick('unlink'), child: Text(s.unlink))
                     else
-                      Text('It was posted to your books from this line. To change it, reverse that entry the normal way.', style: text.bodyMedium),
+                      Text(s.postedFromLine, style: text.bodyMedium),
                   ] else ...[
                     if (line.suggestions.isNotEmpty) ...[
-                      const SectionLabel('Likely matches'),
+                      SectionLabel(s.likelyMatches),
                       for (final suggestion in line.suggestions)
                         ListTile(
                           contentPadding: EdgeInsets.zero,
                           leading: const TintTile(tint: Tint.sales, mark: Mark.confirm),
-                          title: Text(suggestion.words),
+                          title: Text(s.bankSuggestionWords(suggestion)),
                           subtitle: suggestion.why.isEmpty ? null : Text(suggestion.why),
                           onTap: () => _pick(suggestion.kind, suggestion),
                         ),
                       const SizedBox(height: 10),
                     ],
-                    const SectionLabel('Or record it as'),
+                    SectionLabel(s.orRecordAs),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        if (line.isIn) ActionChip(label: const Text('Receipt from a customer…'), onPressed: () => _pick('receipt')),
-                        if (!line.isIn) ActionChip(label: const Text('Payment to a supplier…'), onPressed: () => _pick('payment')),
-                        if (!line.isIn) ActionChip(label: const Text('Expense…'), onPressed: () => _pick('expense')),
-                        if (!line.isIn) ActionChip(label: const Text('Bank charge'), onPressed: () => _pick('charge')),
-                        if (line.isIn) ActionChip(label: const Text('Interest earned'), onPressed: () => _pick('interest')),
-                        ActionChip(label: const Text('Transfer…'), onPressed: () => _pick('transfer')),
-                        ActionChip(label: const Text('Ignore'), onPressed: () => _pick('ignore')),
+                        if (line.isIn) ActionChip(label: Text(s.receiptFromCustomer), onPressed: () => _pick('receipt')),
+                        if (!line.isIn) ActionChip(label: Text(s.paymentToSupplier), onPressed: () => _pick('payment')),
+                        if (!line.isIn) ActionChip(label: Text(s.expenseEllipsis), onPressed: () => _pick('expense')),
+                        if (!line.isIn) ActionChip(label: Text(s.bankCharge), onPressed: () => _pick('charge')),
+                        if (line.isIn) ActionChip(label: Text(s.interestEarned), onPressed: () => _pick('interest')),
+                        ActionChip(label: Text(s.transferEllipsis), onPressed: () => _pick('transfer')),
+                        ActionChip(label: Text(s.ignore), onPressed: () => _pick('ignore')),
                       ],
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       value: _remember,
                       onChanged: (value) => setState(() => _remember = value),
-                      title: Text(hint.isEmpty ? 'Remember this for similar lines' : 'Remember this for $hint'),
+                      title: Text(s.rememberFor(hint)),
                     ),
                   ],
                 ],
@@ -590,24 +590,25 @@ class _NoteSheetState extends State<_NoteSheet> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Leave this line out of the books', style: text.titleLarge),
+          Text(s.leaveLineOut, style: text.titleLarge),
           const SizedBox(height: 4),
-          Text('It stays on the statement as ignored, so the difference still ties.', style: text.bodySmall),
+          Text(s.staysIgnored, style: text.bodySmall),
           const SizedBox(height: 12),
           TextField(
             controller: _note,
             autofocus: true,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(labelText: 'Why (optional)', helperText: 'For example a personal payment, or already in the books by hand'),
+            decoration: InputDecoration(labelText: s.whyOptional, helperText: s.whyOptionalHint),
           ),
           const SizedBox(height: 14),
-          FilledButton(onPressed: () => Navigator.of(context).pop(_note.text.trim()), child: const Text('Ignore this line')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(_note.text.trim()), child: Text(s.ignoreThisLine)),
         ],
       ),
     );
@@ -653,14 +654,14 @@ class _TransferSheetState extends State<_TransferSheet> {
 
   void _submit() {
     final amount = parseAmount(_amount.text);
-    if (amount == null || amount <= 0) return setState(() => _error = 'Enter the amount moved.');
+    if (amount == null || amount <= 0) return setState(() => _error = UaeStrings.of(context).enterAmountMoved);
     final from = widget.accounts.where((a) => a.id == _from).firstOrNull;
     final to = widget.accounts.where((a) => a.id == _to).firstOrNull;
-    if (from == null || to == null) return setState(() => _error = 'Pick the account it came from and the account it went to.');
-    if (from.id == to.id) return setState(() => _error = 'Pick two different accounts.');
+    if (from == null || to == null) return setState(() => _error = UaeStrings.of(context).pickBothAccounts);
+    if (from.id == to.id) return setState(() => _error = UaeStrings.of(context).pickTwoAccounts);
     final date = _date.text.trim();
     if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(date) || DateTime.tryParse(date) == null) {
-      return setState(() => _error = 'That is not a date I can read. Use the form 2026-11-03.');
+      return setState(() => _error = UaeStrings.of(context).unreadableDate);
     }
     Navigator.of(context).pop(_TransferDraft(from: from, to: to, amount: amount, date: date, reference: _reference.text.trim()));
   }
@@ -671,7 +672,7 @@ class _TransferSheetState extends State<_TransferSheet> {
     children: [
       for (final account in widget.accounts)
         ChoiceChip(
-          label: Text(account.label),
+          label: Text(UaeStrings.of(context).accountLabel(account.label)),
           selected: account.id == picked,
           selectedColor: Palette.sunken,
           showCheckmark: false,
@@ -683,6 +684,7 @@ class _TransferSheetState extends State<_TransferSheet> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
       child: SingleChildScrollView(
@@ -690,39 +692,39 @@ class _TransferSheetState extends State<_TransferSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Record a transfer', style: text.titleLarge),
+            Text(s.recordTransfer, style: text.titleLarge),
             const SizedBox(height: 4),
-            Text('Money moved between your own accounts is recorded once, not as a sale or an expense.', style: text.bodySmall),
+            Text(s.transferNote, style: text.bodySmall),
             const SizedBox(height: 14),
-            const SectionLabel('From'),
+            SectionLabel(s.from),
             _chips(_from, (id) => _from = id),
             const SizedBox(height: 12),
-            const SectionLabel('To'),
+            SectionLabel(s.to),
             _chips(_to, (id) => _to = id),
             const SizedBox(height: 12),
             TextField(
               controller: _amount,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹ '),
+              decoration: InputDecoration(labelText: s.amount, prefixText: moneyPrefix),
             ),
             const SizedBox(height: 10),
             TextField(
               controller: _date,
               keyboardType: TextInputType.datetime,
-              decoration: const InputDecoration(labelText: 'Date', helperText: 'Year, month and day, like 2026-11-03'),
+              decoration: InputDecoration(labelText: s.date, helperText: s.dateHint),
             ),
             const SizedBox(height: 10),
             TextField(
               controller: _reference,
               textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(labelText: 'Reference (optional)', helperText: 'The UTR or cheque number, if you have it'),
+              decoration: InputDecoration(labelText: s.referenceOptional, helperText: s.referenceHint),
             ),
             if (_error.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(_error, style: text.bodyMedium?.copyWith(color: Palette.danger)),
             ],
             const SizedBox(height: 14),
-            FilledButton(onPressed: _submit, child: const Text('Preview')),
+            FilledButton(onPressed: _submit, child: Text(s.preview)),
           ],
         ),
       ),
@@ -769,19 +771,20 @@ class _RulesSheetState extends State<_RulesSheet> {
   bool get _namesParty => _kind == 'receipt' || _kind == 'payment' || _kind == 'charge';
 
   Future<void> _pickHead() async {
-    final head = await showHeadPicker(context, current: _head?.code, title: 'Which head is the expense under?');
+    final head = await showHeadPicker(context, current: _head?.code, title: UaeStrings.of(context).whichHeadExpense);
     if (head != null && mounted) setState(() => _head = head);
   }
 
   void _submit() {
+    final s = UaeStrings.of(context);
     final contains = _contains.text.trim();
-    if (contains.isEmpty) return setState(() => _error = 'Enter the words that appear in the narration.');
+    if (contains.isEmpty) return setState(() => _error = s.enterNarrationWords);
     final party = _party.text.trim();
-    if (_kind == 'receipt' && party.isEmpty) return setState(() => _error = 'Say which customer the money is from.');
-    if (_kind == 'payment' && party.isEmpty) return setState(() => _error = 'Say which supplier the money goes to.');
+    if (_kind == 'receipt' && party.isEmpty) return setState(() => _error = s.sayWhichCustomer);
+    if (_kind == 'payment' && party.isEmpty) return setState(() => _error = s.sayWhichSupplier);
     final head = _head;
-    if (_kind == 'expense' && head == null) return setState(() => _error = 'Pick the head for the expense.');
-    if (_kind == 'transfer' && _otherAccount.isEmpty) return setState(() => _error = 'Pick the other account.');
+    if (_kind == 'expense' && head == null) return setState(() => _error = s.pickHeadExpense);
+    if (_kind == 'transfer' && _otherAccount.isEmpty) return setState(() => _error = s.pickOtherAccount);
     Navigator.of(context).pop(
       _RuleAction(
         add: BankRule(
@@ -806,6 +809,7 @@ class _RulesSheetState extends State<_RulesSheet> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
       child: ConstrainedBox(
@@ -814,39 +818,39 @@ class _RulesSheetState extends State<_RulesSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Rules', style: text.titleLarge),
+            Text(s.rules, style: text.titleLarge),
             const SizedBox(height: 4),
-            Text('A rule books a statement line on its own when the words match. Rules run on every statement you bring in and in the daily run.', style: text.bodySmall),
+            Text(s.rulesNote, style: text.bodySmall),
             const SizedBox(height: 12),
             Flexible(
               child: ListView(
                 shrinkWrap: true,
                 children: [
                   if (widget.rules.isEmpty)
-                    Text('No rules yet.', style: text.bodyMedium)
+                    Text(s.noRulesYet, style: text.bodyMedium)
                   else
                     for (final rule in widget.rules)
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: Text(rule.words),
-                        subtitle: Text('${rule.id} · ${rule.hitsWords}'),
+                        title: Text(s.ruleWords(rule)),
+                        subtitle: Text('${rule.id} · ${s.ruleHits(rule)}'),
                         trailing: TextButton(
                           onPressed: () => Navigator.of(context).pop(_RuleAction(remove: rule)),
-                          child: const Text('Remove'),
+                          child: Text(s.remove),
                         ),
                       ),
                   const SizedBox(height: 12),
                   if (!_adding)
-                    OutlinedButton(onPressed: () => setState(() => _adding = true), child: const Text('Add a rule'))
+                    OutlinedButton(onPressed: () => setState(() => _adding = true), child: Text(s.addRule))
                   else ...[
-                    const SectionLabel('When'),
+                    SectionLabel(s.when),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
                         for (final entry in bankRuleSides.entries)
                           ChoiceChip(
-                            label: Text(entry.value),
+                            label: Text(s.ruleSide(entry.key)),
                             selected: _side == entry.key,
                             selectedColor: Palette.sunken,
                             showCheckmark: false,
@@ -858,16 +862,16 @@ class _RulesSheetState extends State<_RulesSheet> {
                     TextField(
                       controller: _contains,
                       textCapitalization: TextCapitalization.characters,
-                      decoration: const InputDecoration(labelText: 'Words in the narration', helperText: 'For example SHARMA TRADERS or SMS CHARGES'),
+                      decoration: InputDecoration(labelText: s.narrationWords, helperText: s.narrationWordsHint),
                     ),
                     const SizedBox(height: 14),
-                    const SectionLabel('Then'),
+                    SectionLabel(s.then),
                     DropdownButtonFormField<String>(
                       isExpanded: true,
                       initialValue: _kind,
-                      decoration: const InputDecoration(labelText: 'Record it as'),
+                      decoration: InputDecoration(labelText: s.recordItAs),
                       items: [
-                        for (final entry in bankRuleKinds.entries) DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+                        for (final entry in bankRuleKinds.entries) DropdownMenuItem(value: entry.key, child: Text(s.ruleKind(entry.key))),
                       ],
                       onChanged: (value) => setState(() => _kind = value ?? 'receipt'),
                     ),
@@ -877,13 +881,13 @@ class _RulesSheetState extends State<_RulesSheet> {
                         controller: _party,
                         textCapitalization: TextCapitalization.words,
                         decoration: InputDecoration(
-                          labelText: _kind == 'receipt' ? 'Customer' : _kind == 'payment' ? 'Supplier' : 'Paid to (optional)',
+                          labelText: s.ruleParty(_kind),
                         ),
                       ),
                     ],
                     if (_kind == 'expense') ...[
                       const SizedBox(height: 10),
-                      OutlinedButton(onPressed: _pickHead, child: Text(_head == null ? 'Which head?' : 'Head: ${_head!.name}')),
+                      OutlinedButton(onPressed: _pickHead, child: Text(_head == null ? s.whichHead : s.headChip(s.accountName(_head!.name)))),
                     ],
                     if (_kind == 'transfer') ...[
                       const SizedBox(height: 10),
@@ -893,7 +897,7 @@ class _RulesSheetState extends State<_RulesSheet> {
                         children: [
                           for (final account in widget.accounts)
                             ChoiceChip(
-                              label: Text(account.label),
+                              label: Text(s.accountLabel(account.label)),
                               selected: _otherAccount == account.id,
                               selectedColor: Palette.sunken,
                               showCheckmark: false,
@@ -907,7 +911,7 @@ class _RulesSheetState extends State<_RulesSheet> {
                       TextField(
                         controller: _note,
                         textCapitalization: TextCapitalization.sentences,
-                        decoration: const InputDecoration(labelText: 'Why it is left out (optional)'),
+                        decoration: InputDecoration(labelText: s.whyLeftOut),
                       ),
                     ],
                     if (_error.isNotEmpty) ...[
@@ -915,7 +919,7 @@ class _RulesSheetState extends State<_RulesSheet> {
                       Text(_error, style: text.bodyMedium?.copyWith(color: Palette.danger)),
                     ],
                     const SizedBox(height: 14),
-                    FilledButton(onPressed: _submit, child: const Text('Preview')),
+                    FilledButton(onPressed: _submit, child: Text(s.preview)),
                   ],
                 ],
               ),
@@ -951,7 +955,7 @@ class _AccountSheetState extends State<_AccountSheet> {
 
   void _submit() {
     final label = _label.text.trim();
-    if (label.isEmpty) return setState(() => _error = 'Give the account a name, for example HDFC current.');
+    if (label.isEmpty) return setState(() => _error = UaeStrings.of(context).accountNameNeeded);
     final digits = _number.text.replaceAll(RegExp(r'\D'), '');
     final ifsc = _ifsc.text.trim().toUpperCase();
     Navigator.of(context).pop(<String, Object?>{
@@ -965,6 +969,7 @@ class _AccountSheetState extends State<_AccountSheet> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
       child: SingleChildScrollView(
@@ -972,15 +977,15 @@ class _AccountSheetState extends State<_AccountSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Add an account', style: text.titleLarge),
+            Text(s.addAccount, style: text.titleLarge),
             const SizedBox(height: 4),
-            Text('Another bank account, a cash box or a wallet. Money moved between your accounts is then recorded once.', style: text.bodySmall),
+            Text(s.addAccountNote, style: text.bodySmall),
             const SizedBox(height: 12),
             TextField(
               controller: _label,
               autofocus: true,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Name', helperText: 'For example HDFC current or Paytm wallet'),
+              decoration: InputDecoration(labelText: s.name, helperText: s.accountNameHint),
             ),
             const SizedBox(height: 10),
             Wrap(
@@ -989,7 +994,7 @@ class _AccountSheetState extends State<_AccountSheet> {
               children: [
                 for (final entry in ownAccountKinds.entries)
                   ChoiceChip(
-                    label: Text(entry.value),
+                    label: Text(s.accountKind(entry.key)),
                     selected: _kind == entry.key,
                     selectedColor: Palette.sunken,
                     showCheckmark: false,
@@ -1001,14 +1006,14 @@ class _AccountSheetState extends State<_AccountSheet> {
             TextField(
               controller: _number,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Last 4 digits of the account number (optional)'),
+              decoration: InputDecoration(labelText: s.lastFourDigits),
             ),
-            if (_kind == 'bank') ...[
+            if (_kind == 'bank' && moneyCountry != 'AE') ...[
               const SizedBox(height: 10),
               TextField(
                 controller: _ifsc,
                 textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(labelText: 'IFSC (optional)'),
+                decoration: InputDecoration(labelText: inText(context, 'IFSC (optional)')),
               ),
             ],
             if (_error.isNotEmpty) ...[
@@ -1016,7 +1021,7 @@ class _AccountSheetState extends State<_AccountSheet> {
               Text(_error, style: text.bodyMedium?.copyWith(color: Palette.danger)),
             ],
             const SizedBox(height: 14),
-            FilledButton(onPressed: _submit, child: const Text('Preview')),
+            FilledButton(onPressed: _submit, child: Text(s.preview)),
           ],
         ),
       ),

@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import '../format.dart';
+import '../india/india_strings.dart';
+import '../my/my_strings.dart';
 import '../proposal_flow.dart';
 import '../marks.dart';
 import '../theme.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 
 class AskScreen extends StatefulWidget {
@@ -66,23 +71,24 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
     super.dispose();
   }
 
-  void _send(String text) {
+  void _send(String text, {String? shown}) {
     final message = text.trim();
     if (message.isEmpty || busy) return;
     _input.clear();
-    say(message);
+    say(message, shown: shown);
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = UaeStrings.of(context);
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
-        title: const Row(
+        title: Row(
           children: [
-            TintTile(tint: Tint.ask, mark: Mark.ask, size: 34),
-            SizedBox(width: 12),
-            Text('Ask MyCA'),
+            const TintTile(tint: Tint.ask, mark: Mark.ask, size: 34),
+            const SizedBox(width: 12),
+            Text(s.askMyCa),
           ],
         ),
       ),
@@ -93,10 +99,17 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                 ? ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      const EmptyNote(
+                      if (uaeEdition(context))
+                        EmptyNote(text: UaeStrings.of(context).askIntro)
+                      else
+                      EmptyNote(
                         text:
-                            'Ask about your GST, deadlines or invoices. '
-                            'Nothing is posted to your books until you confirm it.',
+                            moneyCountry == 'GB'
+                                ? 'Ask about your VAT, deadlines or invoices. '
+                                    'Nothing is posted to your books until you confirm it. '
+                                    'MyCA works from the rules it shows you; it is not a chartered accountant '
+                                    'and does not give tax or legal advice.'
+                                : inText(context, 'Ask about your GST, deadlines or invoices. Nothing is posted to your books until you confirm it. MyCA works from the rules it shows you; it is not a chartered accountant and does not give tax or legal advice.'),
                       ),
                       Wrap(
                         alignment: WrapAlignment.center,
@@ -104,9 +117,10 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                         runSpacing: 8,
                         children: [
                           for (final starter in _starters)
+                            if (!uaeEdition(context) || starter != 'Dhanda kaisa chal raha hai?')
                             ActionChip(
-                              label: Text(starter),
-                              onPressed: () => _send(starter),
+                              label: Text(s.starter(starter)),
+                              onPressed: () => _send(starter, shown: s.ar ? s.starter(starter) : null),
                             ),
                         ],
                       ),
@@ -115,7 +129,25 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                 : ListView(
                     controller: _scroll,
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    children: [for (final entry in entries) entry.toBubble()],
+                    children: [
+                      for (final entry in entries)
+                        if (entry.tone == BubbleTone.mine)
+                          entry.toBubble()
+                        else
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              entry.toBubble(),
+                              TextButton.icon(
+                                key: ValueKey('ask.report.${entries.indexOf(entry)}'),
+                                onPressed: () => reportAnswer(context, entry.text),
+                                style: TextButton.styleFrom(foregroundColor: Palette.muted, visualDensity: VisualDensity.compact),
+                                icon: const Icon(Icons.flag_outlined, size: 16),
+                                label: Text(myMalayOr(context, inText(context, 'Report this answer'), 'Laporkan jawapan ini')),
+                              ),
+                            ],
+                          ),
+                    ],
                   ),
           ),
           if (pending != null)
@@ -136,18 +168,18 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                       minLines: 1,
                       maxLines: 4,
                       textInputAction: TextInputAction.send,
-                      decoration: const InputDecoration(
-                        hintText: 'Message MyCA',
+                      decoration: InputDecoration(
+                        hintText: s.messageMyCa,
                       ),
                       onSubmitted: _send,
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton.filled(
-                    tooltip: 'Send',
+                    tooltip: s.send,
                     style: IconButton.styleFrom(
-                      backgroundColor: Palette.ink,
-                      foregroundColor: Colors.white,
+                      backgroundColor: paletteOf(context).ink,
+                      foregroundColor: paletteOf(context).onInk,
                       minimumSize: const Size(50, 50),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(radiusControl),
@@ -164,4 +196,49 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
       ),
     );
   }
+}
+
+const answerReportReasons = ['Wrong or misleading', 'Harmful or offensive', 'Something else'];
+
+const _answerReportReasonsMalay = {'Wrong or misleading': 'Salah atau mengelirukan', 'Harmful or offensive': 'Berbahaya atau menyinggung', 'Something else': 'Lain-lain'};
+
+String _reasonWords(BuildContext context, String reason) => switch (reason) {
+  'Wrong or misleading' => inText(context, 'Wrong or misleading'),
+  'Harmful or offensive' => inText(context, 'Harmful or offensive'),
+  'Something else' => inText(context, 'Something else'),
+  _ => reason,
+};
+
+Future<void> reportAnswer(BuildContext context, String answer) async {
+  final state = AppScope.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  String w(String english, String malay) => myMalayOr(context, english, malay);
+  final thanks = w(inText(context, 'Thank you. The answer was reported for review.'), 'Terima kasih. Jawapan ini telah dilaporkan untuk disemak.');
+  final failed = w(inText(context, 'Could not send the report. Try again when you are online.'), 'Laporan tidak dapat dihantar. Cuba lagi apabila anda dalam talian.');
+  final reason = await showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+            child: Text(w(inText(context, 'Report this answer'), 'Laporkan jawapan ini'), style: Theme.of(context).textTheme.titleMedium),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Text(w(inText(context, 'Tell us what is wrong. The answer is sent to MyCA for review, without your books.'), 'Beritahu kami apa yang salah. Jawapan ini dihantar kepada MyCA untuk disemak, tanpa buku akaun anda.')),
+          ),
+          for (final reason in answerReportReasons)
+            ListTile(key: ValueKey('ask.reason.$reason'), title: Text(w(_reasonWords(context, reason), _answerReportReasonsMalay[reason] ?? reason)), onTap: () => Navigator.of(context).pop(reason)),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
+  if (reason == null) return;
+  final sent = await state.reportAnswer(answer: answer, reason: reason);
+  messenger.showSnackBar(SnackBar(content: Text(sent ? thanks : failed)));
 }

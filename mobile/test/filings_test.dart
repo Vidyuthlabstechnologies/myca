@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/api/models.dart';
+import 'package:myca/app_state.dart';
 import 'package:myca/main.dart';
+import 'package:myca/screens/filing_screen.dart';
 
 import 'fake_api.dart';
 
@@ -88,6 +90,41 @@ void main() {
         ),
         findsOneWidget,
       );
+    },
+  );
+
+  testWidgets(
+    'a TDS statement filing says which form was filed, 24Q or 26Q',
+    (tester) async {
+      final api = FakeMycaApi(signedIn: true);
+      const tds = Deadline(
+        label: 'TDS statement',
+        returnType: 'TDS_QUARTERLY',
+        period: 'Q2 2026-27',
+        dueDate: '2026-10-31',
+        daysUntil: 5,
+        level: 'due',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppScope(
+            state: testState(api),
+            child: const RecordFilingScreen(returns: [tds]),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Other payments (26Q)'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Acknowledgement number (ARN)'),
+        'TDS26QQ2ACK0001',
+      );
+      await tester.tap(find.text('Preview'));
+      await tester.pumpAndSettle();
+      expect(api.proposals.last.tool, 'record_filing');
+      expect(api.proposals.last.args['form'], '26Q');
+      expect(api.proposals.last.args['returnType'], 'TDS_QUARTERLY');
     },
   );
 }

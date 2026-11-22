@@ -94,7 +94,7 @@ Future<bool> saveTextFileOnDevice(String name, String content) async {
   final saved = await FilePicker.saveFile(
     fileName: name,
     bytes: Uint8List.fromList(utf8.encode(content)),
-    mimeType: name.endsWith('.csv') ? 'text/csv' : name.endsWith('.html') ? 'text/html' : 'application/json',
+    mimeType: name.endsWith('.csv') ? 'text/csv' : name.endsWith('.html') ? 'text/html' : name.endsWith('.txt') ? 'text/plain' : 'application/json',
   );
   return saved != null;
 }

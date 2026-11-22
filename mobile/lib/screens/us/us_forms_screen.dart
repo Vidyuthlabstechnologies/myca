@@ -1,3 +1,4 @@
+import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/material.dart';
 
 import '../../api/models.dart';
@@ -9,6 +10,7 @@ import '../../marks.dart';
 import '../../theme.dart';
 import '../../us/us_return.dart';
 import '../../widgets.dart';
+import 'us_fields.dart';
 import 'us_form_editor_screen.dart';
 
 class UsFormsScreen extends StatefulWidget {
@@ -85,7 +87,7 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
     setState(() => _reading = true);
     try {
       final sha = await _api.upload(picked.name, dataUrlOf(picked));
-      final answer = await _api.query('read_us_tax_document', {'documentId': sha, 'documentSha256': sha, 'taxYear': widget.taxYear});
+      final answer = await _api.query('read_us_tax_document', {'documentId': sha, 'taxYear': widget.taxYear});
       final data = toolData(answer);
       final kinds = await _kinds!;
       final kind = formKindOf('${data['kind'] ?? ''}', kinds);
@@ -99,13 +101,36 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
       }
       final fields = data['fields'] is Map ? (data['fields'] as Map).cast<String, Object?>() : const <String, Object?>{};
       await _edit(kind, fields: fields, documentSha: sha, readNote: 'Read from ${shortFileName(picked.name, 40)}. Check each box against the form before you save.');
-    } on MycaApiException catch (err) {
+    } on Object catch (err) {
       if (mounted) {
         setState(() {
           _reading = false;
-          _note = err.message;
+          _note = err is MycaApiException ? err.message : 'That file could not be read. Try a clear photo or a PDF, or choose "Type it in".';
         });
       }
+    }
+  }
+
+  Future<void> _noForms() async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text('No tax forms for ${widget.taxYear}?'),
+        content: const Text('That means no W-2 from a job and no 1099 or 1098 from a bank, broker, client, school or lender. You can still add one later if it arrives.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: const Text('Go back')),
+          TextButton(key: const Key('usForms.confirmNone'), onPressed: () => Navigator.of(dialog).pop(true), child: const Text('I have none')),
+        ],
+      ),
+    );
+    if (sure != true || !mounted) return;
+    try {
+      final reply = await saveAndConfirm(_api, 'answer_us_interview', {'taxYear': widget.taxYear, 'id': 'noTaxForms', 'answer': true});
+      if (!mounted) return;
+      if (reply.posted) return Navigator.of(context).pop();
+      setState(() => _note = reply.reply.isEmpty ? 'Not saved. Check your connection and try again.' : reply.reply);
+    } on MycaApiException catch (err) {
+      if (mounted) setState(() => _note = err.message);
     }
   }
 
@@ -145,34 +170,32 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
               children: [
                 Text('Add every W-2, 1099 and 1098 you got for ${widget.taxYear}.', style: text.bodyLarge),
                 const SizedBox(height: 6),
-                Text('Employers, banks and brokers send them by January 31. Look in your mail, email, and their websites.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+                Text('Employers, banks and brokers send them by January 31. Look in your mail, email, and their websites.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
                 const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton(
-                        key: const Key('usForms.scan'),
-                        onPressed: _reading ? null : _scan,
-                        child: Text(_reading ? 'Reading…' : 'Snap or upload'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton(key: const Key('usForms.type'), onPressed: _reading ? null : _pickKind, child: const Text('Type it in')),
-                    ),
-                  ],
+                LayoutBuilder(
+                  builder: (context, box) {
+                    final scan = FilledButton(
+                      key: const Key('usForms.scan'),
+                      onPressed: _reading ? null : _scan,
+                      child: Text(_reading ? 'Reading…' : 'Snap or upload'),
+                    );
+                    final type = OutlinedButton(key: const Key('usForms.type'), onPressed: _reading ? null : _pickKind, child: const Text('Type it in'));
+                    final stacked = box.maxWidth < 340 || MediaQuery.textScalerOf(context).scale(10) > 13;
+                    if (stacked) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [scan, const SizedBox(height: 10), type]);
+                    return Row(children: [Expanded(child: scan), const SizedBox(width: 10), Expanded(child: type)]);
+                  },
                 ),
                 if (_note.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                  Text(_note, style: TextStyle(color: context.myca.danger, fontWeight: FontWeight.w500)),
                 ],
                 const SizedBox(height: 22),
                 if (loaded.connectionState != ConnectionState.done)
                   const Center(child: CircularProgressIndicator())
                 else if (loaded.hasError)
-                  EmptyNote(text: loaded.error is MycaApiException ? (loaded.error as MycaApiException).message : 'Your forms could not be loaded.')
+                  UsLoadError(inline: true, message: usLoadProblem(loaded.error, 'Your forms could not be loaded.'), onRetry: _reload)
                 else if (forms.isEmpty)
-                  const EmptyNote(text: 'No forms yet. Start with your W-2 if you had a job.')
+                  const EmptyNote(text: 'No forms yet. Start with your W-2 if you had a job, then any 1099 from a bank, broker or client.')
                 else
                   Panel(
                     children: [
@@ -188,10 +211,11 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
                           ].join(' · '),
                           trailing: PopupMenuButton<String>(
                             key: Key('usForms.menu.${f.id}'),
+                            tooltip: 'Edit or remove this ${f.kind}',
                             onSelected: (choice) async {
                               if (choice == 'remove') return _remove(f);
-                              final kind = formKindOf(f.kind, await _kinds!);
-                              if (kind != null && mounted) await _edit(kind, fields: f.amounts, id: f.id, owner: f.owner);
+                              final kind = formKindOf(f.kind, await _kinds!) ?? fallbackFormKind(f.kind, f.editable);
+                              if (mounted) await _edit(kind, fields: f.editable, id: f.id, owner: f.owner);
                             },
                             itemBuilder: (_) => const [
                               PopupMenuItem(value: 'edit', child: Text('Edit')),
@@ -199,12 +223,30 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
                             ],
                           ),
                           onTap: () async {
-                            final kind = formKindOf(f.kind, await _kinds!);
-                            if (kind != null && mounted) await _edit(kind, fields: f.amounts, id: f.id, owner: f.owner);
+                            final kind = formKindOf(f.kind, await _kinds!) ?? fallbackFormKind(f.kind, f.editable);
+                            if (mounted) await _edit(kind, fields: f.editable, id: f.id, owner: f.owner);
                           },
                         ),
                     ],
                   ),
+                if (loaded.connectionState == ConnectionState.done && !loaded.hasError) ...[
+                  const SizedBox(height: 18),
+                  if (forms.isNotEmpty)
+                    Text('Got another one? Add it the same way. When every form is in, go back to your return for the next step.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
+                  const SizedBox(height: 10),
+                  if (forms.isEmpty)
+                    OutlinedButton(
+                      key: const Key('usForms.none'),
+                      onPressed: _reading ? null : _noForms,
+                      child: const Text('I have no tax forms'),
+                    )
+                  else
+                    OutlinedButton(
+                      key: const Key('usForms.done'),
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Done adding forms'),
+                    ),
+                ],
               ],
             );
           },

@@ -6,6 +6,8 @@ import { marketplaceCredits } from './marketplace-credits.mjs';
 import { tdsWithheldInFy } from './tds-credits.mjs';
 import { salaryPrivate } from './employees.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
+import { advanceTax234C } from './it-interest.mjs';
+import { ageAtFyEnd, bandOfAge } from './age-band.mjs';
 
 export const ADVANCE_TAX_ACCOUNT = { id: 1300, code: '1300', name: 'Advance tax paid', type: 'asset', flags: 0 };
 const INDIVIDUAL_TYPES = new Set(['', 'individual', 'proprietorship', 'proprietor', 'sole proprietor', 'sole proprietorship', 'huf']);
@@ -89,7 +91,11 @@ export function advanceTax(state, args = {}) {
   const otherIncome = round2(Math.max(0, Number(args.otherIncome) || 0));
   const annualised = round2((toDate.profit * 12) / elapsed);
   const taxableIncome = round2(Math.max(0, annualised + otherIncome));
-  const computed = incomeTax.computeIncomeTax({ fy: fy.label, regime, otherIncomePaise: Math.round(taxableIncome * 100), residentIndividual: true });
+  const huf = entity === 'huf';
+  const dateOfBirth = huf ? '' : String(args.dateOfBirth || state.company?.ownerDateOfBirth || '').trim();
+  const age = dateOfBirth ? ageAtFyEnd(dateOfBirth, fy.label) : null;
+  const ageBand = age === null ? 'below-60' : bandOfAge(age);
+  const computed = incomeTax.computeIncomeTax({ fy: fy.label, regime, ageBand, otherIncomePaise: Math.round(taxableIncome * 100), residentIndividual: !huf });
   if (computed.error) return { ok: false, error: computed.error, ruleId: computed.ruleId };
   const tax = round2(computed.taxPayablePaise / 100);
   const credits = creditsToDate(state, fy, today);
@@ -109,7 +115,12 @@ export function advanceTax(state, args = {}) {
   });
   const next = instalments.find((i) => i.status === 'ahead') || null;
   const missed = instalments.filter((i) => i.status === 'missed');
-  const notBelowThreshold = net >= 10000;
+  const seniorRule = ageBand === 'below-60' ? null : rule('income-tax.advance-tax.senior-exemption', fy.from);
+  const noBusiness = toDate.sales === 0 && toDate.profit <= 0;
+  const seniorExempt = Boolean(seniorRule?.ok && noBusiness);
+  const notBelowThreshold = net >= 10000 && !seniorExempt;
+  const interestSoFar = advanceTax234C({ fy: fy.label, netTaxPaise: Math.round(net * 100), payments: payments.map((p) => ({ date: p.date, amountPaise: Math.round(Number(p.amount) * 100) })), presumptive, asOf: today });
+  const interest234C = interestSoFar.ok ? interestSoFar.data.interestPaise / 100 : 0;
   return {
     ok: true,
     data: {
@@ -131,16 +142,21 @@ export function advanceTax(state, args = {}) {
       next,
       missed,
       liable: notBelowThreshold,
-      interest: missed.length ? 'Interest under sections 234B and 234C may apply to the shortfall; MyCA does not compute it.' : '',
+      interest: missed.length ? 'Interest under sections 234B and 234C applies to a shortfall. 234C on the instalments missed so far is worked out below on this estimate; 234B runs from 1 April after the year ends on any shortfall below 90%. Ask for "income tax interest" with the final figures.' : '',
+      interest234C,
       assumptions: [
         `Profit to date is sales less credit notes, purchases, expenses${toDate.payrollHidden ? '' : ' and approved payroll'} dated in ${fy.label} up to ${today}, before depreciation and any adjustment your CA makes${toDate.payrollHidden ? '; payroll is left out because only the owner sees it' : ''}.`,
         `The year is taken as ${elapsed} ${elapsed === 1 ? 'month' : 'months'} elapsed and the profit scaled to twelve; a seasonal business should say its expected year instead.`,
-        `Tax under the ${regime} regime for a resident individual below sixty, from MyCA's dated rules${schedule.attested ? '' : ' (not yet reviewed by your CA)'}.`,
+        `Tax under the ${regime} regime for ${huf ? 'an HUF, with no section 87A rebate' : age === null ? 'a resident individual below sixty (no date of birth on file; add it to the business profile if the owner is 60 or over)' : `a resident individual aged ${age} at 31 March ${fy.start + 1}${regime === 'old' && ageBand !== 'below-60' ? ', with the senior-citizen slabs' : ''}`}, from MyCA's dated rules${schedule.attested ? '' : ' (not yet reviewed by your CA)'}.`,
+        seniorExempt ? `No advance tax is payable: a resident aged ${seniorRule.value.minAgeYears} or more with no business or professional income is outside it (section ${seniorRule.record.section}); the figures are shown for planning and the tax is paid as self-assessment tax.` : '',
         `TDS credit: ${credits.source}.`,
         presumptive ? 'Presumptive income under section 58(2): the whole amount by 15 March.' : 'Instalments of 15, 45, 75 and 100 percent by 15 June, 15 September, 15 December and 15 March.',
-        notBelowThreshold ? '' : 'Advance tax is not payable when the net amount is under ₹10,000; the figures are shown for planning.',
+        notBelowThreshold || seniorExempt ? '' : 'Advance tax is not payable when the net amount is under ₹10,000; the figures are shown for planning.',
       ].filter(Boolean),
-      rulesUsed: [schedule.ruleId],
+      age,
+      ageBand,
+      seniorExempt,
+      rulesUsed: [schedule.ruleId, ...(seniorRule?.ok ? ['income-tax.advance-tax.senior-exemption'] : [])],
     },
   };
 }
@@ -178,9 +194,10 @@ export function advanceTaxWords(d, money) {
   const lines = [`For your CA to confirm. Advance tax for ${d.fy} as of ${longDate(d.asOf)}, ${d.regime} regime${d.presumptive ? ', presumptive' : ''}.`];
   lines.push(`Profit so far ${money(d.toDate.profit)} over ${d.monthsElapsed} ${d.monthsElapsed === 1 ? 'month' : 'months'} (sales ${money(d.toDate.sales)}, purchases ${money(d.toDate.purchases)}, expenses ${money(d.toDate.expenses)}${d.toDate.payrollHidden ? '' : `, payroll ${money(d.toDate.payroll)}`}); scaled to the year ${money(d.annualisedProfit)}${d.otherIncome ? ` plus other income ${money(d.otherIncome)}` : ''}.`);
   lines.push(`Tax on ${money(d.taxableIncome)}: ${money(d.tax)}; less TDS credit ${money(d.credits.credits)}; net ${money(d.net)}; paid so far ${money(d.paid)}.`);
-  if (!d.liable) lines.push('Under ₹10,000 net, so no advance tax is due; keep an eye on it as the year goes.');
+  if (!d.liable) lines.push(d.seniorExempt ? 'No advance tax is due: a resident senior citizen with no business or professional income pays the tax as self-assessment tax before filing.' : 'Under ₹10,000 net, so no advance tax is due; keep an eye on it as the year goes.');
   for (const i of d.instalments) lines.push(`· ${longDate(i.dueDate)} (${i.cumulativePercent}% cumulative, ${money(i.cumulative)}): ${i.status === 'met' ? 'met' : i.status === 'missed' ? `missed, ${money(i.dueNow)} short` : i.dueNow > 0 ? `${money(i.dueNow)} to pay by then` : 'nothing more to pay'}.`);
   if (d.interest) lines.push(d.interest);
+  if (d.interest234C > 0) lines.push(`Interest under 234C so far on this estimate: ${money(d.interest234C)}.`);
   if (d.next && d.next.dueNow > 0 && d.liable) lines.push(`Set aside ${money(d.next.dueNow)} by ${longDate(d.next.dueDate)}. Say "paid advance tax ${d.next.dueNow} challan <CIN>" once it is paid.`);
   lines.push(`Assumptions: ${d.assumptions.join(' ')}`);
   return lines.join('\n');

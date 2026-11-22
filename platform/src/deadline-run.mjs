@@ -7,6 +7,25 @@ import { monthsBack, withFilings } from './filings.mjs';
 const { complianceRun } = deadlines;
 const DEADLINE_COLUMNS = ['clientId', 'name', 'entity', 'turnover', 'gst', 'qrmp', 'tdsDeductor', 'pf', 'esi', 'advanceTax', 'tp', 'state', 'profession', 'gstTds', 'presumptive'];
 const NO_DOCS = 'clientId,period,returnType,docType,status,receivedDate,source\n';
+const YEAR_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+export const MAX_DEADLINE_MONTHS = 60;
+export const MAX_MONTHS_FROM_TODAY = 120;
+
+function monthIndex(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  return y * 12 + m - 1;
+}
+
+export function askedMonths(months, asOfDate) {
+  if (!Array.isArray(months)) return { ok: true, months: undefined };
+  const at = monthIndex(String(asOfDate).slice(0, 7));
+  const asked = [...new Set(months.map(String))];
+  if (!asked.length) return { ok: false, error: 'months needs at least one month, written like 2026-04.' };
+  if (asked.length > MAX_DEADLINE_MONTHS) return { ok: false, error: `months allows at most ${MAX_DEADLINE_MONTHS} months.` };
+  if (asked.some((ym) => !YEAR_MONTH.test(ym))) return { ok: false, error: 'Each month must be written like 2026-04.' };
+  if (asked.some((ym) => Math.abs(monthIndex(ym) - at) > MAX_MONTHS_FROM_TODAY)) return { ok: false, error: 'Each month must be within ten years of the date asked for.' };
+  return { ok: true, months: asked };
+}
 
 function yes(value) {
   return value === true || /^(y|yes|true|1)$/i.test(String(value ?? '').trim());
@@ -64,12 +83,45 @@ function withTdsDeposits(rows, bookOf) {
   });
 }
 
+const DATED_BOOK_KEYS = ['invoices', 'purchases', 'expenses', 'creditNotes', 'debitNotes', 'purchaseNotes', 'quotes'];
+
+export function booksStartDate(book) {
+  const days = [];
+  for (const key of DATED_BOOK_KEYS) {
+    for (const doc of Array.isArray(book?.[key]) ? book[key] : []) if (/^\d{4}-\d{2}-\d{2}/.test(String(doc?.date || ''))) days.push(String(doc.date).slice(0, 10));
+  }
+  for (const event of Array.isArray(book?.auditEvents) ? book.auditEvents : []) if (/^\d{4}-\d{2}-\d{2}/.test(String(event?.at || ''))) days.push(String(event.at).slice(0, 10));
+  return days.length ? days.sort()[0] : '';
+}
+
+function beforeStart(row, start) {
+  if (!start) return false;
+  if (YEAR_MONTH.test(String(row.period || ''))) return row.period < start.slice(0, 7);
+  return Boolean(row.dueDate) && row.dueDate < start;
+}
+
+function withBooksStart(rows, bookOf) {
+  const starts = new Map();
+  const startOf = (clientId) => {
+    if (!starts.has(clientId)) starts.set(clientId, booksStartDate(bookOf(clientId)));
+    return starts.get(clientId);
+  };
+  return rows.map((row) => {
+    if (row.filed || row.level !== 'overdue') return row;
+    const start = startOf(row.clientId);
+    if (!beforeStart(row, start)) return row;
+    return { ...row, level: 'before_start', booksStart: start, why: `For a period before ${start}, when these books start in MyCA; file it on the portal if it applies, then record the filing.` };
+  });
+}
+
 export function deadlineRun(state, { asOfDate, months, holidaysText = '' } = {}) {
   const root = state.__root || state;
   const clientsText = csvRows([DEADLINE_COLUMNS, ...deadlineProfiles(root).map((p) => DEADLINE_COLUMNS.map((key) => p[key]))]);
-  const run = complianceRun({ clientsText, docsText: NO_DOCS, holidaysText }, { months, asOfDate });
+  const window = askedMonths(months, asOfDate);
+  if (!window.ok) throw new Error(window.error);
+  const run = complianceRun({ clientsText, docsText: NO_DOCS, holidaysText }, { months: window.months, asOfDate });
   const bookOf = (clientId) => (clientId === 'SELF' ? root : getBook(root, clientId));
-  return { ...run, deadlines: withTdsDeposits(withFilings(run.deadlines || [], bookOf), bookOf) };
+  return { ...run, deadlines: withBooksStart(withTdsDeposits(withFilings(run.deadlines || [], bookOf), bookOf), bookOf) };
 }
 
 export function filingRows(state, filedOn) {

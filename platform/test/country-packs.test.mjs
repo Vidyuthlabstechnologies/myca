@@ -20,15 +20,19 @@ test('the checks catch a pack that would break residency, pricing or merging', (
 });
 
 test('only live and beta packs are countries a business can pick', () => {
-  assert.deepEqual(Object.keys(COUNTRIES), ['IN', 'US']);
-  assert.equal(isServedCountry('GB'), false);
-  assert.equal(countryPack('gb').status, 'planned');
+  assert.deepEqual(Object.keys(COUNTRIES), ['IN', 'US', 'GB', 'AE', 'MY']);
+  assert.equal(isServedCountry('GB'), true);
+  assert.equal(isServedCountry('CA'), false);
+  assert.equal(countryPack('ca').status, 'planned');
+  assert.equal(isServedCountry('MY'), true);
   assert.ok(PACKS.length >= 6);
 });
 
 test('the app flavor picks the country pack', () => {
   assert.equal(packForFlavor('india').code, 'IN');
   assert.equal(packForFlavor('us').app.androidId, 'com.mldynamic.myca.us');
+  assert.equal(packForFlavor('my').app.androidId, 'com.mldynamic.myca.my');
+  assert.equal(packForFlavor('my').app.label, 'MyCA Malaysia');
   assert.equal(packForFlavor('nope'), null);
 });
 
@@ -36,7 +40,8 @@ test('data regions belong to one country each', () => {
   assert.equal(regionServes(countryPack('IN'), 'asia-south1'), true);
   assert.equal(regionServes(countryPack('IN'), 'us-central1'), false);
   assert.equal(regionServes(countryPack('US'), 'us-east4'), true);
-  assert.equal(regionServes(countryPack('AE'), 'me-central1'), false, 'the UAE has no Google Cloud region yet');
+  assert.equal(regionServes(countryPack('AE'), 'me-central1'), true, 'UAE beta data sits in Google Cloud Doha until an in-UAE host is contracted');
+  assert.equal(regionServes(countryPack('AE'), 'asia-south1'), false);
 });
 
 test('a tool a pack claims serves only that country; India keeps every unclaimed tool', () => {
@@ -89,7 +94,7 @@ test('a plan says what it sells and who takes the money, and software inside a P
 test('the licences a country still needs are listed, and a live country needs none', () => {
   assert.ok(licencesNeeded('US').some((licence) => licence.id === 'efin'));
   assert.ok(licencesNeeded('AU').some((licence) => licence.id === 'tax-agent'));
-  assert.deepEqual(countryPack('AE').segments, ['business']);
+  assert.deepEqual(countryPack('AE').segments, ['business', 'accountant']);
   const india = countryPack('IN');
   assert.ok(packProblems([{ ...india, licences: [{ id: 'x', authority: 'y', what: 'z', status: 'needed' }] }]).some((line) => /live country cannot still need a licence/.test(line)));
 });

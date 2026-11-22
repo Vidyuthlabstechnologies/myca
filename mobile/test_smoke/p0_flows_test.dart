@@ -23,7 +23,7 @@ Future<CloudSession> signIn(String number) async {
   await session.verifyCode(code);
   expect(session.signedIn, isTrue);
   await session.checkConsent();
-  if (session.needsConsent) await session.acceptNotice(await session.privacyNotice());
+  if (session.needsConsent) await session.acceptNotice(await session.privacyNotice(), adult: true);
   return session;
 }
 

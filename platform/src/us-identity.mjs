@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
 import { decryptSecret, encryptSecret } from './credential-vault.mjs';
+import { redactNrics, redactNricsDeep } from './my-identity.mjs';
 
 const SEALED_PREFIX = 'tin1';
 const VAULT_PREFIX = 'tinv';
@@ -105,7 +106,7 @@ export function openTin(sealed, { scope = '', secret = piiKeyFromEnv() } = {}) {
   if (!secret) throw fail('PII_KEY_MISSING');
   const [, iv, tag, body] = sealed.split('.');
   try {
-    const decipher = createDecipheriv('aes-256-gcm', tinKey(secret, scope), Buffer.from(iv, 'base64url'));
+    const decipher = createDecipheriv('aes-256-gcm', tinKey(secret, scope), Buffer.from(iv, 'base64url'), { authTagLength: 16 });
     decipher.setAAD(Buffer.from(String(scope || '')));
     decipher.setAuthTag(Buffer.from(tag, 'base64url'));
     return Buffer.concat([decipher.update(Buffer.from(body, 'base64url')), decipher.final()]).toString('utf8');
@@ -130,16 +131,25 @@ export function redactTins(text) {
 
 export const redactSsns = redactTins;
 
+function redactorFor(country) {
+  const code = String(country || '').toUpperCase();
+  if (code === 'US') return { text: redactTins, deep: redactTinsDeep };
+  if (code === 'MY') return { text: redactNrics, deep: redactNricsDeep };
+  return null;
+}
+
 export function tinsMaskedFor(country) {
-  return String(country || '').toUpperCase() === 'US';
+  return redactorFor(country) !== null;
 }
 
 export function redactTinsFor(country, text) {
-  return tinsMaskedFor(country) ? redactTins(text) : text;
+  const redactor = redactorFor(country);
+  return redactor ? redactor.text(text) : text;
 }
 
 export function redactTinsDeepFor(country, value) {
-  return tinsMaskedFor(country) ? redactTinsDeep(value) : value;
+  const redactor = redactorFor(country);
+  return redactor ? redactor.deep(value) : value;
 }
 
 export function redactTinsDeep(value, depth = 0) {
@@ -156,22 +166,23 @@ export function redactTinsDeep(value, depth = 0) {
   return value;
 }
 
-function redactBlock(block) {
-  if (typeof block === 'string') return redactTins(block);
+function redactBlock(block, redactor) {
+  if (typeof block === 'string') return redactor.text(block);
   if (!block || typeof block !== 'object') return block;
-  if (block.type === 'text' && typeof block.text === 'string') return { ...block, text: redactTins(block.text) };
-  if (block.type === 'tool_result') return { ...block, content: Array.isArray(block.content) ? block.content.map(redactBlock) : redactBlock(block.content) };
-  if (block.type === 'tool_use' && block.input) return { ...block, input: redactTinsDeep(block.input) };
+  if (block.type === 'text' && typeof block.text === 'string') return { ...block, text: redactor.text(block.text) };
+  if (block.type === 'tool_result') return { ...block, content: Array.isArray(block.content) ? block.content.map((item) => redactBlock(item, redactor)) : redactBlock(block.content, redactor) };
+  if (block.type === 'tool_use' && block.input) return { ...block, input: redactor.deep(block.input) };
   return block;
 }
 
 export function redactModelRequest(body, country = 'US') {
-  if (!body || typeof body !== 'object' || !tinsMaskedFor(country)) return body;
+  const redactor = redactorFor(country);
+  if (!body || typeof body !== 'object' || !redactor) return body;
   const out = { ...body };
-  if (typeof out.system === 'string') out.system = redactTins(out.system);
-  else if (Array.isArray(out.system)) out.system = out.system.map(redactBlock);
+  if (typeof out.system === 'string') out.system = redactor.text(out.system);
+  else if (Array.isArray(out.system)) out.system = out.system.map((block) => redactBlock(block, redactor));
   if (Array.isArray(out.messages)) {
-    out.messages = out.messages.map((message) => ({ ...message, content: Array.isArray(message.content) ? message.content.map(redactBlock) : redactBlock(message.content) }));
+    out.messages = out.messages.map((message) => ({ ...message, content: Array.isArray(message.content) ? message.content.map((block) => redactBlock(block, redactor)) : redactBlock(message.content, redactor) }));
   }
   return out;
 }

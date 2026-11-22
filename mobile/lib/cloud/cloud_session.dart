@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 
 import '../api/models.dart';
 import '../api/myca_api.dart';
+import '../growth.dart';
+import 'apple_auth.dart';
 import 'token_store.dart';
 
 const _messages = {
@@ -17,12 +19,23 @@ const _messages = {
   'WRONG_AUDIENCE': 'This copy of the app is not set up for Google sign-in.',
   'GOOGLE_TOKEN_EXPIRED': 'That Google sign-in took too long. Try again.',
   'GOOGLE_UNREACHABLE': 'MyCA could not reach Google. Try again in a minute.',
+  'APPLE_SIGN_IN_UNAVAILABLE': 'Sign in with Apple is not available yet.',
+  'INVALID_APPLE_TOKEN': 'Apple could not confirm who you are. Try again.',
+  'APPLE_WRONG_AUDIENCE': 'This copy of the app is not set up for Sign in with Apple.',
+  'APPLE_TOKEN_EXPIRED': 'That Apple sign-in took too long. Try again.',
+  'APPLE_UNREACHABLE': 'MyCA could not reach Apple. Try again in a minute.',
+  'APPLE_NONCE_MISMATCH': 'That Apple sign-in could not be checked. Try again.',
   'OIDC_SIGN_IN_UNAVAILABLE': 'Sign-in with your firm\'s account is not available yet.',
   'INVALID_OIDC_TOKEN': 'Your firm\'s sign-in could not confirm who you are. Try again.',
   'OIDC_TOKEN_EXPIRED': 'That sign-in took too long. Try again.',
   'OIDC_UNREACHABLE': 'MyCA could not reach your firm\'s sign-in. Try again in a minute.',
   'CONSENT_REQUIRED': 'Read and accept the privacy notice to continue.',
   'NOTICE_CHANGED': 'The privacy notice has changed. Read the new one and accept it.',
+  'ADULT_REQUIRED': 'Confirm that you are 18 or over to use MyCA.',
+  'MESSAGE_REQUIRED': 'Tell us what went wrong or what should be corrected.',
+  'NOMINEE_REQUIRED': 'Give the name and a phone number or email of the person you nominate.',
+  'TOO_MANY_OPEN_REQUESTS': 'You already have ten open requests. We will answer those first.',
+  'PLAN_NOT_OPEN': 'This plan is not open yet. Nothing was charged by MyCA.',
   'INVALID_PHONE': 'Enter a 10-digit Indian mobile number.',
   'TOO_MANY_REQUESTS': 'Too many codes requested. Try again in an hour.',
   'INVALID_CODE': 'That code is not right. Check it and try again.',
@@ -40,6 +53,8 @@ const _messages = {
       'That GSTIN is not valid. Check it against your registration certificate.',
   'STATE_REQUIRED': 'Choose the state your business is in.',
   'INVALID_STATE_CODE': 'Choose the state your business is in.',
+  'STATE_NOT_GSTIN_STATE':
+      'The state must match your GSTIN: its first two digits are the state code.',
   'HOUSEHOLD_US_ONLY': 'A personal tax return is for US filers. Choose the United States first.',
   'UNKNOWN_KIND': 'Choose a personal return or a business.',
   'INVALID_EIN': 'An EIN has nine digits, like 12-3456789. It is on the IRS letter that gave you the number.',
@@ -165,6 +180,7 @@ class ConnectorView {
     required this.channel,
     required this.title,
     required this.country,
+    this.countries = const [],
     required this.configured,
     required this.enabled,
     required this.lastFetchedTo,
@@ -181,6 +197,7 @@ class ConnectorView {
       channel: '${map['channel'] ?? ''}',
       title: '${map['title'] ?? ''}',
       country: '${map['country'] ?? 'IN'}'.toUpperCase(),
+      countries: _strings(map['countries']).map((code) => code.toUpperCase()).toList(),
       configured: map['configured'] == true,
       enabled: map['enabled'] != false,
       lastFetchedTo: '${map['lastFetchedTo'] ?? ''}',
@@ -195,6 +212,7 @@ class ConnectorView {
   final String channel;
   final String title;
   final String country;
+  final List<String> countries;
   final bool configured;
   final bool enabled;
   final String lastFetchedTo;
@@ -215,14 +233,14 @@ class ConnectorList {
   final List<ConnectorView> connectors;
 
   List<ConnectorView> forCountry(String country) {
-    final mine = connectors.where((c) => c.country == country).toList()
+    final mine = connectors.where((c) => c.country == country || c.countries.contains(country)).toList()
       ..sort((a, b) => connectorOrder.indexOf(a.channel).compareTo(connectorOrder.indexOf(b.channel)));
     return mine;
   }
 }
 
 class PlanOffer {
-  const PlanOffer({required this.id, required this.title, required this.monthlyRupees, this.yearlyRupees = 0, required this.buyable, required this.features, required this.invoicesPerMonth, required this.members, this.productId = ''});
+  const PlanOffer({required this.id, required this.title, required this.monthlyRupees, this.yearlyRupees = 0, required this.buyable, required this.features, required this.invoicesPerMonth, required this.members, this.productId = '', this.opening = false, this.professional = ''});
 
   factory PlanOffer.fromJson(Map<String, dynamic> map) {
     final limits = map['limits'] is Map ? (map['limits'] as Map).cast<String, dynamic>() : const <String, dynamic>{};
@@ -236,9 +254,13 @@ class PlanOffer {
       invoicesPerMonth: limits['invoicesPerMonth'] is num ? (limits['invoicesPerMonth'] as num).toInt() : null,
       members: limits['members'] is num ? (limits['members'] as num).toInt() : null,
       productId: '${map['productId'] ?? ''}',
+      opening: map['opening'] == true,
+      professional: '${map['professional'] ?? ''}',
     );
   }
 
+  final bool opening;
+  final String professional;
   final String id;
   final String title;
   final int monthlyRupees;
@@ -476,12 +498,18 @@ class BusinessRef {
 }
 
 class ServerInfo {
-  const ServerInfo({required this.environment, required this.version});
+  const ServerInfo({required this.environment, required this.version, this.providerMode = ''});
 
   final String environment;
   final String version;
 
-  bool get isTest => environment.isNotEmpty && environment != 'production';
+  final String providerMode;
+
+  bool get isTestServer => environment.isNotEmpty && environment != 'production';
+
+  bool get isSandbox => !isTestServer && providerMode.isNotEmpty && providerMode != 'live';
+
+  bool get isTest => isTestServer || isSandbox;
 }
 
 class InvitationRef {
@@ -551,6 +579,31 @@ class NoticeSection {
   final String body;
 }
 
+class PrivacyRequest {
+  const PrivacyRequest({required this.reference, required this.kind, required this.status, required this.message, required this.reply, required this.createdAt, required this.dueAt});
+
+  factory PrivacyRequest.fromJson(Object? json) {
+    final map = json is Map ? json : const {};
+    return PrivacyRequest(
+      reference: '${map['reference'] ?? ''}',
+      kind: '${map['kind'] ?? ''}',
+      status: '${map['status'] ?? ''}',
+      message: '${map['message'] ?? ''}',
+      reply: '${map['reply'] ?? ''}',
+      createdAt: '${map['createdAt'] ?? ''}',
+      dueAt: '${map['dueAt'] ?? ''}',
+    );
+  }
+
+  final String reference;
+  final String kind;
+  final String status;
+  final String message;
+  final String reply;
+  final String createdAt;
+  final String dueAt;
+}
+
 class PrivacyNotice {
   const PrivacyNotice({
     required this.document,
@@ -558,7 +611,21 @@ class PrivacyNotice {
     required this.title,
     required this.status,
     required this.sections,
+    this.requiresAdult = false,
+    this.grievance = '',
+    this.links = const {},
   });
+
+  static String _grievanceLine(Object? contact) {
+    if (contact is! Map) return '';
+    final officer = contact['grievanceOfficer'];
+    if (officer is! Map) return '';
+    final parts = ['${officer['name'] ?? ''}', '${officer['email'] ?? ''}', '${officer['phone'] ?? ''}'].where((p) => p.trim().isNotEmpty && !p.contains('optional')).join(', ');
+    return parts.isEmpty ? '' : 'Grievance Officer: $parts';
+  }
+
+  final String grievance;
+  final Map<String, String> links;
 
   factory PrivacyNotice.fromJson(Object? json) {
     final map = json is Map ? json : const {};
@@ -567,6 +634,9 @@ class PrivacyNotice {
       version: '${map['version'] ?? ''}',
       title: '${map['title'] ?? ''}',
       status: '${map['status'] ?? ''}',
+      requiresAdult: map['requiresAdult'] == true,
+      grievance: _grievanceLine(map['contact']),
+      links: map['links'] is Map ? {for (final e in (map['links'] as Map).entries) '${e.key}': '${e.value}'} : const {},
       sections: [
         for (final row in _rows(map['sections']))
           NoticeSection(heading: '${row['heading'] ?? ''}', body: '${row['body'] ?? ''}'),
@@ -574,6 +644,7 @@ class PrivacyNotice {
     );
   }
 
+  final bool requiresAdult;
   final String document;
   final String version;
   final String title;
@@ -582,10 +653,11 @@ class PrivacyNotice {
 }
 
 class SignInMethods {
-  const SignInMethods({required this.phone, required this.google, this.oidc = false, this.oidcIssuer = ''});
+  const SignInMethods({required this.phone, required this.google, this.apple = false, this.oidc = false, this.oidcIssuer = ''});
 
   final bool phone;
   final bool google;
+  final bool apple;
   final bool oidc;
   final String oidcIssuer;
 
@@ -734,6 +806,7 @@ class CloudSession {
     } on Exception {
       throw const MycaApiException(
         'Cannot reach MyCA. Check your connection and try again.',
+        code: 'UNREACHABLE',
       );
     }
     Object? decoded;
@@ -757,7 +830,7 @@ class CloudSession {
         final (status, body) = await _send('POST', '/v1/auth/refresh', {
           'refreshToken': refresh,
         }, authed: false);
-        if (status >= 500 || status == 429) throw MycaApiException(cloudMessage('SERVER_BUSY'));
+        if (status >= 500 || status == 429) throw MycaApiException(cloudMessage('SERVER_BUSY'), code: 'SERVER_BUSY');
         if (status != 200 || body['ok'] == false) return false;
         await _keep(body);
         return true;
@@ -794,15 +867,21 @@ class CloudSession {
         !reply.containsKey('reply')) {
       final code = reply['error'] as String;
       if (code == 'RATE_LIMITED') throw MycaApiException(waitMessage(reply['retryAfterSeconds']));
-      throw MycaApiException(explain?.call(code, reply['attemptsRemaining']) ?? cloudMessage(code, '${reply['hint'] ?? ''}'));
+      throw MycaApiException(explain?.call(code, reply['attemptsRemaining']) ?? cloudMessage(code, '${reply['hint'] ?? ''}'), code: code);
     }
     return reply;
   }
 
   Map<String, dynamic> _accepted(Map<String, dynamic> body) {
-    if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}', '${body['hint'] ?? ''}'));
+    if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}', '${body['hint'] ?? ''}'), code: '${body['error'] ?? ''}');
     return body;
   }
+
+  Future<Map<String, dynamic>> usConsents() async => _accepted(await call('GET', '/v1/me/us-consents'));
+
+  Future<Map<String, dynamic>> signUsConsent(Map<String, Object?> body) async => _accepted(await call('POST', '/v1/me/us-consents', body));
+
+  Future<void> revokeUsConsent(String document) async => _accepted(await call('DELETE', '/v1/me/us-consents/${Uri.encodeComponent(document)}'));
 
   Map<String, dynamic> _data(Map<String, dynamic> body) {
     final data = _accepted(body)['data'];
@@ -823,6 +902,8 @@ class CloudSession {
   }
 
   Future<Map<String, dynamic>> usOffers() async => _accepted(await call('GET', '/v1/plans'));
+
+  Future<Map<String, dynamic>> countryPlans(String country) async => _accepted(await call('GET', '/v1/plans?country=${Uri.encodeQueryComponent(country)}'));
 
   Future<List<PlanOffer>> plans() async {
     final body = _accepted(await call('GET', '/v1/plans'));
@@ -991,6 +1072,17 @@ class CloudSession {
     await call('POST', '/v1/crash-reports', {'reports': reports});
   }
 
+  Future<void> sendFunnelSteps(List<Map<String, Object?>> steps) async {
+    _accepted(await call('POST', '/v1/funnel', {'steps': steps}));
+  }
+
+  Future<ReferralInfo> referral() async => ReferralInfo.fromJson(_accepted(await call('GET', '/v1/me/referral')));
+
+  Future<String?> claimReferral(String code) async {
+    final body = await call('POST', '/v1/me/referral/claim', {'code': code});
+    return body['ok'] == true ? null : referralClaimMessage('${body['error'] ?? ''}');
+  }
+
   Future<void> requestCode(String phone) async {
     final (_, body) = await _send('POST', '/v1/auth/otp', {
       'phone': phone,
@@ -1059,24 +1151,32 @@ class CloudSession {
         return SignInMethods(
           phone: body['phone'] == true,
           google: body['google'] == true,
+          apple: body['apple'] == true,
           oidc: body['oidc'] == true,
           oidcIssuer: '${body['oidcIssuer'] ?? ''}',
         );
       }
     } on MycaApiException {
-      return const SignInMethods(phone: true, google: true);
+      return const SignInMethods(phone: true, google: true, apple: true);
     }
-    return const SignInMethods(phone: true, google: true);
+    return const SignInMethods(phone: true, google: true, apple: true);
   }
 
   Future<void> signInWithGoogle(String idToken) => _signInWithIdToken('/v1/auth/google', idToken);
 
   Future<void> signInWithOidc(String idToken) => _signInWithIdToken('/v1/auth/oidc', idToken);
 
-  Future<void> _signInWithIdToken(String path, String idToken) async {
+  Future<void> signInWithApple(AppleCredential credential) => _signInWithIdToken('/v1/auth/apple', credential.idToken, {
+    'rawNonce': credential.rawNonce,
+    if (credential.givenName.trim().isNotEmpty || credential.familyName.trim().isNotEmpty)
+      'fullName': {'givenName': credential.givenName.trim(), 'familyName': credential.familyName.trim()},
+  });
+
+  Future<void> _signInWithIdToken(String path, String idToken, [Map<String, Object?> extra = const {}]) async {
     final (_, body) = await _send('POST', path, {
       'idToken': idToken,
       'deviceLabel': deviceLabel,
+      ...extra,
     }, authed: false);
     if (body['ok'] != true) {
       throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));
@@ -1109,15 +1209,30 @@ class CloudSession {
   }
 
   Future<PrivacyNotice> privacyNotice({String region = ''}) async {
-    final (status, body) = await _send('GET', region == 'US' ? '/v1/privacy-notice?region=US' : '/v1/privacy-notice', null, authed: false);
+    final (status, body) = await _send('GET', region == 'US' || region == 'MY' || region == 'AE' ? '/v1/privacy-notice?region=$region' : '/v1/privacy-notice', null, authed: false);
     if (status != 200 || body['notice'] is! Map) {
       throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));
     }
     return PrivacyNotice.fromJson(body['notice']);
   }
 
-  Future<void> acceptNotice(PrivacyNotice notice) async {
-    await call('POST', '/v1/me/consent', {'document': notice.document, 'version': notice.version});
+  Future<List<PrivacyRequest>> privacyRequests() async {
+    final body = await call('GET', '/v1/me/privacy-requests');
+    return [for (final row in _rows(body['requests'])) PrivacyRequest.fromJson(row)];
+  }
+
+  Future<(PrivacyRequest, String)> sendPrivacyRequest(String kind, {String message = '', String nomineeName = '', String nomineeContact = ''}) async {
+    final body = await call('POST', '/v1/me/privacy-requests', {
+      'kind': kind,
+      if (message.trim().isNotEmpty) 'message': message.trim(),
+      if (nomineeName.trim().isNotEmpty) 'nomineeName': nomineeName.trim(),
+      if (nomineeContact.trim().isNotEmpty) 'nomineeContact': nomineeContact.trim(),
+    });
+    return (PrivacyRequest.fromJson(body['request']), '${body['selfService'] ?? ''}');
+  }
+
+  Future<void> acceptNotice(PrivacyNotice notice, {bool adult = false}) async {
+    await call('POST', '/v1/me/consent', {'document': notice.document, 'version': notice.version, if (notice.requiresAdult) 'adult': adult});
     needsConsent = false;
     if (_businessId == null) {
       final mine = await businesses();
@@ -1161,7 +1276,11 @@ class CloudSession {
     try {
       final (status, body) = await _send('GET', '/v1/health/live', null, authed: false);
       if (status != 200 || body['ok'] != true) return null;
-      return ServerInfo(environment: '${body['environment'] ?? ''}', version: '${body['version'] ?? ''}');
+      return ServerInfo(
+        environment: '${body['environment'] ?? ''}',
+        version: '${body['version'] ?? ''}',
+        providerMode: '${body['providerMode'] ?? ''}',
+      );
     } on MycaApiException {
       return null;
     }
@@ -1416,8 +1535,11 @@ class _CloudBooksApi implements MycaApi {
   Future<void> signOut() => _session.signOut();
 
   @override
-  Future<ChatReply> chat(String message) async => ChatReply.fromJson(
-    await _session.call('POST', '${_session._books}/ask', {'message': message}),
+  Future<ChatReply> chat(String message, {String lang = 'en'}) async => ChatReply.fromJson(
+    await _session.call('POST', '${_session._books}/ask', {
+      'message': message,
+      if (lang != 'en') 'lang': lang,
+    }),
   );
 
   @override

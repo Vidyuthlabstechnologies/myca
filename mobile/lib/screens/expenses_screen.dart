@@ -4,9 +4,11 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../proposal_flow.dart';
 import '../registers.dart';
 import '../theme.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'expense_screen.dart';
 import 'head_picker.dart';
@@ -19,16 +21,14 @@ class ExpensesScreen extends StatelessWidget {
     final expenses =
         AppScope.of(context).snapshot?.expenses ?? const <Expense>[];
     final threads = headThreadsOf(expenses);
+    final s = UaeStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Expenses')),
+      appBar: AppBar(title: Text(s.expenses)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
         children: [
           if (threads.isEmpty)
-            const EmptyNote(
-              text:
-                  'No expenses yet. Add one and MyCA will put it under the right head: rent, salaries, travel and so on.',
-            )
+            EmptyNote(text: s.noExpensesYet)
           else
             Panel(
               children: [
@@ -36,10 +36,10 @@ class ExpensesScreen extends StatelessWidget {
                   RowCard(
                     leading: TintTile(
                       tint: Tint.expense,
-                      letter: thread.name[0],
+                      letter: s.accountName(thread.name).characters.first,
                     ),
-                    title: thread.name,
-                    subtitle: headSubtitle(thread),
+                    title: s.accountName(thread.name),
+                    subtitle: s.headSubtitle(thread),
                     trailing: const Chevron(),
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
@@ -57,7 +57,7 @@ class ExpensesScreen extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: ActionChip(
               avatar: const Icon(Icons.add, size: 18),
-              label: const Text('Expense'),
+              label: Text(s.expense),
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const ExpenseScreen()),
               ),
@@ -105,10 +105,10 @@ class _ExpenseHeadScreenState extends State<ExpenseHeadScreen>
     final head = await showHeadPicker(
       context,
       current: expense.head,
-      title: 'Move ${expense.title} to',
+      title: UaeStrings.of(context).moveTo(expense.title),
     );
     if (head == null || !mounted || head.code == expense.head) return;
-    await propose('Move ${expense.title} to ${head.name}', 'set_expense_head', {
+    await propose(UaeStrings.of(context).moveSaid(expense.title, UaeStrings.of(context).accountName(head.name)), 'set_expense_head', {
       'id': expense.id,
       'head': head.code,
     });
@@ -119,25 +119,26 @@ class _ExpenseHeadScreenState extends State<ExpenseHeadScreen>
     final expenses =
         AppScope.of(context).snapshot?.expenses ?? const <Expense>[];
     final thread = headThread(expenses, widget.code, widget.name);
+    final s = UaeStrings.of(context);
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
         title: Row(
           children: [
-            TintTile(tint: Tint.expense, letter: widget.name[0], size: 34),
+            TintTile(tint: Tint.expense, letter: s.accountName(widget.name).characters.first, size: 34),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.name,
+                    s.accountName(widget.name),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     thread.expenses.isEmpty
-                        ? 'Expense head'
+                        ? s.expenseHead
                         : rupees(thread.total),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Palette.muted,
@@ -158,18 +159,18 @@ class _ExpenseHeadScreenState extends State<ExpenseHeadScreen>
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               children: [
                 if (thread.expenses.isEmpty && entries.isEmpty)
-                  EmptyNote(text: 'Nothing under ${widget.name} yet.'),
+                  EmptyNote(text: s.nothingUnder(s.accountName(widget.name))),
                 for (final expense in thread.expenses)
                   Bubble(
                     text: expense.title,
                     amount: rupees(expense.amount),
-                    label: longDate(expense.date),
-                    stamp: expense.mode == 'cash' ? 'Cash' : null,
+                    label: s.longDate(expense.date),
+                    stamp: expense.mode == 'cash' ? inText(context, 'Cash') : null,
                     footnotes: [
                       if (expense.tagSource == 'default')
-                        'Tap to move it to the right head',
-                      if (expense.gstRate > 0 && !expense.inputCredit)
-                        'GST ${plainNumber(expense.gstRate)}% inside, no credit taken',
+                        s.tapToMoveHead,
+                      if (expense.gstRate > 0 && !expense.inputCredit && moneyCountry != 'AE')
+                        inFormat(context, '{tax} {rate}% inside, no credit taken', {'tax': salesTaxName, 'rate': plainNumber(expense.gstRate)}),
                     ],
                     onTap: busy ? null : () => _move(expense),
                   ),
@@ -192,7 +193,7 @@ class _ExpenseHeadScreenState extends State<ExpenseHeadScreen>
                   children: [
                     ActionChip(
                       avatar: const Icon(Icons.add, size: 18),
-                      label: const Text('Expense'),
+                      label: Text(s.expense),
                       onPressed: busy
                           ? null
                           : () => Navigator.of(context).push(

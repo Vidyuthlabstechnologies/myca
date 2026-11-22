@@ -28,8 +28,8 @@ test('a single W-2 earner gets the 2025 standard deduction and a refund of the o
   assert.equal(out.ok, true);
   const l = out.data.lines;
   assert.equal(l['1a'], 50000);
-  assert.equal(l['11'], 50000);
-  assert.equal(l['12'], 15750);
+  assert.equal(l['11b'], 50000);
+  assert.equal(l['12e'], 15750);
   assert.equal(l['15'], 34250);
   assert.equal(l['16'], 3875);
   assert.equal(l['24'], 3875);
@@ -42,7 +42,7 @@ test('a single W-2 earner gets the 2025 standard deduction and a refund of the o
 
 test('2026 uses the 2026 standard deduction and brackets', () => {
   const out = single([w2(50000, 0)], { taxYear: '2026' });
-  assert.equal(out.data.lines['12'], 16100);
+  assert.equal(out.data.lines['12e'], 16100);
   assert.equal(out.data.lines['15'], 33900);
   assert.ok(out.data.rulesUsed.includes('us.federal.individual.brackets@2026-01-01'));
   assert.equal(computeForm1040({ filingStatus: 'single' }, '2027').error, 'TAX_YEAR_NOT_SUPPORTED');
@@ -52,12 +52,12 @@ test('head of household with two children: EIC from the $50 band, child tax cred
   const kids = [{ firstName: 'Mia', relationship: 'daughter', dateOfBirth: '2015-03-01', months: 12 }, { firstName: 'Leo', relationship: 'son', dateOfBirth: '2018-09-12', months: 12 }];
   const out = computeForm1040({ filingStatus: 'hoh', taxpayer: adult, dependents: kids, forms: [w2(30000, 1200)] }, '2025');
   const l = out.data.lines;
-  assert.equal(l['12'], 23625);
+  assert.equal(l['12e'], 23625);
   assert.equal(l['15'], 6375);
   assert.equal(l['16'], 638);
   assert.equal(l['19'], 638);
   assert.equal(l['22'], 0);
-  assert.equal(l['27'], 5746);
+  assert.equal(l['27a'], 5746);
   assert.equal(l['28'], 3400);
   assert.equal(l['35a'], 1200 + 5746 + 3400);
   assert.equal(out.data.schedules['8812']['16b'], 3400);
@@ -66,7 +66,7 @@ test('head of household with two children: EIC from the $50 band, child tax cred
 
 test('a capital loss is limited to $3,000 and the rest carries forward', () => {
   const out = single([w2(60000), { kind: '1099-B', payer: 'Broker', fields: { proceeds: 5000, costBasis: 15000, term: 'short' } }]);
-  assert.equal(out.data.lines['7'], -3000);
+  assert.equal(out.data.lines['7a'], -3000);
   assert.equal(out.data.lines['9'], 57000);
   assert.equal(out.data.schedules.D['21'], -3000);
   assert.deepEqual(out.data.capitalLossCarryover, { shortTerm: 7000, longTerm: 0 });
@@ -89,7 +89,7 @@ test('self-employment: Schedule SE, half deducted, and the QBI deduction limited
   assert.equal(se['13'], 3533);
   const l = out.data.lines;
   assert.equal(l['8'], 50000);
-  assert.equal(l['11'], 46467);
+  assert.equal(l['11b'], 46467);
   assert.equal(l['13a'], 6143);
   assert.equal(l['15'], 24574);
   assert.equal(l['16'], 2711);
@@ -108,8 +108,8 @@ test('a retiree: taxable Social Security from the worksheet, extra standard dedu
   const out = computeForm1040({ filingStatus: 'single', taxpayer: { firstName: 'Ruth', lastName: 'Lee', dateOfBirth: '1955-02-10' }, forms: [{ kind: 'SSA-1099', fields: { netBenefits: 30000 } }, { kind: '1099-R', payer: 'Pension Co', fields: { grossDistribution: 20000, taxableAmount: 20000, distributionCode: '7' } }] }, '2025');
   const l = out.data.lines;
   assert.equal(l['6b'], 5350);
-  assert.equal(l['11'], 25350);
-  assert.equal(l['12'], 17750);
+  assert.equal(l['11b'], 25350);
+  assert.equal(l['12e'], 17750);
   assert.equal(l['13b'], 6000);
   assert.equal(l['15'], 1600);
   assert.equal(l['16'], 161);
@@ -119,10 +119,10 @@ test('the SALT cap phases down to its floor at high income and itemizing is chos
   const rich = computeForm1040({ filingStatus: 'mfj', taxpayer: adult, spouse: { firstName: 'Sam', lastName: 'Diaz', dateOfBirth: '1987-01-05' }, forms: [w2(600000, 150000, { stateWithheld: 45000 })], answers: { realEstateTaxes: 15000, charityCash: 30000 } }, '2025');
   assert.equal(rich.data.schedules.A['5e'], 10000);
   assert.equal(rich.data.schedules.A['17'], 40000);
-  assert.equal(rich.data.lines['12'], 40000);
+  assert.equal(rich.data.lines['12e'], 40000);
   const modest = single([w2(70000, 0, { stateWithheld: 3000 })], { answers: { charityCash: 500 } });
   assert.equal(modest.data.summary.itemized, false);
-  assert.equal(modest.data.lines['12'], 15750);
+  assert.equal(modest.data.lines['12e'], 15750);
 });
 
 test('net investment income tax and additional Medicare tax for a high earner', () => {
@@ -254,17 +254,20 @@ test('a return lists each form it needs but cannot prepare in unsupported, with 
   assert.equal(owed.data.checks.find((item) => item.code === 'FORM_2210_MAY_APPLY').level, 'warning');
   assert.deepEqual(single([w2(50000, 0)], { answers: { priorYearTax: 0 } }).data.unsupported, []);
   assert.equal(single([w2(50000, 0)], { answers: { priorYearTax: 3000, priorYearAgi: 160000 } }).data.unsupported.length, 1);
-  const out = single([w2(50000, 5000)], { dependents: [{ firstName: 'Leo', lastName: 'Diaz', relationship: 'son', dateOfBirth: '2020-01-01', ssn: true, monthsLived: 12 }], answers: { childCareExpenses: 3000, marketplaceCoverage: true, rentalIncome: true } });
-  assert.deepEqual(out.data.unsupported.map((item) => [item.form, item.required]), [['Schedule E', true], ['2441', true], ['8962', true]]);
+  const out = single([w2(50000, 5000)], { dependents: [{ firstName: 'Leo', lastName: 'Diaz', relationship: 'son', dateOfBirth: '2020-01-01', ssn: true, monthsLived: 12 }], answers: { childCareExpenses: 3000, marketplaceCoverage: true, rentalIncome: true, scheduleK1Income: true } });
+  assert.deepEqual(out.data.unsupported.map((item) => [item.form, item.required]), [['Schedule K-1', true]]);
+  assert.equal(out.data.checks.find((item) => item.code === 'RENTAL_PROPERTY_NEEDED').level, 'error');
+  assert.equal(out.data.checks.find((item) => item.code === 'CARE_PROVIDERS_NEEDED').form, '2441');
   for (const need of out.data.unsupported) assert.equal(out.data.checks.find((item) => item.code === need.code).form, need.form);
-  assert.equal(out.data.checks.find((item) => item.code === 'FORM_8962_NOT_COVERED').level, 'error');
+  assert.equal(out.data.checks.find((item) => item.code === 'FORM_1095A_MISSING').level, 'error');
 });
 
-test('the US planning tools project withholding, plan estimated payments and list the supported forms', async () => {
+test('the US planning tools project withholding, plan estimated payments and list the supported forms', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 15, 12).getTime() });
   const state = createState();
   state.company = { ...(state.company || {}), country: 'US' };
   const forms = await runTool(state, 'us_supported_forms', {});
-  assert.ok(forms.data.supported.includes('Schedule C') && forms.data.coming.includes('2441'));
+  assert.ok(forms.data.supported.includes('Schedule C') && forms.data.supported.includes('2441') && forms.data.supported.includes('8962') && forms.data.supported.includes('Schedule E') && forms.data.coming.includes('8995-A'));
   assert.equal((await runTool(state, 'us_withholding_check', { taxYear: '2026', ytdWages: 40000 })).error, 'US_RETURN_NOT_STARTED');
   const check = await runTool(state, 'us_withholding_check', { taxYear: '2026', filingStatus: 'single', payPerPeriod: 2000, withheldPerPeriod: 100, periodsLeft: 5, ytdWages: 50000, ytdWithheld: 2500 });
   assert.equal(check.ok, true);
@@ -298,4 +301,24 @@ test('a payroll-imported form keeps its source and document id in the form list'
   assert.equal(form.documentId, 'pinwheel-abc');
   addUsTaxForm(state, { taxYear: '2025', kind: 'W-2', payer: 'B', fields: { wages: 1 }, source: 'model' });
   assert.equal(listUsTaxForms(state, { taxYear: '2025' }).data.forms[1].source, 'manual');
+});
+
+test('2026 interview asks the material participation question for a business and the answer gives the $400 QBI minimum', async () => {
+  const state = usHousehold();
+  assert.equal((await runTool(state, 'set_us_taxpayer', { taxYear: '2026', filingStatus: 'single', taxpayer: { firstName: 'Ana', lastName: 'Diaz', ssn: '400-12-3456', dateOfBirth: '1990-01-01' }, address: { line1: '1 Main St', city: 'Austin', state: 'TX', zip: '78701' } })).ok, true);
+  assert.equal((await runTool(state, 'add_us_tax_form', { taxYear: '2026', kind: 'W-2', payer: 'Clinic', payerTin: '12-3456789', fields: w2(30000, 3000).fields })).ok, true);
+  const plain = await runTool(state, 'us_interview', { taxYear: '2026' });
+  assert.equal(plain.data.questions.some((question) => question.id === 'qbiMaterialParticipation'), false);
+  assert.equal((await runTool(state, 'add_us_tax_form', { taxYear: '2026', kind: '1099-NEC', payer: 'Agency', payerTin: '98-7654321', fields: { nonemployeeCompensation: 1500 } })).ok, true);
+  const asked = await runTool(state, 'us_interview', { taxYear: '2026' });
+  assert.ok(asked.data.questions.some((question) => question.id === 'qbiMaterialParticipation'));
+  const before = computedForm1040(state, { taxYear: '2026' });
+  assert.ok(before.data.lines['13b'] < 400);
+  assert.ok(before.data.checks.some((item) => item.code === 'QBI_MINIMUM_NEEDS_ANSWER'));
+  assert.equal((await runTool(state, 'answer_us_interview', { taxYear: '2026', id: 'qbiMaterialParticipation', answer: 'yes' })).ok, true);
+  const after = computedForm1040(state, { taxYear: '2026' });
+  assert.equal(after.data.lines['13b'], 400);
+  assert.equal(after.data.checks.some((item) => item.code === 'QBI_MINIMUM_NEEDS_ANSWER'), false);
+  const prior = await runTool(state, 'us_interview', { taxYear: '2025' });
+  assert.equal((prior.data.questions || []).some((question) => question.id === 'qbiMaterialParticipation'), false);
 });

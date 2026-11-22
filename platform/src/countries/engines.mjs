@@ -1,6 +1,9 @@
 import { MANIFESTS } from './manifests.mjs';
 import { ENGINE as SHARED } from './shared/engine.mjs';
 import { ENGINE as MALAYSIA } from './malaysia/engine.mjs';
+import { ENGINE as UNITED_KINGDOM } from './united-kingdom/engine.mjs';
+import { ENGINE as UAE } from './uae/engine.mjs';
+import { ENGINE as UNITED_STATES } from './united-states/engine.mjs';
 
 const KINDS = Object.freeze(['run', 'preview', 'words']);
 
@@ -8,6 +11,9 @@ function engines() {
   return [
     SHARED,
     MALAYSIA,
+    UNITED_KINGDOM,
+    UAE,
+    UNITED_STATES,
   ];
 }
 
@@ -30,6 +36,12 @@ export function enginePreview(name) {
 
 export function engineWords(name) {
   return behaviour('words', name);
+}
+
+export function engineBooks(country, name, kind = 'run') {
+  const engine = engines().find((entry) => entry.country === String(country || ''));
+  const entry = engine?.books?.[String(name || '')];
+  return typeof entry?.[kind] === 'function' ? entry[kind] : null;
 }
 
 export function runEngineTool(name, state, args = {}) {

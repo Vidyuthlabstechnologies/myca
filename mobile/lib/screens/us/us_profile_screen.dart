@@ -1,10 +1,11 @@
+import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../api/models.dart';
 import '../../api/myca_api.dart';
 import '../../app_state.dart';
 import '../../format.dart';
-import '../../theme.dart';
 import '../../us/tin.dart';
 import '../../us/us_return.dart';
 import '../../widgets.dart';
@@ -122,15 +123,11 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
   }
 
   Future<void> _load() async {
-    Map<String, dynamic> data = const {};
-    try {
-      data = toolData(await _api.query('us_taxpayer', {'taxYear': widget.taxYear}));
-    } on MycaApiException {
-      data = const {};
-    }
+    final data = toolData(await _api.query('us_taxpayer', {'taxYear': widget.taxYear}));
     if (!mounted) return;
     setState(() {
       _status = _text(data['filingStatus']);
+      _dependents.clear();
       if (data['taxpayer'] is Map) _you = _Person.from(data['taxpayer']);
       if (data['spouse'] is Map) _spouse = _Person.from(data['spouse']);
       for (final d in (data['dependents'] as List? ?? const [])) {
@@ -142,8 +139,24 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
       _city.text = _text(address['city']);
       _zip.text = _text(address['zip']);
       _state = _text(address['state']).isEmpty ? null : _text(address['state']);
+      _saved = _snapshot();
     });
   }
+
+  String? _saved;
+  bool _leaving = false;
+
+  List<TextEditingController> get _typedControllers => [
+        for (final p in [_you, _spouse, ..._dependents]) ...[p.first, p.last, p.ssn, p.birth, p.occupation, p.months],
+        _line1,
+        _line2,
+        _city,
+        _zip,
+      ];
+
+  String _snapshot() => typedSnapshot(_typedControllers, [_status, _state, _dependents.length, for (final d in _dependents) d.relationship]);
+
+  bool get _dirty => !_leaving && _saved != null && _snapshot() != _saved;
 
   @override
   void dispose() {
@@ -201,6 +214,7 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
         for (final p in [_you, _spouse, ..._dependents]) {
           p.ssn.clear();
         }
+        _leaving = true;
         Navigator.of(context).pop();
         return;
       }
@@ -252,6 +266,7 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
         key: Key('usProfile.$who.months'),
         controller: p.months,
         keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(2)],
         decoration: InputDecoration(labelText: 'Months they lived with you in ${widget.taxYear}', errorText: p.errors['months']),
       ),
     ],
@@ -260,18 +275,24 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return Scaffold(
+    return UsLeaveGuard(
+      dirty: () => _dirty,
+      listenable: Listenable.merge(_typedControllers),
+      child: Scaffold(
       appBar: AppBar(title: const Text('About you')),
       body: SafeArea(
         child: FutureBuilder<void>(
           future: _loaded,
           builder: (context, loaded) {
             if (loaded.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+            if (loaded.hasError) {
+              return UsLoadError(message: usLoadProblem(loaded.error, 'Your details could not be loaded.'), onRetry: () => setState(() { _loaded = _load(); }));
+            }
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
                 const SectionLabel('Filing status'),
-                if (_errors['status'] != null) Text(_errors['status']!, style: const TextStyle(color: Palette.danger)),
+                if (_errors['status'] != null) Text(_errors['status']!, style: TextStyle(color: context.myca.danger)),
                 RadioGroup<String>(
                   groupValue: _status.isEmpty ? null : _status,
                   onChanged: (value) => setState(() => _status = value ?? ''),
@@ -308,10 +329,10 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
                 if (stateHasIncomeTax(_state ?? ''))
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
-                    child: Text(stateReturnNote, key: const Key('usProfile.stateNote'), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Palette.muted)),
+                    child: Text(stateReturnNote, key: const Key('usProfile.stateNote'), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: context.myca.muted)),
                   ),
                 const SizedBox(height: 12),
-                TextField(key: const Key('usProfile.zip'), controller: _zip, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'ZIP code', errorText: _errors['zip'])),
+                TextField(key: const Key('usProfile.zip'), controller: _zip, keyboardType: TextInputType.number, inputFormatters: [ZipInputFormatter()], autofillHints: const [AutofillHints.postalCode], decoration: InputDecoration(labelText: 'ZIP code', errorText: _errors['zip'])),
                 const SizedBox(height: 22),
                 const SectionLabel('Dependents'),
                 Text('Children or relatives you support. Each needs a Social Security number.', style: text.bodySmall),
@@ -339,19 +360,20 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
                 ),
                 if (_note.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                  Text(_note, style: TextStyle(color: context.myca.danger, fontWeight: FontWeight.w500)),
                 ],
                 const SizedBox(height: 22),
                 FilledButton(key: const Key('usProfile.save'), onPressed: _busy ? null : _save, child: Text(_busy ? 'Saving…' : 'Save')),
                 const SizedBox(height: 10),
                 Text(
                   'Social Security numbers are sealed with their own key the moment they reach us. The app, your tax pro and our AI assistant only ever see the last four digits.',
-                  style: text.bodySmall?.copyWith(color: Palette.muted),
+                  style: text.bodySmall?.copyWith(color: context.myca.muted),
                 ),
               ],
             );
           },
         ),
+      ),
       ),
     );
   }

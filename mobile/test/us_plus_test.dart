@@ -8,7 +8,6 @@ import 'package:myca/billing/store_billing.dart';
 import 'package:myca/main.dart';
 import 'package:myca/screens/us/us_plus_screen.dart';
 import 'package:myca/screens/us/us_sign_screen.dart';
-import 'package:myca/screens/us/us_state_sheet_screen.dart';
 import 'package:myca/us/us_plus.dart';
 import 'package:myca/us/us_return.dart';
 import 'package:myca/widgets.dart';
@@ -80,22 +79,21 @@ Future<void> openOver(WidgetTester tester, Widget screen) async {
 }
 
 void main() {
-  testWidgets('the hub shows the \$129 price line before About you, and the state sheet only for states with income tax', (tester) async {
+  testWidgets('the hub shows the \$129 price line before About you, and the state section from the server', (tester) async {
     final api = UsFakeApi()..taxpayer = {'filingStatus': 'single', 'address': {'state': 'TX'}};
     await tester.pumpWidget(MycaApp(state: usState(api)));
     await tester.pumpAndSettle();
     expect(find.text('\$129 to file your federal return. One price, no upgrade fees.'), findsOneWidget);
     final priceY = tester.getTopLeft(find.byKey(const Key('usHub.priceLine'))).dy;
     expect(priceY, lessThan(tester.getTopLeft(find.byKey(const Key('usHub.step.profile'))).dy), reason: 'the price comes before the first question');
-    expect(find.byKey(const Key('usHub.state')), findsNothing, reason: 'Texas has no income tax, so nothing more is said');
+    expect(find.byKey(const Key('usHub.stateReturn.TX')), findsNothing, reason: 'no state return is listed until the server works one out');
     expect(find.textContaining('free'), findsNothing, reason: 'the hub never says free');
     await tester.pumpWidget(const SizedBox());
     final california = UsFakeApi()..taxpayer = {'filingStatus': 'single', 'address': {'state': 'CA'}};
     await tester.pumpWidget(MycaApp(state: usState(california)));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('usHub.state')));
-    expect(find.byKey(const Key('usHub.state')), findsOneWidget);
-    expect(find.text(stateReturnNote), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('usHub.stateResidency')));
+    expect(find.byKey(const Key('usHub.stateResidency')), findsOneWidget);
   });
 
   testWidgets('a return with a form MyCA cannot file is named before payment and cannot reach Sign', (tester) async {
@@ -243,23 +241,7 @@ void main() {
     expect(shared, ['I agree with the proposed change.']);
   });
 
-  test('the state carry-over sheet takes the federal lines and W-2 state boxes', () {
-    final sheet = buildStateSheet(
-      state: 'CA',
-      taxYear: 2025,
-      status: UsReturnStatus.fromJson({'filingStatus': 'single'}, fallbackYear: 2025),
-      review: UsReview.fromJson({
-        'lines': [
-          {'form': '1040', 'line': '11', 'label': 'Adjusted gross income', 'amount': 61000},
-          {'form': '1040', 'line': '15', 'label': 'Taxable income', 'amount': 45250},
-        ],
-      }),
-      forms: [UsTaxForm.fromJson({'kind': 'W-2', 'payer': 'Acme', 'amounts': {'state': 'CA', 'stateWages': 61000, 'stateWithheld': 2100}})],
-    );
-    expect(sheet.stateName, 'California');
-    expect(sheet.federal.map((r) => r.$1), ['11', '15']);
-    expect(sheet.asText(), contains('Form 1040 line 11, Adjusted gross income: \$61,000.00'));
-    expect(sheet.asText(), contains('W-2 from Acme (CA): state wages \$61,000.00, state tax withheld \$2,100.00'));
+  test('the app knows which states have no income tax before the server says', () {
     expect(stateHasIncomeTax('TX'), isFalse);
     expect(stateHasIncomeTax('NY'), isTrue);
     expect(stateHasIncomeTax(''), isFalse);

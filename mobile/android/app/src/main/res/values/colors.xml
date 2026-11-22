@@ -2,4 +2,5 @@
 <resources>
     <color name="brand_ink">#15181B</color>
     <color name="brand_canvas">#FAFAF7</color>
+    <color name="brand_accent">#1B5E3F</color>
 </resources>

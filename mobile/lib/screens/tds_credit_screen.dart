@@ -5,10 +5,20 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../excel.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../proposal_flow.dart';
 import '../theme.dart';
 import '../widgets.dart';
+
+String _statusWords(BuildContext context, String status) => switch (status) {
+  'matched' => inText(context, 'matched'),
+  'not in books' => inText(context, 'not in books'),
+  'not in 26AS' => inText(context, 'not in 26AS'),
+  'short in 26AS' => inText(context, 'short in 26AS'),
+  'more in 26AS' => inText(context, 'more in 26AS'),
+  _ => status,
+};
 
 Color _statusColor(String status) => switch (status) {
   'matched' => Palette.accent,
@@ -70,7 +80,7 @@ class _TdsCreditScreenState extends State<TdsCreditScreen> with ProposalFlow {
       return;
     }
     if (!mounted) return;
-    await propose('Import Form 26AS: ${picked.name}', 'import_26as_credits', {'documentSha256': sha});
+    await propose(inFormat(context, 'Import Form 26AS: {file}', {'file': picked.name}), 'import_26as_credits', {'documentSha256': sha});
   }
 
   Future<void> _saveExcel() async {
@@ -96,7 +106,7 @@ class _TdsCreditScreenState extends State<TdsCreditScreen> with ProposalFlow {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Form 26AS check')),
+      appBar: AppBar(title: Text(inText(context, 'Form 26AS check'))),
       body: Column(
         children: [
           Expanded(
@@ -112,9 +122,9 @@ class _TdsCreditScreenState extends State<TdsCreditScreen> with ProposalFlow {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text('The Form 26AS check could not be read.', textAlign: TextAlign.center),
+                          Text(inText(context, 'The Form 26AS check could not be read.'), textAlign: TextAlign.center),
                           const SizedBox(height: 16),
-                          FilledButton(onPressed: _reload, child: const Text('Try again')),
+                          FilledButton(onPressed: _reload, child: Text(inText(context, 'Try again'))),
                         ],
                       ),
                     ),
@@ -128,11 +138,11 @@ class _TdsCreditScreenState extends State<TdsCreditScreen> with ProposalFlow {
                       _Header(check: check),
                       const SizedBox(height: 16),
                       if (check.rows.isEmpty)
-                        const EmptyNote(text: 'Import Form 26AS from the income-tax portal (CSV or text) to compare it with your books.')
+                        EmptyNote(text: inText(context, 'Import Form 26AS from the income-tax portal (CSV or text) to compare it with your books.'))
                       else
                         Panel(
                           children: [
-                            for (var i = 0; i < check.rows.length; i++) _rowCard(ValueKey('tds26.$i'), check.rows[i]),
+                            for (var i = 0; i < check.rows.length; i++) _rowCard(context, ValueKey('tds26.$i'), check.rows[i]),
                           ],
                         ),
                       const SizedBox(height: 12),
@@ -142,7 +152,7 @@ class _TdsCreditScreenState extends State<TdsCreditScreen> with ProposalFlow {
                         children: [
                           ActionChip(
                             avatar: const Icon(Icons.upload_file, size: 18),
-                            label: const Text('Import 26AS'),
+                            label: Text(inText(context, 'Import 26AS')),
                             onPressed: busy ? null : _importFile,
                           ),
                         ],
@@ -152,7 +162,7 @@ class _TdsCreditScreenState extends State<TdsCreditScreen> with ProposalFlow {
                         width: double.infinity,
                         child: OutlinedButton(
                           onPressed: busy || _saving ? null : _saveExcel,
-                          child: const Text('Save as Excel'),
+                          child: Text(inText(context, 'Save as Excel')),
                         ),
                       ),
                       if (_note.isNotEmpty)
@@ -197,15 +207,15 @@ class _Header extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(check.fy.isEmpty ? 'THIS FINANCIAL YEAR' : 'FINANCIAL YEAR ${check.fy}', style: text.labelSmall),
+          Text(check.fy.isEmpty ? inText(context, 'THIS FINANCIAL YEAR') : inFormat(context, 'FINANCIAL YEAR {fy}', {'fy': check.fy}), style: text.labelSmall),
           const SizedBox(height: 10),
           Wrap(
             spacing: 24,
             runSpacing: 12,
             children: [
-              _Total(label: 'In 26AS', amount: check.in26as),
-              _Total(label: 'In your books', amount: check.inBooks),
-              _Total(label: 'Gap', amount: check.gap, color: check.gap.abs() > 1 ? Palette.danger : null),
+              _Total(label: inText(context, 'In 26AS'), amount: check.in26as),
+              _Total(label: inText(context, 'In your books'), amount: check.inBooks),
+              _Total(label: inText(context, 'Gap'), amount: check.gap, color: check.gap.abs() > 1 ? Palette.danger : null),
             ],
           ),
           if (check.source.isNotEmpty) ...[
@@ -234,18 +244,18 @@ class _Total extends StatelessWidget {
       children: [
         Text(label, style: text.bodySmall),
         const SizedBox(height: 2),
-        Text(rupees(amount), style: text.titleLarge?.copyWith(fontFeatures: moneyFigures, color: color)),
+        Amount(rupees(amount), style: text.titleLarge?.copyWith(fontFeatures: moneyFigures, color: color)),
       ],
     );
   }
 }
 
-RowCard _rowCard(Key key, TdsCreditRow row) {
+RowCard _rowCard(BuildContext context, Key key, TdsCreditRow row) {
   final color = _statusColor(row.status);
   final tag = FittedBox(
     fit: BoxFit.scaleDown,
     alignment: Alignment.centerLeft,
-    child: StatusTag(text: row.status, color: color),
+    child: StatusTag(text: _statusWords(context, row.status), color: color),
   );
   return RowCard(
     key: key,
@@ -253,8 +263,8 @@ RowCard _rowCard(Key key, TdsCreditRow row) {
     title: '${row.who} · ${row.quarter}',
     subtitle: [
       '26AS ${rupees(row.in26as)}',
-      'books ${rupees(row.inBooks)}',
-      if (row.section.isNotEmpty) 'Section ${row.section}',
+      inFormat(context, 'books {amount}', {'amount': rupees(row.inBooks)}),
+      if (row.section.isNotEmpty) inFormat(context, 'Section {section}', {'section': row.section}),
       if (row.tan.isNotEmpty) 'TAN ${row.tan}',
     ].join(' · '),
     badge: row.note.isEmpty

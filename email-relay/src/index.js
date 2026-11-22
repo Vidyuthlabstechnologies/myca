@@ -96,8 +96,13 @@ export default {
       message.setReject('Message too large');
       return;
     }
-    const mail = parseMail(raw);
-    const payload = inboundPayload(mail);
+    let payload;
+    try {
+      payload = inboundPayload(parseMail(raw));
+    } catch {
+      message.setReject('Message could not be read');
+      return;
+    }
     if (!payload.to) payload.to = String(message.to || '').toLowerCase();
     if (!payload.from) payload.from = String(message.from || '').toLowerCase();
     const doFetch = env.FETCH || fetch;

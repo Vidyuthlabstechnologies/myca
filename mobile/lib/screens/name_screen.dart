@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import '../my/my_strings.dart';
 import '../theme.dart';
+import '../uae/uae_cloud_strings.dart';
+import '../uae/uae_strings.dart';
 
 class NameScreen extends StatefulWidget {
   const NameScreen({super.key});
@@ -24,7 +27,7 @@ class _NameScreenState extends State<NameScreen> {
 
   Future<void> _save() async {
     final name = _name.text.trim();
-    if (name.isEmpty) return setState(() => _error = 'Enter your name.');
+    if (name.isEmpty) return setState(() => _error = myMalayOr(context, UaeStrings.of(context).enterYourName, 'Masukkan nama anda.'));
     final state = AppScope.of(context);
     setState(() {
       _busy = true;
@@ -43,6 +46,9 @@ class _NameScreenState extends State<NameScreen> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    String w(String english, String malay) => myMalayOr(context, english, malay);
+    final muted = AppScope.of(context).edition == 'MY' ? Theme.of(context).colorScheme.onSurfaceVariant : paletteOf(context).muted;
+    final s = UaeStrings.of(context);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -53,26 +59,26 @@ class _NameScreenState extends State<NameScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('What should we call you?', style: text.displaySmall),
+                  Text(w(s.whatToCallYou, 'Apakah nama panggilan anda?'), style: text.displaySmall),
                   const SizedBox(height: 8),
                   Text(
-                    'People you work with will see this name next to what you record.',
-                    style: text.bodyLarge?.copyWith(color: Palette.muted),
+                    w(s.nameNote, 'Rakan sekerja anda akan melihat nama ini di sebelah apa yang anda rekodkan.'),
+                    style: text.bodyLarge?.copyWith(color: muted),
                   ),
                   const SizedBox(height: 28),
                   TextField(
                     controller: _name,
                     autofocus: true,
                     textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(labelText: 'Your name'),
+                    decoration: InputDecoration(labelText: w(s.yourName, 'Nama anda')),
                     onSubmitted: (_) => _save(),
                   ),
                   if (_error.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                    Text(s.cloudSaid(_error), style: TextStyle(color: paletteOf(context).danger, fontWeight: FontWeight.w500)),
                   ],
                   const SizedBox(height: 20),
-                  FilledButton(onPressed: _busy ? null : _save, child: Text(_busy ? 'Saving…' : 'Continue')),
+                  FilledButton(onPressed: _busy ? null : _save, child: Text(_busy ? w(s.saving, 'Menyimpan…') : w(s.continueLabel, 'Teruskan'))),
                 ],
               ),
             ),

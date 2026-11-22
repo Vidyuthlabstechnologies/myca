@@ -7,6 +7,10 @@ import { buildMefSubmission, makeSubmissionId, returnDigest, routingNumberValid 
 import { simulateAcknowledgement } from './us-mef-sim.mjs';
 import { irsMefSettings, irsMefMissing } from './us-mef-settings.mjs';
 import { transmissionZip } from './us-mef-zip.mjs';
+import { importedPriorYear } from './us-return.mjs';
+import { figuresOf1040 } from './us-1040x.mjs';
+import { form1040Amount } from './us-line-map.mjs';
+import { efileRoute, partnerMode, partnerSetup, startPartnerFiling } from './us-filing-partner.mjs';
 
 const PIN = /^\d{5}$/;
 const IP_PIN = /^\d{6}$/;
@@ -51,6 +55,7 @@ function yearOf(args) {
 }
 
 export function efileMode() {
+  if (efileRoute() === 'partner') return partnerMode();
   return productionCallsEnabled() && irsMefMissing().length === 0 ? 'live' : 'sandbox';
 }
 
@@ -92,14 +97,16 @@ function ipPinOf(args, who) {
   return who === 'taxpayer' ? value : args.spouseIdentityProtectionPin;
 }
 
-function signer(args, who, problems) {
+
+function signer(args, who, problems, importedAgi) {
   const pin = String(args[`${who}Pin`] ?? '');
   if (!PIN.test(pin) || pin === '00000') problems.push({ code: 'SIGNATURE_PIN_INVALID', message: `The ${who} signature PIN must be five digits and not 00000.`, fix: 'Choose any five digits as your signature PIN.', step: 'sign' });
   const prior = priorYearOf(args, who);
   const priorPin = prior.pin == null || prior.pin === '' ? '' : String(prior.pin);
-  const priorAgi = prior.agi == null || prior.agi === '' ? null : Number(prior.agi);
+  const givenAgi = prior.agi == null || prior.agi === '' ? importedAgi : prior.agi;
+  const priorAgi = givenAgi == null || givenAgi === '' ? null : Number(givenAgi);
   if (priorPin && !PIN.test(priorPin)) problems.push({ code: 'PRIOR_YEAR_PIN_INVALID', message: `The ${who}'s prior-year PIN must be five digits.`, fix: "Enter last year's five-digit self-select PIN, or use last year's AGI instead.", step: 'sign' });
-  if (!priorPin && !(Number.isInteger(priorAgi) && priorAgi >= 0)) problems.push({ code: 'PRIOR_YEAR_VERIFICATION_MISSING', message: `The ${who}'s prior-year AGI or prior-year PIN is needed.`, fix: "Enter last year's AGI in whole dollars (0 if you didn't file last year).", step: 'sign' });
+  if (!priorPin && !Number.isInteger(priorAgi)) problems.push({ code: 'PRIOR_YEAR_VERIFICATION_MISSING', message: `The ${who}'s prior-year AGI or prior-year PIN is needed.`, fix: "Enter last year's AGI in whole dollars (0 if you didn't file last year).", step: 'sign' });
   const ipPin = ipPinOf(args, who);
   if (ipPin != null && ipPin !== '' && !IP_PIN.test(String(ipPin))) problems.push({ code: 'IP_PIN_INVALID', message: `The ${who}'s Identity Protection PIN must be six digits.`, fix: 'Copy the six-digit IP PIN from the IRS letter or your IRS online account.', step: 'sign' });
   return { pin, priorYearPin: priorPin || undefined, priorYearAgi: priorPin ? undefined : priorAgi, ipPin: ipPin ? String(ipPin) : undefined };
@@ -155,16 +162,16 @@ function unseal(record) {
 }
 
 function summary8879(taxYear, computed, record) {
-  const lines = computed.lines || {};
+  const amount = (name) => form1040Amount({ ...computed, taxYear }, name);
   return {
     taxYear,
     form: '8879',
     filingStatus: computed.filingStatus,
-    adjustedGrossIncome: Number(lines['11'] || 0),
-    totalTax: Number(lines['24'] || 0),
-    federalWithheld: Number(lines['25d'] || 0),
-    refund: Number(lines['35a'] || 0),
-    amountOwed: Number(lines['37'] || 0),
+    adjustedGrossIncome: amount('agi'),
+    totalTax: amount('totalTax'),
+    federalWithheld: amount('withholding'),
+    refund: amount('refund'),
+    amountOwed: amount('owed'),
     refundMethod: record.refundMethod,
     paymentMethod: record.paymentMethod,
     account: record.maskedAccount,
@@ -189,8 +196,9 @@ export async function signUsReturn(state, args = {}, actor, options = {}) {
   if (!loaded.ok) return loaded;
   const computed = loaded.data;
   const problems = [];
-  const signature = { taxpayer: signer(args, 'taxpayer', problems), date: options.today || new Date().toISOString().slice(0, 10) };
-  if (computed.filingStatus === 'mfj') signature.spouse = signer(args, 'spouse', problems);
+  const imported = importedPriorYear(state, taxYear);
+  const signature = { taxpayer: signer(args, 'taxpayer', problems, imported?.agi), date: options.today || new Date().toISOString().slice(0, 10) };
+  if (computed.filingStatus === 'mfj') signature.spouse = signer(args, 'spouse', problems, imported?.joint ? imported.agi : undefined);
   const { refund, payment } = moneyPlan(args, computed.lines, problems);
   if (problems.length) return fail('SIGNATURE_INVALID', { problems });
   const withRefund = { ...computed, refund };
@@ -225,6 +233,7 @@ function irsTimestamp(iso) {
 export async function fileUsReturn(state, args = {}, actor, options = {}) {
   const taxYear = yearOf(args);
   if (!taxYear) return fail('TAX_YEAR_INVALID');
+  if (efileRoute() === 'partner') return filePartner(state, taxYear, args, actor, options);
   const entry = peekBook(state).returns[String(taxYear)];
   if (!entry?.signature) return fail('NOT_SIGNED', { hint: 'Sign the return (Form 8879) first.', step: 'sign' });
   const latest = entry.submissions?.at(-1);
@@ -268,12 +277,32 @@ export async function fileUsReturn(state, args = {}, actor, options = {}) {
     ack = simulateAcknowledgement(built, { acceptedSsns, receivedAt: nowIso });
   }
   book.submissionSeq = sequence;
-  const submission = { submissionId, taxYear, mode, transport, submittedAt: nowIso, xmlSha256: built.xmlSha256, returnHash: entry.signature.returnHash, documentCount: built.documentCount, status: 'submitted', ack: null };
+  const submission = { submissionId, taxYear, mode, transport, submittedAt: nowIso, xmlSha256: built.xmlSha256, returnHash: entry.signature.returnHash, documentCount: built.documentCount, status: 'submitted', ack: null, figures: figuresOf1040(computed) };
   if (ack) applyAck(submission, ack);
   const stored = book.returns[String(taxYear)];
   stored.submissions = [...(stored.submissions || []), submission];
   audit(state, 'us_efile.submit', beforeHash, { actorId: actor?.userId, taxYear, submissionId, mode, transport, xmlSha256: built.xmlSha256 });
   return { ok: true, submissionId, status: 'submitted', mode };
+}
+
+// 2027 season: the embedded partner signs Form 8879 with the filer and transmits, so no MyCA
+// signature is needed first. The cloud passes partnerScope (the business id) so the partner's
+// webhook can find the return again.
+function partnerBlockers(data) {
+  const problems = (data.checks || []).filter((item) => item.level === 'error').map((item) => item.message);
+  if (!data.taxpayer?.firstName || !data.taxpayer?.lastName) problems.push('Your name is needed.');
+  if (!data.address?.line1 || !data.address?.zip || !data.address?.state) problems.push('Your home address with state and ZIP is needed.');
+  if (!(data.forms || []).length && !(data.schedules?.C || []).length) problems.push('Add at least one tax form or your business income.');
+  return problems;
+}
+
+async function filePartner(state, taxYear, args, actor, options) {
+  const loaded = await computedReturn(state, taxYear, options);
+  if (!loaded.ok) return loaded;
+  const blocking = partnerBlockers(loaded.data);
+  if (blocking.length) return fail('US_RETURN_NOT_READY', { problems: blocking });
+  const contact = args.contact && typeof args.contact === 'object' ? { email: String(args.contact.email || '').slice(0, 200), phone: String(args.contact.phone || '').replace(/\D/g, '').slice(0, 15) } : {};
+  return startPartnerFiling(state, { taxYear, computed: loaded.data, scope: args.partnerScope, contact, shareTins: args.shareTins === true, priorYear: importedPriorYear(state, taxYear) }, actor, options);
 }
 
 function applyAck(submission, ack) {
@@ -303,7 +332,10 @@ export function usEfileStatus(state, args = {}) {
   if (!taxYear) return fail('TAX_YEAR_INVALID');
   const entry = peekBook(state).returns[String(taxYear)];
   const latest = entry?.submissions?.at(-1) || null;
-  const base = { taxYear, mode: latest?.mode || efileMode(), submissionId: latest?.submissionId || null, acceptedAt: null, rejections: [] };
+  const route = efileRoute();
+  const partner = entry?.partner ? { provider: entry.partner.provider, startedAt: entry.partner.startedAt } : null;
+  const base = { taxYear, route, partner, mode: latest?.mode || entry?.partner?.mode || efileMode(), submissionId: latest?.submissionId || null, acceptedAt: null, rejections: [] };
+  if (route === 'partner' && entry?.partner && (!latest || latest.status === 'rejected') && entry.partner.status === 'in_progress') return { ok: true, ...base, status: 'in_progress', attempts: entry.submissions?.length || 0, rejections: latest ? rejectionsOf(latest.ack?.errors) : [] };
   if (!entry || (!entry.signature && !latest)) return { ok: true, ...base, status: 'not_filed' };
   if (!latest) return { ok: true, ...base, status: 'signed', signedAt: entry.signature.signedAt };
   const status = latest.status;
@@ -342,7 +374,7 @@ export async function fetchUsEfileAcks(state, args = {}, actor) {
 
 export function usEfileSetup() {
   const settings = irsMefSettings();
-  return { ok: true, mode: efileMode(), configured: irsMefMissing(settings).length === 0, missing: irsMefMissing(settings), host: settings.baseUrl };
+  return { ok: true, mode: efileMode(), route: efileRoute(), configured: irsMefMissing(settings).length === 0, missing: irsMefMissing(settings), host: settings.baseUrl, partner: partnerSetup() };
 }
 
 export const SEALED_PENDING_TOOLS = Object.freeze(new Set(['sign_us_return']));
@@ -383,11 +415,26 @@ export function filePreview(state, args = {}) {
   const entry = taxYear ? peekBook(state).returns[String(taxYear)] : null;
   const latest = entry?.submissions?.at(-1);
   const blockers = [];
+  const route = efileRoute();
   if (!taxYear) blockers.push('Say which tax year to file.');
-  else if (!entry?.signature) blockers.push(`Sign the ${taxYear} return first.`);
+  else if (!entry?.signature && route !== 'partner') blockers.push(`Sign the ${taxYear} return first.`);
   if (latest?.status === 'accepted') blockers.push(`The ${taxYear} return was already accepted by the IRS.`);
   if (latest?.status === 'submitted') blockers.push(`The ${taxYear} return is already submitted; wait for the IRS acknowledgement.`);
   const mode = efileMode();
+  if (route === 'partner') {
+    const label = partnerSetup().label || 'our IRS-authorised e-file partner';
+    return {
+      blockers,
+      summary: `Continue to e-file your ${taxYear} federal return with ${label}.`,
+      effects: [
+        'Your name, address, dependents and tax forms are passed on so you do not type them again.',
+        partnerSetup().sendsTins ? 'Your SSN is passed on too, sealed in transit.' : 'You enter your SSN once more on the filing screen.',
+        `You review and sign Form 8879 there; ${label} sends the return to the IRS and MyCA shows the IRS answer.`,
+        mode === 'live' ? '' : 'Sandbox mode: nothing reaches the IRS.',
+      ].filter(Boolean),
+      figures: { taxYear, mode, route },
+    };
+  }
   return {
     blockers,
     summary: mode === 'live' ? `E-file your ${taxYear} federal return with the IRS.` : `Send your ${taxYear} federal return to the e-file sandbox. Nothing reaches the IRS.`,

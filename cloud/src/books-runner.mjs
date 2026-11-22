@@ -3,6 +3,7 @@ import { createMemoryBooksStore, createMemoryDocumentStore } from '../../platfor
 import { refreshIfDue, shareNow } from './ca-sync.mjs';
 import { redactTinsDeepFor } from '../../platform/src/us-identity.mjs';
 import { countryOf } from '../../platform/src/country.mjs';
+import { storeWatch, settleStore } from './store-front.mjs';
 
 const SHA256 = /^[a-f0-9]{64}$/;
 
@@ -24,6 +25,18 @@ function referencedHashes(state) {
 function fail(statusCode, message) {
   const err = new Error(message);
   err.statusCode = statusCode;
+  return err;
+}
+
+function identityOf(state) {
+  const company = state?.company || {};
+  const registrations = (company.registrations || []).map((reg) => String(reg?.gstin || '')).sort();
+  return JSON.stringify([company.name || '', company.gstin || '', company.pan || '', company.country || '', registrations]);
+}
+
+function demoIdentityFixed() {
+  const err = fail(403, 'DEMO_BUSINESS');
+  err.body = { ok: false, error: 'DEMO_BUSINESS', hint: 'This is a demo business with fictional data, so its name, GSTIN and registrations stay as they are. Create your own business to keep real books.' };
   return err;
 }
 
@@ -93,7 +106,12 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
       const row = await lockLive(q, businessId, context);
       const { books, documents, session } = await open(q, businessId, row.state, row.version, wanted);
       const auditedBefore = session.state.auditEvents.length;
+      const demo = (await q('select demo from businesses where id = $1', [businessId])).rows[0]?.demo === true;
+      const identity = demo ? identityOf(session.state) : '';
+      const watched = storeWatch(session.state);
       const out = await run(session, q);
+      if (demo && identityOf(session.state) !== identity) throw demoIdentityFixed();
+      await settleStore(q, businessId, session, watched);
       await q('update books set state = $2::jsonb, version = version + 1, updated_at = now() where business_id = $1', [
         businessId,
         storedState(booksKey, businessId, books.stored()),
@@ -110,8 +128,10 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
       const row = await lockLive(q, businessId, context);
       const { books, documents, session } = await open(q, businessId, row.state, row.version);
       const before = { invoices: session.state.invoices.length, version: Number(row.version) };
+      const watched = storeWatch(session.state) || { snapshot: '', chosen: '', statuses: new Map() };
       const out = await session.restore({ ...payload, confirm: true });
       if (out.ok === false) return out;
+      await settleStore(q, businessId, session, watched);
       await q('update books set state = $2::jsonb, version = version + 1, updated_at = now() where business_id = $1', [businessId, storedState(booksKey, businessId, books.stored())]);
       let stored = 0;
       for (const doc of documents.added()) {

@@ -114,7 +114,7 @@ test('with calls off nothing leaves; mock mode simulates; a missing certificate 
   try {
     const state = createState();
     ENGINE.run.set_my_einvoice_profile(state, supplier);
-    const off = await withEnv({ MYCA_PROVIDER_ENV: 'off', MYCA_MOCK_MODE: '0' }, () => ENGINE.run.issue_my_einvoice(state, { number: 'INV-2', buyer, lines }));
+    const off = await withEnv({ MYCA_PROVIDER_ENV: 'off', MYCA_MOCK_MODE: '0', MYCA_MYINVOIS_CLIENT_ID: 'real-client' }, () => ENGINE.run.issue_my_einvoice(state, { number: 'INV-2', buyer, lines }));
     assert.equal(off.error, 'LIVE_CALLS_DISABLED');
     const noCert = await withEnv({ ...TEST_ENV, MYCA_MYINVOIS_CERT_PATH: '' }, () => ENGINE.run.issue_my_einvoice(state, { number: 'INV-2', buyer, lines }));
     assert.equal(noCert.error, 'SIGNING_CERTIFICATE_MISSING');

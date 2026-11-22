@@ -1,8 +1,10 @@
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createState } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
 import { chat } from '../src/router.mjs';
+
+mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 15, 12).getTime() });
 
 test('Annexure II adds each employee\'s approved months, works the year\'s tax under their regime, and shows the TDS shortfall', async () => {
   const state = createState();

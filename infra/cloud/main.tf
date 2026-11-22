@@ -28,7 +28,10 @@ locals {
     play_service_account_json    = nonsensitive(var.play_service_account_json != "")
     play_product_essentials      = var.play_product_essentials != ""
     play_product_pro             = var.play_product_pro != ""
+    play_product_assured         = var.play_product_assured != ""
     play_product_firm            = var.play_product_firm != ""
+    gsp_live_api_key             = nonsensitive(!contains(["", "unset"], var.gsp_live_api_key))
+    stripe_live_secret_key       = nonsensitive(!contains(["", "unset"], var.stripe_live_secret_key))
   } : setting if on]
   labels = {
     app        = "myca"
@@ -254,23 +257,30 @@ locals {
   reviewer_code_strong  = nonsensitive(!contains(["000000", "111111", "123456", "654321", "999999"], var.reviewer_code))
   reviewer_phone_valid  = length(regexall("^(\\+?91|0)?[6-9][0-9]{9}$", replace(var.reviewer_phone, "/[\\s()-]/", ""))) == 1
   optional_secrets = { for name, value in {
-    MYCA_MODEL_API_KEY             = var.model_api_key
-    NVIDIA_NIM_API_KEY             = var.model_api_key
-    MYCA_WAHA_API_KEY              = var.waha_api_key
-    MYCA_WHATSAPP_APP_SECRET       = var.whatsapp_app_secret
-    MYCA_WHATSAPP_ACCESS_TOKEN     = var.whatsapp_access_token
-    MYCA_SMS_TWILIO_TOKEN          = var.sms_provider == "twilio" ? var.sms_secret : ""
-    MYCA_SMS_MSG91_AUTHKEY         = var.sms_provider == "msg91" ? var.sms_secret : ""
-    MYCA_EMAIL_RELAY_TOKEN         = var.email_relay_token
-    MYCA_GSP_TEST_API_KEY          = var.gsp_test_api_key
-    MYCA_GSP_TEST_API_SECRET       = var.gsp_test_api_secret
-    MYCA_GSP_API_KEY               = var.gsp_api_key
-    MYCA_GSP_API_SECRET            = var.gsp_api_secret
-    MYCA_PLAY_SERVICE_ACCOUNT_JSON = var.play_service_account_json
-    MYCA_TEST_CODE                 = var.test_code
-    MYCA_REVIEWER_CODE             = var.reviewer_code
-    MYCA_STRIPE_SECRET_KEY         = var.stripe_secret_key
-    MYCA_STRIPE_WEBHOOK_SECRET     = var.stripe_webhook_secret
+    MYCA_MODEL_API_KEY              = var.model_api_key
+    MYCA_WAHA_API_KEY               = var.waha_api_key
+    MYCA_WHATSAPP_APP_SECRET        = var.whatsapp_app_secret
+    MYCA_WHATSAPP_ACCESS_TOKEN      = var.whatsapp_access_token
+    MYCA_SMS_TWILIO_TOKEN           = var.sms_provider == "twilio" ? var.sms_secret : ""
+    MYCA_SMS_MSG91_AUTHKEY          = var.sms_provider == "msg91" ? var.sms_secret : ""
+    MYCA_EMAIL_RELAY_TOKEN          = var.email_relay_token
+    MYCA_GSP_TEST_API_KEY           = var.gsp_test_api_key
+    MYCA_GSP_TEST_API_SECRET        = var.gsp_test_api_secret
+    MYCA_GSP_API_KEY                = var.gsp_api_key
+    MYCA_GSP_API_SECRET             = var.gsp_api_secret
+    MYCA_GSP_LIVE_API_KEY           = var.gsp_live_api_key
+    MYCA_GSP_LIVE_API_SECRET        = var.gsp_live_api_secret
+    MYCA_STRIPE_TEST_SECRET_KEY     = var.stripe_test_secret_key
+    MYCA_STRIPE_TEST_WEBHOOK_SECRET = var.stripe_test_webhook_secret
+    MYCA_STRIPE_LIVE_SECRET_KEY     = var.stripe_live_secret_key
+    MYCA_STRIPE_LIVE_WEBHOOK_SECRET = var.stripe_live_webhook_secret
+    MYCA_PLAY_SERVICE_ACCOUNT_JSON  = var.play_service_account_json
+    MYCA_TEST_CODE                  = var.test_code
+    MYCA_REVIEWER_CODE              = var.reviewer_code
+    MYCA_STRIPE_SECRET_KEY          = var.stripe_secret_key
+    MYCA_STRIPE_WEBHOOK_SECRET      = var.stripe_webhook_secret
+    MYCA_US_FILER_API_KEY           = var.us_filer_api_key
+    MYCA_US_FILER_WEBHOOK_SECRET    = var.us_filer_webhook_secret
   } : name => value if nonsensitive(!contains(["", "unset"], trimspace(value))) }
   secrets      = merge(local.generated, local.given, { MYCA_DATABASE_URL = local.database_url }, local.optional_secrets)
   secret_names = sort(nonsensitive(keys(local.secrets)))
@@ -281,6 +291,7 @@ locals {
     MYCA_GOOGLE_CLIENT_IDS         = join(",", var.google_client_ids)
     MYCA_OIDC_ISSUER               = var.oidc_issuer
     MYCA_OIDC_CLIENT_IDS           = join(",", var.oidc_client_ids)
+    MYCA_APPLE_CLIENT_IDS          = join(",", var.apple_client_ids)
     MYCA_DOCUMENT_BUCKET           = google_storage_bucket.documents.name
     MYCA_ENABLE_CHANNEL_PULLS      = var.enable_channel_pulls ? "1" : "0"
     MYCA_INBOUND_EMAIL_DOMAIN      = var.inbound_email_domain
@@ -290,7 +301,7 @@ locals {
     MYCA_WHATSAPP_PHONE_NUMBER_ID  = var.whatsapp_phone_number_id == "unset" ? "" : var.whatsapp_phone_number_id
     MYCA_MOCK_MODE                 = var.provider_mode == "simulated" ? "1" : "0"
     MYCA_PROVIDER_ENV              = contains(["live", "test"], var.provider_mode) ? var.provider_mode : "off"
-    MYCA_GSP_ENV                   = var.gsp_environment
+    MYCA_GSP_ENV                   = contains(["live", "test"], var.provider_mode) ? var.provider_mode : var.gsp_environment
     MYCA_PUBLIC_URL                = var.public_url
     MYCA_SMS_PROVIDER              = var.sms_provider
     MYCA_SMS_TWILIO_SID            = var.sms_twilio_sid
@@ -299,17 +310,22 @@ locals {
     MYCA_EMAIL_RELAY_URL           = var.email_relay_url
     MYCA_EMAIL_FROM                = var.email_from
     MYCA_MODEL                     = var.model_name
-    NVIDIA_NIM_MODEL               = var.model_name
     MYCA_MODEL_BASE_URL            = var.model_base_url
     MYCA_PLAY_PACKAGE              = var.play_package_name
     MYCA_PLAY_PRODUCT_ESSENTIALS   = var.play_product_essentials
     MYCA_PLAY_PRODUCT_PRO          = var.play_product_pro
+    MYCA_PLAY_PRODUCT_ASSURED      = var.play_product_assured
     MYCA_PLAY_PRODUCT_FIRM         = var.play_product_firm
     MYCA_PLAN_PRICES               = var.plan_prices
     MYCA_PLAY_PACKAGE_US           = var.play_package_us
+    MYCA_US_FILER                  = var.us_filer
+    MYCA_US_FILER_BASE_URL         = var.us_filer_base_url
+    MYCA_US_FILER_SESSION_PATH     = var.us_filer_session_path
     MYCA_PLAY_PRODUCT_US_1040      = var.play_product_us_1040
     MYCA_PLAY_PRODUCT_US_PLUS      = var.play_product_us_plus
     MYCA_STRIPE_PRICE_US_PLUS      = var.stripe_price_us_plus
+    MYCA_STRIPE_TEST_PRICE_US_PLUS = var.stripe_test_price_us_plus
+    MYCA_STRIPE_LIVE_PRICE_US_PLUS = var.stripe_live_price_us_plus
     MYCA_US_CHECKOUT_RETURN_URL    = var.us_checkout_return_url
     MYCA_US_EXPERT_REVIEW          = var.us_expert_review ? "1" : "0"
     MYCA_ENVIRONMENT               = var.environment
@@ -523,6 +539,30 @@ resource "google_cloud_scheduler_job" "weekly" {
   depends_on = [google_project_service.apis]
 }
 
+resource "google_cloud_scheduler_job" "sandbox_smoke" {
+  count            = var.provider_mode == "test" ? 1 : 0
+  name             = "${local.name}-sandbox-smoke"
+  region           = var.region
+  description      = "Calls the sandbox of every integration that has test keys (Quicko, NIC e-invoice, Stripe test, WAHA, the model) and logs the result. Runs only while provider_mode is test."
+  schedule         = "15 3 * * *"
+  time_zone        = var.daily_job_time_zone
+  attempt_deadline = "300s"
+
+  retry_config {
+    retry_count = 0
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.api.uri}/v1/jobs/sandbox-smoke"
+    headers = {
+      "x-myca-job-token" = local.secrets["MYCA_JOB_TOKEN"]
+    }
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
 resource "google_cloud_run_v2_service_iam_member" "public" {
   name     = google_cloud_run_v2_service.api.name
   location = var.region
@@ -653,17 +693,53 @@ resource "google_monitoring_alert_policy" "latency" {
   notification_channels = local.alert_channels
 }
 
+resource "google_monitoring_alert_policy" "jobs" {
+  count = var.alert_email != "" ? 1 : 0
+
+  display_name = "MyCA nightly or weekly job failed${local.title_suffix}"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Cloud Scheduler got no success from the API"
+    condition_matched_log {
+      filter = "resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=~\"^${local.name}-(daily|weekly)$\" AND severity>=ERROR"
+    }
+  }
+
+  alert_strategy {
+    auto_close = "86400s"
+    notification_rate_limit {
+      period = "3600s"
+    }
+  }
+
+  documentation {
+    mime_type = "text/markdown"
+    content   = "The scheduler called the API and did not get a 2xx answer, so the daily checks and the retention purge may not have run. A 404 means the job token in the scheduler and in the service differ. See docs/operations/RUNBOOK.md, \"Scheduler alert: a job failed\"."
+  }
+
+  notification_channels = local.alert_channels
+}
+
 resource "google_logging_project_bucket_config" "myca" {
   project        = var.project_id
   location       = "global"
   bucket_id      = "${local.name}-logs"
   retention_days = var.log_retention_days
-  description    = "MyCA request, job and database logs kept for the CERT-In period"
+  description    = "Earlier MyCA log bucket in the global location. No longer written to; remove it once its last logs are older than 180 days."
+}
+
+resource "google_logging_project_bucket_config" "myca_regional" {
+  project        = var.project_id
+  location       = var.region
+  bucket_id      = "${local.name}-logs-${var.region}"
+  retention_days = var.log_retention_days
+  description    = "MyCA request, job and database logs, kept in the country's own region for the DPDP Rules one-year period (longer than CERT-In's 180 days)"
 }
 
 resource "google_logging_project_sink" "myca" {
   name                   = "${local.name}-logs"
-  destination            = "logging.googleapis.com/${google_logging_project_bucket_config.myca.id}"
+  destination            = "logging.googleapis.com/${google_logging_project_bucket_config.myca_regional.id}"
   unique_writer_identity = true
   filter                 = "(resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${local.name}\") OR (resource.type=\"cloudsql_database\" AND resource.labels.database_id=\"${var.project_id}:${local.stem}\") OR (resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=~\"^${local.name}\")"
 }

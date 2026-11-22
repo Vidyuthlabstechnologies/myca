@@ -31,6 +31,19 @@ function key(name) {
   return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+function gstinKey(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function partyKeyOf(invoice) {
+  return invoice.partyAccountId != null && invoice.partyAccountId !== '' ? `account:${invoice.partyAccountId}` : `name:${key(invoice.partyName)}`;
+}
+
+function belongsTo(customer) {
+  if (customer && typeof customer === 'object') return (inv) => partyKeyOf(inv) === customer.partyKey;
+  return (inv) => key(inv.partyName) === key(customer);
+}
+
 function dueOf(invoice) {
   return invoice.dueDate || addDays(invoice.date, DEFAULT_TERMS_DAYS);
 }
@@ -50,7 +63,8 @@ function nextId(state) {
 
 export function payingScore(state, customer, today = localToday()) {
   const since = addDays(today, -HISTORY_DAYS);
-  const paid = (state.invoices || []).filter((inv) => key(inv.partyName) === key(customer) && inv.status !== 'cancelled' && outstandingOf(state, inv) <= 0.005 && lastReceiptDate(inv) >= since);
+  const ofCustomer = belongsTo(customer);
+  const paid = (state.invoices || []).filter((inv) => ofCustomer(inv) && inv.status !== 'cancelled' && outstandingOf(state, inv) <= 0.005 && lastReceiptDate(inv) >= since);
   if (paid.length < 3) return { score: 'new', paid: paid.length, onTime: 0, late: 0 };
   let onTime = 0;
   for (const inv of paid) if (lastReceiptDate(inv) <= dueOf(inv)) onTime += 1;
@@ -63,12 +77,16 @@ const TONE = { good: 'gentle', new: 'neutral', usual: 'neutral', 'repeat-late': 
 const SCORE_WORDS = { good: 'usually pays on time', new: 'has not paid enough invoices yet to judge', usual: 'is sometimes late', 'repeat-late': 'is late more often than not' };
 
 export function remindersSentTo(state, customer) {
+  if (customer && typeof customer === 'object') {
+    return (state.collectionReminders || []).filter((item) => (item.partyKey ? item.partyKey === customer.partyKey : key(item.customer) === key(customer.customer) && (!item.gstin || !customer.gstin || gstinKey(item.gstin) === gstinKey(customer.gstin))));
+  }
   return (state.collectionReminders || []).filter((item) => key(item.customer) === key(customer));
 }
 
 function possiblyPaidSince(state, customer, today) {
   const since = addDays(today, -POSSIBLY_PAID_DAYS);
-  return (state.invoices || []).some((inv) => key(inv.partyName) === key(customer) && paymentsOf(inv).some((r) => r.date && r.date >= since));
+  const ofCustomer = belongsTo(customer);
+  return (state.invoices || []).some((inv) => ofCustomer(inv) && paymentsOf(inv).some((r) => r.date && r.date >= since));
 }
 
 function messageFor(state, customer, rows, total, tone, today) {
@@ -101,14 +119,14 @@ export function collectionDrafts(state, { customer = '', today: asOf } = {}) {
   const byCustomer = new Map();
   for (const inv of state.invoices || []) {
     if (inv.status === 'cancelled' || inv.country === 'US') continue;
-    if (wanted && key(inv.partyName) !== wanted) continue;
+    if (wanted && key(inv.partyName) !== wanted && gstinKey(inv.partyGstin) !== gstinKey(customer)) continue;
     const outstanding = outstandingOf(state, inv);
     if (outstanding <= 0.005) continue;
     const dueDate = dueOf(inv);
     const daysLate = daysBetween(dueDate, today);
     if (daysLate < 1) continue;
-    const k = key(inv.partyName);
-    const bucket = byCustomer.get(k) || { customer: inv.partyName, gstin: inv.partyGstin || '', rows: [] };
+    const k = partyKeyOf(inv);
+    const bucket = byCustomer.get(k) || { customer: inv.partyName, gstin: inv.partyGstin || '', partyKey: k, rows: [] };
     bucket.rows.push({ id: inv.id, date: inv.date, dueDate, daysLate, outstanding });
     byCustomer.set(k, bucket);
   }
@@ -117,16 +135,17 @@ export function collectionDrafts(state, { customer = '', today: asOf } = {}) {
   for (const bucket of byCustomer.values()) {
     bucket.rows.sort((a, b) => a.date.localeCompare(b.date));
     const total = Math.round(bucket.rows.reduce((s, r) => s + r.outstanding, 0) * 100) / 100;
-    if (possiblyPaidSince(state, bucket.customer, today)) {
+    if (possiblyPaidSince(state, bucket, today)) {
       possiblyPaid.push({ customer: bucket.customer, total, invoices: bucket.rows.map((r) => r.id) });
       continue;
     }
-    const history = payingScore(state, bucket.customer, today);
+    const history = payingScore(state, bucket, today);
     const tone = TONE[history.score];
-    const sent = remindersSentTo(state, bucket.customer);
+    const sent = remindersSentTo(state, bucket);
     customers.push({
       customer: bucket.customer,
       gstin: bucket.gstin,
+      partyKey: bucket.partyKey,
       score: history.score,
       scoreWords: SCORE_WORDS[history.score],
       paidInYear: history.paid,
@@ -143,7 +162,7 @@ export function collectionDrafts(state, { customer = '', today: asOf } = {}) {
   if (wanted && !customers.length) {
     const held = possiblyPaid[0];
     if (held) return { ok: false, error: 'POSSIBLY_PAID', customer: held.customer, total: held.total };
-    const known = (state.invoices || []).some((inv) => key(inv.partyName) === wanted);
+    const known = (state.invoices || []).some((inv) => key(inv.partyName) === wanted || gstinKey(inv.partyGstin) === gstinKey(customer));
     return { ok: false, error: known ? 'NOTHING_OVERDUE' : 'CUSTOMER_NOT_FOUND', customer };
   }
   return { ok: true, data: { asOf: today, customers, possiblyPaid, total: Math.round(customers.reduce((s, c) => s + c.total, 0) * 100) / 100, channel: 'whatsapp' } };
@@ -154,6 +173,7 @@ export function planCollectionReminder(state, args = {}) {
   if (!customer) return { ok: false, error: 'CUSTOMER_REQUIRED' };
   const drafts = collectionDrafts(state, { customer, today: args.today });
   if (!drafts.ok) return drafts;
+  if (drafts.data.customers.length > 1) return { ok: false, error: 'CUSTOMER_AMBIGUOUS', customer, gstins: drafts.data.customers.map((row) => row.gstin), hint: 'More than one customer has this name; give the GSTIN of the one to remind.' };
   const draft = drafts.data.customers[0];
   const message = String(args.message ?? draft.message).trim();
   if (!message) return { ok: false, error: 'EMPTY_MESSAGE' };
@@ -170,6 +190,7 @@ export function recordCollectionReminder(state, args = {}) {
     date: plan.today,
     customer: plan.draft.customer,
     gstin: plan.draft.gstin,
+    partyKey: plan.draft.partyKey,
     invoiceIds: plan.draft.invoices.map((row) => row.id),
     total: plan.draft.total,
     tone: plan.draft.tone,

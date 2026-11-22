@@ -43,8 +43,14 @@ export function decodeWord(value) {
 }
 
 function base64Bytes(text) {
-  const clean = String(text).replace(/[^A-Za-z0-9+/=]/g, '');
-  const bin = atob(clean);
+  const kept = String(text).replace(/[^A-Za-z0-9+/]/g, '');
+  const clean = kept.length % 4 === 1 ? kept.slice(0, -1) : kept;
+  let bin = '';
+  try {
+    bin = atob(clean);
+  } catch {
+    bin = '';
+  }
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i);
   return out;

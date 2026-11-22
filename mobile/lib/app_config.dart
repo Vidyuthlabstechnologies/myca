@@ -29,5 +29,13 @@ class AppConfig {
 
 String editionFor(String? flavor, {String defined = const String.fromEnvironment('MYCA_EDITION')}) {
   final pick = (defined.isNotEmpty ? defined : flavor ?? '').toUpperCase();
-  return pick == 'US' ? 'US' : 'IN';
+  return normalEdition(pick);
 }
+
+String normalEdition(String edition) => switch (edition.toUpperCase()) {
+  'US' => 'US',
+  'MY' => 'MY',
+  'GB' || 'UK' => 'GB',
+  'AE' || 'UAE' => 'AE',
+  _ => 'IN',
+};

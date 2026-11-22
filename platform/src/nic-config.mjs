@@ -3,6 +3,10 @@ import { join } from 'node:path';
 import { publicEncrypt, constants, createPublicKey, createHash } from 'node:crypto';
 import { encryptSecret, decryptSecret, vaultBackend } from './credential-vault.mjs';
 import { providerContext } from './provider-context.mjs';
+import { rcmSupplyType, selfInvoiceById } from './reverse-charge.mjs';
+import { localToday } from './dates.mjs';
+import { aatoFor, aatoWords, hsnDigitsNeeded, irnReportingWindow } from './aato.mjs';
+import { uqcOf } from './gstr1-tables.mjs';
 
 export const GOVT_SITES = {
   gstHome: 'https://www.gst.gov.in/',
@@ -204,6 +208,7 @@ function nicDate(iso) {
 }
 
 const PIN = /\b([1-9][0-9]{5})\b/;
+const DOC_NUMBER = /^[A-Za-z1-9][A-Za-z0-9/-]{0,15}$/;
 const IRN_FROM = '2021-10-01';
 const CANCEL_HOURS = 24;
 
@@ -222,14 +227,24 @@ function hsnOf(line) {
 }
 
 export function nicSupplyType(inv) {
+  if (inv?.kind === 'purchase') return rcmSupplyType(inv);
   if (inv?.export) return inv.export.withTax ? 'EXPWP' : 'EXPWOP';
-  return String(inv?.partyGstin || '').trim() ? 'B2B' : '';
+  if (!String(inv?.partyGstin || '').trim()) return '';
+  return ['SEZWP', 'SEZWOP', 'DEXP'].includes(inv?.supplyType) ? inv.supplyType : 'B2B';
 }
 
-export function nicPayloadProblems(company, inv, party = null, today = new Date().toISOString().slice(0, 10)) {
+export function nicPayloadProblems(company, inv, party = null, today = localToday()) {
   const problems = [];
   const supply = nicSupplyType(inv);
+  if (inv?.kind === 'purchase' && !supply) {
+    problems.push(inv.reverseCharge
+      ? { code: 'RCM_SUPPLIER_INVOICES', words: 'The supplier is registered, so the supplier issues the invoice for this reverse charge bill; you do not self-invoice it.' }
+      : { code: 'NOT_A_SELF_INVOICE', words: 'A purchase bill gets an IRN only when it is a reverse charge self-invoice (from an unregistered supplier or an import of services).' });
+    return problems;
+  }
   if (!supply) problems.push({ code: 'B2C_NO_IRN', words: 'An invoice to a buyer without a GSTIN gets no IRN: e-invoicing covers B2B, export and SEZ supplies only.' });
+  const docNo = String((inv?.kind === 'purchase' ? inv.selfInvoiceNo : inv?.id) ?? '');
+  if (!DOC_NUMBER.test(docNo)) problems.push({ code: 'DOC_NUMBER_INVALID', words: `The IRP takes a document number of up to 16 letters, digits, / and -, not starting with 0, / or -; ${docNo || 'this one'} is not one.` });
   const date = String(inv?.date || '');
   if (date && date < IRN_FROM) problems.push({ code: 'DOCUMENT_TOO_OLD', words: 'The IRP takes documents dated 1 October 2021 or later.' });
   if (date && date > today) problems.push({ code: 'FUTURE_DOCUMENT', words: 'The document is dated in the future.' });
@@ -237,7 +252,11 @@ export function nicPayloadProblems(company, inv, party = null, today = new Date(
   if (missing.length) problems.push({ code: 'HSN_REQUIRED', lines: missing.map((line) => line.at), words: `Line ${missing.map((line) => line.at).join(', ')} needs an HSN or SAC code of 4, 6 or 8 digits (6 or more when the yearly turnover is above 5 crore).` });
   if (!sellerPin(company)) problems.push({ code: 'SELLER_PIN_REQUIRED', words: 'Your business PIN code is not on file. Say "business address: ..." with the 6-digit PIN.' });
   if (!String(company?.address || '').trim()) problems.push({ code: 'SELLER_ADDRESS_REQUIRED', words: 'Your business address is not on file. Say "business address: ..." with the 6-digit PIN.' });
-  if (supply === 'B2B' && !pinIn(party?.address)) problems.push({ code: 'BUYER_PIN_REQUIRED', words: `${inv.partyName || 'The buyer'}'s address with its PIN code is not on file. Say "address for ${inv.partyName || 'the customer'}: ..." with the PIN.` });
+  if (supply === 'RCMDOM' && !pinIn(inv.partyAddress)) problems.push({ code: 'SUPPLIER_PIN_REQUIRED', words: `${inv.partyName || 'The supplier'}'s address with its PIN code is not on the bill. Record the bill again with the supplier's address.` });
+  if (supply === 'RCMIMP' && !/^[A-Z]{2}$/.test(String(inv.reverseCharge?.originCountry || ''))) problems.push({ code: 'ORIGIN_COUNTRY_REQUIRED', words: 'A reverse charge import needs the supplier\'s country code (for example US or SG).' });
+  if (supply === 'RCMIMP' && String(inv.reverseCharge?.originCountry || '') === 'IN') problems.push({ code: 'ORIGIN_COUNTRY_INDIA', words: 'The origin country of a reverse charge import must be outside India.' });
+  if (supply === 'RCMIMP' && (inv.lines || []).some((line) => !hsnOf(line).startsWith('99'))) problems.push({ code: 'RCM_IMPORT_SERVICES_ONLY', words: 'A reverse charge import covers services only; every line needs a SAC starting 99.' });
+  if (['B2B', 'SEZWP', 'SEZWOP', 'DEXP'].includes(supply) && !pinIn(party?.address)) problems.push({ code: 'BUYER_PIN_REQUIRED', words: `${inv.partyName || 'The buyer'}'s address with its PIN code is not on file. Say "address for ${inv.partyName || 'the customer'}: ..." with the PIN.` });
   if (inv?.export && !/^[A-Z]{2}$/.test(String(inv.export.countryCode || '')) ) problems.push({ code: 'EXPORT_COUNTRY_REQUIRED', words: 'An export e-invoice needs the buyer\'s country code (for example US or AE).' });
   if (inv?.export && String(inv.export.countryCode || '').toUpperCase() === 'IN') problems.push({ code: 'EXPORT_COUNTRY_INDIA', words: 'An export buyer\'s country cannot be India.' });
   return problems;
@@ -248,8 +267,26 @@ export function nicPartyFor(state, inv) {
   return parties.find((party) => (inv?.partyAccountId && party.accountId === inv.partyAccountId)) || parties.find((party) => party.name === inv?.partyName) || null;
 }
 
+export function irnTurnoverProblems(state, inv, today = localToday()) {
+  const problems = [];
+  const window = irnReportingWindow(state, inv, today);
+  if (window.status === 'closed') problems.push({ code: 'IRN_REPORTING_WINDOW_PASSED', lastDay: window.lastDay, words: `${inv.id} is dated ${inv.date}; with ${aatoWords(window.aato)}, at or above ₹${window.thresholdRupees.toLocaleString('en-IN')}, the IRP takes a document only within ${window.days} days of its date (last day ${window.lastDay}). It cannot get an IRN now: talk to your CA about issuing a fresh document.` });
+  const need = hsnDigitsNeeded(aatoFor(state, inv?.date).rupees, inv?.date || today);
+  if (need && need.digits > 4) {
+    const short = (inv?.lines || []).map((line, at) => ({ at: at + 1, hsn: hsnOf(line) })).filter((line) => /^[0-9]+$/.test(line.hsn) && line.hsn.length < need.digits);
+    if (short.length) problems.push({ code: 'HSN_DIGITS_FOR_TURNOVER', lines: short.map((line) => line.at), need: need.digits, words: `Line ${short.map((line) => line.at).join(', ')} needs an HSN or SAC code of at least ${need.digits} digits: aggregate turnover in the preceding year is above ₹5 crore (Notification 78/2020-Central Tax).` });
+  }
+  return problems;
+}
+
+export function irnWarnings(state, inv, today = localToday()) {
+  const window = irnReportingWindow(state, inv, today);
+  if (window.status !== 'unknown') return [];
+  return [`${inv.id} is dated ${inv.date}, more than ${window.days} days ago, and ${aatoWords(window.aato)}. If aggregate turnover is ₹${window.thresholdRupees.toLocaleString('en-IN')} or more the IRP will refuse it (last day was ${window.lastDay}). Enter last year's turnover in the business profile.`];
+}
+
 export function nicPayloadRefusal(state, inv) {
-  const problems = nicPayloadProblems(state.company || {}, inv, nicPartyFor(state, inv));
+  const problems = [...nicPayloadProblems(state.company || {}, inv, nicPartyFor(state, inv)), ...irnTurnoverProblems(state, inv)];
   return problems.length ? { ok: false, error: 'IRN_PAYLOAD_INVALID', invoiceId: inv.id, problems, hint: problems.map((problem) => problem.words).join(' ') } : null;
 }
 
@@ -262,7 +299,74 @@ export function nicCancelProblem(inv, now = new Date()) {
   return { code: 'IRN_CANCEL_WINDOW_PASSED', words: 'An IRN can be cancelled on the IRP only within 24 hours of generation. Issue a credit note instead.' };
 }
 
+function selfInvoiceToNicPayload(company, bill) {
+  const imported = bill.reverseCharge.kind === 'import';
+  const ownState = bill.registrationState || company.state;
+  const ownAddress = String(company.address || '');
+  const ownLoc = String(company.city || '').trim() || ownAddress.split(',').map((part) => part.trim()).filter(Boolean).pop() || '';
+  const supplierAddress = String(bill.partyAddress || '').trim();
+  const supplierState = imported ? '96' : bill.partyState || ownState;
+  const origin = imported ? String(bill.reverseCharge.originCountry || '').toUpperCase() : '';
+  const items = (bill.lines || []).map((l, i) => ({
+    SlNo: String(i + 1),
+    IsServc: hsnOf(l).startsWith('99') ? 'Y' : 'N',
+    HsnCd: hsnOf(l),
+    Qty: Number(l.qty || 1),
+    Unit: hsnOf(l).startsWith('99') ? 'OTH' : String(l.unit ?? '').trim() ? uqcOf(l.unit) : 'NOS',
+    UnitPrice: Number(l.rate || 0),
+    TotAmt: Number(l.taxable || 0),
+    Discount: 0,
+    PreTaxVal: Number(l.taxable || 0),
+    AssAmt: Number(l.taxable || 0),
+    GstRt: Number(l.gstRate || 0),
+    IgstAmt: Number(l.igst || 0),
+    CgstAmt: Number(l.cgst || 0),
+    SgstAmt: Number(l.sgst || 0),
+    ...(l.cess != null ? { CesRt: Number(l.cessRate || 0), CesAmt: Number(l.cessAdval || 0), CesNonAdvlAmt: Number(l.cessNonAdval || 0) } : {}),
+    ...(origin ? { OrgCntry: origin } : {}),
+    TotItemVal: Number(l.amount || 0),
+  }));
+  const tax = Number(bill.cgst || 0) + Number(bill.sgst || 0) + Number(bill.igst || 0) + Number(bill.cess || 0);
+  return {
+    Version: '1.1',
+    TranDtls: { TaxSch: 'GST', SupTyp: imported ? 'RCMIMP' : 'RCMDOM', RegRev: 'Y', IgstOnIntra: 'N' },
+    DocDtls: { Typ: 'INV', No: String(bill.selfInvoiceNo).slice(0, 16), Dt: nicDate(bill.date) },
+    SellerDtls: {
+      Gstin: 'URP',
+      LglNm: bill.partyName,
+      Addr1: imported ? (supplierAddress.slice(0, 100) || bill.partyName) : supplierAddress.slice(0, 100),
+      Loc: (supplierAddress.split(',').map((part) => part.trim()).filter(Boolean).pop()?.replace(PIN, '').trim() || origin || bill.partyName).slice(0, 50),
+      Pin: imported ? 999999 : pinIn(supplierAddress),
+      Stcd: supplierState,
+    },
+    BuyerDtls: {
+      Gstin: bill.registrationGstin || company.gstin,
+      LglNm: company.name,
+      Pos: ownState,
+      Addr1: ownAddress.slice(0, 100),
+      Loc: ownLoc.slice(0, 50),
+      Pin: sellerPin(company),
+      Stcd: ownState,
+    },
+    ItemList: items,
+    ValDtls: {
+      AssVal: Number(bill.taxable || 0),
+      CgstVal: Number(bill.cgst || 0),
+      SgstVal: Number(bill.sgst || 0),
+      IgstVal: Number(bill.igst || 0),
+      ...(bill.cess != null ? { CesVal: Number(bill.cess || 0) } : {}),
+      TotInvVal: Math.round((Number(bill.taxable || 0) + tax) * 100) / 100,
+    },
+  };
+}
+
+export function nicDocumentById(state, id) {
+  const key = String(id ?? '').trim();
+  return [...(state?.invoices || []), ...(state?.creditNotes || []), ...(state?.debitNotes || [])].find((doc) => doc.id === key) || selfInvoiceById(state, key);
+}
+
 export function invoiceToNicPayload(company, inv, party = null) {
+  if (rcmSupplyType(inv)) return selfInvoiceToNicPayload(company, inv);
   const date = nicDate(inv.date);
   const docType = nicDocType(inv.id);
   const exported = inv.export || null;
@@ -276,16 +380,17 @@ export function invoiceToNicPayload(company, inv, party = null) {
     IsServc: hsnOf(l).startsWith('99') ? 'Y' : 'N',
     HsnCd: hsnOf(l),
     Qty: Number(l.qty || 1),
-    Unit: hsnOf(l).startsWith('99') ? 'OTH' : 'NOS',
+    Unit: hsnOf(l).startsWith('99') ? 'OTH' : String(l.unit ?? '').trim() ? uqcOf(l.unit) : 'NOS',
     UnitPrice: Number(l.rate || 0),
-    TotAmt: Number(l.taxable || 0),
-    Discount: 0,
+    TotAmt: Number(l.grossTaxable ?? l.taxable ?? 0),
+    Discount: Number(l.loyaltyDiscount || 0),
     PreTaxVal: Number(l.taxable || 0),
     AssAmt: Number(l.taxable || 0),
     GstRt: Number(l.gstRate || 0),
     IgstAmt: Number(l.igst || 0),
     CgstAmt: Number(l.cgst || 0),
     SgstAmt: Number(l.sgst || 0),
+    ...(l.cess != null ? { CesRt: Number(l.cessRate || 0), CesAmt: Number(l.cessAdval || 0), CesNonAdvlAmt: Number(l.cessNonAdval || 0) } : {}),
     TotItemVal: Number(l.amount || 0),
   }));
   return {
@@ -316,6 +421,7 @@ export function invoiceToNicPayload(company, inv, party = null) {
       CgstVal: Number(inv.cgst || 0),
       SgstVal: Number(inv.sgst || 0),
       IgstVal: Number(inv.igst || 0),
+      ...(inv.cess != null ? { CesVal: Number(inv.cess || 0) } : {}),
       TotInvVal: Number(inv.total || 0),
     },
     ...(exported ? {
@@ -338,7 +444,7 @@ export function generateMockIrnPayload(company, inv) {
   const qrData = {
     SellerGstin: company?.gstin || '27AABCN1234F1ZW',
     BuyerGstin: inv?.partyGstin || 'URP',
-    DocNo: inv?.id || 'INV-0001',
+    DocNo: inv?.selfInvoiceNo || inv?.id || 'INV-0001',
     DocTyp: nicDocType(inv?.id),
     DocDt: inv?.date || '2026-08-05',
     TotInvVal: inv?.total || 0,

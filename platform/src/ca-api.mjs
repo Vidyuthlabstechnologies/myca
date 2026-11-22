@@ -24,6 +24,7 @@ function digestBook(b) {
     imports: b.imports || [],
     imsDecisions: b.imsDecisions || {},
     supplierTerms: b.supplierTerms || {},
+    ...(b.loyalty?.settings || b.loyalty?.entries?.length ? { loyalty: b.loyalty } : {}),
     ledgerClock: b.ledger?.clock?.toString?.() || '0',
     ledgerChecksum: b.ledger?.lastChecksum || 0,
   };

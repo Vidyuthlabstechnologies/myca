@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../cloud/cloud_session.dart';
+import '../india/india_strings.dart';
 import '../migration.dart';
 import 'invitation_cards.dart';
 import '../theme.dart';
+import '../uae/uae_strings.dart';
 import 'us/us_setup_screen.dart';
+import '../uk/uk_setup_screen.dart';
 
 class BusinessSetupScreen extends StatefulWidget {
   const BusinessSetupScreen({super.key});
@@ -53,11 +56,11 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
     final gstin = _gstin.text.trim().toUpperCase();
     final shape = gstinShapeError(gstin);
     if (name.isEmpty) {
-      return setState(() => _error = 'Enter your business name.');
+      return setState(() => _error = inText(context, 'Enter your business name.'));
     }
     if (shape != null) return setState(() => _error = shape);
     if (gstin.isEmpty && _state == null) {
-      return setState(() => _error = 'Choose the state your business is in.');
+      return setState(() => _error = inText(context, 'Choose the state your business is in.'));
     }
     final state = AppScope.of(context);
     setState(() {
@@ -76,6 +79,82 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _createUae() async {
+    final s = UaeStrings.of(context);
+    final name = _name.text.trim();
+    if (name.isEmpty) return setState(() => _error = s.needBusinessName);
+    final state = AppScope.of(context);
+    setState(() {
+      _busy = true;
+      _error = '';
+    });
+    try {
+      await state.cloud!.createBusiness(name: name, country: 'AE');
+      await state.refresh();
+    } on MycaApiException catch (err) {
+      if (mounted) setState(() => _error = err.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _uaeSetup(BuildContext context, TextTheme text) {
+    final s = UaeStrings.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        actions: [
+          TextButton(onPressed: AppScope.of(context).signOut, child: Text(s.signOut)),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          children: [
+            FutureBuilder<Me>(
+              future: _me,
+              builder: (context, loaded) {
+                final invitations = loaded.data?.invitations ?? const <InvitationRef>[];
+                if (invitations.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    InvitationCards(invitations: invitations, onChanged: _answered),
+                    const SizedBox(height: 10),
+                    const Divider(),
+                    const SizedBox(height: 18),
+                  ],
+                );
+              },
+            ),
+            Text(s.setupTitle, style: text.headlineMedium),
+            const SizedBox(height: 6),
+            Text(s.setupLine, style: text.bodyLarge?.copyWith(color: Palette.muted)),
+            const SizedBox(height: 24),
+            TextField(
+              key: const Key('setup.uae.name'),
+              controller: _name,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(labelText: s.businessName),
+            ),
+            if (_error.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+            ],
+            const SizedBox(height: 24),
+            FilledButton(
+              key: const Key('setup.uae.continue'),
+              onPressed: _busy ? null : _createUae,
+              child: Text(_busy ? s.settingUp : s.continueLabel),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _tryDemo() async {
@@ -98,13 +177,15 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     if (AppScope.of(context).edition == 'US') return const UsSetupScreen();
+    if (AppScope.of(context).edition == 'AE') return _uaeSetup(context, text);
+    if (AppScope.of(context).edition == 'GB') return const UkSetupScreen();
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         actions: [
           TextButton(
             onPressed: AppScope.of(context).signOut,
-            child: const Text('Sign out'),
+            child: Text(inText(context, 'Sign out')),
           ),
           const SizedBox(width: 8),
         ],
@@ -121,7 +202,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('You have been invited', style: text.headlineMedium),
+                    Text(inText(context, 'You have been invited'), style: text.headlineMedium),
                     const SizedBox(height: 14),
                     InvitationCards(invitations: invitations, onChanged: _answered),
                     const SizedBox(height: 10),
@@ -131,10 +212,10 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                 );
               },
             ),
-            Text('Tell us about the business', style: text.headlineMedium),
+            Text(inText(context, 'Tell us about the business'), style: text.headlineMedium),
             const SizedBox(height: 6),
             Text(
-              'This goes on your invoices and returns.',
+              inText(context, 'This goes on your invoices and returns.'),
               style: text.bodyLarge?.copyWith(color: Palette.muted),
             ),
             const SizedBox(height: 24),
@@ -142,15 +223,15 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
               controller: _name,
               autofocus: true,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Business name'),
+              decoration: InputDecoration(labelText: inText(context, 'Business name')),
             ),
             const SizedBox(height: 14),
             TextField(
               controller: _gstin,
               textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'GSTIN',
-                helperText: 'Leave empty if you are not registered for GST',
+                helperText: inText(context, 'Leave empty if you are not registered for GST'),
               ),
               onChanged: (_) => setState(() {}),
             ),
@@ -164,9 +245,9 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                     initialValue: _state,
                     isExpanded: true,
                     decoration: InputDecoration(
-                      labelText: 'State',
+                      labelText: inText(context, 'State'),
                       helperText: loaded.hasError
-                          ? 'Could not load the list of states.'
+                          ? inText(context, 'Could not load the list of states.')
                           : null,
                     ),
                     items: [
@@ -185,7 +266,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
               const SizedBox(height: 12),
               Text(
                 _error,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Palette.danger,
                   fontWeight: FontWeight.w500,
                 ),
@@ -194,17 +275,17 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _busy ? null : _create,
-              child: Text(_busy ? 'Setting up…' : 'Continue'),
+              child: Text(_busy ? inText(context, 'Setting up…') : inText(context, 'Continue')),
             ),
             const SizedBox(height: 10),
             OutlinedButton(
               key: const Key('setup.tryDemo'),
               onPressed: _busy ? null : _tryDemo,
-              child: const Text('Try a demo business first'),
+              child: Text(inText(context, 'Try a demo business first')),
             ),
             const SizedBox(height: 6),
             Text(
-              'A made-up trader with three months of invoices, purchases and expenses. It cannot reach the GST portal, banks or other people, and you can delete it any time.',
+              inText(context, 'A made-up trader with three months of invoices, purchases and expenses. It cannot reach the GST portal, banks or other people, and you can delete it any time.'),
               style: text.bodySmall?.copyWith(color: Palette.muted),
             ),
           ],

@@ -138,6 +138,26 @@ const result = await performExternalAction(state, { actionId: 'myinvois_status',
 In tests, hand the gate a fake with `setChannelClient(new ChannelClient({ fetchFn }))` from
 `channel-client.mjs`; that client's `fetchFn` is the one door every country call leaves by.
 
+### Provider calls on the hosted service
+
+The hosted API runs every request with provider calls switched off. A write tool whose confirm
+must reach its government (an HMRC VAT return, a quarterly update) says so in the manifest:
+
+```js
+{ name: 'submit_gb_vat_return', access: 'write', providerCalls: true, clientAddress: true, schema: schema({ device, ... }) }
+```
+
+- `providerCalls: true` (write tools only, and the manifest must declare `externalActions`): the
+  API confirms the tool at the service's own provider setting, so `MYCA_PROVIDER_ENV=test`
+  reaches the sandbox and `live` the government, still through the gate and its approval rules.
+- `clientAddress: true` (the tool takes a `device` argument): the API adds the address the
+  request came from as `device.ipAddress` when the tool is proposed, for fraud prevention data
+  such as HMRC's `Gov-Client-Public-IP`.
+
+Read tools never reach a provider on the hosted service. A country that needs fresh data from
+its government pulls it with a confirmed write (the UK's `sync_gb_hmrc`) into its slice of the
+book, and its read tools answer from there.
+
 ## State
 
 A country engine adds no top-level keys to the book. It keeps its data in named slices of

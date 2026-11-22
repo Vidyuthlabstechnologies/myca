@@ -69,6 +69,7 @@ export function decryptSecret(record) {
         'aes-256-gcm',
         machineKey(Buffer.from(record.salt, 'base64')),
         Buffer.from(record.iv, 'base64'),
+        { authTagLength: 16 },
       );
       decipher.setAuthTag(Buffer.from(record.tag, 'base64'));
       return Buffer.concat([decipher.update(Buffer.from(record.data, 'base64')), decipher.final()]).toString('utf8');

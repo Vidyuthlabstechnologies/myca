@@ -124,4 +124,15 @@ export const RULES = [
     source: `Internal Revenue Code section 1401(a) 12.4 per cent old-age, survivors and disability part and 1401(b)(1) 2.9 per cent hospital insurance part of net earnings from self-employment; 1401(b)(2) additional 0.9 per cent above two hundred thousand dollars (single, head of household), two hundred fifty thousand (joint) and one hundred twenty-five thousand (married filing separately); 1402(a)(12) reduces net earnings by 7.65 per cent; 1402(b)(2) no tax when net earnings are under four hundred dollars; 164(f) one half deductible. The rates have not changed since 1990 and registry coverage starts 1 January 2020; the Social Security wage base comes from us.federal.fica.social-security (${NOT_REREAD_IRS})`,
     attestations: []
   },
+  {
+    id: 'us.federal.business-meals',
+    value: { deductibleBasisPoints: 5000 },
+    basis: 'share_of_business_food_and_beverage_expense_that_is_deductible_on_schedule_c_line_24b',
+    effectiveFrom: '2023-01-01',
+    effectiveTo: null,
+    act: 'IRC',
+    section: '274(n)(1)',
+    source: `Internal Revenue Code section 274(n)(1): the deduction for food or beverage expenses is limited to 50 per cent of the amount otherwise allowable; the temporary 100 per cent rule for restaurant meals in 274(n)(2)(D) applied only to amounts paid in 2021 and 2022. Schedule C instructions, line 24b, deductible meals (${NOT_REREAD_IRS})`,
+    attestations: []
+  },
 ];

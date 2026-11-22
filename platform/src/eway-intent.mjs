@@ -1,6 +1,6 @@
 import { isNegated, isQuestion, normalizeChat } from './intent.mjs';
 
-const INVOICE = /\b(INV-\d{4,})\b/i;
+const INVOICE = /\b(INV-(?:[A-Z]{2}\d{4}-)?\d{4,})\b/i;
 const VEHICLE = /\b(?:vehicle|truck|lorry|tempo|van)\s*(?:no\.?|number)?\s*[:#-]?\s*([A-Z]{2}\s?[0-9]{1,2}\s?[A-Z]{0,3}\s?[0-9]{4})\b/i;
 const BARE_VEHICLE = /\b([A-Z]{2}[0-9]{1,2}[A-Z]{1,3}[0-9]{4})\b/;
 const DISTANCE = /\b(\d{1,4})\s*(?:km|kms|kilomet(?:er|re)s?)\b/i;
@@ -15,6 +15,10 @@ function reply(text) {
 
 export function planTransportFromChat(text) {
   const raw = normalizeChat(text);
+  const asked = raw.match(INVOICE);
+  if (asked && /\be-?way\b/i.test(raw) && !DISTANCE.test(raw) && !isNegated(raw) && (isQuestion(raw) || /\b(?:status|needed|required)\b/i.test(raw))) {
+    return { kind: 'tool', name: 'eway_bill_status', args: { invoiceId: asked[1].toUpperCase() } };
+  }
   if (!/\b(?:transport|vehicle|truck|lorry|e-?way|goes\s+by|by\s+(?:road|rail|train|air|flight|ship|sea))\b/i.test(raw) || isQuestion(raw) || isNegated(raw)) return null;
   const invoice = raw.match(INVOICE);
   if (!invoice) {

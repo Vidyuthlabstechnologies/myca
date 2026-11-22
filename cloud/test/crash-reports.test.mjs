@@ -86,3 +86,11 @@ test('server errors are recorded scrubbed, and reports older than 90 days are de
   assert.deepEqual(await crashes.record({ reports: [{ kind: 'async', type: 'FormatException', stack: STACK }] }), { ok: true, accepted: 1, refused: 0 });
   assert.deepEqual((await rows()).map((row) => row.error_type), ['FormatException']);
 });
+
+test('control characters that could redraw an operator terminal are dropped from a report', () => {
+  const out = cleanCrashReport({ kind: 'flutter', type: 'StateError', message: 'Bad\u001b[2J\u001b]0;owned\u0007 state\u009b31m here now', stack: '#0 f (package:myca/a.dart:1:1)\r\n#1 \u001b[1Ag (package:myca/b.dart:2:2)\u0000', appVersion: '1.0.0+1' });
+  assert.equal(out.ok, true);
+  assert.equal(out.report.message, 'Bad[2J]0;owned state31m herenow');
+  assert.equal(out.report.stack, '#0 f (package:myca/a.dart:1:1)\n#1 [1Ag (package:myca/b.dart:2:2)');
+  assert.doesNotMatch(`${out.report.message}${out.report.stack}`, /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/);
+});

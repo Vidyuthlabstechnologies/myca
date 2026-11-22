@@ -96,6 +96,55 @@ requests; this file records what they established and what still blocks a real f
   penalty). 1040-NR is not detected: the return has no residency input yet.
   Source: `platform/src/us-1040.mjs` (US engine pull request #223)
 
+
+## Minimum QBI deduction (IRC 199A(i), from 2026)
+
+- Public Law 119-21 section 70105 added IRC 199A(i) for tax years beginning after 2025: when
+  aggregate QBI from active trades or businesses (material participation, IRC 469(h)) is at least
+  $1,000, the QBI deduction is the greater of the computed amount or $400. The figures are indexed
+  only after 2026, so Rev. Proc. 2025-32 has no 2026 change; 2027 is $415 with a $1,030 floor
+  (Rev. Proc. 2026-35). Rule record `us.federal.individual.qbi-minimum`.
+- The engine follows draft 2026 Form 8995: line 15 is the smaller of lines 10 and 14, line 16 the
+  minimum, line 17 the greater of the two (to Form 1040 line 13a) and line 18 the loss carryforward.
+  The minimum applies even when the taxable income limit on line 14 is lower.
+- The interview asks `qbiMaterialParticipation` for 2026 returns with business income. Answered no,
+  there is no minimum; unanswered, the review shows warning `QBI_MINIMUM_NEEDS_ANSWER` only when the
+  minimum would raise the deduction. Above the Form 8995 threshold the return still needs 8995-A.
+  Sources: https://www.law.cornell.edu/uscode/text/26/199A,
+  https://www.irs.gov/pub/irs-drop/rp-25-32.pdf, https://www.irs.gov/pub/irs-dft/f8995--dft.pdf
+
+## Engine edge cases checked (2026-11-14)
+
+- Qualifying surviving spouse uses the joint brackets, standard deduction, capital gain bands,
+  NIIT and QBI thresholds. Every threshold the statute gives for a "joint return" uses the
+  non-joint amount instead: child tax credit phase-out $200,000 (Schedule 8812 instructions:
+  "Married filing jointly $400,000, all other filing statuses $200,000"; IRC 24(b)(2)), Social
+  Security base $25,000 (IRC 86(c)), education credits, student loan interest, Schedule 1-A,
+  the 2026 non-itemizer charity amount and the $300 foreign tax election.
+- Schedule 1-A (final 2025 form): tips (line 11) and overtime (line 19) divide the excess MAGI
+  by $1,000 and round down; car loan interest (line 28) rounds up; line 38 adds lines 13, 21,
+  30 and 37 and goes to Form 1040 line 13b. Tips and overtime need an SSN valid for work for
+  the filer and, on a joint return, the spouse; the senior deduction is per person.
+  Source: https://www.irs.gov/pub/irs-pdf/f1040s1a.pdf
+- From 2025 the child tax credit needs an SSN valid for work for the filer (on a joint return
+  one spouse is enough); the child can still give the $500 other-dependent credit. Schedule
+  8812 line 21 adds Form 8959 line 7 and half of line 13 to W-2 boxes 4 and 6 and subtracts
+  Form 8959 line 22. Source: https://www.irs.gov/instructions/i1040s8
+- 2026 figures re-read from Rev. Proc. 2025-32 (https://www.irs.gov/pub/irs-drop/rp-25-32.pdf)
+  match the rule records: EIC, refundable CTC $1,700, educator expenses $350, section 199A
+  thresholds, student loan interest range, capital gain bands, standard deduction.
+- The separated-spouse EIC rule on a separate return needs a qualifying child (IRC 32(d)(2)).
+- Excess Social Security (Schedule 3 line 11) counts at most the yearly maximum per employer.
+- A code 1 Form 1099-R with no exception carries the 10% tax on Schedule 2 line 8 (IRC
+  72(t)(1)); an exception or a J or S code needs Form 5329, which blocks filing.
+- Also blocking (`required: true`): Form 1116 above the election limit, Form 8283 above $500 of
+  non-cash gifts when itemizing, mortgage debt above the Pub. 936 limit when itemizing, and from
+  2026 the section 68 reduction when itemized deductions reach the 37% bracket.
+- Still not computed and not blocking: AMT (a warning above $200,000 AGI), investment expenses
+  against net investment income, and where the final 2026 Form 1040 puts the non-itemizer
+  charity deduction (counted in line 13b until the form is out).
+  Source: `platform/test/us-1040-edge.test.mjs`
+
 ## Open questions
 
 - Who the US-resident Responsible Official is.

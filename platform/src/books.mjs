@@ -39,6 +39,7 @@ export function newBook(company = {}) {
     invoiceSeq: 0,
     invoiceSeqByFy: {},
     billSeq: 0,
+    selfInvoiceSeq: 0,
     transferSeq: 100000,
     imports: [],
     lockThrough: '',
@@ -96,9 +97,13 @@ export function newBook(company = {}) {
     channels: {},
     tcsStatements: [],
     tdsCreditStatements: [],
+    catalogue: {},
     skus: {},
     stockMoves: [],
     inventoryValuations: [],
+    offlineSeries: [],
+    loyalty: { settings: null, entries: [], seq: 0 },
+    inventoryCosting: null,
     portalSaves: {},
     gstr3bPortal: {},
     tdsFvuJobs: [],
@@ -137,6 +142,7 @@ export function serializeBook(book) {
     invoiceSeq: book.invoiceSeq || 0,
     invoiceSeqByFy: book.invoiceSeqByFy || {},
     billSeq: book.billSeq || 0,
+    selfInvoiceSeq: book.selfInvoiceSeq || 0,
     transferSeq: book.transferSeq || 100000,
     imports: book.imports || [],
     lockThrough: book.lockThrough || '',
@@ -191,9 +197,13 @@ export function serializeBook(book) {
     channels: book.channels || {},
     tcsStatements: book.tcsStatements || [],
     tdsCreditStatements: book.tdsCreditStatements || [],
+    catalogue: book.catalogue || {},
     skus: book.skus || {},
     stockMoves: book.stockMoves || [],
     inventoryValuations: book.inventoryValuations || [],
+    offlineSeries: book.offlineSeries || [],
+    loyalty: book.loyalty || { settings: null, entries: [], seq: 0 },
+    inventoryCosting: book.inventoryCosting || null,
     portalSaves: book.portalSaves || {},
     gstr3bPortal: book.gstr3bPortal || {},
     tdsFvuJobs: book.tdsFvuJobs || [],
@@ -233,6 +243,7 @@ export function deserializeBook(raw) {
   book.invoiceSeq = raw.invoiceSeq || 0;
   book.invoiceSeqByFy = raw.invoiceSeqByFy && typeof raw.invoiceSeqByFy === 'object' ? raw.invoiceSeqByFy : {};
   book.billSeq = raw.billSeq || 0;
+  book.selfInvoiceSeq = raw.selfInvoiceSeq || 0;
   book.transferSeq = raw.transferSeq || 100000;
   book.imports = raw.imports || [];
   book.lockThrough = raw.lockThrough || '';
@@ -283,9 +294,13 @@ export function deserializeBook(raw) {
   book.channels = raw.channels && typeof raw.channels === 'object' ? raw.channels : {};
   book.tcsStatements = Array.isArray(raw.tcsStatements) ? raw.tcsStatements : [];
   book.tdsCreditStatements = Array.isArray(raw.tdsCreditStatements) ? raw.tdsCreditStatements : [];
+  book.catalogue = raw.catalogue && typeof raw.catalogue === 'object' && !Array.isArray(raw.catalogue) ? raw.catalogue : {};
   book.skus = raw.skus && typeof raw.skus === 'object' ? raw.skus : {};
   book.stockMoves = Array.isArray(raw.stockMoves) ? raw.stockMoves : [];
   book.inventoryValuations = Array.isArray(raw.inventoryValuations) ? raw.inventoryValuations : [];
+  book.offlineSeries = Array.isArray(raw.offlineSeries) ? raw.offlineSeries : [];
+  book.loyalty = raw.loyalty && typeof raw.loyalty === 'object' && Array.isArray(raw.loyalty.entries) ? { settings: raw.loyalty.settings && typeof raw.loyalty.settings === 'object' ? raw.loyalty.settings : null, entries: raw.loyalty.entries, seq: Number(raw.loyalty.seq || 0) } : { settings: null, entries: [], seq: 0 };
+  book.inventoryCosting = raw.inventoryCosting && typeof raw.inventoryCosting === 'object' ? raw.inventoryCosting : null;
   book.portalSaves = raw.portalSaves && typeof raw.portalSaves === 'object' ? raw.portalSaves : {};
   book.gstr3bPortal = raw.gstr3bPortal && typeof raw.gstr3bPortal === 'object' ? raw.gstr3bPortal : {};
   book.tdsFvuJobs = Array.isArray(raw.tdsFvuJobs) ? raw.tdsFvuJobs : [];

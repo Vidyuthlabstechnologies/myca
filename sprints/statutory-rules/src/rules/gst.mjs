@@ -299,6 +299,39 @@ export const RULES = [
     attestations: []
   },
   {
+    id: 'gst.compensation-cess',
+    value: { levied: true, hsnPrefixes: null },
+    basis: 'cess_leviable_on_hsn_prefixes_null_means_any_notified_goods',
+    effectiveFrom: '2017-07-01',
+    effectiveTo: '2025-09-21',
+    act: 'CGST',
+    section: 'Goods and Services Tax (Compensation to States) Act 2017, section 8',
+    source: '1/2017-Compensation Cess (Rate) dated 28.06.2017 as amended: cess on the goods in its Schedule (pan masala, tobacco and tobacco products, aerated waters, coal, motor vehicles and others); MyCA lets any goods line carry cess in this period',
+    attestations: []
+  },
+  {
+    id: 'gst.compensation-cess',
+    value: { levied: true, hsnPrefixes: ['24', '21069020'] },
+    basis: 'cess_leviable_on_hsn_prefixes_null_means_any_notified_goods',
+    effectiveFrom: '2025-09-22',
+    effectiveTo: '2026-01-31',
+    act: 'CGST',
+    section: 'Goods and Services Tax (Compensation to States) Act 2017, section 8',
+    source: '2/2025-Compensation Cess (Rate) dated 17.09.2025 w.e.f. 22.09.2025 (with 9/2025-Central Tax (Rate) of the same date): cess ends on all goods except pan masala (2106 90 20) and tobacco and tobacco products (chapter 24), which keep it while they stay at 28 per cent in Schedule VII',
+    attestations: []
+  },
+  {
+    id: 'gst.compensation-cess',
+    value: { levied: false, hsnPrefixes: [] },
+    basis: 'cess_leviable_on_hsn_prefixes_null_means_any_notified_goods',
+    effectiveFrom: '2026-02-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: 'Goods and Services Tax (Compensation to States) Act 2017, section 8',
+    source: '19/2025-Central Tax (Rate) and 19/2025-Integrated Tax (Rate) dated 31.12.2025 w.e.f. 01.02.2026 omit Schedule VII and move pan masala and tobacco goods to 40 per cent; compensation cess on them ends on the same date, so no goods carry it',
+    attestations: []
+  },
+  {
     id: 'gst.ewaybill.threshold',
     value: { consignmentValuePaiseMoreThan: 50000 * RUPEE },
     basis: 'consignment_value_paise_more_than',
@@ -307,6 +340,72 @@ export const RULES = [
     act: 'CGST',
     section: 'Rule 138(1), CGST Rules 2017',
     source: 'Notification 12/2018-Central Tax dated 07.03.2018 substituting rule 138, brought into force for inter-State movement from 01.04.2018 by Notification 15/2018-Central Tax: every registered person who causes movement of goods of consignment value exceeding fifty thousand rupees furnishes Part A of FORM GST EWB-01; intra-State movement followed from April to June 2018 by State notifications, several of which set a higher limit for movement within the State (not encoded; MyCA applies the central limit and says so)',
+    attestations: []
+  },
+  {
+    id: 'gst.invoice.unregistered-buyer-details',
+    value: { taxableValuePaiseAtLeast: 50000 * RUPEE, details: ['name', 'address', 'state-and-code'] },
+    basis: 'taxable_value_paise_at_or_above_for_unregistered_recipient',
+    effectiveFrom: '2017-07-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: 'Rule 46(e), CGST Rules 2017',
+    source: 'CBIC tax information portal, CGST Rules 2017, rule 46 clause (e): the tax invoice carries the name and address of the recipient and the address of delivery, along with the name of the State and its code, if such recipient is un-registered and where the value of the taxable supply is fifty thousand rupees or more; clause (f) makes the same details optional below that value when the recipient asks (https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter6/rule46_v1.00.html); read on 2026-11-15',
+    attestations: []
+  },
+  {
+    id: 'gst.hsn.digits',
+    value: { tiers: [{ aatoPaiseUpTo: 5 * CRORE, digits: 4 }, { aatoPaiseUpTo: null, digits: 6 }], unregisteredRecipientMayOmitUpToAatoPaise: 5 * CRORE },
+    basis: 'aggregate_turnover_paise_in_the_preceding_financial_year',
+    effectiveFrom: '2021-04-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: 'Rule 46 first proviso, CGST Rules 2017',
+    source: 'Notification No. 78/2020-Central Tax dated 15.10.2020, w.e.f. 01.04.2021, amending Notification No. 12/2017-Central Tax (G.S.R. 660(E)): aggregate turnover in the preceding financial year up to rupees five crores, 4 digits of HSN; more than rupees five crores, 6 digits; proviso: a registered person with aggregate turnover up to five crores in the previous financial year may not mention the HSN digits in a tax invoice for supplies made to unregistered persons (gstcouncil.gov.in, notfctn-78-central-tax-english-2020.pdf)',
+    attestations: []
+  },
+  {
+    id: 'gst.einvoice.reporting-window',
+    value: { aatoPaiseAtLeast: 100 * CRORE, days: 30, documentDateIsDayOne: true, documents: ['INV', 'CRN', 'DBN'] },
+    basis: 'reporting_date_on_the_irp_for_a_taxpayer_with_annual_aggregate_turnover_paise_at_least',
+    effectiveFrom: '2023-11-01',
+    effectiveTo: '2025-03-31',
+    act: 'CGST',
+    section: 'Rule 48(4), CGST Rules 2017; IRP validation',
+    source: 'NIC/GSTN advisory "NEW Time limit for Reporting of Invoices on the IRP Portal" (September 2023): taxpayers with AATO greater than or equal to 100 crores cannot report invoices older than 30 days from the date of invoice; applies to all document types for which an IRN is generated (invoices, credit notes, debit notes); in effect from 1 November 2023',
+    attestations: []
+  },
+  {
+    id: 'gst.einvoice.reporting-window',
+    value: { aatoPaiseAtLeast: 10 * CRORE, days: 30, documentDateIsDayOne: true, documents: ['INV', 'CRN', 'DBN'] },
+    basis: 'reporting_date_on_the_irp_for_a_taxpayer_with_annual_aggregate_turnover_paise_at_least',
+    effectiveFrom: '2025-04-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: 'Rule 48(4), CGST Rules 2017; IRP validation',
+    source: 'GSTN advisory dated 05.11.2024 "Time limit for reporting e-Invoice on the IRP portal: lowering of threshold to AATO 10 crores and above" (reproduced by the Maharashtra GST department as GSTN advisory 293): from 1 April 2025 taxpayers with AATO of 10 crores and above cannot report documents older than 30 days; all document types for which an IRN is generated (invoices, credit notes, debit notes); example: an invoice dated 1 April 2025 cannot be reported after 30 April 2025',
+    attestations: []
+  },
+  {
+    id: 'gst.credit-note.declaration-deadline',
+    value: { month: 11, day: 30, after: 'end_of_financial_year_of_the_supply', orAnnualReturnIfEarlier: true },
+    basis: 'date_of_the_credit_note',
+    effectiveFrom: '2022-10-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: '34(2)',
+    source: 'CGST Act 2017 s.34(2) as amended by the Finance Act, 2022 ("November" for "September") w.e.f. 01.10.2022 by Notification No. 18/2022-Central Tax dated 28.09.2022: the credit note is declared in the return for the month of issue but not later than the thirtieth day of November following the end of the financial year in which such supply was made, or the date of furnishing of the relevant annual return, whichever is earlier (CBIC tax information portal, CGST Act chapter VII section 34, footnote 3); s.34(3) and (4) set no such time limit for debit notes',
+    attestations: []
+  },
+  {
+    id: 'gst.gstr1.amendment-deadline',
+    value: { month: 11, day: 30, after: 'end_of_financial_year_of_the_details', orAnnualReturnIfEarlier: true },
+    basis: 'date_of_the_amendment',
+    effectiveFrom: '2022-10-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: '37(3) proviso',
+    source: 'CGST Act 2017 s.37(3) proviso as amended by s.103 of the Finance Act, 2022 w.e.f. 01.10.2022 by Notification No. 18/2022-Central Tax dated 28.09.2022: no rectification of error or omission in the details furnished under s.37(1) after the thirtieth day of November following the end of the financial year to which such details pertain, or furnishing of the relevant annual return, whichever is earlier (CBIC tax information portal, CGST Act chapter IX section 37, footnote 6)',
     attestations: []
   }
 ];

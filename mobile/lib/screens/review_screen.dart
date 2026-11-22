@@ -4,7 +4,9 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../theme.dart';
+import '../widgets.dart';
 import 'ca_screen.dart';
 
 class ReviewScreen extends StatefulWidget {
@@ -101,7 +103,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(title: Text(widget.title == 'Review the return' ? inText(context, 'Review the return') : widget.title)),
       body: FutureBuilder<GstReview?>(
         future: _review,
         builder: (context, state) {
@@ -114,11 +116,11 @@ class _ReviewScreenState extends State<ReviewScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('The review could not be loaded.'),
+                  Text(inText(context, 'The review could not be loaded.')),
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: _reload,
-                    child: const Text('Try again'),
+                    child: Text(inText(context, 'Try again')),
                   ),
                 ],
               ),
@@ -165,7 +167,7 @@ class _ReviewBody extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
-          'There is nothing dated in ${review.month} to review.',
+          inFormat(context, 'There is nothing dated in {month} to review.', {'month': review.month}),
           style: text.bodyLarge,
         ),
       );
@@ -177,14 +179,14 @@ class _ReviewBody extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           review.approved
-              ? 'You approved these figures on ${longDate(review.approvedOn)}.'
-              : 'Check each part. Nothing is filed from here.',
+              ? inFormat(context, 'You approved these figures on {date}.', {'date': longDate(review.approvedOn)})
+              : inText(context, 'Check each part. Nothing is filed from here.'),
           style: text.bodyLarge,
         ),
         if (review.changed && !review.approved) ...[
           const SizedBox(height: 10),
           Text(
-            'Your books for this month changed after you last confirmed, so the review starts again.',
+            inText(context, 'Your books for this month changed after you last confirmed, so the review starts again.'),
             style: text.bodyMedium?.copyWith(
               color: Palette.warn,
               fontWeight: FontWeight.w500,
@@ -214,15 +216,15 @@ class _ReviewBody extends StatelessWidget {
                 : () => askMyCa(
                     context,
                     subject: {'kind': 'period', 'period': review.period},
-                    about: 'the ${review.month} return',
+                    about: inFormat(context, 'the {month} return', {'month': review.month}),
                   ),
-            child: Text('Ask my CA about ${review.month}'),
+            child: Text(inFormat(context, 'Ask my CA about {month}', {'month': review.month})),
           ),
         ),
         const SizedBox(height: 12),
         if (review.approved)
           Text(
-            'Next: save the GSTR-1 file from Taxes and upload it on the GST portal, or send it to your CA.',
+            inText(context, 'Next: save the GSTR-1 file from Taxes and upload it on the GST portal, or send it to your CA.'),
             style: text.bodyMedium,
           ),
       ],
@@ -252,11 +254,11 @@ class _StepCard extends StatelessWidget {
     final wrong = step.status == 'wrong';
     final open = current || wrong;
     final statusLine = done
-        ? (step.id == 'approve' ? 'Approved' : 'Confirmed')
+        ? (step.id == 'approve' ? inText(context, 'Approved') : inText(context, 'Confirmed'))
         : wrong
-        ? 'Marked not right${step.note.isEmpty ? '' : ': ${step.note}'}'
+        ? (step.note.isEmpty ? inText(context, 'Marked not right') : inFormat(context, 'Marked not right: {note}', {'note': step.note}))
         : step.waitingFor != null
-        ? 'Waiting for the step above'
+        ? inText(context, 'Waiting for the step above')
         : '';
     return Container(
       padding: const EdgeInsets.all(18),
@@ -272,7 +274,7 @@ class _StepCard extends StatelessWidget {
             children: [
               Expanded(child: Text(step.title, style: text.titleMedium)),
               if (done)
-                const Icon(Icons.check, size: 18, color: Palette.accent),
+                Icon(Icons.check, size: 18, color: Palette.accent),
             ],
           ),
           if (statusLine.isNotEmpty)
@@ -292,24 +294,18 @@ class _StepCard extends StatelessWidget {
             for (final line in step.lines)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        line.label,
-                        style: line.strong ? text.titleMedium : text.bodyMedium,
+                child: line.amount == null
+                    ? Text(line.label, style: line.strong ? text.titleMedium : text.bodyMedium)
+                    : AmountRow(
+                        align: CrossAxisAlignment.start,
+                        start: Text(
+                          line.label,
+                          style: line.strong ? text.titleMedium : text.bodyMedium,
+                        ),
+                        amount: rupees(line.amount!),
+                        style: (line.strong ? text.titleMedium : text.bodyMedium)
+                            ?.copyWith(fontFeatures: moneyFigures),
                       ),
-                    ),
-                    if (line.amount != null)
-                      Text(
-                        rupees(line.amount!),
-                        style:
-                            (line.strong ? text.titleMedium : text.bodyMedium)
-                                ?.copyWith(fontFeatures: moneyFigures),
-                      ),
-                  ],
-                ),
               ),
           ],
           if (open) ...[
@@ -372,18 +368,18 @@ class _WrongSheetState extends State<_WrongSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('What is not right?', style: text.headlineSmall),
+          Text(inText(context, 'What is not right?'), style: text.headlineSmall),
           const SizedBox(height: 6),
           Text(
-            'Fix the entry in its chat. When the figures change, this step opens again.',
+            inText(context, 'Fix the entry in its chat. When the figures change, this step opens again.'),
             style: text.bodySmall,
           ),
           const SizedBox(height: 14),
           TextField(
             controller: _note,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              labelText: 'Note for yourself or your CA (optional)',
+            decoration: InputDecoration(
+              labelText: inText(context, 'Note for yourself or your CA (optional)'),
             ),
           ),
           const SizedBox(height: 16),
@@ -391,7 +387,7 @@ class _WrongSheetState extends State<_WrongSheet> {
             width: double.infinity,
             child: FilledButton(
               onPressed: () => Navigator.of(context).pop(_note.text.trim()),
-              child: const Text('Mark as not right'),
+              child: Text(inText(context, 'Mark as not right')),
             ),
           ),
         ],

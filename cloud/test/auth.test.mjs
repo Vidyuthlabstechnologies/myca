@@ -18,12 +18,23 @@ async function challenge(phone) {
   return { challengeId: otp.body.challengeId, code: api.sender.last().code, response: otp };
 }
 
-test('phone numbers are normalised to +91 and anything else is refused', () => {
+test('phone numbers are normalised to +91, a +1 number is kept for MyCA US, and anything else is refused', () => {
   assert.equal(normalizePhone('9876543210'), '+919876543210');
   assert.equal(normalizePhone('+91 98765 43210'), '+919876543210');
   assert.equal(normalizePhone('09876543210'), '+919876543210');
   assert.equal(normalizePhone('919876543210'), '+919876543210');
-  for (const bad of ['', '12345', '5876543210', '98765432101', '+1 415 555 0100', 'abcdefghij', null]) {
+  assert.equal(normalizePhone('+1 415 555 0100'), '+14155550100');
+  assert.equal(normalizePhone('6175550100', ['US']), '+16175550100', 'a bare 10-digit number in a US deployment is American');
+  assert.equal(normalizePhone('(917) 555-0100', ['US']), '+19175550100');
+  assert.equal(normalizePhone('09876543210', ['US']), '', 'the Indian trunk prefix means nothing in a US deployment');
+  assert.equal(normalizePhone('+91 98765 43210', ['US']), '+919876543210', 'an explicit +91 is still India');
+  assert.equal(normalizePhone('9876543210', ['IN', 'US']), '+919876543210', 'with India hosted a bare number stays Indian');
+  assert.equal(normalizePhone('6175550100', ['MY']), '', 'elsewhere a bare number has no country');
+  assert.equal(normalizePhone('+60 12-345 6789'), '+60123456789');
+  assert.equal(normalizePhone('+60 11-2345 6789'), '+601123456789');
+  assert.equal(normalizePhone('+971 50 123 4567'), '+971501234567');
+  assert.equal(normalizePhone('+971-58-765-4321'), '+971587654321');
+  for (const bad of ['+971 4 123 4567', '+971 51 123 4567', '+971 50 123 456', '0501234567', '', '12345', '+60 3-2345 6789', '+60 12-345 67', '0123456789', '5876543210', '98765432101', '+1 015 555 0100', '+44 20 7946 0958', 'abcdefghij', null]) {
     assert.equal(normalizePhone(bad), '', String(bad));
   }
 });

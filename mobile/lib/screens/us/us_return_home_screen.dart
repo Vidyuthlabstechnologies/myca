@@ -9,19 +9,27 @@ import '../../marks.dart';
 import '../../theme.dart';
 import '../../us/us_filing_fee.dart';
 import '../../us/us_return.dart';
+import '../../us/us_state.dart';
 import '../../widgets.dart';
 import '../ask_screen.dart';
 import '../businesses_screen.dart';
+import '../invite_screen.dart';
 import '../people_screen.dart';
 import '../plan_screen.dart';
 import '../security_screen.dart';
+import '../../us/us_consents.dart';
+import 'us_amended_screen.dart';
+import 'us_consent_screen.dart';
+import 'us_fields.dart';
 import 'us_forms_screen.dart';
 import 'us_interview_screen.dart';
 import 'us_profile_screen.dart';
 import 'us_review_screen.dart';
 import 'us_plus_screen.dart';
+import 'us_prior_year_screen.dart';
 import 'us_sign_screen.dart';
-import 'us_state_sheet_screen.dart';
+import 'us_state_residency_screen.dart';
+import 'us_state_return_screen.dart';
 
 class UsReturnHomeScreen extends StatefulWidget {
   const UsReturnHomeScreen({super.key, required this.snapshot});
@@ -33,13 +41,16 @@ class UsReturnHomeScreen extends StatefulWidget {
 }
 
 class _Hub {
-  const _Hub(this.status, this.efile, {this.review, this.state = '', this.fee});
+  const _Hub(this.status, this.efile, {this.review, this.state = '', this.fee, this.states, this.statesProblem = '', this.coverage = UsStateCoverage.unknown});
 
   final UsReturnStatus status;
   final UsEfileStatus efile;
   final UsReview? review;
   final String state;
   final UsFilingFee? fee;
+  final UsStateReturns? states;
+  final String statesProblem;
+  final UsStateCoverage coverage;
 }
 
 class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
@@ -68,10 +79,22 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
       loadReview(_api, year).then<Object?>((r) => r).catchError((_) => null),
       _api.query('us_taxpayer', {'taxYear': year}).then<Object?>((t) => t).catchError((_) => null),
       fees.status(year).then<Object?>((f) => f).catchError((_) => null),
+      loadStateReturns(_api, year).then<Object?>((r) => r).catchError((Object err) => err is UsStateProblem ? err : null),
+      loadStateCoverage(_api),
     ]);
     final address = toolData(extras[1])['address'];
-    final state = address is Map ? '${address['state'] ?? ''}' : '';
-    return _Hub(status, results[1] as UsEfileStatus, review: extras[0] as UsReview?, state: state, fee: extras[2] as UsFilingFee?);
+    final state = address is Map ? '${address['state'] ?? ''}'.toUpperCase() : '';
+    final states = extras[3];
+    return _Hub(
+      status,
+      results[1] as UsEfileStatus,
+      review: extras[0] as UsReview?,
+      state: state,
+      fee: extras[2] as UsFilingFee?,
+      states: states is UsStateReturns ? states : null,
+      statesProblem: states is UsStateProblem ? states.hint : '',
+      coverage: extras[4] as UsStateCoverage,
+    );
   }
 
   Widget _priceLine(_Hub hub) {
@@ -85,7 +108,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
         children: [
           Icon(paid ? Icons.check_circle : Icons.sell_outlined, size: 18, color: context.myca.accent),
           const SizedBox(width: 8),
-          Expanded(child: Text(paid ? 'Your ${fee.taxYear} filing is paid. One price, no upgrade fees.' : line, key: const Key('usHub.priceLine'), style: text.bodyMedium?.copyWith(color: Palette.ink))),
+          Expanded(child: Text(paid ? 'Your ${fee.taxYear} filing is paid. One price, no upgrade fees.' : line, key: const Key('usHub.priceLine'), semanticsLabel: paid || fee == null ? null : usFeeSpoken(fee), style: text.bodyMedium?.copyWith(color: context.myca.ink))),
         ],
       ),
     );
@@ -111,59 +134,101 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
         return UsInterviewScreen(taxYear: year);
       case 'sign':
         return UsSignScreen(taxYear: year);
+      case 'amend':
+        return UsAmendedScreen(taxYear: year, joint: _filingStatus == 'mfj');
       default:
         return UsReviewScreen(taxYear: year);
     }
   }
 
+  Future<void> _deleteAccount() async {
+    final state = AppScope.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Delete your account?'),
+        content: const Text(
+          'You are signed out everywhere. Your returns, tax documents and saved Social Security numbers are deleted with your account, '
+          'and your name, phone number, email and Google link are erased after 30 days. Signing in again before then cancels it. '
+          'Download any Form 1040 PDF you want to keep first.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: const Text('Keep my account')),
+          FilledButton(key: const Key('usAccount.confirmDelete'), onPressed: () => Navigator.of(dialog).pop(true), child: const Text('Delete account')),
+        ],
+      ),
+    );
+    if (sure != true) return;
+    try {
+      await state.cloud!.deleteAccount();
+      await state.signOut();
+    } on MycaApiException catch (err) {
+      messenger.showSnackBar(SnackBar(content: Text(err.message)));
+    }
+  }
+
   void _account() {
     final state = AppScope.of(context);
+    Widget item(String key, String title, String subtitle, Widget screen) => ListTile(
+          key: Key('usAccount.$key'),
+          title: Text(title),
+          subtitle: subtitle.isEmpty ? null : Text(subtitle),
+          onTap: () {
+            Navigator.of(context).pop();
+            _open(screen);
+          },
+        );
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (sheet) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Text('Share with your spouse or tax pro'),
-              subtitle: const Text('They see this return; only you can sign it'),
-              onTap: () {
-                Navigator.of(sheet).pop();
-                _open(const PeopleScreen());
-              },
-            ),
-            ListTile(
-              title: const Text('Plan and billing'),
-              onTap: () {
-                Navigator.of(sheet).pop();
-                _open(const PlanScreen());
-              },
-            ),
-            ListTile(
-              title: const Text('Security'),
-              subtitle: const Text('App lock and two-step sign-in'),
-              onTap: () {
-                Navigator.of(sheet).pop();
-                _open(const SecurityScreen());
-              },
-            ),
-            ListTile(
-              title: const Text('Switch or add'),
-              subtitle: const Text('Another return, or books for a business'),
-              onTap: () {
-                Navigator.of(sheet).pop();
-                _open(const BusinessesScreen());
-              },
-            ),
-            ListTile(
-              title: const Text('Sign out'),
-              onTap: () {
-                Navigator.of(sheet).pop();
-                state.signOut();
-              },
-            ),
-          ],
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * 0.85),
+          child: ListView(
+            key: const Key('usHub.accountMenu'),
+            shrinkWrap: true,
+            children: [
+              item('people', 'Share with your spouse or tax pro', 'They see this return; only you can sign it', const PeopleScreen()),
+              item('plan', 'Plan and billing', '', const PlanScreen()),
+              item('plus', 'MyCA Plus', 'IRS letters, withholding checks and quarterly estimates, all year', UsPlusScreen(taxYear: _year!)),
+              item('invite', 'Invite a friend', 'Share your invite code, or use one you were sent', const InviteScreen()),
+              item('security', 'Security', 'App lock and two-step sign-in', const SecurityScreen()),
+              item('switch', 'Switch or add', 'Another return, or books for a business', const BusinessesScreen()),
+              if (state.cloud != null)
+                item('consent', 'Sharing your Social Security numbers', 'Read, sign or withdraw your consent for our e-file partner', UsConsentScreen(consents: CloudUsConsents(state.cloud!), document: usPartnerTinsConsent)),
+              if (state.cloud != null && state.crashes != null)
+                ListenableBuilder(
+                  listenable: state,
+                  builder: (context, _) => SwitchListTile(
+                    key: const Key('usAccount.crashReports'),
+                    title: const Text('Send crash reports'),
+                    subtitle: const Text('Only what went wrong in the app. Names, amounts, Social Security numbers and phone numbers are removed first.'),
+                    value: state.crashReportsOn,
+                    onChanged: (enabled) => state.setCrashReports(enabled),
+                  ),
+                ),
+              if (state.cloud != null)
+                ListTile(
+                  key: const Key('usAccount.delete'),
+                  title: Text('Delete my account', style: TextStyle(color: Theme.of(sheet).colorScheme.error)),
+                  subtitle: const Text('Erase your returns, tax documents and Social Security numbers'),
+                  onTap: () {
+                    Navigator.of(sheet).pop();
+                    _deleteAccount();
+                  },
+                ),
+              ListTile(
+                key: const Key('usAccount.signOut'),
+                title: const Text('Sign out'),
+                onTap: () {
+                  Navigator.of(sheet).pop();
+                  state.signOut();
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -194,7 +259,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: rejected ? Palette.dangerSoft : context.myca.accentSoft,
+        color: rejected ? context.myca.dangerSoft : context.myca.accentSoft,
         borderRadius: BorderRadius.circular(radiusCard),
       ),
       child: Column(
@@ -208,7 +273,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
           for (final r in efile.rejections) ...[
             const SizedBox(height: 10),
             Text(r.message, style: text.bodyMedium),
-            if (r.fix.isNotEmpty) Text(r.fix, style: text.bodySmall?.copyWith(color: Palette.muted)),
+            if (r.fix.isNotEmpty) Text(r.fix, style: text.bodySmall?.copyWith(color: context.myca.muted)),
             if (r.step.isNotEmpty)
               Align(
                 alignment: Alignment.centerLeft,
@@ -243,23 +308,124 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
       padding: const EdgeInsets.all(18),
       margin: const EdgeInsets.only(bottom: 18),
       decoration: BoxDecoration(
-        color: Palette.surface,
+        color: context.myca.surface,
         borderRadius: BorderRadius.circular(radiusCard),
-        border: Border.all(color: Palette.line),
+        border: Border.all(color: context.myca.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: text.bodyLarge?.copyWith(color: Palette.muted)),
+          Text(label, style: text.bodyLarge?.copyWith(color: context.myca.muted)),
           if (amount.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(amount, style: text.displaySmall?.copyWith(color: status.owed > 0 ? Palette.warn : context.myca.accent, fontFeatures: moneyFigures)),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(amount, key: const Key('usHub.amount'), maxLines: 1, style: text.displaySmall?.copyWith(color: status.owed > 0 ? context.myca.warn : context.myca.accent, fontFeatures: moneyFigures)),
+            ),
           ],
           const SizedBox(height: 6),
           Text('Updates as you add forms and answer questions.', style: text.bodySmall),
         ],
       ),
     );
+  }
+
+  Widget _progress(_Hub hub) {
+    final text = Theme.of(context).textTheme;
+    if (hub.efile.filed) return const SizedBox.shrink();
+    final done = [for (final (id, _, _, _) in _steps) if (hub.status.done(id)) id];
+    final next = _steps.where((s) => !hub.status.done(s.$1)).firstOrNull ?? _steps.last;
+    final finished = done.length == _steps.length;
+    final position = _steps.indexOf(next) + 1;
+    final String headline;
+    final String action;
+    if (finished) {
+      headline = 'Everything is ready. Send your return to the IRS.';
+      action = 'Go to Sign and e-file';
+    } else if (done.isEmpty) {
+      headline = 'Start with step 1: ${next.$3}';
+      action = 'Start my return';
+    } else {
+      headline = 'Next, step $position of ${_steps.length}: ${next.$3}';
+      action = 'Continue';
+    }
+    return Container(
+      key: const Key('usHub.progress'),
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(color: context.myca.accentSoft, borderRadius: BorderRadius.circular(radiusCard)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('${done.length} of ${_steps.length} steps done', key: const Key('usHub.progressCount'), style: text.bodyMedium?.copyWith(color: context.myca.ink)),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(value: done.length / _steps.length, minHeight: 6, borderRadius: BorderRadius.circular(3), semanticsLabel: '${done.length} of ${_steps.length} steps done'),
+          const SizedBox(height: 12),
+          Text(headline, key: const Key('usHub.next'), style: text.titleMedium?.copyWith(color: context.myca.ink)),
+          if (!finished) ...[
+            const SizedBox(height: 4),
+            Text(next.$4, style: text.bodySmall?.copyWith(color: context.myca.ink)),
+          ],
+          const SizedBox(height: 12),
+          FilledButton(key: const Key('usHub.continue'), onPressed: () => _open(screenFor(next.$1)), child: Text(action)),
+        ],
+      ),
+    );
+  }
+
+  String _residencyLine(UsStateReturns states) {
+    if (states.assumed) return 'Check where you lived and worked in $_year';
+    final lines = [for (final r in states.residency) r.spoken];
+    return lines.isEmpty ? 'Tell us where you lived and worked' : lines.join(' · ');
+  }
+
+  List<Widget> _stateSection(_Hub hub) {
+    final text = Theme.of(context).textTheme;
+    final states = hub.states;
+    final year = _year!;
+    final coverage = hub.state.isEmpty ? null : hub.coverage.message(hub.state);
+    final totals = states == null
+        ? ''
+        : states.refund > 0
+            ? 'State refunds ${dollars(states.refund)}'
+            : states.owed > 0
+                ? 'State tax due ${dollars(states.owed)}'
+                : '';
+    return [
+      const SizedBox(height: 18),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          const Expanded(child: SectionLabel('State returns')),
+          if (totals.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(totals, key: const Key('usHub.stateTotals'), style: text.bodySmall)),
+        ],
+      ),
+      if (states == null && coverage != null)
+        KeyedSubtree(key: const Key('usHub.stateCoverage'), child: UsStateCoverageNote(message: coverage))
+      else
+        Panel(
+          children: [
+            RowCard(
+              key: const Key('usHub.stateResidency'),
+              leading: const TintTile(tint: Tint.ask, mark: Mark.people),
+              title: 'Where you lived and worked',
+              subtitle: states == null ? (hub.statesProblem.isEmpty ? 'Your home state, any move, and states where you earned wages' : hub.statesProblem) : _residencyLine(states),
+              trailing: states == null || !states.assumed ? const Chevron() : StatusTag(text: 'Check', color: context.myca.warn),
+              onTap: () => _open(UsStateResidencyScreen(taxYear: year)),
+            ),
+            for (final r in states?.returns ?? const <UsStateReturn>[])
+              RowCard(
+                key: Key('usHub.stateReturn.${r.state}'),
+                leading: TintTile(tint: Tint.taxes, letter: r.state),
+                title: '${r.stateName}${r.form.isEmpty ? '' : ' · ${r.form}'}',
+                subtitle: r.headline('$year'),
+                trailing: const Chevron(),
+                onTap: () => _open(UsStateReturnScreen(taxYear: year, state: r.state)),
+              ),
+          ],
+        ),
+    ];
   }
 
   static const _steps = [
@@ -296,50 +462,48 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
               return ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
                 children: [
-                  Row(
-                    children: [
-                      Expanded(child: Text('Your $year federal return', style: text.headlineMedium)),
-                      PopupMenuButton<int>(
-                        key: const Key('usHub.year'),
-                        tooltip: 'Tax year',
-                        initialValue: year,
-                        onSelected: (picked) => setState(() {
-                          _year = picked;
-                          _hub = _load();
-                        }),
-                        itemBuilder: (_) => [
-                          for (final y in [currentTaxYear(AppScope.of(context).now()), currentTaxYear(AppScope.of(context).now()) - 1, currentTaxYear(AppScope.of(context).now()) - 2])
-                            PopupMenuItem(value: y, child: Text('Tax year $y')),
-                        ],
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text('$year', style: text.titleMedium?.copyWith(color: context.myca.accent)),
-                              Icon(Icons.arrow_drop_down, color: context.myca.accent),
-                            ],
-                          ),
+                  Text('Your $year federal return', style: text.headlineMedium),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: PopupMenuButton<int>(
+                      key: const Key('usHub.year'),
+                      tooltip: 'Change tax year',
+                      initialValue: year,
+                      onSelected: (picked) => setState(() {
+                        _year = picked;
+                        _hub = _load();
+                      }),
+                      itemBuilder: (_) => [
+                        for (final y in [currentTaxYear(AppScope.of(context).now()), currentTaxYear(AppScope.of(context).now()) - 1, currentTaxYear(AppScope.of(context).now()) - 2])
+                          PopupMenuItem(value: y, child: Text('Tax year $y')),
+                      ],
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 48),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Tax year $year', style: text.titleMedium?.copyWith(color: context.myca.accent)),
+                            Icon(Icons.arrow_drop_down, color: context.myca.accent),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Text('Form 1040, prepared from your forms and answers.', style: text.bodyMedium?.copyWith(color: Palette.muted)),
+                  Text('Form 1040, prepared from your forms and answers.', style: text.bodyMedium?.copyWith(color: context.myca.muted)),
                   const SizedBox(height: 18),
                   if (loaded.hasError)
-                    EmptyNote(text: loaded.error is MycaApiException ? (loaded.error as MycaApiException).message : 'Your return could not be loaded. Pull down to try again.')
+                    UsLoadError(inline: true, message: usLoadProblem(loaded.error, 'Your return could not be loaded.'), onRetry: _reload)
                   else if (hub == null)
                     const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
                   else ...[
                     if (hub.efile.sandbox && hub.efile.status != 'not_filed')
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: StatusTag(text: 'IRS test system: this return is not really filed', color: Palette.warn),
+                        child: StatusTag(text: 'IRS test system: this return is not really filed', color: context.myca.warn),
                       ),
                     _efileCard(hub.efile),
                     _summary(hub.status),
-                    if (hub.review != null && !hub.review!.canFile) ...[UsUnsupportedNotice(forms: hub.review!.unsupported), const SizedBox(height: 14)],
+                    if (hub.review != null && !hub.review!.canFile) ...[UsUnsupportedNotice(forms: hub.review!.unsupported), const SizedBox(height: 14)] else _progress(hub),
                     _priceLine(hub),
                     Panel(
                       children: [
@@ -356,28 +520,32 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
                           ),
                       ],
                     ),
+                    ..._stateSection(hub),
+                    if (hub.efile.status == 'not_filed' || hub.efile.filed) ...[
                     const SizedBox(height: 14),
                     Panel(
                       children: [
-                        if (stateHasIncomeTax(hub.state))
+                        if (hub.efile.filed)
                           RowCard(
-                            key: const Key('usHub.state'),
-                            leading: const TintTile(tint: Tint.ask, mark: Mark.paper),
-                            title: 'Your state return',
-                            subtitle: stateReturnNote,
+                            key: const Key('usHub.amend'),
+                            leading: const TintTile(tint: Tint.taxes, mark: Mark.paper),
+                            title: 'Amend this return',
+                            subtitle: 'A form came late or something was wrong? Fix it with Form 1040-X',
                             trailing: const Chevron(),
-                            onTap: () => _open(UsStateSheetScreen(taxYear: year, state: hub.state)),
+                            onTap: () => _open(screenFor('amend')),
                           ),
-                        RowCard(
-                          key: const Key('usHub.plus'),
-                          leading: const TintTile(tint: Tint.taxes, mark: Mark.ask),
-                          title: 'MyCA Plus',
-                          subtitle: 'IRS letters, withholding checks and quarterly estimates, all year',
-                          trailing: const Chevron(),
-                          onTap: () => _open(UsPlusScreen(taxYear: year)),
-                        ),
+                        if (hub.efile.status == 'not_filed')
+                          RowCard(
+                            key: const Key('usHub.priorYear'),
+                            leading: const TintTile(tint: Tint.ask, mark: Mark.paper),
+                            title: 'Start from last year',
+                            subtitle: 'Bring in your ${year - 1} details, carryovers and the forms to expect',
+                            trailing: const Chevron(),
+                            onTap: () => _open(UsPriorYearScreen(taxYear: year)),
+                          ),
                       ],
                     ),
+                    ],
                   ],
                 ],
               );
