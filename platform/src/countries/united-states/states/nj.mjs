@@ -1,4 +1,4 @@
-import { whole, positive, sum, rateOf, check, lineTable, byStatus } from '../state-kit.mjs';
+import { whole, positive, sum, rateOf, check, lineTable, byStatus, form1098PropertyTax } from '../state-kit.mjs';
 
 const formsOf = (ctx, kind) => (ctx.forms || []).filter((form) => form.kind === kind);
 const fieldOf = (form, key) => positive(form.fields?.[key]);
@@ -15,7 +15,7 @@ function scheduleTax(amount, bands) {
     const slice = Math.max(0, Math.min(income, upTo) - over);
     tenthsOfCents += Math.round(slice * 100 * band.rateBp * 10);
   });
-  return Math.round(tenthsOfCents / 100000) / 100;
+  return tenthsOfCents / 10000000;
 }
 
 export function njTax(taxable, filingStatus, rule) {
@@ -221,7 +221,9 @@ function residentReturn(ctx, filing, reader, rules) {
   const status = ctx.filingStatus;
   const sameHome = status === 'mfs' && answers.njSharedHomeWithSpouse === true;
   const threshold = byStatus(property.filingThreshold, status);
-  const propertyTaxes = positive(answers.njPropertyTaxPaid) + rateOf(positive(answers.njRentPaid), property.rentBasisPoints);
+  const fromForm1098 = !has(answers, 'njPropertyTaxPaid') && !has(answers, 'njRentPaid') && filing.residency === 'full-year' ? form1098PropertyTax(ctx) : 0;
+  if (fromForm1098) checks.push(check('warning', 'NJ_PROPERTY_TAX_FROM_1098', 'The property tax deduction uses the property tax on your Form 1098.', 'Confirm it is tax on your New Jersey main home, or give the amount paid on it.'));
+  const propertyTaxes = (has(answers, 'njPropertyTaxPaid') ? positive(answers.njPropertyTaxPaid) : fromForm1098) + rateOf(positive(answers.njRentPaid), property.rentBasisPoints);
   const line40a = sameHome ? Math.round(propertyTaxes / 2) : propertyTaxes;
   const seniorOrDisabled = ctx.filers.some((item) => (item.age !== null && item.age >= 65) || item.blind) || answers.njDisabled === true || answers.njSpouseDisabled === true;
   const aboveThreshold = line29 > threshold;

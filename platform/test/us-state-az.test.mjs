@@ -117,3 +117,11 @@ test('Arizona 2026 carries the 2025 figures and is marked provisional', async ()
   assert.equal(az.lines['46'], 1106);
   assert.equal(az.provisional, true);
 });
+
+test('Arizona high earner: the federal SALT cap phases down to $10,000 at $600,000, so the standard deduction wins', async () => {
+  const state = await household({ state: 'AZ', forms: [w2(600000, { state: 'AZ', stateWithheld: 40000 })] });
+  await residency(state, '2025', [{ state: 'AZ', residency: 'full-year' }]);
+  const az = await stateReturn(state, '2025', 'AZ');
+  assert.equal(az.totalTax, 14606);
+  assert.equal(az.checks.some((item) => item.code === 'AZ_SALT_PHASE_DOWN'), false);
+});

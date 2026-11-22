@@ -196,3 +196,18 @@ test('New Jersey flags missing use tax and health coverage answers', async () =>
   assert.ok(codes(nj).includes('NJ_HEALTH_COVERAGE'));
   assert.ok(codes(nj).includes('NJ_PROPERTY_TAX'));
 });
+
+test('New Jersey rounds the tax once: the 2025 table rows that a cent rounding pushed up are exact', () => {
+  const rule = taxRule('2025');
+  assert.equal(njTax(78160, 'single', rule), 2853);
+  assert.equal(njTax(88160, 'single', rule), 3490);
+  assert.equal(njTax(98160, 'single', rule), 4127);
+});
+
+test('New Jersey: property tax on Form 1098 feeds the property tax deduction when no amount is given, with a warning to confirm it', async () => {
+  const state = await household({ state: 'NJ', filingStatus: 'mfj', spouse, forms: [w2(120000, { state: 'NJ', stateWithheld: 4000 }), { kind: '1098', payer: 'Shore Bank', fields: { mortgageInterest: 9000, propertyTax: 5000 } }] });
+  await residency(state, '2025', [{ state: 'NJ', residency: 'full-year' }]);
+  const nj = await stateReturn(state, '2025', 'NJ');
+  assert.equal(nj.lines['40a'], 5000);
+  assert.ok(codes(nj).includes('NJ_PROPERTY_TAX_FROM_1098'));
+});

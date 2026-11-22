@@ -88,3 +88,11 @@ export const INCOME_KEYS = Object.freeze(['wages', 'taxableInterest', 'usObligat
 export function sourcedAgi(sourced) {
   return INCOME_KEYS.filter((key) => key !== 'adjustments' && key !== 'qualifiedDividends' && key !== 'usObligationInterest').reduce((total, key) => total + whole(sourced[key]), 0) - whole(sourced.adjustments);
 }
+
+export function form1098PropertyTax(ctx) {
+  return (ctx.forms || []).filter((form) => form.kind === '1098').reduce((total, form) => total + whole(form.fields?.propertyTax), 0);
+}
+
+export function answered(answers, id) {
+  return answers?.[id] !== undefined && answers?.[id] !== null && answers?.[id] !== '';
+}
