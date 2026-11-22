@@ -41,6 +41,7 @@ import { inWords } from '../../platform/src/words.mjs';
 import { createInbound, INBOUND_HEADER, relayTokenMatches } from './inbound.mjs';
 import { createWhatsApp } from './whatsapp.mjs';
 import { chatText, withChatLanguage } from './chat-text.mjs';
+import { parseRequestJson } from './request-json.mjs';
 import { htmlEscape } from '../../platform/src/text-safe.mjs';
 import { DEMO_BLOCKED_ACTIONS, seedDemo } from './demo.mjs';
 import { createRateLimits, LIMITS } from './rate-limits.mjs';
@@ -244,7 +245,7 @@ function createBodyReaders(budget) {
     if (!body.length) return {};
     let parsed;
     try {
-      parsed = JSON.parse(body.toString('utf8'));
+      parsed = parseRequestJson(body.toString('utf8'));
     } catch {
       throw httpError(400, 'INVALID_JSON');
     }
