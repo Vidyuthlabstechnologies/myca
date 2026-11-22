@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 import { kansasTax } from '../src/countries/united-states/states/ks.mjs';
 
 const spouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1984-06-01' };
@@ -129,4 +130,24 @@ test('Kansas 2026: statutory amounts carried, not provisional', async () => {
   assert.equal(ks.lines['8'], 2380);
   assert.equal(ks.provisional, false);
   assert.deepEqual(ks.missingRules, []);
+});
+
+test('Kansas labels every line of a resident Form K-40', async () => {
+  const state = await household({ state: 'KS', forms: [w2(60000, { state: 'KS', stateWithheld: 2500 })] });
+  await residency(state, '2025', [{ state: 'KS', residency: 'full-year' }]);
+  const ks = await stateReturn(state, '2025', 'KS');
+  for (const key of Object.keys(ks.lines)) assert.ok(typeof ks.labels[key] === 'string' && ks.labels[key].length > 0, key);
+});
+
+test('Kansas asks the 529 beneficiary count only after a 529 contribution, and the Part B income question only of nonresidents', async () => {
+  const state = await household({ state: 'KS', forms: [w2(60000, { state: 'KS' })] });
+  const ids = async () => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'KS' })).data.states[0].questions.map((item) => item.id);
+  const first = await ids();
+  assert.equal(first.includes('college529Beneficiaries'), false);
+  assert.equal(first.includes('kansasRentalIncome'), false);
+  assert.ok(first.includes('college529Contributions'));
+  await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'KS', answers: { college529Contributions: 2000 } });
+  assert.ok((await ids()).includes('college529Beneficiaries'));
+  await residency(state, '2025', [{ state: 'MO', residency: 'full-year' }, { state: 'KS', residency: 'nonresident' }]);
+  assert.ok((await ids()).includes('kansasRentalIncome'));
 });

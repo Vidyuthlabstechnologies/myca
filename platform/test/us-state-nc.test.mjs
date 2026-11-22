@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 test('North Carolina resident single: Schedule S deducts U.S. interest, the NC standard deduction applies and use tax is added', async () => {
   const state = await household({ state: 'NC', forms: [w2(60000, { state: 'NC', stateWithheld: 2500 }), { kind: '1099-INT', fields: { interest: 700, treasuryInterest: 200 } }] });
@@ -121,4 +122,22 @@ test('North Carolina 2026: the 3.99% rate from G.S. 105-153.7 is not provisional
   assert.equal(nc.lines['14'], 47250);
   assert.equal(nc.lines['15'], 1885);
   assert.equal(nc.provisional, false);
+});
+
+test('North Carolina labels every line of a resident Form D-400', async () => {
+  const state = await household({ state: 'NC', forms: [w2(60000, { state: 'NC', stateWithheld: 2000 })] });
+  await residency(state, '2025', [{ state: 'NC', residency: 'full-year' }]);
+  const nc = await stateReturn(state, '2025', 'NC');
+  for (const key of Object.keys(nc.lines)) assert.ok(typeof nc.labels[key] === 'string' && nc.labels[key].length > 0, key);
+});
+
+test('North Carolina asks the retirement deduction questions only when there is retirement income', async () => {
+  const ids = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'NC' })).data.states[0].questions.map((item) => item.id);
+  const worker = await household({ state: 'NC', forms: [w2(60000, { state: 'NC' })] });
+  const first = await ids(worker);
+  assert.equal(first.includes('baileyRetirementBenefits'), false);
+  assert.equal(first.includes('ncMunicipalInterest'), false);
+  assert.ok(first.includes('useTax'));
+  const retired = await household({ state: 'NC', forms: [{ kind: '1099-R', fields: { grossDistribution: 20000, taxableAmount: 20000 } }] });
+  assert.ok((await ids(retired)).includes('baileyRetirementBenefits'));
 });

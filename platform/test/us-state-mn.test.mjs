@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const kids = [
   { firstName: 'Mia', lastName: 'Diaz', ssn: '400-12-9871', relationship: 'daughter', dateOfBirth: '2015-03-03', months: 12 },
@@ -81,4 +82,26 @@ test('Minnesota 2026 uses the published 2026 figures and is not provisional', as
   assert.equal(mn.lines['4'], 15300);
   assert.equal(mn.lines['9'], 44700);
   assert.equal(mn.lines['10'], 2560);
+});
+
+test('Minnesota labels every line of a resident Form M1', async () => {
+  const state = await household({ state: 'MN', forms: [w2(60000, { state: 'MN', stateWithheld: 2500 })] });
+  await residency(state, '2025', [{ state: 'MN', residency: 'full-year' }]);
+  const mn = await stateReturn(state, '2025', 'MN');
+  for (const key of Object.keys(mn.lines)) assert.ok(typeof mn.labels[key] === 'string' && mn.labels[key].length > 0, key);
+});
+
+test('Minnesota asks the K-12 and spouse questions only when they can apply, and disability income only after a yes to disabled', async () => {
+  const ids = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'MN' })).data.states[0].questions.map((item) => item.id);
+  const single = await household({ state: 'MN', forms: [w2(60000, { state: 'MN' })] });
+  const first = await ids(single);
+  assert.equal(first.includes('k12CreditChildren'), false);
+  assert.equal(first.includes('spouseRetirementIncome'), false);
+  assert.equal(first.includes('disabilityIncome'), false);
+  await runTool(single, 'set_us_state_answers', { taxYear: '2025', state: 'MN', answers: { disabled: true } });
+  assert.ok((await ids(single)).includes('disabilityIncome'));
+  const family = await household({ state: 'MN', filingStatus: 'mfj', spouse: { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1984-06-01' }, dependents: [{ firstName: 'Leo', lastName: 'Diaz', ssn: '400-12-9876', relationship: 'son', dateOfBirth: '2015-02-02', months: 12 }], forms: [w2(60000, { state: 'MN' })] });
+  const asked = await ids(family);
+  assert.ok(asked.includes('k12CreditChildren'));
+  assert.ok(asked.includes('spouseRetirementIncome'));
 });

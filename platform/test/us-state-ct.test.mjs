@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const codes = (item) => (item.checks || []).map((entry) => `${entry.level}:${entry.code}`);
 const lines = (item, expected) => assert.deepEqual(Object.fromEntries(Object.keys(expected).map((key) => [key, item.lines[key]])), expected);
@@ -88,4 +89,21 @@ test('Connecticut use tax unanswered is a warning', async () => {
   const ct = await stateReturn(state, '2025', 'CT');
   assert.deepEqual(codes(ct), ['warning:CT_USE_TAX']);
   assert.equal(ct.totalTax, 2317);
+});
+
+test('Connecticut: every line of a resident return has a label in the words of Form CT-1040', async () => {
+  const state = await household({ state: 'CT', forms: [w2(50000, { state: 'CT', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'CT', residency: 'full-year' }]);
+  const found = await stateReturn(state, '2025', 'CT');
+  assert.ok(Object.keys(found.lines).length > 0);
+  for (const key of Object.keys(found.lines)) assert.ok(typeof found.labels[key] === 'string' && found.labels[key].length > 0, `line ${key} has no label`);
+});
+
+const questionIds = async (state, code) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: code })).data.states[0].questions.map((item) => item.id);
+
+test('Connecticut asks about Connecticut bond interest only when there is federally tax-exempt interest', async () => {
+  const plain = await household({ state: 'CT', forms: [w2(50000, { state: 'CT' })] });
+  assert.equal((await questionIds(plain, 'CT')).includes('ctMuniInterest'), false);
+  const holds = await household({ state: 'CT', forms: [w2(50000, { state: 'CT' }), { kind: '1099-INT', fields: { interest: 0, taxExemptInterest: 500 } }] });
+  assert.ok((await questionIds(holds, 'CT')).includes('ctMuniInterest'));
 });

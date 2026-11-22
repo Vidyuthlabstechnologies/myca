@@ -230,7 +230,58 @@ function compute(ctx, filing, reader) {
   return nonresidentOrPartYear(ctx, filing, rule, mods);
 }
 
-const amount = (id, text, help) => Object.freeze({ id, kind: 'amount', text, help });
+const RESIDENT_LABELS = Object.freeze({
+  1: 'Federal adjusted gross income',
+  2: 'Additions (Schedule 1)',
+  3: 'Federal adjusted gross income plus additions',
+  4: 'Subtractions (Schedule 1)',
+  5: 'Connecticut adjusted gross income',
+  6: 'Income tax',
+  7: 'Credit for income taxes paid to qualifying jurisdictions',
+  8: 'Income tax after credit for taxes paid elsewhere',
+  9: 'Connecticut alternative minimum tax',
+  10: 'Income tax plus alternative minimum tax',
+  11: 'Credit for property taxes paid on residence and vehicle',
+  12: 'Tax after property tax credit',
+  13: 'Allowable credits (Schedule CT-IT)',
+  14: 'Connecticut income tax',
+  15: 'Individual use tax',
+  16: 'Total tax',
+  17: 'Total tax',
+  18: 'Connecticut tax withheld',
+  19: 'All estimated tax payments',
+  20: 'Payments made with Form CT-1040 EXT',
+  '20a': 'Connecticut earned income tax credit',
+});
+
+const NONRESIDENT_LABELS = Object.freeze({
+  1: 'Federal adjusted gross income',
+  2: 'Additions (Schedule 1)',
+  3: 'Federal adjusted gross income plus additions',
+  4: 'Subtractions (Schedule 1)',
+  5: 'Connecticut adjusted gross income',
+  6: 'Income from Connecticut sources (Schedule CT-SI)',
+  7: 'Greater of line 5 or line 6',
+  8: 'Income tax',
+  9: 'Share of income from Connecticut sources',
+  10: 'Income tax on Connecticut-source share',
+  11: 'Credit for income taxes paid to qualifying jurisdictions',
+  12: 'Tax after credit for taxes paid elsewhere',
+  13: 'Connecticut alternative minimum tax',
+  14: 'Income tax plus alternative minimum tax',
+  15: 'Allowable credits (Schedule CT-IT)',
+  16: 'Connecticut income tax',
+  17: 'Individual use tax',
+  18: 'Total tax',
+  19: 'Total tax',
+  20: 'Connecticut tax withheld',
+  21: 'All estimated tax payments',
+  22: 'Payments made with Form CT-1040 EXT',
+});
+
+const labels = (taxYear, residency) => (residency === 'full-year' ? RESIDENT_LABELS : NONRESIDENT_LABELS);
+
+const amount = (id, text, help, when) => Object.freeze({ id, ...(when ? { when: Object.freeze(when) } : {}), kind: 'amount', text, help });
 
 export const STATE = Object.freeze({
   code: 'CT',
@@ -238,20 +289,21 @@ export const STATE = Object.freeze({
   built: true,
   forms: Object.freeze({ resident: 'CT-1040', partYear: 'CT-1040NR/PY', nonresident: 'CT-1040NR/PY' }),
   questions: Object.freeze([
-    amount('ctMuniInterest', 'Connecticut state or municipal bond interest included in your federal tax-exempt interest (not from mutual funds)', 'Only interest on bonds of other states is added back on Schedule 1 Line 31.'),
-    amount('ctMuniFundDividends', 'Part of your mutual fund exempt-interest dividends that came from Connecticut obligations', 'Your fund\'s year-end statement gives the Connecticut percentage; the rest is added back on Line 32.'),
+    amount('ctMuniInterest', 'Connecticut state or municipal bond interest included in your federal tax-exempt interest (not from mutual funds)', 'Only interest on bonds of other states is added back on Schedule 1 Line 31.', { has: ['taxExemptInterest'] }),
+    amount('ctMuniFundDividends', 'Part of your mutual fund exempt-interest dividends that came from Connecticut obligations', 'Your fund\'s year-end statement gives the Connecticut percentage; the rest is added back on Line 32.', { has: ['taxExemptInterest'] }),
     amount('usGovernmentFundDividends', 'Mutual fund dividends derived from U.S. government obligations (Treasury) that are in your federal dividends', 'Subtracted on Schedule 1 Line 40 when the fund qualifies; the fund statement gives the amount.'),
-    amount('railroadRetirement', 'Tier 2 railroad retirement and supplemental annuities included in your federal taxable pensions', 'Subtracted in full on Schedule 1 Line 43.'),
-    amount('militaryRetirement', 'U.S. military retirement pay included in your federal taxable pensions', 'Subtracted in full on Schedule 1 Line 44.'),
-    amount('teachersRetirement', 'Connecticut Teachers\' Retirement System pay included in your federal taxable pensions', '50% is subtracted on Schedule 1 Line 45; it is left out of the pension subtraction on Line 48b.'),
+    amount('railroadRetirement', 'Tier 2 railroad retirement and supplemental annuities included in your federal taxable pensions', 'Subtracted in full on Schedule 1 Line 43.', { has: ['retirementIncome'] }),
+    amount('militaryRetirement', 'U.S. military retirement pay included in your federal taxable pensions', 'Subtracted in full on Schedule 1 Line 44.', { has: ['retirementIncome'] }),
+    amount('teachersRetirement', 'Connecticut Teachers\' Retirement System pay included in your federal taxable pensions', '50% is subtracted on Schedule 1 Line 45; it is left out of the pension subtraction on Line 48b.', { has: ['retirementIncome'] }),
     amount('chetContributions', 'Contributions made in the year to Connecticut Higher Education Trust (CHET) accounts', 'Subtracted up to $5,000, or $10,000 filing jointly.'),
     amount('ableContributions', 'Contributions made in the year to ABLE accounts', 'Subtracted up to $5,000, or $10,000 filing jointly.'),
-    amount('residencePropertyTax', 'Property tax paid in the year to a Connecticut town on your primary residence', 'Residents only; gives the property tax credit of up to $300 on Schedule 3.'),
-    amount('vehiclePropertyTax', 'Property tax paid in the year to a Connecticut town on your car (first vehicle)', 'Residents only; part of the same $300 property tax credit.'),
-    amount('secondVehiclePropertyTax', 'Property tax paid on a second car (married filing jointly or qualifying surviving spouse only)', 'Only one vehicle counts on other returns.'),
+    amount('residencePropertyTax', 'Property tax paid in the year to a Connecticut town on your primary residence', 'Residents only; gives the property tax credit of up to $300 on Schedule 3.', { residency: ['full-year'] }),
+    amount('vehiclePropertyTax', 'Property tax paid in the year to a Connecticut town on your car (first vehicle)', 'Residents only; part of the same $300 property tax credit.', { residency: ['full-year'] }),
+    amount('secondVehiclePropertyTax', 'Property tax paid on a second car (married filing jointly or qualifying surviving spouse only)', 'Only one vehicle counts on other returns.', { residency: ['full-year'], filingStatus: ['mfj', 'qss'] }),
     amount('useTax', 'Connecticut use tax owed on online or out-of-state purchases with no Connecticut sales tax', 'Enter 0 if none; the line cannot be blank.'),
-    Object.freeze({ id: 'livedWithSpouse', kind: 'yesno', text: 'Married filing separately: did you live with your spouse at any time in the year?', help: 'Changes the Social Security adjustment worksheet.' }),
+    Object.freeze({ id: 'livedWithSpouse', when: Object.freeze({ filingStatus: ['mfs'], has: ['socialSecurity'] }), kind: 'yesno', text: 'Married filing separately: did you live with your spouse at any time in the year?', help: 'Changes the Social Security adjustment worksheet.' }),
   ]),
+  labels,
   notCovered: Object.freeze([
     'Connecticut alternative minimum tax (Form CT-6251)',
     'Schedule CT-IT credits (angel investor, ABLE, stillborn child, CHET employer credits and others) and the pass-through entity tax credit (Schedule CT-PE)',

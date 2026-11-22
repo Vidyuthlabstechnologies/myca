@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const spouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1984-06-01' };
 
@@ -123,4 +124,20 @@ test('Utah qualified exempt taxpayer owes no Utah tax when federal AGI is within
   assert.equal(ut.lines['22'], 0);
   assert.equal(ut.refund, 300);
   assert.ok(ut.checks.some((item) => item.code === 'UT_QUALIFIED_EXEMPT'));
+});
+
+const utQuestionIds = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'UT' })).data.states[0].questions.map((item) => item.id);
+
+test('Utah labels every line of a resident TC-40', async () => {
+  const state = await household({ state: 'UT', forms: [w2(50000, { state: 'UT', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'UT', residency: 'full-year', answers: { useTax: 0 } }]);
+  const ut = await stateReturn(state, '2025', 'UT');
+  for (const key of Object.keys(ut.lines)) assert.ok(typeof ut.labels[key] === 'string' && ut.labels[key].length > 0, key);
+});
+
+test('Utah asks the non-Utah municipal bond question only when there is tax-exempt interest', async () => {
+  const state = await household({ state: 'UT', forms: [w2(50000, { state: 'UT', stateWithheld: 1500 })] });
+  assert.ok(!(await utQuestionIds(state)).includes('nonUtahMunicipalInterest'));
+  const saver = await household({ state: 'UT', forms: [w2(50000, { state: 'UT', stateWithheld: 1500 }), { kind: '1099-INT', fields: { interest: 0, taxExemptInterest: 400 } }] });
+  assert.ok((await utQuestionIds(saver)).includes('nonUtahMunicipalInterest'));
 });

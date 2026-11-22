@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const spouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1986-06-01' };
 const kids = [
@@ -151,4 +152,25 @@ test('Rhode Island 2026 uses the ADV 2025-22 amounts; the retirement limits are 
   assert.equal(ri.lines['7'], 43550);
   assert.equal(ri.lines['8'], 1634);
   assert.equal(ri.provisional, true);
+});
+
+const riQuestionIds = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'RI' })).data.states[0].questions.map((item) => item.id);
+
+test('Rhode Island labels every line of a resident RI-1040', async () => {
+  const state = await household({ state: 'RI', forms: [w2(50000, { state: 'RI', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'RI', residency: 'full-year' }]);
+  const ri = await stateReturn(state, '2025', 'RI');
+  for (const key of Object.keys(ri.lines)) assert.ok(typeof ri.labels[key] === 'string' && ri.labels[key].length > 0, key);
+});
+
+test('Rhode Island asks the RI-1040H questions only of full-year residents and the bond question only with tax-exempt interest', async () => {
+  const state = await household({ state: 'RI', forms: [w2(50000, { state: 'RI', stateWithheld: 1500 })] });
+  const asked = await riQuestionIds(state);
+  assert.ok(asked.includes('rentPaid'));
+  assert.ok(!asked.includes('rhodeIslandMunicipalInterest'));
+  assert.ok(!asked.includes('militaryPension'));
+  await residency(state, '2025', [{ state: 'IL', residency: 'full-year' }, { state: 'RI', residency: 'nonresident', income: { wages: 50000 } }]);
+  assert.ok(!(await riQuestionIds(state)).includes('rentPaid'));
+  const saver = await household({ state: 'RI', forms: [w2(50000, { state: 'RI', stateWithheld: 1500 }), { kind: '1099-INT', fields: { interest: 0, taxExemptInterest: 400 } }] });
+  assert.ok((await riQuestionIds(saver)).includes('rhodeIslandMunicipalInterest'));
 });

@@ -218,23 +218,87 @@ function compute(ctx, filing, reader) {
   };
 }
 
+const FORM_740_LABELS = Object.freeze({
+  filingStatus: 'Filing status',
+  5: 'Federal adjusted gross income',
+  6: 'Additions from Schedule M',
+  7: 'Add lines 5 and 6',
+  8: 'Subtractions from Schedule M',
+  9: 'Kentucky adjusted gross income',
+  10: 'Standard deduction or itemized deductions',
+  11: 'Taxable income',
+  12: 'Tax',
+  13: 'Tax from Form 4972-K, Schedule RC-R or Schedule DS-R',
+  14: 'Add lines 12 and 13',
+  15: 'Credits from Schedule ITC, Section A',
+  16: 'Subtract line 15 from line 14',
+  17: 'Personal tax credits from Schedule ITC, Section B',
+  18: 'Subtract line 17 from line 16',
+  19: 'Tax in columns A and B, line 18',
+  20: 'Family size',
+  21: 'Family size tax credit',
+  22: 'Subtract line 21 from line 19',
+  23: 'Education tuition tax credit',
+  24: 'Child and dependent care credit',
+  26: 'Income tax liability',
+  27: 'Kentucky use tax',
+  28: 'Total tax liability',
+  30: 'Add lines 28 and 29',
+  '31a': 'Kentucky income tax withheld',
+  '31b': 'Kentucky estimated tax and extension payments',
+  32: 'Total payments',
+});
+
+const FORM_740_COLUMN_LINES = Object.freeze(['5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18']);
+
+const FORM_740_COLUMN_LABELS = Object.freeze(Object.fromEntries(FORM_740_COLUMN_LINES.flatMap((line) => [[`${line}A`, `${FORM_740_LABELS[line]} (spouse, column A)`], [`${line}B`, `${FORM_740_LABELS[line]} (you, column B)`]])));
+
+const FORM_740_NP_LABELS = Object.freeze({
+  7: 'Kentucky percentage (Section B, line 33)',
+  8: 'Federal adjusted gross income',
+  9: 'Kentucky adjusted gross income',
+  10: 'Standard deduction (not prorated)',
+  11: 'Itemized deductions from Kentucky Schedule A',
+  12: 'Itemized deductions times the Kentucky percentage',
+  13: 'Taxable income',
+  14: 'Tax',
+  15: 'Credits from Schedule ITC, Section A',
+  16: 'Subtract line 15 from line 14',
+  17: 'Personal tax credits from Schedule ITC, Section B',
+  18: 'Personal tax credits times the Kentucky percentage',
+  19: 'Subtract line 18 from line 16',
+  20: 'Family size',
+  21: 'Family size tax credit',
+  22: 'Subtract line 21 from line 19',
+  23: 'Education tuition tax credit',
+  24: 'Child and dependent care credit',
+  26: 'Income tax liability',
+  27: 'Kentucky use tax',
+  28: 'Total tax liability',
+  '31a': 'Kentucky income tax withheld',
+  '31b': 'Kentucky estimated tax and extension payments',
+});
+
+const kentuckyLabels = (taxYear, residency, form) => (form === '740-NP' ? FORM_740_NP_LABELS : { ...FORM_740_LABELS, ...FORM_740_COLUMN_LABELS });
+
 export const STATE = Object.freeze({
   code: 'KY',
   name: 'Kentucky',
   built: true,
   forms: Object.freeze({ resident: '740', partYear: '740-NP', nonresident: '740-NP' }),
   questions: Object.freeze([
-    Object.freeze({ id: 'outOfStateMuniInterest', kind: 'amount', text: 'Tax-exempt interest from bonds of states other than Kentucky', help: 'Added on Schedule M line 1. Left blank, all federally tax-exempt interest is added.' }),
-    Object.freeze({ id: 'federalChildCareCredit', kind: 'amount', text: 'Child and dependent care credit on your federal Form 2441, line 11', help: 'Kentucky gives 20 percent of it on Form 740 line 24.' }),
+    Object.freeze({ id: 'outOfStateMuniInterest', when: { residency: ['full-year', 'part-year'], has: ['taxExemptInterest'] }, kind: 'amount', text: 'Tax-exempt interest from bonds of states other than Kentucky', help: 'Added on Schedule M line 1. Left blank, all federally tax-exempt interest is added.' }),
+    Object.freeze({ id: 'federalChildCareCredit', when: { residency: ['full-year', 'part-year'] }, kind: 'amount', text: 'Child and dependent care credit on your federal Form 2441, line 11', help: 'Kentucky gives 20 percent of it on Form 740 line 24.' }),
     Object.freeze({ id: 'nationalGuard', kind: 'yesno', text: 'Were you a member of the Kentucky National Guard on December 31?', help: '$20 personal tax credit on Schedule ITC.' }),
-    Object.freeze({ id: 'spouseNationalGuard', kind: 'yesno', text: 'Was your spouse a member of the Kentucky National Guard on December 31?', help: '$20 personal tax credit on Schedule ITC.' }),
+    Object.freeze({ id: 'spouseNationalGuard', when: { has: ['spouse'] }, kind: 'yesno', text: 'Was your spouse a member of the Kentucky National Guard on December 31?', help: '$20 personal tax credit on Schedule ITC.' }),
     Object.freeze({ id: 'activeDutyMilitaryPay', kind: 'amount', text: 'Active duty military pay included in federal AGI', help: 'Subtracted on Schedule M line 13.' }),
-    Object.freeze({ id: 'spouseOtherIncome', kind: 'amount', text: 'Your spouse\'s share of income other than W-2 wages, retirement and Social Security', help: 'For filing status 2 (separately on a combined return), where each spouse reports their own income.' }),
-    Object.freeze({ id: 'jointReturn', kind: 'yesno', text: 'File a joint Kentucky return (status 3) instead of separately on a combined return (status 2)?', help: 'Status 2 usually gives a lower tax when both spouses have income; MyCA uses it unless you say yes.' }),
+    Object.freeze({ id: 'spouseOtherIncome', when: { residency: ['full-year'], filingStatus: ['mfj'] }, kind: 'amount', text: 'Your spouse\'s share of income other than W-2 wages, retirement and Social Security', help: 'For filing status 2 (separately on a combined return), where each spouse reports their own income.' }),
+    Object.freeze({ id: 'jointReturn', when: { residency: ['full-year'], filingStatus: ['mfj'] }, kind: 'yesno', text: 'File a joint Kentucky return (status 3) instead of separately on a combined return (status 2)?', help: 'Status 2 usually gives a lower tax when both spouses have income; MyCA uses it unless you say yes.' }),
     Object.freeze({ id: 'useTax', kind: 'amount', text: 'Kentucky use tax owed on out-of-state purchases', help: '6 percent of untaxed out-of-state purchases (line 27). Enter 0 if none.' }),
-    Object.freeze({ id: 'otherStateTax', kind: 'amount', text: 'Income tax you paid to another state whose return MyCA does not prepare', help: 'The tax on that state\'s return, not the amount withheld.' }),
-    Object.freeze({ id: 'otherStateIncome', kind: 'amount', text: 'Income taxed by that other state and also by Kentucky', help: 'For the Schedule ITC line 6 credit.' }),
+    Object.freeze({ id: 'otherStateTax', when: { residency: ['full-year'] }, kind: 'amount', text: 'Income tax you paid to another state whose return MyCA does not prepare', help: 'The tax on that state\'s return, not the amount withheld.' }),
+    Object.freeze({ id: 'otherStateIncome', when: { residency: ['full-year'], answer: { id: 'otherStateTax' } }, kind: 'amount', text: 'Income taxed by that other state and also by Kentucky', help: 'For the Schedule ITC line 6 credit.' }),
   ]),
+  labels: kentuckyLabels,
   notCovered: Object.freeze([
     'Local occupational license taxes of Kentucky cities and counties, which are filed separately, not on Form 740',
     'Schedule M additions and subtractions other than other states\' bond interest, the state refund, U.S. government interest, the pension income exclusion, Social Security and active duty military pay (depreciation and Section 179 differences, net operating loss, K-1 adjustments)',

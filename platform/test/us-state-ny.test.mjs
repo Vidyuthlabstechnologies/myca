@@ -252,3 +252,29 @@ test('itemized deductions on IT-196 drop state income tax and are used only when
   assert.equal(it196['49'], 26000 - 6500);
   assert.equal(ny.lines['34'], 19500);
 });
+
+const nyQuestionIds = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'NY' })).data.states[0].questions.map((item) => item.id);
+
+test('New York labels every line of a resident IT-201 and a part-year IT-203', async () => {
+  const state = await household({ state: 'NY', forms: [w2(70000, { state: 'NY', stateWithheld: 3000 })] });
+  await residency(state, '2025', [{ state: 'NY', residency: 'full-year', answers: { nycResident: 'full-year', yonkersResident: 'no', salesUseTax: 0 } }]);
+  const ny = await stateReturn(state, '2025', 'NY');
+  for (const key of Object.keys(ny.lines)) assert.ok(typeof ny.labels[key] === 'string' && ny.labels[key].length > 0, key);
+  await residency(state, '2025', [{ state: 'NY', residency: 'part-year', from: '2025-07-01', to: '2025-12-31', income: { wages: 35000 }, answers: { nycResident: 'part-year', yonkersResident: 'no', salesUseTax: 0 } }, { state: 'IL', residency: 'part-year', from: '2025-01-01', to: '2025-06-30', income: { wages: 35000 } }]);
+  const partYear = await stateReturn(state, '2025', 'NY');
+  assert.equal(partYear.form, 'IT-203');
+  for (const key of Object.keys(partYear.lines)) assert.ok(typeof partYear.labels[key] === 'string' && partYear.labels[key].length > 0, key);
+  assert.equal(partYear.labels['1-NY'], 'Wages, salaries, tips, etc. (New York)');
+});
+
+test('New York asks the spouse and separate-return questions only when they can apply', async () => {
+  const single = await household({ state: 'NY', forms: [w2(70000, { state: 'NY', stateWithheld: 3000 })] });
+  const asked = await nyQuestionIds(single);
+  assert.ok(!asked.includes('spouseFederalAgi'));
+  assert.ok(!asked.includes('mctmtZone1Spouse'));
+  assert.ok(!asked.includes('nycMonths'));
+  await runTool(single, 'set_us_state_answers', { taxYear: '2025', state: 'NY', answers: { nycResident: 'part-year' } });
+  assert.ok((await nyQuestionIds(single)).includes('nycMonths'));
+  const separate = await household({ state: 'NY', filingStatus: 'mfs', spouse: { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1985-09-09' }, forms: [w2(70000, { state: 'NY', stateWithheld: 3000 })] });
+  assert.ok((await nyQuestionIds(separate)).includes('spouseFederalAgi'));
+});

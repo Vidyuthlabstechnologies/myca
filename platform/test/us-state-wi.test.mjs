@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const kids = [
   { firstName: 'Mia', lastName: 'Diaz', ssn: '400-12-9871', relationship: 'daughter', dateOfBirth: '2015-03-03', months: 12 },
@@ -116,4 +117,25 @@ test('Wisconsin 2026 uses the 2026 Form 1-ES schedules and is provisional until 
   assert.equal(wi.lines['8'], 9144);
   assert.equal(wi.lines['11'], 50156);
   assert.equal(wi.lines['23'], wi.lines['12']);
+});
+
+const wiQuestionIds = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'WI' })).data.states[0].questions.map((item) => item.id);
+
+test('Wisconsin labels every line of a resident Form 1 in 2025 and 2026', async () => {
+  for (const taxYear of ['2025', '2026']) {
+    const state = await household({ taxYear, state: 'WI', forms: [w2(50000, { state: 'WI', stateWithheld: 2000 })] });
+    await residency(state, taxYear, [{ state: 'WI', residency: 'full-year', answers: { useTax: 0 } }]);
+    const wi = await stateReturn(state, taxYear, 'WI');
+    for (const key of Object.keys(wi.lines)) assert.ok(typeof wi.labels[key] === 'string' && wi.labels[key].length > 0, `${taxYear} ${key}`);
+  }
+});
+
+test('Wisconsin asks the retirement income subtraction only of older filers', async () => {
+  const young = await household({ state: 'WI', forms: [w2(50000, { state: 'WI', stateWithheld: 2000 })] });
+  const asked = await wiQuestionIds(young);
+  assert.ok(!asked.includes('retirementSubtraction'));
+  assert.ok(!asked.includes('hohMarried'));
+  assert.ok(!asked.includes('spouseIraSepDeduction'));
+  const older = await household({ state: 'WI', dateOfBirth: '1955-01-10', forms: [{ kind: '1099-R', fields: { grossDistribution: 30000, taxableAmount: 30000, distributionCode: '7' } }] });
+  assert.ok((await wiQuestionIds(older)).includes('retirementSubtraction'));
 });

@@ -15,6 +15,44 @@ function exemptionAllowance(ctx, rule, baseIncome) {
   return { a, b, c, d, total: a + b + c + d, overLimit: false };
 }
 
+const LABELS = Object.freeze({
+  1: 'Federal adjusted gross income',
+  2: 'Federally tax-exempt interest and dividend income',
+  3: 'Other additions',
+  4: 'Total income',
+  5: 'Social Security benefits and certain retirement plan income',
+  6: 'Illinois Income Tax overpayment included in federal income',
+  7: 'Other subtractions',
+  8: 'Total subtractions',
+  9: 'Illinois base income',
+  '10a': 'Exemption amount for yourself and your spouse',
+  '10b': 'Exemption for 65 or older',
+  '10c': 'Exemption for legally blind',
+  '10d': 'Exemption for dependents',
+  10: 'Exemption allowance',
+  13: 'Recapture of investment tax credits',
+  14: 'Income tax',
+  15: 'Income tax paid to another state while an Illinois resident',
+  16: 'Property tax and K-12 education expense credit',
+  17: 'Credit amount from Schedule 1299-C',
+  18: 'Total credits',
+  19: 'Tax after nonrefundable credits',
+  20: 'Household employment tax',
+  21: 'Use tax on internet, mail order or out-of-state purchases',
+  22: 'Medical cannabis and gaming licensee surcharges',
+  23: 'Total tax',
+  24: 'Total tax from page 1',
+  25: 'Illinois Income Tax withheld',
+  26: 'Estimated payments',
+  29: 'Earned Income Tax credit',
+  30: 'Child Tax credit',
+});
+
+function labels(taxYear, residency) {
+  const resident = residency === 'full-year';
+  return { ...LABELS, 11: resident ? 'Net income' : 'Illinois net income from Schedule NR', 12: resident ? 'Tax on net income' : 'Tax from Schedule NR' };
+}
+
 function compute(ctx, filing, reader) {
   const rule = reader.read('income-tax');
   const credits = reader.read('credits');
@@ -108,10 +146,11 @@ export const STATE = Object.freeze({
   built: true,
   forms: Object.freeze({ resident: 'IL-1040', partYear: 'IL-1040 with Schedule NR', nonresident: 'IL-1040 with Schedule NR' }),
   questions: Object.freeze([
-    Object.freeze({ id: 'propertyTaxPaid', kind: 'amount', text: 'Property tax you paid in the year on your Illinois home (your main residence)', help: 'Gives a credit of 5% of the tax paid on Schedule ICR. Leave empty if you rent.' }),
-    Object.freeze({ id: 'k12Expenses', kind: 'amount', text: 'Tuition, book fees and lab fees paid for a child in an Illinois K-12 school', help: 'Gives a credit of 25% of the amount above $250, up to $750, on Schedule ICR.' }),
+    Object.freeze({ id: 'propertyTaxPaid', when: Object.freeze({ residency: ['full-year', 'part-year'] }), kind: 'amount', text: 'Property tax you paid in the year on your Illinois home (your main residence)', help: 'Gives a credit of 5% of the tax paid on Schedule ICR. Leave empty if you rent.' }),
+    Object.freeze({ id: 'k12Expenses', when: Object.freeze({ residency: ['full-year', 'part-year'] }), kind: 'amount', text: 'Tuition, book fees and lab fees paid for a child in an Illinois K-12 school', help: 'Gives a credit of 25% of the amount above $250, up to $750, on Schedule ICR.' }),
     Object.freeze({ id: 'useTax', kind: 'amount', text: 'Illinois use tax owed on online or out-of-state purchases', help: 'Purchases with no Illinois sales tax; use the UT Table in the instructions if you are unsure. Enter 0 if none.' }),
   ]),
+  labels,
   notCovered: Object.freeze(['Schedule M additions and subtractions other than federally tax-exempt interest and U.S. Treasury interest', 'The Illinois EITC for filers with no federal EIC', 'Schedule 1299-C business credits and the volunteer emergency worker credit', 'Household employment tax and the cannabis and gaming surcharges', 'Underpayment penalty (Form IL-2210)']),
   compute,
 });

@@ -102,6 +102,7 @@ export const UNITED_STATES = Object.freeze({
     'set_sales_tax_rate',
     'set_suta_rate',
     'set_us_amended_return',
+    'set_us_state_answers',
     'set_us_state_residency',
     'set_us_taxpayer',
     'set_withholding',

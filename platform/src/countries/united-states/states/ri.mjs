@@ -116,6 +116,55 @@ function propertyTaxRelief(ctx, filing, relief) {
   return { eligible, older, disabled, amount: l13, lines: lineTable({ '1a': positive(answers.publicAssistance), '1b': l1b, '1f': persons, ...lines, 13: l13 }), household: income };
 }
 
+const FRONT_LABELS = Object.freeze({
+  1: 'Federal adjusted gross income',
+  2: 'Net modifications to federal AGI (RI Schedule M)',
+  3: 'Modified federal adjusted gross income',
+  4: 'RI standard deduction',
+  5: 'Line 3 minus line 4',
+  6: 'Exemption amount',
+  7: 'RI taxable income',
+  8: 'RI income tax',
+});
+
+const RI1040_LABELS = Object.freeze({
+  ...FRONT_LABELS,
+  '9a': 'RI percentage of allowable federal credit',
+  '9b': 'Credit for income taxes paid to other states',
+  '9c': 'Other Rhode Island credits',
+  '9d': 'Total RI credits',
+  '10a': 'Rhode Island income tax after credits',
+  '10b': 'Recapture of prior year other RI credits',
+  '13a': 'Total RI tax and checkoff contributions',
+  '14a': 'RI income tax withheld',
+  '14b': 'Estimated and extension payments',
+  '14c': 'Property tax relief credit (RI-1040H)',
+  '14d': 'RI earned income credit',
+  '14g': 'Total payments and credits',
+  39: 'Federal earned income credit',
+  40: 'Rhode Island percentage',
+  41: 'RI earned income credit',
+});
+
+const RI1040NR_LABELS = Object.freeze({
+  ...FRONT_LABELS,
+  9: 'RI percentage of allowable federal credits',
+  10: 'RI tax after allowable federal credits, before allocation',
+  11: 'Rhode Island allocated income tax',
+  12: 'Other Rhode Island credits',
+  '13a': 'Total RI income tax after RI credits',
+  '13b': 'Recapture of prior year other RI credits',
+  '17a': 'RI income tax withheld',
+  '17b': 'Estimated and extension payments',
+  '17d': 'RI earned income credit',
+  '17f': 'Total payments and credits',
+  35: 'Federal earned income credit',
+  36: 'Rhode Island percentage',
+  37: 'RI earned income credit before allocation',
+  38: 'Allocation percentage',
+  39: 'RI earned income credit',
+});
+
 function compute(ctx, filing, reader) {
   const rule = reader.read('income-tax');
   const mods = reader.read('modifications');
@@ -291,15 +340,16 @@ export const STATE = Object.freeze({
   name: 'Rhode Island',
   built: true,
   forms: Object.freeze({ resident: 'RI-1040', partYear: 'RI-1040NR', nonresident: 'RI-1040NR' }),
+  labels: (taxYear, residency) => (residency === 'full-year' ? RI1040_LABELS : RI1040NR_LABELS),
   questions: Object.freeze([
-    Object.freeze({ id: 'rhodeIslandMunicipalInterest', kind: 'amount', text: 'Tax-exempt interest from Rhode Island state or local bonds', help: 'Interest from other states\' bonds is added on Schedule M line 2a; Rhode Island bond interest is not. Enter 0 if none.' }),
+    Object.freeze({ id: 'rhodeIslandMunicipalInterest', when: { has: ['taxExemptInterest'] }, kind: 'amount', text: 'Tax-exempt interest from Rhode Island state or local bonds', help: 'Interest from other states\' bonds is added on Schedule M line 2a; Rhode Island bond interest is not. Enter 0 if none.' }),
     Object.freeze({ id: 'collegeSavingsContributions', kind: 'amount', text: 'Contributions to a Rhode Island CollegeBound Saver (529) account in the year', help: 'Subtracted on Schedule M line 1g, up to $500 ($1,000 on a joint return).' }),
-    Object.freeze({ id: 'militaryPension', kind: 'amount', text: 'Military service pension included in your federal pension income (Form 1040 line 5b)', help: 'Subtracted in full on Schedule M line 1v.' }),
-    Object.freeze({ id: 'propertyTaxPaid', kind: 'amount', text: 'Property tax you paid on your Rhode Island home for the year (for the RI-1040H credit)', help: 'Only for filers 65 or over or receiving Social Security disability, with household income under the limit.' }),
-    Object.freeze({ id: 'rentPaid', kind: 'amount', text: 'Rent you paid for your Rhode Island home in the year (for the RI-1040H credit)', help: '20% of the rent counts as property tax.' }),
-    Object.freeze({ id: 'socialSecurityDisability', kind: 'yesno', text: 'Were you or your spouse receiving Social Security disability benefits during the year?', help: 'Disabled filers under 65 can claim the RI-1040H property tax relief credit.' }),
-    Object.freeze({ id: 'publicAssistance', kind: 'amount', text: 'Cash public assistance received by everyone in the household (RI-1040H line 29)', help: 'Counts as household income for the property tax relief credit.' }),
-    Object.freeze({ id: 'otherNontaxableIncome', kind: 'amount', text: 'Other nontaxable household income such as child support, workers\' compensation and gifts (RI-1040H line 30)', help: 'Counts as household income for the property tax relief credit.' }),
+    Object.freeze({ id: 'militaryPension', when: { has: ['retirementIncome'] }, kind: 'amount', text: 'Military service pension included in your federal pension income (Form 1040 line 5b)', help: 'Subtracted in full on Schedule M line 1v.' }),
+    Object.freeze({ id: 'propertyTaxPaid', when: { residency: ['full-year'] }, kind: 'amount', text: 'Property tax you paid on your Rhode Island home for the year (for the RI-1040H credit)', help: 'Only for filers 65 or over or receiving Social Security disability, with household income under the limit.' }),
+    Object.freeze({ id: 'rentPaid', when: { residency: ['full-year'] }, kind: 'amount', text: 'Rent you paid for your Rhode Island home in the year (for the RI-1040H credit)', help: '20% of the rent counts as property tax.' }),
+    Object.freeze({ id: 'socialSecurityDisability', when: { residency: ['full-year'] }, kind: 'yesno', text: 'Were you or your spouse receiving Social Security disability benefits during the year?', help: 'Disabled filers under 65 can claim the RI-1040H property tax relief credit.' }),
+    Object.freeze({ id: 'publicAssistance', when: { residency: ['full-year'] }, kind: 'amount', text: 'Cash public assistance received by everyone in the household (RI-1040H line 29)', help: 'Counts as household income for the property tax relief credit.' }),
+    Object.freeze({ id: 'otherNontaxableIncome', when: { residency: ['full-year'] }, kind: 'amount', text: 'Other nontaxable household income such as child support, workers\' compensation and gifts (RI-1040H line 30)', help: 'Counts as household income for the property tax relief credit.' }),
   ]),
   notCovered: Object.freeze([
     'Schedule M items other than U.S. obligation interest, 529 contributions, Social Security, the pension and military pension modifications and out-of-state bond interest (for example bonus depreciation, railroad retirement and tuition savings recapture)',

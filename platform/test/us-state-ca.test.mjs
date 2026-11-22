@@ -222,3 +222,20 @@ test('California 2026 uses the published 2026 rate schedules, standard deduction
   const pack = await runTool(state, 'us_state_filing_package', { taxYear: '2026', state: 'CA' });
   assert.ok(pack.data.packages[0].blockers.includes('STATE_FIGURES_PROVISIONAL'));
 });
+
+test('California: every line of a resident return has a label in the words of Form 540', async () => {
+  const state = await household({ state: 'CA', forms: [w2(50000, { state: 'CA', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'CA', residency: 'full-year' }]);
+  const found = await stateReturn(state, '2025', 'CA');
+  assert.ok(Object.keys(found.lines).length > 0);
+  for (const key of Object.keys(found.lines)) assert.ok(typeof found.labels[key] === 'string' && found.labels[key].length > 0, `line ${key} has no label`);
+});
+
+const questionIds = async (state, code) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: code })).data.states[0].questions.map((item) => item.id);
+
+test('California asks about non-California exempt interest only when there is federally tax-exempt interest', async () => {
+  const plain = await household({ state: 'CA', forms: [w2(50000, { state: 'CA' })] });
+  assert.equal((await questionIds(plain, 'CA')).includes('nonCaliforniaExemptInterest'), false);
+  const holds = await household({ state: 'CA', forms: [w2(50000, { state: 'CA' }), { kind: '1099-INT', fields: { interest: 0, taxExemptInterest: 500 } }] });
+  assert.ok((await questionIds(holds, 'CA')).includes('nonCaliforniaExemptInterest'));
+});

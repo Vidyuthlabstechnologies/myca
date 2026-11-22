@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 import { orTax } from '../src/countries/united-states/states/or.mjs';
 import { stateRuleReader } from '../src/countries/united-states/state-kit.mjs';
 
@@ -143,4 +144,23 @@ test('Oregon flags the Portland Metro and Multnomah County taxes and blocks fili
   assert.equal(after.lines['8'], 300);
   assert.equal(after.lines['9'], after.lines['7'] + 300);
   assert.ok(!after.checks.some((item) => item.level === 'error'));
+});
+
+const orQuestionIds = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'OR' })).data.states[0].questions.map((item) => item.id);
+
+test('Oregon labels every line of a resident OR-40', async () => {
+  const state = await household({ state: 'OR', forms: [w2(50000, { state: 'OR', stateWithheld: 3000 })] });
+  await residency(state, '2025', [{ state: 'OR', residency: 'full-year', answers: { filedPriorYearReturn: false } }]);
+  const or = await stateReturn(state, '2025', 'OR');
+  for (const key of Object.keys(or.lines)) assert.ok(typeof or.labels[key] === 'string' && or.labels[key].length > 0, key);
+});
+
+test('Oregon asks the kicker amount only after you say you filed a 2024 return', async () => {
+  const state = await household({ state: 'OR', forms: [w2(50000, { state: 'OR', stateWithheld: 3000 })] });
+  const asked = await orQuestionIds(state);
+  assert.ok(!asked.includes('priorYearOregonTax'));
+  assert.ok(!asked.includes('spouseItemizes'));
+  assert.ok(!asked.includes('oregonTipsOvertime'));
+  await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'OR', answers: { filedPriorYearReturn: true } });
+  assert.ok((await orQuestionIds(state)).includes('priorYearOregonTax'));
 });

@@ -8,11 +8,12 @@ dated rules). Every state with an individual income tax, and DC, is built. `us_s
 
 | Tool | Access | What it does |
 |---|---|---|
+| `set_us_state_answers` | write | One state's question answers for a tax year, merged into what is saved; `null` clears an answer. Where you lived (saved or assumed) is not changed |
 | `set_us_state_residency` | write | For a tax year: each state lived in or earned income in (full-year, part-year with dates, nonresident), income received there, the state's own questions, state estimated payments |
 | `us_state_returns` | read | Every state return for the year, line by line, with tax, credits, payments and refund or amount due |
-| `us_state_questions` | read | The questions each state asks beyond the federal return, with answers so far |
+| `us_state_questions` | read | The questions each state asks beyond the federal return that apply to this household, with answers so far and a count of the questions skipped |
 | `us_state_coverage` | read | Which states are built, their forms and what each leaves out |
-| `us_state_filing_package` | read | What the e-file partner receives with the federal return (`contract: us-state-filing-v1`), with blockers |
+| `us_state_filing_package` | read | What is sent with the federal return (`contract: us-state-filing-v1`), with blockers. `route` follows the federal route: `partner` when an embedded filer is set (`MYCA_US_FILER`), else `irs-mef`, which adds the blocker `STATE_MEF_NOT_BUILT` because MyCA's own MeF route does not carry state returns yet |
 
 With no residency saved, the home address state is a full-year residency and every other W-2
 box 15 state is a nonresident state.
@@ -37,7 +38,8 @@ box 15 state is a nonresident state.
 export const STATE = Object.freeze({
   code: 'IL', name: 'Illinois', built: true,
   forms: { resident: 'IL-1040', partYear: '...', nonresident: '...' },
-  questions: [{ id, kind: 'amount' | 'yesno' | 'choice' | 'count' | 'text', text, help, options }],
+  questions: [{ id, kind: 'amount' | 'yesno' | 'choice' | 'count' | 'text', text, help, options, when }],
+  labels: { '1': 'Federal adjusted gross income', ... },  // or (taxYear, residency, form) => ({ ... })
   notCovered: ['What this return leaves out, in plain words'],
   due: (taxYear) => '2027-04-15',          // optional; April 15 of the next year by default
   compute(ctx, filing, reader) { return { form, lines, schedules, stateIncome, taxableIncome,
@@ -56,6 +58,13 @@ export const STATE = Object.freeze({
   16 wages plus what the owner gave for a nonresident, days-prorated with a warning for a
   part-year resident unless given), `sourcedAgi`, `answers` (this state's questions),
   `payments`, `otherStates`.
+- `when` (optional, all parts must hold) keeps a question out of `us_state_questions` when it
+  cannot apply: `residency` (list), `filingStatus` (list), `has` (list of household facts:
+  `spouse`, `dependents`, `selfEmployment`, `senior` (60 or older), `retirementIncome`,
+  `socialSecurity`, `capitalGains`, `interest`, `taxExemptInterest`, `itemizesFederal`), and
+  `answer: { id, in: [values] }` (another question's answer; without `in`, any answer).
+- `labels` names the lines in the words of the state's form; each computed return carries
+  `labels` for the lines it has.
 - `reader.read(name)` reads the dated rule `us.state-return.<xx>.<name>` for the tax year and
   records it; a missing rule becomes an error check that blocks filing.
 - Tax is in whole dollars. Use `bracketTax` and `rateOf` from `state-kit.mjs`; brackets are

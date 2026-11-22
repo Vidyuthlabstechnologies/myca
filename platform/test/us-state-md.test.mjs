@@ -193,3 +193,23 @@ test('Maryland child tax credit for a young child at low income and the poverty 
   assert.equal(single.lines['44'], 0);
   assert.equal(single.totalTax, 0);
 });
+
+test('Maryland labels every line of a resident Form 502', async () => {
+  const state = await household({ state: 'MD', forms: [w2(60000, { state: 'MD', stateWithheld: 2500 })] });
+  await residency(state, '2025', [{ state: 'MD', residency: 'full-year', answers: { county: 'kent' } }]);
+  const md = await stateReturn(state, '2025', 'MD');
+  for (const key of Object.keys(md.lines)) assert.ok(typeof md.labels[key] === 'string' && md.labels[key].length > 0, key);
+});
+
+test('Maryland asks the two-income question only on a joint return and the county only of residents', async () => {
+  const ids = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'MD' })).data.states[0].questions.map((item) => item.id);
+  const single = await household({ state: 'MD', forms: [w2(60000, { state: 'MD' })] });
+  const first = await ids(single);
+  assert.ok(first.includes('county'));
+  assert.equal(first.includes('twoIncomeLowerSpouse'), false);
+  assert.equal(first.includes('nonMarylandBondInterest'), false);
+  await residency(single, '2025', [{ state: 'VA', residency: 'full-year' }, { state: 'MD', residency: 'nonresident' }]);
+  assert.equal((await ids(single)).includes('county'), false);
+  const couple = await household({ state: 'MD', filingStatus: 'mfj', spouse: { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1984-06-01' }, forms: [w2(60000, { state: 'MD' })] });
+  assert.ok((await ids(couple)).includes('twoIncomeLowerSpouse'));
+});

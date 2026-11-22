@@ -200,16 +200,62 @@ function compute(ctx, filing, reader) {
   };
 }
 
+const RESIDENT_LABELS = Object.freeze({
+  a: 'Wages, salaries, unemployment compensation and tips',
+  b: 'Business income or loss',
+  c: 'Capital gain or loss',
+  d: 'Rental real estate, royalties, partnerships, etc.',
+  4: 'Federal adjusted gross income',
+  5: 'Franchise tax deducted on federal forms',
+  6: 'Other additions from DC Schedule I, Calculation A',
+  7: 'Total income and additions',
+  8: 'Part-year residents: income received while a nonresident',
+  9: 'Taxable refunds of state and local income tax',
+  10: 'Taxable social security and tier 1 railroad retirement',
+  11: 'Income taxed on a DC franchise or fiduciary return',
+  12: 'DC and federal government survivor benefits',
+  13: 'Unemployment insurance benefits',
+  14: 'Other subtractions from DC Schedule I, Calculation B',
+  15: 'Total subtractions from DC income',
+  16: 'DC adjusted gross income',
+  17: 'Deduction type',
+  18: 'DC deduction amount',
+  19: 'DC taxable income',
+  20: 'Tax',
+  21: 'Credit for child and dependent care expenses',
+  22: 'Non-refundable credits from DC Schedule U',
+  23: 'Total non-refundable credits',
+  24: 'Tax after non-refundable credits',
+  25: 'DC health care shared responsibility',
+  26: 'Total tax and DC health care shared responsibility',
+  '27a': 'Number of qualified EITC children',
+  '27b': 'Earned income amount',
+  '27c': 'Federal EITC (filers with qualifying children)',
+  '27d': 'DC EITC for filers with qualifying children',
+  '27e': 'DC EITC for filers without qualifying children',
+  28: 'Property tax credit (Schedule H)',
+  29: 'Refundable credits from DC Schedule U',
+  30: 'Total refundable credits',
+  31: 'DC income tax withheld',
+  32: 'Estimated tax payments',
+  33: 'Tax paid with Form FR-127 extension',
+});
+
+const NONRESIDENT_LABELS = Object.freeze({ withheld: 'DC income tax withheld to be refunded' });
+
+const labels = (taxYear, residency) => (residency === 'nonresident' ? NONRESIDENT_LABELS : RESIDENT_LABELS);
+
 export const STATE = Object.freeze({
   code: 'DC',
   name: 'District of Columbia',
   built: true,
   forms: Object.freeze({ resident: 'D-40', partYear: 'D-40 (part-year)', nonresident: 'D-40B' }),
   questions: Object.freeze([
-    Object.freeze({ id: 'dcBondInterest', kind: 'amount', text: 'Tax-exempt interest from District of Columbia or U.S. territory bonds', help: 'From 2025 the District taxes interest on bonds of other states (Schedule I, Calculation A); DC and territory bond interest stays exempt. Enter 0 if none.' }),
-    Object.freeze({ id: 'federalChildCareCredit', kind: 'amount', text: 'Federal child and dependent care credit (Form 2441 line 11)', help: 'DC gives 32% of it on Line 21.' }),
-    Object.freeze({ id: 'propertyTaxCredit', kind: 'amount', text: 'Property tax credit from your DC Schedule H (homeowner or renter)', help: 'Work it out on Schedule H with your property tax or rent; the credit is at most $1,425 and is refundable.' }),
+    Object.freeze({ id: 'dcBondInterest', when: Object.freeze({ residency: ['full-year', 'part-year'], has: ['taxExemptInterest'] }), kind: 'amount', text: 'Tax-exempt interest from District of Columbia or U.S. territory bonds', help: 'From 2025 the District taxes interest on bonds of other states (Schedule I, Calculation A); DC and territory bond interest stays exempt. Enter 0 if none.' }),
+    Object.freeze({ id: 'federalChildCareCredit', when: Object.freeze({ residency: ['full-year', 'part-year'] }), kind: 'amount', text: 'Federal child and dependent care credit (Form 2441 line 11)', help: 'DC gives 32% of it on Line 21.' }),
+    Object.freeze({ id: 'propertyTaxCredit', when: Object.freeze({ residency: ['full-year', 'part-year'] }), kind: 'amount', text: 'Property tax credit from your DC Schedule H (homeowner or renter)', help: 'Work it out on Schedule H with your property tax or rent; the credit is at most $1,425 and is refundable.' }),
   ]),
+  labels,
   notCovered: Object.freeze([
     'Schedule I additions and subtractions other than other-state bond interest and U.S. obligation interest (for example DC 529 contributions, DC and federal survivor benefits, and income taxed on a DC franchise or fiduciary return)',
     'Working out the Schedule H property tax credit itself (MyCA uses the amount you enter)',

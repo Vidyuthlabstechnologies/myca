@@ -212,7 +212,7 @@ function compute(ctx, filing, reader) {
   };
 }
 
-const amount = (id, text, help) => Object.freeze({ id, kind: 'amount', text, help });
+const amount = (id, text, help, when) => Object.freeze({ id, ...(when ? { when } : {}), kind: 'amount', text, help });
 
 export const STATE = Object.freeze({
   code: 'ND',
@@ -221,14 +221,45 @@ export const STATE = Object.freeze({
   forms: Object.freeze({ resident: 'ND-1', partYear: 'ND-1 with Schedule ND-1NR', nonresident: 'ND-1 with Schedule ND-1NR' }),
   questions: Object.freeze([
     amount('railroadRetirement', 'Your U.S. Railroad Retirement Board benefits (unemployment, sick pay or retirement) that are taxable on your federal return', 'Form ND-1 line 8. Include taxable Tier 1 benefits from Form RRB-1099 here and not on line 15.'),
-    amount('spouseRailroadRetirement', 'Your spouse\'s taxable U.S. Railroad Retirement Board benefits', 'Form ND-1 line 8.'),
-    amount('railroadTier1Taxable', 'Taxable Social Security equivalent (Tier 1) railroad benefits included in federal line 6b', 'These are entered on line 8 with the railroad amounts above, so they are taken out of the line 15 social security exclusion.'),
-    amount('peaceOfficerRetirement', 'Taxable retirement benefits of a retired licensed peace officer with 20 years of service or retired disabled', 'Form ND-1 line 9. Attach Form 1099-R and, the first year, the POST board profile.'),
+    amount('spouseRailroadRetirement', 'Your spouse\'s taxable U.S. Railroad Retirement Board benefits', 'Form ND-1 line 8.', { has: ['spouse'] }),
+    amount('railroadTier1Taxable', 'Taxable Social Security equivalent (Tier 1) railroad benefits included in federal line 6b', 'These are entered on line 8 with the railroad amounts above, so they are taken out of the line 15 social security exclusion.', { has: ['socialSecurity'] }),
+    amount('peaceOfficerRetirement', 'Taxable retirement benefits of a retired licensed peace officer with 20 years of service or retired disabled', 'Form ND-1 line 9. Attach Form 1099-R and, the first year, the POST board profile.', { has: ['retirementIncome'] }),
     amount('militaryPay', 'Military pay for active or reserve duty or National Guard service included in federal wages', 'Form ND-1 line 11.'),
-    amount('militaryRetirement', 'Taxable military retirement benefits (including a surviving spouse\'s)', 'Form ND-1 line 14.'),
+    amount('militaryRetirement', 'Taxable military retirement benefits (including a surviving spouse\'s)', 'Form ND-1 line 14.', { has: ['retirementIncome'] }),
     amount('collegeSaveContributions', 'Contributions in the year to a North Dakota College SAVE account', 'Form ND-1 line 12; up to $5,000, or $10,000 if married filing jointly. Rollovers do not count.'),
-    amount('spouseSelfEmploymentIncome', 'Your spouse\'s net self-employment income (Schedule SE line 3 less the self-employment tax deduction)', 'Used only to split qualified income for the marriage penalty credit.'),
+    amount('spouseSelfEmploymentIncome', 'Your spouse\'s net self-employment income (Schedule SE line 3 less the self-employment tax deduction)', 'Used only to split qualified income for the marriage penalty credit.', { filingStatus: ['mfj'], has: ['selfEmployment'] }),
   ]),
+  labels: Object.freeze({
+    '1a': 'Federal adjusted gross income',
+    '1b': 'Federal taxable income',
+    2: 'Contribution adjustment',
+    3: 'Other additions',
+    '4a': 'Total additions',
+    '4b': 'Federal taxable income plus additions',
+    5: 'U.S. obligation interest',
+    6: 'Net long-term capital gain exclusion',
+    7: 'Native American\'s exempt income',
+    8: 'U.S. Railroad Retirement Board benefits',
+    9: 'Licensed peace officer retirement benefits',
+    10: 'Servicemember Civil Relief Act income',
+    11: 'Military pay exclusion',
+    12: 'ND College SAVE contributions',
+    13: 'Qualified dividend exclusion',
+    14: 'Military retirement benefit',
+    15: 'Social security benefit exclusion',
+    16: 'Other subtractions',
+    17: 'Total subtractions',
+    18: 'North Dakota taxable income',
+    19: 'Taxable income used to figure the tax',
+    20: 'Tax',
+    21: 'Credit for income tax paid to another state',
+    22: 'Marriage penalty credit',
+    23: 'Other credits',
+    24: 'Total credits',
+    25: 'Net tax liability',
+    26: 'North Dakota income tax withheld',
+    27: 'Estimated tax and extension payments',
+  }),
   notCovered: Object.freeze([
     'Planned gift and endowment credit adjustment (line 2), lump-sum distributions and S corporation additions on Schedule ND-1SA (line 3)',
     'Native American exempt income (line 7), the Servicemembers Civil Relief Act adjustment (line 10) and Schedule ND-1SA subtractions (line 16)',

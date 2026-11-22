@@ -292,20 +292,90 @@ function compute(ctx, filing, reader) {
   };
 }
 
+const MS_EXEMPTION_LABELS = Object.freeze({
+  filingStatus: 'Filing status',
+  7: 'Number of dependents claimed',
+  9: 'Total number of dependents and age or blindness exemptions',
+  10: 'Total additional exemption amount',
+  11: 'Filing status exemption',
+  12: 'Total filing status and additional exemption amounts',
+});
+
+const MS_80_105_LABELS = Object.freeze({
+  ...MS_EXEMPTION_LABELS,
+  '13A': 'Mississippi adjusted gross income (taxpayer)',
+  '13B': 'Mississippi adjusted gross income (spouse)',
+  '14A': 'Standard or itemized deductions (taxpayer)',
+  '14B': 'Standard or itemized deductions (spouse)',
+  '15A': 'Amount of exemption (taxpayer)',
+  '15B': 'Amount of exemption (spouse)',
+  '16A': 'Mississippi taxable income (taxpayer)',
+  '16B': 'Mississippi taxable income (spouse)',
+  17: 'Total income tax due',
+  18: 'Credit for income tax paid to another state',
+  19: 'Other credits',
+  20: 'Net income tax due',
+  21: 'Consumer use tax',
+  22: 'Catastrophe savings tax',
+  23: 'Total tax due',
+  24: 'Mississippi income tax withheld',
+  25: 'Estimated tax payments, extension payments and carryover',
+  26: 'Credit for tax paid by an electing pass-through entity',
+  27: 'Refund received and/or amount carried forward',
+  28: 'Total payments',
+  29: 'Overpayment',
+  35: 'Balance due',
+});
+
+const MS_80_205_LABELS = Object.freeze({
+  ...MS_EXEMPTION_LABELS,
+  '13a': 'Mississippi adjusted gross income',
+  '13b': 'Total adjusted gross income',
+  '13c': 'Ratio',
+  '14a': 'Itemized deductions or standard deduction',
+  '14b': 'Mississippi itemized or standard deduction',
+  '15a': 'Total exemption',
+  '15b': 'Mississippi exemption',
+  '16A': 'Mississippi adjusted gross income (taxpayer)',
+  '16B': 'Mississippi adjusted gross income (spouse)',
+  '17A': 'Standard or itemized deductions (taxpayer)',
+  '17B': 'Standard or itemized deductions (spouse)',
+  '18A': 'Amount of exemption (taxpayer)',
+  '18B': 'Amount of exemption (spouse)',
+  '19A': 'Mississippi taxable income (taxpayer)',
+  '19B': 'Mississippi taxable income (spouse)',
+  20: 'Total income tax due',
+  21: 'Other credits',
+  22: 'Net income tax due',
+  23: 'Consumer use tax',
+  24: 'Catastrophe savings tax',
+  25: 'Total tax due',
+  26: 'Mississippi income tax withheld',
+  27: 'Estimated tax payments, extension payments and carryover',
+  28: 'Credit for tax paid by an electing pass-through entity',
+  29: 'Refund received and/or amount carried forward',
+  30: 'Total payments',
+  31: 'Overpayment',
+  36: 'Balance due',
+});
+
+const mississippiLabels = (taxYear, residency, form) => (form === '80-105' ? MS_80_105_LABELS : MS_80_205_LABELS);
+
 export const STATE = Object.freeze({
   code: 'MS',
   name: 'Mississippi',
   built: true,
   forms: Object.freeze({ resident: '80-105', partYear: '80-205', nonresident: '80-205' }),
   questions: Object.freeze([
-    Object.freeze({ id: 'mississippiBondInterest', kind: 'amount', text: 'Tax-exempt interest from Mississippi state or local bonds', help: 'Interest on bonds of other states and their cities is taxable in Mississippi; Mississippi bond interest is not. Enter 0 if none.' }),
+    Object.freeze({ id: 'mississippiBondInterest', when: { has: ['taxExemptInterest'] }, kind: 'amount', text: 'Tax-exempt interest from Mississippi state or local bonds', help: 'Interest on bonds of other states and their cities is taxable in Mississippi; Mississippi bond interest is not. Enter 0 if none.' }),
     Object.freeze({ id: 'itemize', kind: 'choice', options: ['automatic', 'standard', 'itemized'], text: 'Standard or itemized deduction on the Mississippi return', help: 'Mississippi lets you itemize even if you took the federal standard deduction. Automatic picks the larger.' }),
     Object.freeze({ id: 'nationalGuardPay', kind: 'amount', text: 'Your National Guard or Reserve pay included in wages', help: 'Up to $15,000 is excluded on line 55.' }),
-    Object.freeze({ id: 'spouseNationalGuardPay', kind: 'amount', text: 'Your spouse\'s National Guard or Reserve pay included in wages', help: 'Up to $15,000 per person is excluded.' }),
+    Object.freeze({ id: 'spouseNationalGuardPay', when: { filingStatus: ['mfj'] }, kind: 'amount', text: 'Your spouse\'s National Guard or Reserve pay included in wages', help: 'Up to $15,000 per person is excluded.' }),
     Object.freeze({ id: 'collegeSavingsContributions', kind: 'amount', text: 'Contributions to a Mississippi Affordable College Savings (MACS) account in the year', help: 'Deductible up to $20,000 on a joint return and $10,000 otherwise.' }),
-    Object.freeze({ id: 'otherStateTaxableIncome', kind: 'amount', text: 'Taxable income reported on your other state return(s)', help: 'Form 80-160 applies Mississippi rates to this amount to limit the credit for tax paid to another state.' }),
+    Object.freeze({ id: 'otherStateTaxableIncome', when: { residency: ['full-year'] }, kind: 'amount', text: 'Taxable income reported on your other state return(s)', help: 'Form 80-160 applies Mississippi rates to this amount to limit the credit for tax paid to another state.' }),
     Object.freeze({ id: 'useTax', kind: 'amount', text: 'Mississippi consumer use tax owed on out-of-state purchases', help: '7% of purchases used in Mississippi on which no sales tax was paid. Enter 0 if none.' }),
   ]),
+  labels: mississippiLabels,
   notCovered: Object.freeze([
     'Farm income (line 42), alimony (lines 45 and 53), moving expenses, MPACT, catastrophe, first-time home buyer, health savings and ABLE account deductions other than the federal HSA deduction',
     'Schedule N items such as net operating losses and gambling winnings, and Mississippi K-1 income that differs from federal',

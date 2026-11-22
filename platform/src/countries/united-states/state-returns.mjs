@@ -4,6 +4,7 @@ import { countrySlice, openCountrySlice } from '../kit/index.mjs';
 import { buildStateContext, sourcedIncome, sourcedAgi, periodDays, isIsoDate } from './state-context.mjs';
 import { stateRuleReader, check, whole, positive, sum } from './state-kit.mjs';
 import { STATE_MODULES, stateModule } from './states/index.mjs';
+import { efileRoute } from '../../us-filing-partner.mjs';
 
 export const US_STATE_RETURN_YEARS = Object.freeze(['2025', '2026']);
 export const RESIDENCIES = Object.freeze(['full-year', 'part-year', 'nonresident']);
@@ -160,7 +161,7 @@ export function setUsStateResidency(state, args = {}) {
   if (!plan.ok) return plan;
   const slice = openCountrySlice(state, SLICE);
   const before = slice[plan.taxYear]?.states?.map((item) => `${item.state}:${item.residency}`) || [];
-  slice[plan.taxYear] = { states: plan.states, updatedAt: new Date().toISOString() };
+  slice[plan.taxYear] = { ...(slice[plan.taxYear] || {}), states: plan.states, updatedAt: new Date().toISOString() };
   appendAuditEvent(state, { action: 'us_state_residency_set', actorId: args.actorId || 'owner', metadata: { taxYear: plan.taxYear, before, after: plan.states.map((item) => `${item.state}:${item.residency}`) } });
   return { ok: true, data: { taxYear: plan.taxYear, states: plan.states } };
 }
@@ -176,10 +177,52 @@ export function usStateResidencyPreview(state, args = {}) {
   };
 }
 
+function withSavedAnswers(saved, entry) {
+  const extra = saved?.answers?.[entry.state];
+  return extra && Object.keys(extra).length ? { ...entry, answers: { ...(entry.answers || {}), ...extra } } : entry;
+}
+
 function residencyFor(state, ctx) {
   const saved = savedYear(state, ctx.taxYear);
-  if (saved && Array.isArray(saved.states) && saved.states.length) return { states: saved.states.map((item) => ({ ...item })), assumed: false };
-  return { states: defaultResidency(ctx), assumed: true };
+  if (saved && Array.isArray(saved.states) && saved.states.length) return { states: saved.states.map((item) => withSavedAnswers(saved, { ...item })), assumed: false };
+  return { states: defaultResidency(ctx).map((item) => withSavedAnswers(saved, item)), assumed: true };
+}
+
+export function planUsStateAnswers(state, args = {}) {
+  const taxYear = yearOf(state, args);
+  if (!US_STATE_RETURN_YEARS.includes(taxYear)) return fail('TAX_YEAR_NOT_SUPPORTED', { supported: US_STATE_RETURN_YEARS });
+  const code = String(args.state || '').trim().toUpperCase();
+  const module = stateModule(code);
+  if (!module || !module.built) return fail('STATE_HAS_NO_QUESTIONS', { state: code, hint: `${nameOf(code)} has no state return questions in MyCA.` });
+  if (!args.answers || typeof args.answers !== 'object' || Array.isArray(args.answers) || !Object.keys(args.answers).length) return fail('ANSWERS_REQUIRED', { hint: 'Give the answers as { questionId: value }; ask with us_state_questions.' });
+  const problems = [];
+  const cleared = Object.entries(args.answers).filter(([, value]) => value === null || value === '').map(([key]) => key);
+  const known = new Set((module.questions || []).map((item) => item.id));
+  for (const key of cleared) if (!known.has(key)) problems.push(`${code}: ${key} is not a ${module.name} question.`);
+  const given = cleanAnswers(module, Object.fromEntries(Object.entries(args.answers).filter(([key]) => !cleared.includes(key))), problems, code) || {};
+  if (problems.length) return fail('STATE_ANSWERS_INVALID', { problems });
+  return { ok: true, taxYear, state: code, stateName: module.name, given, cleared };
+}
+
+export function setUsStateAnswers(state, args = {}) {
+  const plan = planUsStateAnswers(state, args);
+  if (!plan.ok) return plan;
+  const slice = openCountrySlice(state, SLICE);
+  const year = { ...(slice[plan.taxYear] || {}) };
+  const answers = { ...(year.answers || {}) };
+  const current = { ...(answers[plan.state] || {}), ...plan.given };
+  for (const key of plan.cleared) delete current[key];
+  answers[plan.state] = current;
+  slice[plan.taxYear] = { ...year, answers, updatedAt: new Date().toISOString() };
+  appendAuditEvent(state, { action: 'us_state_answers_set', actorId: args.actorId || 'owner', metadata: { taxYear: plan.taxYear, state: plan.state, set: Object.keys(plan.given), cleared: plan.cleared } });
+  return { ok: true, data: { taxYear: plan.taxYear, state: plan.state, answers: current } };
+}
+
+export function usStateAnswersPreview(state, args = {}) {
+  const plan = planUsStateAnswers(state, args);
+  if (!plan.ok) return { blockers: plan.problems || [plan.hint || plan.error], summary: 'These state answers cannot be saved yet.', effects: [], figures: {} };
+  const parts = [Object.keys(plan.given).length ? `save ${Object.keys(plan.given).length} answer${Object.keys(plan.given).length === 1 ? '' : 's'}` : '', plan.cleared.length ? `clear ${plan.cleared.length}` : ''].filter(Boolean).join(' and ');
+  return { blockers: [], summary: `For your ${plan.taxYear} ${plan.stateName} return, ${parts}.`, effects: [`Your ${plan.stateName} return is worked out again. Where you lived is not changed.`], figures: {} };
 }
 
 function filingFor(ctx, entry, module) {
@@ -189,6 +232,13 @@ function filingFor(ctx, entry, module) {
   const withheld = sum(ctx.w2.filter((row) => row.state === entry.state), (row) => row.stateWithheld);
   const localWithheld = sum(ctx.w2.filter((row) => row.state === entry.state), (row) => row.localWithheld);
   return { ...filing, sourced: split.sourced, sourcedAgi: sourcedAgi(split.sourced), share: split.share, checks: split.checks, payments: { withheld: withheld + positive(entry.otherWithheld), localWithheld, estimated: positive(entry.estimatedPayments), extension: positive(entry.extensionPayment) } };
+}
+
+function labelsFor(module, filing, result) {
+  const source = typeof module.labels === 'function' ? module.labels(filing.taxYear, filing.residency, result.form) : module.labels;
+  const lines = result.lines || {};
+  if (!source) return {};
+  return Object.fromEntries(Object.keys(lines).filter((key) => typeof source[key] === 'string').map((key) => [key, source[key]]));
 }
 
 function settle(result, filing, reader, module) {
@@ -208,6 +258,7 @@ function settle(result, filing, reader, module) {
     to: filing.to || undefined,
     form: result.form,
     lines: result.lines || {},
+    labels: labelsFor(module, filing, result),
     schedules: result.schedules || {},
     stateIncome: whole(result.stateIncome ?? filing.sourcedAgi),
     sourcedIncome: filing.sourced,
@@ -320,18 +371,49 @@ export function usStateReturnFor(state, args = {}) {
   return { ok: true, data: { ...all.data, returns: [found] } };
 }
 
+const FACTS = Object.freeze({
+  spouse: (ctx) => ctx.filers.length > 1,
+  dependents: (ctx) => ctx.dependents.length > 0,
+  selfEmployment: (ctx) => whole(ctx.income.businessIncome) !== 0,
+  senior: (ctx) => ctx.filers.some((item) => item.age !== null && item.age >= 60),
+  retirementIncome: (ctx) => whole(ctx.income.iraTaxable) + whole(ctx.income.pensionTaxable) > 0,
+  socialSecurity: (ctx) => whole(ctx.income.socialSecurityBenefits) > 0,
+  capitalGains: (ctx) => whole(ctx.income.capitalGain) !== 0,
+  interest: (ctx) => whole(ctx.income.taxableInterest) + whole(ctx.income.taxExemptInterest) > 0,
+  taxExemptInterest: (ctx) => whole(ctx.income.taxExemptInterest) > 0,
+  itemizesFederal: (ctx) => Boolean(ctx.itemized.federalItemized),
+});
+
+export const QUESTION_FACTS = Object.freeze(Object.keys(FACTS));
+
+export function questionApplies(question, ctx, entry, answers = {}) {
+  const when = question.when;
+  if (!when || !ctx) return true;
+  if (when.residency && !when.residency.includes(entry.residency)) return false;
+  if (when.filingStatus && !when.filingStatus.includes(ctx.filingStatus)) return false;
+  if (when.has && !when.has.every((fact) => FACTS[fact] && FACTS[fact](ctx))) return false;
+  if (when.answer) {
+    const value = answers[when.answer.id];
+    if (when.answer.in ? !when.answer.in.includes(value) : value === undefined || value === null || value === '') return false;
+  }
+  return true;
+}
+
 export function usStateQuestions(state, args = {}) {
   const taxYear = yearOf(state, args);
   const code = String(args.state || '').trim().toUpperCase();
-  const codes = code ? [code] : (() => {
-    const built = buildStateContext(state, taxYear);
-    return built.ok ? residencyFor(state, built.ctx).states.map((item) => item.state) : [];
-  })();
+  const built = buildStateContext(state, taxYear);
+  const ctx = built.ok ? built.ctx : null;
+  const plan = ctx ? residencyFor(state, ctx).states : [];
+  const codes = code ? [code] : plan.map((item) => item.state);
   const saved = savedYear(state, taxYear);
   const list = codes.map((item) => {
     const module = stateModule(item);
-    const entry = saved?.states?.find((row) => row.state === item);
-    return { state: item, stateName: nameOf(item), built: Boolean(module?.built), questions: (module?.questions || []).map((question) => ({ id: question.id, text: question.text, help: question.help || '', kind: question.kind, options: question.options, answer: entry?.answers?.[question.id] ?? null })) };
+    const entry = plan.find((row) => row.state === item) || withSavedAnswers(saved, { state: item, residency: 'full-year' });
+    const answers = entry.answers || {};
+    const all = module?.questions || [];
+    const asked = all.filter((question) => questionApplies(question, ctx, entry, answers));
+    return { state: item, stateName: nameOf(item), built: Boolean(module?.built), residency: entry.residency, skipped: all.length - asked.length, questions: asked.map((question) => ({ id: question.id, text: question.text, help: question.help || '', kind: question.kind, options: question.options, answer: answers[question.id] ?? null })) };
   });
   return { ok: true, data: { taxYear, states: list } };
 }
@@ -352,8 +434,10 @@ export function usStateCoverage() {
 export function usStateFilingPackage(state, args = {}) {
   const all = usStateReturnFor(state, args);
   if (!all.ok) return all;
+  const route = efileRoute() === 'partner' ? 'partner' : 'irs-mef';
   const packages = all.data.returns.filter((item) => item.status === 'computed').map((item) => {
     const blockers = (item.checks || []).filter((entry) => entry.level === 'error').map((entry) => entry.code);
+    if (route === 'irs-mef') blockers.push('STATE_MEF_NOT_BUILT');
     if (item.provisional) blockers.push('STATE_FIGURES_PROVISIONAL');
     if (item.unreviewed) blockers.push('STATE_RULES_NOT_ATTESTED');
     return {
@@ -366,7 +450,7 @@ export function usStateFilingPackage(state, args = {}) {
       schedules: item.schedules,
       amounts: { totalTax: item.totalTax, refund: item.refund, owed: item.owed, withheld: item.payments.withheld, estimated: item.payments.estimated },
       due: item.due,
-      route: 'partner',
+      route,
       piggyback: true,
       ready: blockers.length === 0,
       blockers,
@@ -374,7 +458,7 @@ export function usStateFilingPackage(state, args = {}) {
     };
   });
   const missing = all.data.returns.filter((item) => item.status === 'not-built' || item.status === 'blocked' || item.status === 'error').map((item) => item.state);
-  return { ok: true, data: { taxYear: all.data.taxYear, packages, missing, ready: packages.length > 0 && packages.every((item) => item.ready) && missing.length === 0, contract: 'us-state-filing-v1' } };
+  return { ok: true, data: { taxYear: all.data.taxYear, packages, missing, ready: packages.length > 0 && packages.every((item) => item.ready) && missing.length === 0, route, ...(route === 'irs-mef' ? { routeNote: 'The federal return goes straight to the IRS, and MyCA does not send state returns with it yet. File the state returns with the e-file partner or on the state\'s own site.' } : {}), contract: 'us-state-filing-v1' } };
 }
 
 const usd = (value) => `$${whole(value).toLocaleString('en-US')}`;

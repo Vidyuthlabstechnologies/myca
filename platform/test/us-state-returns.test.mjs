@@ -111,14 +111,25 @@ test('residency is checked before it is saved, and the save is audited', async (
 
 test('the filing package carries each computed state for the partner and blocks provisional or unreviewed figures', async () => {
   const state = await household({ taxYear: '2026', state: 'IL', forms: [w2(50000, { state: 'IL', stateWithheld: 2000 })] });
+  const before = process.env.MYCA_US_FILER;
+  process.env.MYCA_US_FILER = 'column-tax';
   const pack = await runTool(state, 'us_state_filing_package', { taxYear: '2026' });
+  delete process.env.MYCA_US_FILER;
+  const direct = await runTool(state, 'us_state_filing_package', { taxYear: '2026' });
+  if (before !== undefined) process.env.MYCA_US_FILER = before;
   assert.equal(pack.ok, true, JSON.stringify(pack));
   const il = pack.data.packages[0];
   assert.equal(il.form, 'IL-1040');
   assert.equal(il.route, 'partner');
+  assert.equal(pack.data.route, 'partner');
   assert.equal(il.ready, false);
   assert.ok(il.blockers.includes('STATE_FIGURES_PROVISIONAL'));
+  assert.equal(il.blockers.includes('STATE_MEF_NOT_BUILT'), false);
   assert.equal(pack.data.contract, 'us-state-filing-v1');
+  assert.equal(direct.data.route, 'irs-mef');
+  assert.equal(direct.data.packages[0].route, 'irs-mef');
+  assert.ok(direct.data.packages[0].blockers.includes('STATE_MEF_NOT_BUILT'));
+  assert.match(direct.data.routeNote, /straight to the IRS/);
 });
 
 test('the rule reader reports the records used and a missing record', () => {
@@ -147,4 +158,52 @@ test('Illinois: a filer someone else can claim keeps the exemption only while ba
   };
   assert.equal((await make(2800)).lines['10a'], 2850);
   assert.equal((await make(9000)).lines['10a'], 0);
+});
+
+test('one state\'s answers save without touching where you lived, and a null clears an answer', async () => {
+  const state = await household({ state: 'IL', forms: [w2(60000, { state: 'IL', stateWithheld: 2900 })] });
+  const saved = await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'IL', answers: { useTax: 40, propertyTaxPaid: 3000 } });
+  assert.equal(saved.ok, true, JSON.stringify(saved));
+  const out = await runTool(state, 'us_state_returns', { taxYear: '2025' });
+  assert.equal(out.data.residencyAssumed, true, 'the residency stays assumed');
+  const il = out.data.returns.find((item) => item.state === 'IL');
+  assert.equal(il.lines['21'], 40);
+  assert.equal(il.schedules.ICR.propertyTaxCredit, 150);
+  await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'IL', answers: { propertyTaxPaid: null } });
+  const questions = await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'IL' });
+  const byId = Object.fromEntries(questions.data.states[0].questions.map((item) => [item.id, item.answer]));
+  assert.equal(byId.useTax, 40);
+  assert.equal(byId.propertyTaxPaid, null);
+  await runTool(state, 'set_us_state_residency', { taxYear: '2025', states: [{ state: 'IL', residency: 'full-year' }] });
+  assert.equal((await runTool(state, 'us_state_returns', { taxYear: '2025' })).data.returns[0].lines['21'], 40, 'saving residency keeps the answers');
+  assert.equal((await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'IL', answers: { notAQuestion: 1 } })).error, 'STATE_ANSWERS_INVALID');
+  assert.equal((await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'TX', answers: { useTax: 1 } })).error, 'STATE_HAS_NO_QUESTIONS');
+  assert.ok(state.auditEvents.some((item) => item.action === 'us_state_answers_set'));
+});
+
+test('every state question condition uses known facts, residencies and question ids', async () => {
+  const { STATE_MODULES } = await import('../src/countries/united-states/states/index.mjs');
+  const { QUESTION_FACTS } = await import('../src/countries/united-states/state-returns.mjs');
+  for (const module of STATE_MODULES.filter((item) => item.built)) {
+    const ids = new Set((module.questions || []).map((item) => item.id));
+    for (const question of module.questions || []) {
+      const when = question.when;
+      if (!when) continue;
+      assert.deepEqual(Object.keys(when).filter((key) => !['residency', 'filingStatus', 'has', 'answer'].includes(key)), [], `${module.code} ${question.id}`);
+      for (const item of when.residency || []) assert.ok(['full-year', 'part-year', 'nonresident'].includes(item), `${module.code} ${question.id} ${item}`);
+      for (const item of when.filingStatus || []) assert.ok(['single', 'mfj', 'mfs', 'hoh', 'qss'].includes(item), `${module.code} ${question.id} ${item}`);
+      for (const item of when.has || []) assert.ok(QUESTION_FACTS.includes(item), `${module.code} ${question.id} ${item}`);
+      if (when.answer) assert.ok(ids.has(when.answer.id) && when.answer.id !== question.id, `${module.code} ${question.id} answer ${when.answer.id}`);
+    }
+  }
+});
+
+test('New York asks the part-year city questions only of a part-year city resident', async () => {
+  const state = await household({ state: 'NY', forms: [w2(60000, { state: 'NY', stateWithheld: 2900 })] });
+  const ids = async () => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'NY' })).data.states[0].questions.map((item) => item.id);
+  const first = await ids();
+  assert.ok(first.includes('nycResident'));
+  assert.equal(first.includes('nycMonths'), false);
+  await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'NY', answers: { nycResident: 'part-year' } });
+  assert.ok((await ids()).includes('nycMonths'));
 });
