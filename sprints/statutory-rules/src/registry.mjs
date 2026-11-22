@@ -15,6 +15,8 @@ import { RULES as US_MIP_RULES } from './rules/us-individual-mortgage-insurance.
 import { RULES as US_8889_RULES } from './rules/us-individual-8889.mjs';
 import { RULES as US_8880_5695_RULES } from './rules/us-individual-8880-5695.mjs';
 import { RULES as US_5329_RULES } from './rules/us-individual-5329.mjs';
+import { RULES as US_IRA_LIMIT_RULES } from './rules/us-individual-ira-limits.mjs';
+import { RULES as US_LEGAL_HOLIDAY_RULES } from './rules/us-individual-legal-holidays.mjs';
 import { RULES as US_SALES_TAX_RULES } from './rules/us-sales-tax.mjs';
 import { RULES as US_STATES_RULES } from './rules/us-states.mjs';
 import { RULES as US_STATE_RETURNS_RULES } from './rules/us-state-returns.mjs';
@@ -34,7 +36,7 @@ export const RULE_MODULES = Object.freeze({
   'holidays': HOLIDAY_RULES,
   'payroll': PAYROLL_RULES,
   'us-federal': US_FEDERAL_RULES,
-  'us-individual': [...US_INDIVIDUAL_RULES, ...US_2441_RULES, ...US_8962_RULES, ...US_SCHEDULE_E_RULES, ...US_1040X_RULES, ...US_MIP_RULES, ...US_8889_RULES, ...US_8880_5695_RULES, ...US_5329_RULES],
+  'us-individual': [...US_INDIVIDUAL_RULES, ...US_2441_RULES, ...US_8962_RULES, ...US_SCHEDULE_E_RULES, ...US_1040X_RULES, ...US_MIP_RULES, ...US_8889_RULES, ...US_8880_5695_RULES, ...US_5329_RULES, ...US_IRA_LIMIT_RULES, ...US_LEGAL_HOLIDAY_RULES],
   'us-sales-tax': US_SALES_TAX_RULES,
   'us-states': US_STATES_RULES,
   'us-state-returns': US_STATE_RETURNS_RULES,
