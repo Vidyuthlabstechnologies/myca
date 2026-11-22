@@ -146,7 +146,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
   const notesInPeriod = [
     ...(opts.creditNotes || []).map((note) => ({ ...note, ntty: 'C', sign: -1 })),
     ...(opts.debitNotes || []).map((note) => ({ ...note, ntty: 'D', sign: 1 })),
-  ].filter((note) => note.date && fpFromDate(note.date) === fp);
+  ].filter((note) => note.date && (opts.allGiven || fpFromDate(note.date) === fp));
   const noteHoldReason = (note) => holdReason(note, allInvoices.get(note.invoiceId)?.date || note.invoiceDate || note.date);
   for (const note of notesInPeriod) {
     const reason = noteHoldReason(note);

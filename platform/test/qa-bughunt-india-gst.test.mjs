@@ -61,3 +61,16 @@ test('the GSTN filing pack GSTR-3B is net of the month\'s credit notes, the same
   assert.deepEqual(pack.data.gstr3b.outward.totals, { interTaxable: 0, interIgst: 0, intraTaxable: 1000, intraCgst: 25, intraSgst: 25 });
   assert.equal(pack.data.payable, 50);
 });
+
+test('the quarterly GSTR-1 reports a credit note issued in the first two months of the quarter, in CDNR, HSN and table 13', async () => {
+  const state = books();
+  state.company.gstFrequency = 'quarterly';
+  const sale = await sell(state, { date: '2026-07-10', partyName: 'Shah Traders', partyGstin: BUYER_MH, lines: [{ description: 'Shirt', hsn: '6205', qty: 2, rate: 1000, gstRate: 5 }] });
+  const note = await runTool(state, 'create_credit_note', { invoiceId: sale.id, amount: 1050, reason: 'Goods returned', date: '2026-08-12' });
+  assert.equal(note.ok, true, JSON.stringify(note));
+  const file = await runTool(state, 'export_gstr1_quarter', { quarter: 'Q2 2026-27' });
+  assert.equal(file.ok, true, JSON.stringify(file));
+  assert.equal(file.data.cdnr?.[0]?.nt?.[0]?.nt_num, note.creditNote.id);
+  assert.equal(file.data.hsn.hsn_b2b[0].txval, 1000);
+  assert.ok(file.data.doc_issue.doc_det.some((row) => row.doc_num === 5));
+});
