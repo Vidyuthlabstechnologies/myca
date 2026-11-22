@@ -457,6 +457,7 @@ export function computeForm1040(input = {}, taxYearArg) {
   const retirement = formsOf(input, '1099-R');
   const codeOf = (form) => String(form.fields?.distributionCode || '').toUpperCase();
   const rothIra = (form) => /[JQT]/.test(codeOf(form));
+  const returnedContribution = (form) => /[8P]/.test(codeOf(form));
   const iraForms = retirement.filter((form) => form.fields?.iraSepSimple || rothIra(form));
   const pensionForms = retirement.filter((form) => !form.fields?.iraSepSimple && !rothIra(form));
   const taxableBlank = (form) => form.fields?.taxableAmount === undefined || form.fields?.taxableAmount === null || form.fields?.taxableAmount === '';
@@ -467,13 +468,13 @@ export function computeForm1040(input = {}, taxYearArg) {
   const accountForms = formsOf(input, '5498').filter((form) => ownerOf(form) === 'taxpayer');
   const accountValue = (roth) => sum(accountForms.filter((form) => (form.fields?.accountType === 'roth') === roth), (form) => field(form, 'fairMarketValue'));
   const answerOr = (value, fallback) => (value === undefined || value === null || value === '' ? fallback : positive(value));
-  const traditionalForms = iraForms.filter((form) => form.fields?.iraSepSimple && !rothIra(form) && !/[GH]/.test(codeOf(form)) && ownerOf(form) === 'taxpayer');
+  const traditionalForms = iraForms.filter((form) => form.fields?.iraSepSimple && !rothIra(form) && !returnedContribution(form) && !/[GH]/.test(codeOf(form)) && ownerOf(form) === 'taxpayer');
   const traditionalGross = sum(traditionalForms, (form) => field(form, 'grossDistribution'));
   const conversions = Math.min(traditionalGross, answerOr(answers.rothConversionAmount, sum(accountForms, (form) => field(form, 'rothConversion'))));
   const rothQualified = (form) => /Q/.test(codeOf(form)) || (/T/.test(codeOf(form)) && answeredYes(answers.rothFiveYearMet));
-  const rothNonqualified = iraForms.filter((form) => rothIra(form) && !rothQualified(form) && ownerOf(form) === 'taxpayer');
+  const rothNonqualified = iraForms.filter((form) => rothIra(form) && !rothQualified(form) && !returnedContribution(form) && ownerOf(form) === 'taxpayer');
   const rothNonqualifiedGross = sum(rothNonqualified, (form) => field(form, 'grossDistribution'));
-  const form8606 = computeForm8606({ nondeductibleContributions: answers.iraNondeductibleContributions, priorBasis: answers.priorIraBasis, contributionsAfterYearEnd: answers.iraNondeductibleAfterYearEnd, yearEndValue: answerOr(answers.iraYearEndValue, accountValue(false)), distributions: traditionalGross - conversions, conversions, rothDistributions: rothNonqualifiedGross, firstHomeExpenses: answers.rothFirstHomeExpenses, firstHomeLimit: fromCents(exceptionRule.caps['09']), rothContributionBasis: answers.rothContributionBasis, rothConversionBasis: answers.rothConversionBasis });
+  const form8606 = computeForm8606({ nondeductibleContributions: answers.iraNondeductibleContributions, priorBasis: answers.priorIraBasis, contributionsAfterYearEnd: answers.iraNondeductibleAfterYearEnd, yearEndValue: answerOr(answers.iraYearEndValue, accountValue(false)), distributions: traditionalGross - conversions, conversions, rothDistributions: rothNonqualifiedGross, firstHomeExpenses: answers.rothFirstHomeExpenses, firstHomeLimit: answeredYes(answers.rothFiveYearMet) ? fromCents(exceptionRule.caps['09']) : 0, rothContributionBasis: answers.rothContributionBasis, rothConversionBasis: answers.rothConversionBasis });
   const taxableShare = new Map();
   const shareOut = (forms, total, gross) => {
     let left = total;
@@ -531,7 +532,8 @@ export function computeForm1040(input = {}, taxYearArg) {
   const seDeduction = sum(seByOwner, (item) => item.deduction);
 
   const careProviders = formsOf(input, '2441-PROVIDER').map((form) => ({ name: form.payer || '', tin: form.payerTin || '', address: String(form.fields?.providerAddress || ''), householdEmployee: Boolean(form.fields?.householdEmployee), amount: field(form, 'amountPaid'), qualifyingPerson: form.fields?.qualifyingPerson || '' }));
-  const careBenefitsBy = (owner) => sum(w2s.filter((form) => ownerOf(form) === owner), (form) => field(form, 'dependentCareBenefits'));
+  const carePlanLimit = careExclusionRule ? fromCents(careExclusionRule.maxCents) : Infinity;
+  const careBenefitsBy = (owner) => sum(w2s.filter((form) => ownerOf(form) === owner), (form) => Math.min(field(form, 'dependentCareBenefits'), carePlanLimit));
   const careBenefitsReceived = sum(owners, careBenefitsBy);
   const careCarriedIn = positive(answers.careBenefitsCarriedIn);
   const hasCare = careProviders.length > 0 || careBenefitsReceived > 0 || careCarriedIn > 0;
@@ -621,7 +623,7 @@ export function computeForm1040(input = {}, taxYearArg) {
     const code = String(form.fields?.exceptionCode || '').padStart(form.fields?.exceptionCode ? 2 : 0, '0');
     let exception = 0;
     if (code && !exceptionRule.codes.includes(code)) checks.push(check('error', 'EARLY_DISTRIBUTION_EXCEPTION_INVALID', `${who} 1099-R has exception number ${code}, which is not on the ${taxYear} Form 5329 list (${exceptionRule.codes[0]} to ${exceptionRule.codes[exceptionRule.codes.length - 2]}, or 99 for more than one).`, 'Correct the exception number on the 1099-R.', '5329'));
-    else if (code && form.fields?.iraSepSimple && exceptionRule.notIra.includes(code)) checks.push(check('error', 'EARLY_DISTRIBUTION_EXCEPTION_INVALID', `${who} 1099-R is from an IRA, and exception ${code} does not apply to IRAs.`, 'Correct the exception number on the 1099-R.', '5329'));
+    else if (code && (form.fields?.iraSepSimple || rothIra(form)) && exceptionRule.notIra.includes(code)) checks.push(check('error', 'EARLY_DISTRIBUTION_EXCEPTION_INVALID', `${who} 1099-R is from an IRA, and exception ${code} does not apply to IRAs.`, 'Correct the exception number on the 1099-R.', '5329'));
     else if (code && !form.fields?.iraSepSimple && !rothIra(form) && exceptionRule.iraOnly.includes(code)) checks.push(check('error', 'EARLY_DISTRIBUTION_EXCEPTION_INVALID', `${who} 1099-R is from an employer plan, and exception ${code} applies only to IRA distributions.`, 'Correct the exception number on the 1099-R.', '5329'));
     else if (code) {
       const claimed = form.fields?.exceptionAmount === undefined || form.fields?.exceptionAmount === null || form.fields?.exceptionAmount === '' ? included : Math.min(included, field(form, 'exceptionAmount'));

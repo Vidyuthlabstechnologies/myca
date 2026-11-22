@@ -103,7 +103,7 @@ test('2025 joint return, two children, $5,000 of W-2 box 10 benefits: 6,000 - 5,
   assert.equal(data.lines['19'], 4400);
 });
 
-test('benefits above the expenses are taxable on line 1e: $5,000 limit in 2025 and $7,500 from 2026', () => {
+test('benefits above the expenses are taxable on line 1e; box 10 above the plan limit is already wages: $5,000 limit in 2025 and $7,500 from 2026', () => {
   const small = run('single', [w2(50000, { dependentCareBenefits: 5000 }), provider('Sunny Daycare', 3000)], { dependents: [child('Mia', '2021-03-01')] });
   assert.equal(small.schedules['2441']['25'], 3000);
   assert.equal(small.schedules['2441']['26'], 2000);
@@ -113,8 +113,9 @@ test('benefits above the expenses are taxable on line 1e: $5,000 limit in 2025 a
   assert.equal(small.schedules['2441']['11'], 0);
   const forms = [w2(50000, { dependentCareBenefits: 7500 }), provider('Sunny Daycare', 6000)];
   const y2025 = run('single', forms, { dependents: [child('Mia', '2021-03-01')] }, '2025');
-  assert.deepEqual([17, 21, 25, 26].map((line) => y2025.schedules['2441'][String(line)]), [6000, 5000, 5000, 2500]);
-  assert.equal(y2025.lines['1e'], 2500);
+  assert.deepEqual([12, 17, 21, 25, 26].map((line) => y2025.schedules['2441'][String(line)]), [5000, 5000, 5000, 5000, 0], 'the 2,500 above the plan limit is already in W-2 box 1 (2441 instructions, line 12)');
+  assert.equal(y2025.lines['1e'] || 0, 0);
+  assert.equal(y2025.lines['1z'], 50000);
   const y2026 = run('single', forms, { dependents: [child('Mia', '2021-03-01')] }, '2026');
   assert.deepEqual([17, 21, 25, 26].map((line) => y2026.schedules['2441'][String(line)]), [6000, 7500, 6000, 1500]);
   assert.equal(y2026.lines['1e'], 1500);

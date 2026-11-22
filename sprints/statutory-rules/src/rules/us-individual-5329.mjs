@@ -40,7 +40,7 @@ export const RULES = [
   },
   {
     id: 'us.federal.individual.early-distribution-exceptions',
-    value: { codes: [...CODES_2025.slice(0, -1), '24', '99'], iraOnly: IRA_ONLY, notIra: NOT_IRA, caps: { '09': 10000 * D, '19': 5000 * D, '22': 10500 * D, '23': 1000 * D, '24': 2600 * D }, domesticAbuseAccountBasisPoints: 5000, qualifiedDisasterMaxCents: 22000 * D },
+    value: { codes: [...CODES_2025.slice(0, -1), '24', '99'], iraOnly: IRA_ONLY, notIra: [...NOT_IRA, '24'], caps: { '09': 10000 * D, '19': 5000 * D, '22': 10500 * D, '23': 1000 * D, '24': 2600 * D }, domesticAbuseAccountBasisPoints: 5000, qualifiedDisasterMaxCents: 22000 * D },
     basis: 'form_5329_line_2_exception_numbers_with_dollar_caps_per_person_first_home_lifetime_birth_or_adoption_per_child_domestic_abuse_indexed_emergency_per_year_long_term_care_and_the_qualified_disaster_recovery_distribution_limit',
     ...year(2026),
     act: 'IRC',
@@ -60,7 +60,7 @@ export const RULES = [
   },
   {
     id: 'us.federal.individual.early-distribution-exceptions',
-    value: { codes: [...CODES_2025.slice(0, -1), '24', '99'], iraOnly: IRA_ONLY, notIra: NOT_IRA, caps: { '09': 10000 * D, '19': 5000 * D, '22': 10900 * D, '23': 1000 * D, '24': 2700 * D }, domesticAbuseAccountBasisPoints: 5000, qualifiedDisasterMaxCents: 22000 * D },
+    value: { codes: [...CODES_2025.slice(0, -1), '24', '99'], iraOnly: IRA_ONLY, notIra: [...NOT_IRA, '24'], caps: { '09': 10000 * D, '19': 5000 * D, '22': 10900 * D, '23': 1000 * D, '24': 2700 * D }, domesticAbuseAccountBasisPoints: 5000, qualifiedDisasterMaxCents: 22000 * D },
     basis: 'form_5329_line_2_exception_numbers_with_dollar_caps_per_person_first_home_lifetime_birth_or_adoption_per_child_domestic_abuse_indexed_emergency_per_year_long_term_care_and_the_qualified_disaster_recovery_distribution_limit',
     ...year(2027),
     act: 'IRC',
