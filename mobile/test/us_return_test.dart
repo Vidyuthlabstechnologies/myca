@@ -109,6 +109,7 @@ class UsFakeApi implements MycaApi {
   final tools = <String, Object?>{};
   Object? Function(String name, Map<String, Object?> args)? stateTools;
   void Function(Map<String, Object?> args)? stateSaved;
+  void Function(Map<String, Object?> args)? stateAnswered;
   Map<String, Object?> signed = {};
   int _token = 0;
   final _pending = <String, Proposal>{};
@@ -172,6 +173,8 @@ class UsFakeApi implements MycaApi {
         answers['${args['id']}'] = args['answer'];
       case 'set_us_state_residency':
         stateSaved?.call(args);
+      case 'set_us_state_answers':
+        stateAnswered?.call(args);
       case 'sign_us_return':
         signed = args;
         efile = 'signed';

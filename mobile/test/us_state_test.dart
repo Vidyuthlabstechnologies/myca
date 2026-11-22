@@ -37,12 +37,11 @@ void main() {
   setUp(() => moneyCountry = 'US');
   tearDown(() => moneyCountry = 'IN');
 
-  test('residency entries keep their answers and income but never the assumed flag', () {
+  test('residency entries keep their income but never answers or the assumed flag', () {
     final saved = UsResidency.fromJson({'state': 'ny', 'residency': 'full-year', 'assumed': true, 'answers': {'nycResident': 'no'}, 'estimatedPayments': 400});
-    expect(saved.toArgs(), {'state': 'NY', 'residency': 'full-year', 'answers': {'nycResident': 'no'}, 'estimatedPayments': 400});
+    expect(saved.toArgs(), {'state': 'NY', 'residency': 'full-year', 'estimatedPayments': 400}, reason: 'answers go through set_us_state_answers, not the residency');
     final moved = saved.moved(residency: 'part-year', from: '2025-01-01', to: '2025-06-30');
     expect(moved.toArgs()['from'], '2025-01-01');
-    expect(moved.withAnswers({}).toArgs().containsKey('answers'), isFalse);
     expect(stateOptionLabel('part-year'), 'Yes, part of the year');
     expect(stateOptionLabel('not-required'), 'Not required');
     expect(UsStateCoverage.unknown.message('TX'), contains('no state income tax'));
@@ -107,7 +106,7 @@ void main() {
     expect(api.proposals.last.args['taxYear'], '2025');
   });
 
-  testWidgets('a saved residency comes back, and unticking a state or adding one is saved with its answers kept', (tester) async {
+  testWidgets('a saved residency comes back, and unticking a state or adding one saves only the residency', (tester) async {
     final book = StateBook(residency: [
       {'state': 'NY', 'residency': 'full-year', 'answers': {'nycResident': 'full-year'}},
       {'state': 'NJ', 'residency': 'nonresident'},
@@ -123,7 +122,7 @@ void main() {
     expect(find.text('Added by you'), findsNWidgets(2));
     await tapKey(tester, 'usResidency.save');
     expect(book.saves.single, [
-      {'state': 'NY', 'residency': 'full-year', 'answers': {'nycResident': 'full-year'}},
+      {'state': 'NY', 'residency': 'full-year'},
       {'state': 'CT', 'residency': 'nonresident'},
     ]);
   });
@@ -136,11 +135,12 @@ void main() {
     expect(find.byType(UsStateResidencyScreen), findsOneWidget);
   });
 
-  testWidgets('state questions handle every kind the server sends and save into that state only', (tester) async {
+  testWidgets('state questions handle every kind the server sends, save one state\'s answers and re-fetch what applies', (tester) async {
     final book = StateBook();
     final api = withBook(book);
     await show(tester, api, const UsStateQuestionsScreen(taxYear: 2025, state: 'NY'));
-    expect(find.text('New York · question 1 of 6'), findsOneWidget);
+    expect(find.text('New York · question 1 of 5'), findsOneWidget, reason: 'the part-year city question does not apply yet');
+    expect(find.byKey(const Key('usStateQuestions.skip')), findsNothing);
     await tester.tap(find.byKey(const Key('usStateQuestions.next')));
     await tester.pumpAndSettle();
     expect(find.text('Choose an answer.'), findsOneWidget);
@@ -148,8 +148,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('usStateQuestions.next')));
     await tester.pumpAndSettle();
-    expect(book.saves.last.first, {'state': 'NY', 'residency': 'full-year', 'answers': {'nycResident': 'part-year'}});
-    expect(book.saves.last.last, {'state': 'NJ', 'residency': 'nonresident'});
+    expect(book.answered.last, {'taxYear': '2025', 'state': 'NY', 'answers': {'nycResident': 'part-year'}});
+    expect(book.saves, isEmpty, reason: 'answers never rewrite where you lived');
+    expect(find.text('New York · question 2 of 6'), findsOneWidget, reason: 'the re-fetched list now asks the months');
 
     await tester.enterText(find.byKey(const Key('usStateQuestions.count')), '7');
     await tester.tap(find.byKey(const Key('usStateQuestions.next')));
@@ -158,12 +159,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('usStateQuestions.next')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('usStateQuestions.amount')), '2,500');
+    await tester.tap(find.byKey(const Key('usStateQuestions.none')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('usStateQuestions.text')), 'NYC Geographic District 15');
     await tester.tap(find.byKey(const Key('usStateQuestions.next')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('usStateQuestions.skip')));
-    await tester.pumpAndSettle();
-    final savesBefore = book.saves.length;
     expect(find.byKey(const Key('usStateQuestions.pick.county')), findsOneWidget, reason: 'a long list of choices is a dropdown');
     await tester.tap(find.byKey(const Key('usStateQuestions.pick.county')));
     await tester.pumpAndSettle();
@@ -171,25 +171,29 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('usStateQuestions.next')));
     await tester.pumpAndSettle();
-    expect(book.saves.length, savesBefore + 1, reason: 'skipping an unanswered question saves nothing');
-    expect(book.saves.last.first['answers'], {'nycResident': 'part-year', 'nycMonths': 7, 'yonkersNonresidentWages': false, 'ny529Contributions': 2500, 'county': 'Kings'});
+    expect(book.answers['NY'], {'nycResident': 'part-year', 'nycMonths': 7, 'yonkersNonresidentWages': false, 'ny529Contributions': 0, 'schoolDistrict': 'NYC Geographic District 15', 'county': 'Kings'});
+    expect(book.answered.every((a) => (a['answers'] as Map).length == 1), isTrue);
     expect(find.byKey(const Key('usStateQuestions.finished')), findsOneWidget);
     await tester.tap(find.byKey(const Key('usStateQuestions.see')));
     await tester.pumpAndSettle();
     expect(find.byType(UsStateReturnScreen), findsOneWidget);
   });
 
-  testWidgets('a text question and going back keep the answer', (tester) async {
-    final book = StateBook(questions: {'NY': [nyQuestions[4], nyQuestions[2]]});
+  testWidgets('going back keeps the answer, an unchanged answer is not saved again, and skipped questions are counted', (tester) async {
+    final book = StateBook(questions: {'NY': [nyQuestions[4], nyQuestions[1]]});
     final api = withBook(book);
     await show(tester, api, const UsStateQuestionsScreen(taxYear: 2025, state: 'NY'));
     await tester.enterText(find.byKey(const Key('usStateQuestions.text')), 'Brooklyn');
     await tester.tap(find.byKey(const Key('usStateQuestions.next')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('usStateQuestions.back')));
+    expect(find.byKey(const Key('usStateQuestions.skipped')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('usStateQuestions.again')));
     await tester.pumpAndSettle();
     expect(find.text('Brooklyn'), findsOneWidget);
-    expect(book.saves.last.first['answers'], {'schoolDistrict': 'Brooklyn'});
+    await tester.tap(find.byKey(const Key('usStateQuestions.next')));
+    await tester.pumpAndSettle();
+    expect(book.answered.length, 1);
+    expect(book.answers['NY'], {'schoolDistrict': 'Brooklyn'});
   });
 
   testWidgets('the state summary shows the refund, the state\'s own credit labels, the other-state credit and what is left out', (tester) async {
@@ -198,7 +202,7 @@ void main() {
     expect(find.text('Form IT-201 · Resident all year'), findsOneWidget);
     expect(find.text('Estimated New York refund'), findsOneWidget);
     expect(find.text('\$1,690.00'), findsWidgets);
-    expect(find.text('Answer New York questions (6 left)'), findsOneWidget);
+    expect(find.text('Answer New York questions (5 left)'), findsOneWidget);
     for (final label in ['Resident credit for tax paid to another state', 'New York City resident tax', 'Empire State child credit', 'Total New York tax', 'New York tax withheld (W-2 box 17)']) {
       await tester.scrollUntilVisible(find.text(label), 200, scrollable: find.byType(Scrollable).first);
       expect(find.text(label), findsOneWidget, reason: label);
@@ -212,6 +216,11 @@ void main() {
     expect(find.text('Yonkers nonresident earnings tax (Form Y-203)'), findsOneWidget);
     expect(find.byKey(const Key('usStateReturn.provisional')), findsNothing);
     expect(find.byKey(const Key('usStateReturn.unreviewed')), findsOneWidget);
+    await tapKey(tester, 'usStateReturn.everyLine');
+    await tester.scrollUntilVisible(find.text('Line 33 · New York adjusted gross income'), 200, scrollable: find.byType(Scrollable).first);
+    expect(find.text('Line 33 · New York adjusted gross income'), findsOneWidget);
+    expect(find.text('Line 47a · New York City resident tax'), findsOneWidget);
+    expect(find.text('0.4523'), findsOneWidget, reason: 'a ratio is not shown as dollars');
   });
 
   testWidgets('a provisional figure says the state has not published and the return cannot be filed', (tester) async {
@@ -252,7 +261,7 @@ void main() {
     expect(find.byKey(const Key('usStateReturn.coverage')), findsOneWidget);
   });
 
-  testWidgets('the sign screen says the state return goes to the e-file partner with the federal return', (tester) async {
+  testWidgets('the sign screen shows where each state return goes, on the partner route and the direct IRS route', (tester) async {
     final api = withBook(StateBook())..route = 'partner';
     await show(tester, api, UsSignScreen(taxYear: 2025, fees: WalkFees(const UsFilingFee(taxYear: 2025, enforced: true, paid: true, priceUsd: 99))));
     expect(find.byKey(const Key('usSign.partnerIntro')), findsOneWidget);
@@ -263,9 +272,12 @@ void main() {
     await show(tester, provisional, UsSignScreen(taxYear: 2026, fees: WalkFees(const UsFilingFee(taxYear: 2026, enforced: true, paid: true, priceUsd: 99))));
     expect(find.textContaining('New York hasn\'t published its 2026 figures yet'), findsOneWidget);
 
-    final direct = withBook(StateBook());
+    final direct = withBook(StateBook(route: 'irs-mef'));
     await show(tester, direct, UsSignScreen(taxYear: 2025, fees: WalkFees(const UsFilingFee(taxYear: 2025, enforced: true, paid: true, priceUsd: 99))));
-    expect(find.byKey(const Key('usSign.states')), findsNothing, reason: 'the state package rides with the partner route only');
+    expect(find.byKey(const Key('usSign.states')), findsOneWidget);
+    expect(find.textContaining('MyCA does not send state returns with it yet'), findsOneWidget);
+    expect(find.text('Your New York return (IT-201) is prepared in MyCA. File it yourself; it is not sent with your federal return.'), findsOneWidget);
+    expect(find.textContaining('goes to our e-file partner'), findsNothing);
   });
 }
 

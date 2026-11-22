@@ -16,7 +16,7 @@ String usStateName(String code) => usStates.firstWhere((s) => s.$1 == code.toUpp
 
 const residencyKinds = ['full-year', 'part-year', 'nonresident'];
 
-const _entryKeys = {'state', 'residency', 'from', 'to', 'income', 'answers', 'estimatedPayments', 'extensionPayment', 'otherWithheld'};
+const _entryKeys = {'state', 'residency', 'from', 'to', 'income', 'estimatedPayments', 'extensionPayment', 'otherWithheld'};
 
 class UsResidency {
   const UsResidency({required this.state, required this.residency, this.from = '', this.to = '', this.extra = const {}});
@@ -40,16 +40,6 @@ class UsResidency {
   final String from;
   final String to;
   final Map<String, Object?> extra;
-
-  Map<String, Object?> get answers => _map(extra['answers']).cast<String, Object?>();
-
-  UsResidency withAnswers(Map<String, Object?> answers) => UsResidency(
-        state: state,
-        residency: residency,
-        from: from,
-        to: to,
-        extra: {...extra, 'answers': answers}..removeWhere((key, value) => key == 'answers' && value is Map && value.isEmpty),
-      );
 
   UsResidency moved({required String residency, String from = '', String to = ''}) => UsResidency(state: state, residency: residency, from: from, to: to, extra: extra);
 
@@ -84,6 +74,29 @@ List<UsStateAmount> _amounts(Object? value) => [
       for (final m in _maps(value))
         if (_num(m['amount']) != 0) UsStateAmount(_text(m['label']).isEmpty ? wordsFromKey(_text(m['code'])) : _text(m['label']), _num(m['amount'])),
     ];
+
+class UsStateLine {
+  const UsStateLine(this.line, this.label, this.value);
+
+  final String line;
+  final String label;
+  final Object? value;
+
+  String get shown {
+    final v = value;
+    if (v is num) return v == v.roundToDouble() ? dollars(v) : '$v';
+    return '${v ?? ''}';
+  }
+}
+
+List<UsStateLine> _labelledLines(Object? lines, Object? labels) {
+  final values = _map(lines);
+  final names = _map(labels);
+  return [
+    for (final entry in values.entries)
+      if (_text(names[entry.key]).isNotEmpty && (entry.value is num || entry.value is String)) UsStateLine(entry.key, _text(names[entry.key]), entry.value),
+  ];
+}
 
 class UsStateCheck {
   const UsStateCheck({required this.level, required this.code, required this.message, this.fix = ''});
@@ -127,6 +140,7 @@ class UsStateReturn {
     this.provisional = false,
     this.unreviewed = false,
     this.returnNeeded,
+    this.lines = const [],
   });
 
   factory UsStateReturn.fromJson(Object? json) {
@@ -165,6 +179,7 @@ class UsStateReturn {
       provisional: map['provisional'] == true,
       unreviewed: map['unreviewed'] == true,
       returnNeeded: map['returnNeeded'] is bool ? map['returnNeeded'] as bool : null,
+      lines: _labelledLines(map['lines'], map['labels']),
     );
   }
 
@@ -197,6 +212,7 @@ class UsStateReturn {
   final bool provisional;
   final bool unreviewed;
   final bool? returnNeeded;
+  final List<UsStateLine> lines;
 
   bool get computed => status == 'computed';
   bool get readyToFile => computed && !provisional && !checks.any((c) => c.blocking);
@@ -262,12 +278,14 @@ class UsStateReturns {
 }
 
 class UsStateQuestionSet {
-  const UsStateQuestionSet({required this.state, required this.stateName, required this.built, required this.questions});
+  const UsStateQuestionSet({required this.state, required this.stateName, required this.built, required this.questions, this.residency = '', this.skipped = 0});
 
   final String state;
   final String stateName;
   final bool built;
   final List<UsQuestion> questions;
+  final String residency;
+  final int skipped;
 }
 
 const _stateOptionLabels = {
@@ -338,7 +356,9 @@ class UsStateCoverage {
 }
 
 class UsStatePackage {
-  const UsStatePackage({required this.state, required this.form, required this.partner, required this.ready, required this.blockers});
+  const UsStatePackage({required this.state, required this.form, required this.partner, required this.ready, required this.blockers, this.route = ''});
+
+  final String route;
 
   final String state;
   final String form;
@@ -350,14 +370,24 @@ class UsStatePackage {
 }
 
 class UsStateFilingPackage {
-  const UsStateFilingPackage({required this.packages, required this.missing});
+  const UsStateFilingPackage({required this.packages, required this.missing, this.route = '', this.routeNote = ''});
 
   factory UsStateFilingPackage.fromJson(Object? json) {
     final map = _map(json);
+    final route = _text(map['route']);
     return UsStateFilingPackage(
+      route: route,
+      routeNote: _text(map['routeNote']),
       packages: [
         for (final p in _maps(map['packages']))
-          UsStatePackage(state: _text(p['state']).toUpperCase(), form: _text(p['form']), partner: p['route'] == 'partner' && p['piggyback'] == true, ready: p['ready'] == true, blockers: _texts(p['blockers'])),
+          UsStatePackage(
+            state: _text(p['state']).toUpperCase(),
+            form: _text(p['form']),
+            route: _text(p['route']).isEmpty ? route : _text(p['route']),
+            partner: (_text(p['route']).isEmpty ? route : _text(p['route'])) == 'partner' && p['piggyback'] != false,
+            ready: p['ready'] == true,
+            blockers: _texts(p['blockers']),
+          ),
       ],
       missing: [for (final s in _texts(map['missing'])) s.toUpperCase()],
     );
@@ -365,8 +395,12 @@ class UsStateFilingPackage {
 
   final List<UsStatePackage> packages;
   final List<String> missing;
+  final String route;
+  final String routeNote;
 
   bool get withFederal => packages.any((p) => p.partner);
+  bool get direct => route == 'irs-mef';
+  bool get worthShowing => packages.isNotEmpty || missing.isNotEmpty;
 }
 
 class UsStateProblem implements Exception {
@@ -399,6 +433,8 @@ Future<UsStateQuestionSet> loadStateQuestions(MycaApi api, int year, String stat
     stateName: _text(found['stateName']).isEmpty ? usStateName(state) : _text(found['stateName']),
     built: found['built'] == true,
     questions: [for (final q in _maps(found['questions'])) _stateQuestion(q)],
+    residency: _text(found['residency']),
+    skipped: _num(found['skipped']).toInt(),
   );
 }
 
@@ -422,14 +458,18 @@ Future<UsStateFilingPackage?> loadStateFilingPackage(MycaApi api, int year) asyn
   }
 }
 
-Future<String?> saveStateResidency(MycaApi api, int year, List<UsResidency> states) async {
-  final reply = await api.propose('set_us_state_residency', {'taxYear': '$year', 'states': [for (final s in states) s.toArgs()]});
+Future<String?> _saved(MycaApi api, String tool, Map<String, Object?> args) async {
+  final reply = await api.propose(tool, args);
   final preview = reply.preview;
   if (preview == null) return reply.blockers.isNotEmpty ? reply.blockers.join('\n') : (reply.reply.isEmpty ? 'Not saved. Check your connection and try again.' : reply.reply);
   final confirmed = await api.confirm(preview.token);
   if (confirmed.posted) return null;
   return confirmed.reply.isEmpty ? 'Not saved. Check your connection and try again.' : confirmed.reply;
 }
+
+Future<String?> saveStateResidency(MycaApi api, int year, List<UsResidency> states) => _saved(api, 'set_us_state_residency', {'taxYear': '$year', 'states': [for (final s in states) s.toArgs()]});
+
+Future<String?> saveStateAnswers(MycaApi api, int year, String state, Map<String, Object?> answers) => _saved(api, 'set_us_state_answers', {'taxYear': '$year', 'state': state.toUpperCase(), 'answers': answers});
 
 List<String> w2States(List<UsTaxForm> forms) => {
       for (final f in forms)

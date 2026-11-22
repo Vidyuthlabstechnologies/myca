@@ -85,7 +85,9 @@ No record is edited after it is published; a change in law is a new record.
 The US app shows the state returns as their own section under the five federal steps on the 1040
 hub (`us_return_status` lists no state step). `us_state_residency_screen.dart` saves
 `set_us_state_residency`, starting from the home address and the W-2 box 15 states;
-`us_state_questions_screen.dart` asks `us_state_questions` one at a time and saves the answers into
-that state's entry; `us_state_return_screen.dart` shows `us_state_returns` with the coverage message
-from `us_state_coverage`; the sign screen shows `us_state_filing_package` on the e-file partner route.
+`us_state_questions_screen.dart` asks `us_state_questions` one at a time, saves each answer with
+`set_us_state_answers` and fetches the questions again, since an answer can change which apply;
+`us_state_return_screen.dart` shows `us_state_returns` with each line under the state's own label and
+the coverage message from `us_state_coverage`; the sign screen shows `us_state_filing_package` on both
+routes, with the `routeNote` when the federal return goes straight to the IRS.
 The app computes no state figure.

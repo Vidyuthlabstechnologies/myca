@@ -110,7 +110,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
     final efile = results[2] as UsEfileStatus;
     final consents = _consents;
     final tins = efile.partner && consents != null ? await consentFor(consents, usPartnerTinsConsent) : null;
-    final states = efile.partner ? await loadStateFilingPackage(_api, year) : null;
+    final states = await loadStateFilingPackage(_api, year);
     final status = results[0] as UsReturnStatus;
     _prefillPriorYear(status);
     return _SignContext(status, results[1] as UsReview, efile, results[3] as UsFilingFee, tins: tins, states: states);
@@ -432,7 +432,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
           key: const Key('usSign.partnerIntro'),
           style: text.bodyLarge,
         ),
-        if (ctx.states != null && (ctx.states!.withFederal || ctx.states!.missing.isNotEmpty)) _stateFiling(ctx.states!),
+        if (ctx.states?.worthShowing ?? false) _stateFiling(ctx.states!),
         if (ctx.tins != null && !resuming) ...[
           const SizedBox(height: 12),
           Material(
@@ -493,6 +493,18 @@ class _UsSignScreenState extends State<UsSignScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Your state returns', style: text.titleSmall),
+          if (states.direct && states.routeNote.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(states.routeNote, key: const Key('usSign.stateRoute'), style: text.bodyMedium),
+          ],
+          for (final p in states.packages.where((p) => !p.partner)) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Your ${usStateName(p.state)} return${p.form.isEmpty ? '' : ' (${p.form})'} is prepared in MyCA. File it yourself; it is not sent with your federal return.',
+              key: Key('usSign.stateDirect.${p.state}'),
+              style: text.bodyMedium,
+            ),
+          ],
           for (final p in states.packages.where((p) => p.partner)) ...[
             const SizedBox(height: 6),
             Text(
@@ -604,6 +616,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                   if (_signedSummary.isNotEmpty) Text(_signedSummary, style: text.bodyMedium),
                   const SizedBox(height: 8),
                   Text(owed ? 'You owe ${dollars(ctx.review.owed)}.' : 'Your refund is ${dollars(ctx.review.refund)}.', style: text.titleMedium),
+                  if (ctx.states?.worthShowing ?? false) _stateFiling(ctx.states!),
                   if (ctx.efile.sandbox) ...[
                     const SizedBox(height: 12),
                     StatusTag(text: 'IRS test system: nothing is really filed', color: context.myca.warn),
@@ -645,6 +658,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                   'You sign your return with a five-digit PIN. This is your signature on IRS Form 8879, which authorizes MyCA to e-file for you.',
                   style: text.bodyLarge,
                 ),
+                if (ctx.states?.worthShowing ?? false) _stateFiling(ctx.states!),
                 const SizedBox(height: 18),
                 const SectionLabel('Your signature'),
                 _pinField(_pin, 'pin', 'Signature PIN'),

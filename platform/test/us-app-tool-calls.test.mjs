@@ -6,7 +6,7 @@ import { isRemoteQuery } from '../src/remote-contract.mjs';
 import { PROPOSABLE } from '../../cloud/src/api.mjs';
 
 const calls = JSON.parse(readFileSync(new URL('./fixtures/us-app-tool-calls.json', import.meta.url), 'utf8'));
-const WRITES = new Set(['set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'import_us_prior_year', 'start_us_amended_return', 'set_us_amended_return', 'sign_us_return', 'file_us_return', 'set_us_state_residency']);
+const WRITES = new Set(['set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'import_us_prior_year', 'start_us_amended_return', 'set_us_amended_return', 'sign_us_return', 'file_us_return', 'set_us_state_residency', 'set_us_state_answers']);
 
 test('the fixture recorded from the US app covers its writes and reads', () => {
   const tools = new Set(calls.map((call) => call.tool));

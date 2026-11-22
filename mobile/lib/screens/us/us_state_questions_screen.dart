@@ -22,8 +22,6 @@ class UsStateQuestionsScreen extends StatefulWidget {
 
 class _UsStateQuestionsScreenState extends State<UsStateQuestionsScreen> {
   UsStateQuestionSet? _set;
-  List<UsResidency> _residency = const [];
-  final _answers = <String, Object?>{};
   int _at = 0;
   Object? _answer;
   final _typed = TextEditingController();
@@ -38,7 +36,7 @@ class _UsStateQuestionsScreenState extends State<UsStateQuestionsScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_set == null && !_busy && !_failed) _load();
+    if (_set == null && !_busy && !_failed) _load(first: true);
   }
 
   @override
@@ -47,20 +45,19 @@ class _UsStateQuestionsScreenState extends State<UsStateQuestionsScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool first = false, String after = ''}) async {
     try {
-      final results = await Future.wait<Object>([loadStateQuestions(_api, widget.taxYear, _code), loadStateReturns(_api, widget.taxYear)]);
+      final set = await loadStateQuestions(_api, widget.taxYear, _code);
       if (!mounted) return;
-      final set = results[0] as UsStateQuestionSet;
-      final returns = results[1] as UsStateReturns;
       setState(() {
         _set = set;
-        _residency = returns.residency;
-        _answers
-          ..clear()
-          ..addAll({for (final q in set.questions) if (q.answered) q.id: q.answer});
         final open = set.questions.indexWhere((q) => !q.answered);
-        _at = open < 0 ? set.questions.length : open;
+        if (first) {
+          _at = open < 0 ? set.questions.length : open;
+        } else {
+          final was = set.questions.indexWhere((q) => q.id == after);
+          _at = was < 0 ? (open < 0 ? set.questions.length : open) : was + 1;
+        }
         _show();
       });
     } on Object catch (err) {
@@ -79,52 +76,33 @@ class _UsStateQuestionsScreenState extends State<UsStateQuestionsScreen> {
 
   void _show() {
     final q = _current;
-    _answer = q == null ? null : _answers[q.id];
-    _typed.text = q == null ? '' : typedFrom(q, _answers[q.id]);
+    _answer = q?.answer;
+    _typed.text = q == null ? '' : typedFrom(q, q.answer);
     _note = '';
   }
 
-  Future<bool> _save(Map<String, Object?> answers) async {
-    final entry = _residency.where((r) => r.state == _code).firstOrNull;
-    if (entry == null) {
-      setState(() => _note = '${usStateName(_code)} is not on your return. Add it under Where you lived.');
-      return false;
-    }
-    final states = [for (final r in _residency) r.state == _code ? r.withAnswers(answers) : r];
-    final problem = await saveStateResidency(_api, widget.taxYear, states);
-    if (!mounted) return false;
-    if (problem != null) {
-      setState(() => _note = problem);
-      return false;
-    }
-    _residency = states;
-    return true;
-  }
-
-  Future<void> _move(Object? value, {bool skip = false}) async {
+  Future<void> _move(Object? value) async {
     final q = _current;
     if (q == null) return;
-    if (!skip && value == null) return setState(() => _note = answerProblem(q, _typed.text));
-    final next = {..._answers};
-    if (skip) {
-      next.remove(q.id);
-    } else {
-      next[q.id] = value;
+    if (value == null) return setState(() => _note = answerProblem(q, _typed.text));
+    if (q.answered && '${q.answer}' == '$value') {
+      return setState(() {
+        _at += 1;
+        _show();
+      });
     }
-    final changed = '${_answers[q.id]}' != '${next[q.id]}' || _answers.containsKey(q.id) != next.containsKey(q.id);
     setState(() {
       _busy = true;
       _note = '';
     });
     try {
-      if (changed && !await _save(next)) return;
-      setState(() {
-        _answers
-          ..clear()
-          ..addAll(next);
-        _at += 1;
-        _show();
-      });
+      final problem = await saveStateAnswers(_api, widget.taxYear, _code, {q.id: value});
+      if (!mounted) return;
+      if (problem != null) {
+        setState(() => _note = problem);
+        return;
+      }
+      await _load(after: q.id);
     } on MycaApiException catch (err) {
       if (mounted) setState(() => _note = err.message);
     } finally {
@@ -148,7 +126,11 @@ class _UsStateQuestionsScreenState extends State<UsStateQuestionsScreen> {
       children: [
         Text(wholeWords(none ? 'No $name questions' : 'That is everything for $name'), key: const Key('usStateQuestions.finished'), style: text.headlineMedium),
         const SizedBox(height: 8),
-        Text(none ? '$name asks nothing beyond your federal return.' : 'Your answers are saved. Questions you skipped are left off the return.', style: text.bodyLarge),
+        Text(none ? '$name asks nothing more of you beyond your federal return.' : 'Your answers are saved.', style: text.bodyLarge),
+        if ((_set?.skipped ?? 0) > 0) ...[
+          const SizedBox(height: 6),
+          Text('${_set!.skipped} other ${_set!.skipped == 1 ? 'question doesn\'t' : 'questions don\'t'} apply to you, so we left ${_set!.skipped == 1 ? 'it' : 'them'} out.', key: const Key('usStateQuestions.skipped'), style: text.bodyMedium),
+        ],
         const SizedBox(height: 20),
         FilledButton(
           key: const Key('usStateQuestions.see'),
@@ -186,7 +168,7 @@ class _UsStateQuestionsScreenState extends State<UsStateQuestionsScreen> {
                         _failed = false;
                         _note = '';
                       });
-                      _load();
+                      _load(first: true);
                     },
                   )
                 : const Center(child: CircularProgressIndicator()))
@@ -218,7 +200,6 @@ class _UsStateQuestionsScreenState extends State<UsStateQuestionsScreen> {
                         runSpacing: 8,
                         children: [
                           if (_at > 0) TextButton(key: const Key('usStateQuestions.back'), onPressed: _busy ? null : _back, child: const Text('Back')),
-                          TextButton(key: const Key('usStateQuestions.skip'), onPressed: _busy ? null : () => _move(null, skip: true), child: const Text('Doesn\'t apply')),
                           if (canSayNone)
                             OutlinedButton(
                               key: const Key('usStateQuestions.none'),
