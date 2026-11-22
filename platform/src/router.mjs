@@ -6,6 +6,7 @@ import { orderImportWords } from './marketplace-orders.mjs';
 import { creditsWords, sectionWords } from './marketplace-credits.mjs';
 import { isTdsReceipt } from './tds-credits.mjs';
 import { marginsWords, stockWords, stockMovesWords } from './sku-margins.mjs';
+import { costingMethodWords, inventoryCostingWords, stockAlertsWords, warningWords } from './inventory-costing.mjs';
 import { valuationWords, valuationsWords } from './inventory.mjs';
 import { connectorsWords, fetchWords } from './channel-connectors.mjs';
 import { portalWords } from './portal-filing.mjs';
@@ -13,9 +14,12 @@ import { gstr3bPortalWords } from './gstr3b-portal.mjs';
 import { knowledgeWords } from './knowledge.mjs';
 import { zohoPushWords } from './zoho-push.mjs';
 import { closeWords } from './daily-close.mjs';
+import { loyaltySettingsWords, loyaltyBalanceWords, loyaltyAdjustWords, loyaltyInvoiceWords, loyaltyCreditWords } from './loyalty.mjs';
 import { registrationsWords } from './registrations.mjs';
 import { stockTransferWords } from './stock-transfers.mjs';
 import { planLocalToolCall, validateAssistantToolCall } from './assistant-contract.mjs';
+import { validateAppToolCall } from './assistant-tools.mjs';
+import { OFFLINE_TOOLS, offlineWords } from './offline-sales.mjs';
 import { imsWords, imsDecidedWords } from './ims.mjs';
 import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply, rowsCounted } from './chat-confirm.mjs';
 import { referenceImportContent, resolveImportContent } from './import-documents.mjs';
@@ -351,7 +355,7 @@ function fmtToolResultCore(name, result, args) {
     if (i.country === 'US') {
       return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (${money(i.subtotal)}${i.taxExempt ? `, exempt from sales tax: ${i.exemptionReason}` : ` plus ${money(i.salesTax)} sales tax`}).`;
     }
-    return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (${money(i.taxable)} plus ${money(i.cgst + i.sgst + i.igst)} GST).${result.buyerDetails ? ` ${result.buyerDetails.hint}` : ''}`;
+    return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (${money(i.taxable)} plus ${money(i.cgst + i.sgst + i.igst)} GST).${result.buyerDetails ? ` ${result.buyerDetails.hint}` : ''}${result.hsnWarnings?.length ? ` ${result.hsnWarnings.map((item) => item.words).join(' ')}` : ''}${loyaltyInvoiceWords(result.loyalty, money)}`;
   }
   if (name === 'can_make_payroll' && result.data) {
     const d = result.data;
@@ -411,7 +415,7 @@ function fmtToolResultCore(name, result, args) {
     return `${result.quote.id} marked ${result.quote.status}.`;
   }
   if (name === 'convert_quote' && result.invoice) {
-    return `Posted ${result.invoice.id} to ${result.invoice.partyName} for ${money(result.invoice.total)} from ${kindTitle(result.quote).toLowerCase()} ${result.quote.id}.`;
+    return `Posted ${result.invoice.id} to ${result.invoice.partyName} for ${money(result.invoice.total)} from ${kindTitle(result.quote).toLowerCase()} ${result.quote.id}.${loyaltyInvoiceWords(result.loyalty, money)}`;
   }
   if (name === 'ask_ca' && result.request) {
     return `Sent to your CA in MyCA (${result.request.id}). You will see the reply under Your CA.`;
@@ -486,7 +490,7 @@ function fmtToolResultCore(name, result, args) {
   if ((name === 'create_credit_note' || name === 'cancel_invoice') && result.creditNote) {
     const n = result.creditNote;
     const head = n.cancels ? `Cancelled ${n.invoiceId} with credit note ${n.id}` : `Credit note ${n.id} for ${money(n.total)} against ${n.invoiceId}`;
-    return `${head} (${n.partyName}, ${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already received and is now due back to ${n.partyName}.` : ''}`;
+    return `${head} (${n.partyName}, ${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already received and is now due back to ${n.partyName}.` : ''}${loyaltyCreditWords(result.loyalty)}`;
   }
   if (name === 'gst_payable' && result.data) {
     return paymentWords(result.data, money, monthWords);
@@ -629,6 +633,7 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'salary_annexure' && result.data) return annexureWords(result.data, money);
   if (name === 'tds_certificates' && result.data) return certificateWords(result.data, money);
   if (name === 'import_pos_sales' && result.data?.created) return posImportWords(result.data, money);
+  if (OFFLINE_TOOLS.includes(name) && offlineWords(name, result)) return offlineWords(name, result);
   if (name === 'import_settlement' && result.data?.settlement) return `Recorded ${result.data.settlement.id}. ${settlementWords(result.data.settlement, money)}${result.data.posting?.posted ? ` Settled ${result.data.posting.posting.receipts.length === 1 ? '1 invoice' : `${result.data.posting.posting.receipts.length} invoices`}: ${money(result.data.posting.posting.paid)} to the bank, fees ${money(result.data.posting.posting.fees)}, TDS ${money(result.data.posting.posting.tds)} and TCS ${money(result.data.posting.posting.tcs)} to claim${result.data.posting.posting.leftOpen > 0 ? `, ${money(result.data.posting.posting.leftOpen)} still outstanding` : ''}.` : result.data.posting?.error ? ` Not settled against the books: ${result.data.posting.error}.` : ''}`;
   if (name === 'import_marketplace_orders' && result.data?.created) return orderImportWords(result.data, money);
   if (name === 'set_channel_identity' && result.identity) return `${result.channel[0].toUpperCase()}${result.channel.slice(1)}: ${[result.identity.gstin ? `GSTIN ${result.identity.gstin}` : '', result.identity.tan ? `TAN ${result.identity.tan}` : '', result.identity.name || ''].filter(Boolean).join(', ')}. Statements now match this channel by number.`;
@@ -638,7 +643,10 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'marketplace_credits' && result.data) return creditsWords(result.data, money);
   if (name === 'set_sku_cost' && result.sku) return `${result.sku}${result.name ? ` (${result.name})` : ''}: cost ${money(result.cost)} per unit${result.before?.cost != null && result.before.cost !== result.cost ? ` (was ${money(result.before.cost)})` : ''}. Margins use it from now.`;
   if (name === 'import_sku_costs' && result.data) return `Recorded costs for ${result.data.updated === 1 ? '1 SKU' : `${result.data.updated} SKUs`}${result.data.held.length ? `; ${result.data.held.length} rows held back` : ''}.`;
-  if (name === 'record_stock' && result.move) return `${result.move.qty > 0 ? `Added ${result.move.qty}` : `Removed ${-result.move.qty}`} of ${result.move.sku} at ${result.move.location}; now ${result.onHand} there.`;
+  if (name === 'record_stock' && result.move) return `${result.from ? `Moved ${result.move.qty} of ${result.move.sku} from ${result.from} to ${result.move.location}` : `${result.move.qty > 0 ? `Added ${result.move.qty}` : `Removed ${-result.move.qty}`} of ${result.move.sku} at ${result.move.location}${result.move.batch ? `, batch ${result.move.batch}` : ''}`}; now ${result.onHand} there.${(result.warnings || []).map((warning) => ` ${warningWords(warning)}`).join('')}`;
+  if (name === 'set_costing_method' && result.method) return costingMethodWords(result);
+  if (name === 'inventory_costing' && result.data) return inventoryCostingWords(result.data, money);
+  if (name === 'stock_alerts' && result.data) return stockAlertsWords(result.data);
   if (name === 'stock_position' && result.data) return stockWords(result.data, money);
   if (name === 'stock_moves' && result.data) return stockMovesWords(result.data);
   if (name === 'value_inventory' && result.valuation) return valuationWords(result, money);
@@ -659,6 +667,9 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'set_channel_connector' && result.data?.channel) return `${result.data.title}: ${result.data.configured ? 'connected' : 'saved, but a field is still missing'}${result.data.enabled === false ? ', paused' : ''}. Fetching runs when live calls are on; until then "pull amazon settlement" is a dry run.`;
   if (name === 'inventory_valuations' && result.data) return valuationsWords(result.data, money);
   if (name === 'sku_margins' && result.data) return marginsWords(result.data, money);
+  if (name === 'loyalty_settings' && result.settings) return loyaltySettingsWords(result.settings, money);
+  if (name === 'loyalty_balance' && result.data) return loyaltyBalanceWords(result.data, money);
+  if (name === 'loyalty_adjust' && result.entry) return loyaltyAdjustWords(result);
   if (name === 'daily_close' && result.data) return closeWords(result.data, money);
   if (name === 'registrations' && result.data) return registrationsWords(result.data);
   if (name === 'set_registration' && result.registration) return `${result.updated ? 'Updated' : 'Added'} ${result.registration.label} ${result.registration.gstin} (${result.registration.kind}, state ${result.registration.state}) from ${result.registration.effectiveFrom}. Invoices and bills can name it with registrationGstin; returns and filings take gstin.`;
@@ -1082,10 +1093,10 @@ function unreadableFile(error) {
   return { reply: `I could not read that file (${error}), so nothing was posted.`, tools: [], posted: false, blocked: true, error };
 }
 
-function holdForConfirmation(state, plan) {
+function holdForConfirmation(state, plan, validate = validateAssistantToolCall) {
   const resolved = resolveImportContent(state, plan.name, plan.args);
   if (!resolved.ok) return unreadableFile(resolved.error);
-  const schemaCheck = validateAssistantToolCall(plan.name, resolved.args);
+  const schemaCheck = validate(plan.name, resolved.args);
   if (!schemaCheck.ok) return { reply: notAccepted(schemaCheck.error), tools: [], blocked: true };
   const preview = previewOf(state, plan.name, resolved.args);
   if (preview.blockers.length) {
@@ -1108,7 +1119,7 @@ function proposeCore(state, name, args = {}) {
   if (!needsConfirmation(name)) {
     return { reply: `${String(name)} is not an action that is previewed.`, tools: [], posted: false, blocked: true, error: 'NOT_PROPOSABLE' };
   }
-  return holdForConfirmation(state, { name, args: args && typeof args === 'object' ? args : {} });
+  return holdForConfirmation(state, { name, args: args && typeof args === 'object' ? args : {} }, validateAppToolCall);
 }
 
 const NOTHING_PENDING = 'There is nothing waiting to be posted.';
@@ -1128,7 +1139,7 @@ async function runConfirmation(state, decision) {
   const { pending } = taken;
   const resolved = resolveImportContent(state, pending.name, openPendingArgs(pending.name, pending.args));
   if (!resolved.ok) return unreadableFile(resolved.error);
-  const recheck = validateAssistantToolCall(pending.name, resolved.args);
+  const recheck = validateAppToolCall(pending.name, resolved.args);
   if (!recheck.ok) return { reply: notAccepted(recheck.error), tools: [], blocked: true };
   const result = await runPlanned(state, pending.name, resolved.args, pending.clearsPendingFile);
   const out = { reply: fmtToolResult(pending.name, result), tools: [{ name: pending.name, result }], posted: result.ok !== false, confirmed: true };
@@ -1236,9 +1247,9 @@ export function discardPending(state) {
   return spoken(discardCore(state));
 }
 
-export async function chat(state, said) {
+export async function chat(state, said, { lang } = {}) {
   const message = redactTinsFor(setCurrentCountry(state), said);
-  const out = await throughLanguage(message, async (english, how) => spoken(await chatCore(state, english, how)));
+  const out = await throughLanguage(message, async (english, how) => spoken(await chatCore(state, english, how)), { lang });
   rememberTurn(state, message, out.reply);
   logEvalEvent(state, { input: message, toolName: out.tools?.[0]?.name || out.preview?.tool || out.pending?.name || out.pending?.tool || '', outcome: out.blocked ? 'blocked' : out.awaitingConfirmation || out.pending ? 'held' : out.tools?.length ? 'ran' : 'answered', viaModel: Boolean(out.viaModel), blocked: Boolean(out.blocked), reply: out.reply });
   return out;

@@ -40,10 +40,11 @@ import { CA_SYNC_MODES, syncOf } from './ca-sync.mjs';
 import { inWords } from '../../platform/src/words.mjs';
 import { createInbound, INBOUND_HEADER, relayTokenMatches } from './inbound.mjs';
 import { createWhatsApp } from './whatsapp.mjs';
-import { chatText } from './chat-text.mjs';
+import { chatText, withChatLanguage } from './chat-text.mjs';
 import { htmlEscape } from '../../platform/src/text-safe.mjs';
 import { DEMO_BLOCKED_ACTIONS, seedDemo } from './demo.mjs';
 import { createRateLimits, LIMITS } from './rate-limits.mjs';
+import { createStoreFront, MAX_STORE_ORDER_BYTES, STORE_PAGE_CSP } from './store-front.mjs';
 import { ENGINE_WRITE_TOOLS, ENGINE_PROVIDER_TOOLS, ENGINE_ADDRESS_TOOLS } from '../../platform/src/countries/manifests.mjs';
 
 const INDIA_OFFSET_MS = 330 * 60 * 1000;
@@ -56,7 +57,7 @@ export const INBOUND_RELAY_HEADER = 'x-myca-relay-token';
 export const PLAY_NOTIFY_HEADER = 'x-myca-notify-token';
 export const STRIPE_SIGNATURE_HEADER = 'stripe-signature';
 export const US_SUPPORTED_FORMS = Object.freeze({
-  supported: ['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule E', 'Schedule SE', 'Form 2441', 'Form 4562', 'Form 8582', 'Form 8949', 'Form 8812', 'Form 8863', 'Form 8959', 'Form 8960', 'Form 8962', 'Form 8995', 'Form 1040-X', 'W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T', '1095-A'],
+  supported: ['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule E', 'Schedule SE', 'Form 2441', 'Form 4562', 'Form 5695', 'Form 8582', 'Form 8949', 'Form 8812', 'Form 8863', 'Form 8880', 'Form 8959', 'Form 8889', 'Form 8960', 'Form 8962', 'Form 8995', 'Form 1040-X', 'Form 5329', 'Form 8606', 'W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T', '1095-A', '1099-SA', '5498-SA', '5498'],
   coming: ['Form 8995-A', 'Form 2210'],
   notThisSeason: ['State returns', 'Form 1040-NR', 'Dual-status returns', 'FBAR (FinCEN 114)', 'Form 8938', 'Form 1116'],
 });
@@ -93,7 +94,7 @@ const OWNER_ONLY_POSTS = new Map([
 
 const WRITES = new Set(['replace', 'uploads', 'propose', 'confirm', 'connector-sync', 'plaid-exchange', 'gusto-connect']);
 
-export const PROPOSABLE = new Set(['sign_us_return', 'file_us_return', 'import_payroll_tax_forms', 'import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'ims_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'set_business_address', 'set_party_address', 'set_sku_cost', 'import_sku_costs', 'record_stock', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note', 'record_collection_reminder', 'record_payment_run', 'attach_document', 'approve_payroll', 'record_salary_payment', 'tds_review_answer', 'record_gst_payment', 'close_year', 'set_transport', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_suta_rate', 'add_recurring', 'stop_recurring', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer', 'set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'import_us_prior_year', 'start_us_amended_return', 'set_us_amended_return']);
+export const PROPOSABLE = new Set(['sign_us_return', 'file_us_return', 'import_payroll_tax_forms', 'import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'ims_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'set_business_address', 'set_party_address', 'set_sku_cost', 'register_offline_device', 'post_offline_sales', 'catalogue_settings', 'loyalty_settings', 'catalogue_items', 'store_order_action', 'loyalty_adjust', 'import_sku_costs', 'record_stock', 'set_costing_method', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note', 'record_collection_reminder', 'record_payment_run', 'attach_document', 'approve_payroll', 'record_salary_payment', 'tds_review_answer', 'record_gst_payment', 'close_year', 'set_transport', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_suta_rate', 'add_recurring', 'stop_recurring', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer', 'set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'import_us_prior_year', 'start_us_amended_return', 'set_us_amended_return']);
 
 const NOT_A_PLACE_OF_BUSINESS = new Set(['97', '99']);
 
@@ -419,6 +420,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     const taken = await rateLimits.take(kind, who);
     if (!taken.ok) throw httpError(429, 'RATE_LIMITED', { retryAfterSeconds: taken.retryAfterSeconds, hint: 'Too many requests in a short time. Wait a little and try again.' });
   }
+  const storeFront = createStoreFront({ db, withBooks, throttle, alertGate: (businessId) => rateLimits.take('storeOrderAlert', businessId), sender: whatsappSender, now, log });
   const jobs = createJobs({ db, secret, rateLimits, withBooks, readBooks: (...args) => runner.withReadOnlyBooks(...args), connectors, syncChannels, pullsEnabled: channelPullsEnabled, sender: whatsappSender, vault, billing, now, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
   const openId = createOidcVerifier({ issuer: oidc.issuer || '', clientIds: oidc.clientIds || [], jwksUrl: oidc.jwksUrl || '', keys: oidcKeys, now });
@@ -472,7 +474,18 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     if (!url) throw httpError(404, 'NOT_FOUND');
     const parts = url.pathname.split('/').filter(Boolean);
     const method = req.method;
+    if (parts[0] === 's' && parts.length === 2 && method === 'GET') {
+      const shown = await storeFront.page(parts[1], clientAddress(req));
+      return rawBody({ __html: shown.html, __status: shown.status, __csp: STORE_PAGE_CSP });
+    }
     if (parts[0] !== 'v1') throw httpError(404, 'NOT_FOUND');
+    if (parts[1] === 'store' && parts.length === 3 && method === 'GET') return storeFront.view(parts[2], clientAddress(req));
+    if (parts[1] === 'store' && parts.length === 4 && parts[3] === 'orders' && method === 'POST') {
+      if (!/^application\/json(;|$)/i.test(String(req.headers['content-type'] || '').trim())) throw httpError(415, 'JSON_REQUIRED');
+      const body = await readJson(req, MAX_STORE_ORDER_BYTES);
+      return storeFront.order(parts[2], body, clientAddress(req), requestId);
+    }
+    if (parts[1] === 'store') throw httpError(404, 'NOT_FOUND');
 
     if (parts[1] === 'health' && parts[2] === 'live' && parts.length === 3 && method === 'GET') return { ok: true, environment, providerMode: providerMode(), version };
     if (parts[1] === 'countries' && parts.length === 2 && method === 'GET') return publicCountries();
@@ -952,8 +965,9 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         if (action === 'ask') {
           const message = chatText(body.message);
           if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
+          const asker = withChatLanguage(actor, body.lang);
           return runner.withSharedBooks(businessId, context, async (session, { asOf }) => {
-            const out = await session.chat(message, actor);
+            const out = await session.chat(message, asker);
             if (!out.preview && !out.awaitingConfirmation) return out;
             return { reply: `These books are shared with you as they stood on ${inWords(indiaDate(asOf.getTime()))}, so nothing can be posted from here. Ask the owner to make the change, or to share the books again.`, tools: [] };
           });
@@ -1060,14 +1074,17 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           const plus = await billing.usPlusAllows(businessId);
           if (!plus.ok) return plus;
         }
-        return runner.withReadOnlyBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
+        const queried = await runner.withReadOnlyBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
+        if (body.name === 'catalogue_view' && queried?.data?.link?.path) queried.data.link.url = `${publicOrigin(req)}${queried.data.link.path}`;
+        return queried;
       }
       if (action === 'ask') {
         const message = chatText(body.message);
         if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
+        const asker = withChatLanguage(actor, body.lang);
         const canPost = await billing.allows(businessId, 'post');
         return withBooks(businessId, context, async (session) => {
-          if (!canPost.ok) return readOnlyChat(session, message, actor);
+          if (!canPost.ok) return readOnlyChat(session, message, asker);
           if (await unpaidFiling(businessId, session)) await session.discard(actor);
           const unprotected = await secondStepMissing(user.userId, session.state.pendingChatAction?.name);
           if (unprotected && confirmationIntent(message) && confirmationIntent(message) !== 'cancel') {
@@ -1076,7 +1093,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           }
           await withServerFactors(user.userId, session.state.pendingChatAction, clientAddress(req));
           // A "yes" in chat can confirm a pending US filing, which must reach the partner the same way.
-          const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, user.userId, () => session.chat(message, actor)) : await session.chat(message, actor);
+          const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, user.userId, () => session.chat(message, asker)) : await session.chat(message, asker);
           const unpaid = await unpaidFiling(businessId, session);
           if (!unpaid) return out;
           await session.discard(actor);
@@ -1105,7 +1122,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     let body;
     try {
       body = await withProviderContext({ environment: 'off' }, () => route(req, requestId, url));
-      status = statusOf(body);
+      status = body && typeof body === 'object' && RAW_BODIES.has(body) && Number.isInteger(body.__status) ? body.__status : statusOf(body);
     } catch (err) {
       status = err.statusCode || 500;
       body = err.body || { ok: false, error: status === 500 ? 'INTERNAL_ERROR' : String(err.message) };
@@ -1117,7 +1134,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     log({ requestId, method: req.method, path: url ? url.pathname.replace(/[0-9a-f-]{36}/gi, ':id') : '(unreadable)', status, ...(body && body.error === 'SERVER_BUSY' ? { db: 'pool busy' } : {}) });
     const retry = status === 503 ? { 'retry-after': '2' } : status === 429 && body && Number.isSafeInteger(body.retryAfterSeconds) ? { 'retry-after': String(body.retryAfterSeconds) } : {};
     if (body && typeof body === 'object' && RAW_BODIES.has(body) && typeof body.__html === 'string') {
-      res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'", 'x-content-type-options': 'nosniff', 'cache-control': 'no-store', 'x-request-id': requestId, ...retry });
+      res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': typeof body.__csp === 'string' ? body.__csp : "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'", 'x-content-type-options': 'nosniff', 'x-frame-options': 'DENY', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-request-id': requestId, ...retry });
       res.end(body.__html);
       return;
     }

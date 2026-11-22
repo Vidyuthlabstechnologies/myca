@@ -5,20 +5,19 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../brand.dart';
+import '../india/india_strings.dart';
 import '../theme.dart';
 import '../uae/uae_cloud_strings.dart';
 import '../uae/uae_edition.dart';
 import '../uae/uae_strings.dart';
 
-const _signInErrors = {
-  'USER_NOT_FOUND': 'That user does not exist.',
-  'INVALID_PIN': 'Wrong PIN. Try again.',
-  'PIN_NOT_SET': 'This user has no PIN yet. Set one in MyCA on Windows.',
-  'USER_LOCKED_OUT': 'Too many wrong attempts. This user is locked.',
+String signInMessage(BuildContext context, String code) => switch (code) {
+  'USER_NOT_FOUND' => inText(context, 'That user does not exist.'),
+  'INVALID_PIN' => inText(context, 'Wrong PIN. Try again.'),
+  'PIN_NOT_SET' => inText(context, 'This user has no PIN yet. Set one in MyCA on Windows.'),
+  'USER_LOCKED_OUT' => inText(context, 'Too many wrong attempts. This user is locked.'),
+  _ => inFormat(context, 'Could not sign in ({code}).', {'code': code}),
 };
-
-String signInMessage(String code) =>
-    _signInErrors[code] ?? 'Could not sign in ($code).';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key, required this.snapshot});
@@ -63,7 +62,7 @@ class _SignInScreenState extends State<SignInScreen> {
         await state.refresh();
         return;
       }
-      setState(() => _error = uaeEdition(context) ? UaeStrings.of(context).pinProblem(result.error) : signInMessage(result.error));
+      setState(() => _error = uaeEdition(context) ? UaeStrings.of(context).pinProblem(result.error) : signInMessage(context, result.error));
     } on MycaApiException catch (err) {
       if (!mounted) return;
       setState(() => _error = err.message);

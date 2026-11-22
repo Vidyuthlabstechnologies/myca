@@ -7,6 +7,19 @@ import { EARLY_ACCESS_ACTION, GUIDE_INDEX, ORIGIN, PAGES, PLAY_ID, US_FORMS } fr
 const here = dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = join(here, '..', 'public');
 
+export const US_LEGAL_BLANK = /\[[^\]]*(company|support email|partner|address)[^\]]*\]/i;
+
+export function usLegalReady() {
+  const pages = ['us/terms.html', 'us/refunds.html'].map((name) => {
+    try {
+      return readFileSync(join(PUBLIC_DIR, name), 'utf8');
+    } catch {
+      return '[company]';
+    }
+  });
+  return ![...pages, JSON.stringify(PRIVACY_NOTICE_US)].some((text) => US_LEGAL_BLANK.test(text));
+}
+
 const escape = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const jsonLd = (value) => JSON.stringify(value).replace(/</g, '\\u003c');
 
@@ -65,11 +78,10 @@ ${body}
     </div>
     <ul>
       <li><a href="/guides">Guides</a></li>
-      <li><a href="${edition === 'us' ? '/us/privacy' : '/privacy'}">Privacy</a></li>
-      <li><a href="/delete-account">Delete your account</a></li>
-${edition === 'us' ? `      <li><a href="/us/terms">Terms</a></li>
+${edition === 'us' ? (usLegalReady() ? '      <li><a href="/us/privacy">Privacy</a></li>\n' : '') : '      <li><a href="/privacy">Privacy</a></li>\n'}      <li><a href="/delete-account">Delete your account</a></li>
+${edition === 'us' ? (usLegalReady() ? `      <li><a href="/us/terms">Terms</a></li>
       <li><a href="/us/refunds">Refunds</a></li>
-` : `      <li><a href="/terms">Terms</a></li>
+` : '') : `      <li><a href="/terms">Terms</a></li>
       <li><a href="/refunds">Refunds</a></li>
       <li><a href="/disclaimer">Disclaimer</a></li>
       <li><a href="/grievance">Grievance Officer</a></li>

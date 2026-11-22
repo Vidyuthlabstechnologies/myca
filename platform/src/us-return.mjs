@@ -1,9 +1,12 @@
 import { randomBytes } from 'node:crypto';
-import { computeForm1040, FILING_STATUSES, SUPPORTED_YEARS, US_INPUT_KINDS } from './us-1040.mjs';
+import { computeForm1040, FILING_STATUSES, SUPPORTED_YEARS, US_INPUT_KINDS, ageAtYearEnd } from './us-1040.mjs';
 import { RENTAL_ENTRY_KIND } from './us-form-schedule-e.mjs';
 import { scheduleCSummary } from './us-owner-tax.mjs';
+import { ENERGY_CATEGORIES, CLEAN_ENERGY_CATEGORIES, isQmid } from './us-form-5695.mjs';
+import { SAVERS_DEFERRAL_CODES } from './us-form-8880.mjs';
 import { sealTin, openTin, maskTin, tinShapeError, isSealedTin } from './us-identity.mjs';
 import { localToday } from './dates.mjs';
+import { lineLabels } from './us-line-map.mjs';
 import { appendAuditEvent } from './ca-api.mjs';
 import { figuresOf1040, form1040X } from './us-1040x.mjs';
 
@@ -24,16 +27,17 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 const MARKETPLACE_MONTHS = MONTH_NAMES.flatMap((name, index) => [money(`enrollmentPremium${index + 1}`, `${name}: monthly enrollment premium`, `${21 + index}A`), money(`slcspPremium${index + 1}`, `${name}: second lowest cost silver plan (SLCSP) premium`, `${21 + index}B`), money(`advancePayment${index + 1}`, `${name}: advance payment of the premium tax credit`, `${21 + index}C`)]);
 
 export const FORM_SPECS = Object.freeze({
-  'W-2': { title: 'Wage and Tax Statement', description: 'Wages from an employer.', fields: [{ key: 'payer', label: 'Employer name', box: 'c', type: 'text', required: true }, { key: 'payerTin', label: 'Employer EIN', box: 'b', type: 'ein', required: false }, money('wages', 'Wages, tips, other compensation', '1', { required: true }), WITHHELD('2'), money('socialSecurityWages', 'Social security wages', '3'), money('socialSecurityTax', 'Social security tax withheld', '4'), money('medicareWages', 'Medicare wages and tips', '5'), money('medicareTax', 'Medicare tax withheld', '6'), money('socialSecurityTips', 'Social security tips', '7'), money('dependentCareBenefits', 'Dependent care benefits', '10'), { key: 'box12', label: 'Box 12 codes', box: '12', type: 'code', required: false }, { key: 'retirementPlan', label: 'Retirement plan', box: '13', type: 'yesno', required: false }, { key: 'state', label: 'State', box: '15', type: 'state', required: false }, money('stateWages', 'State wages', '16'), money('stateWithheld', 'State income tax', '17'), money('localWithheld', 'Local income tax', '19')] },
+  'W-2': { title: 'Wage and Tax Statement', description: 'Wages from an employer.', fields: [{ key: 'payer', label: 'Employer name', box: 'c', type: 'text', required: true }, { key: 'payerTin', label: 'Employer EIN', box: 'b', type: 'ein', required: false }, money('wages', 'Wages, tips, other compensation', '1', { required: true }), WITHHELD('2'), money('socialSecurityWages', 'Social security wages', '3'), money('socialSecurityTax', 'Social security tax withheld', '4'), money('medicareWages', 'Medicare wages and tips', '5'), money('medicareTax', 'Medicare tax withheld', '6'), money('socialSecurityTips', 'Social security tips', '7'), money('dependentCareBenefits', 'Dependent care benefits', '10'), { key: 'box12', label: 'Box 12 codes', box: '12', type: 'code', required: false }, money('hsaEmployerContributions', 'Box 12 code W: employer contributions to your HSA (including pre-tax payroll contributions)', '12W'), { key: 'retirementPlan', label: 'Retirement plan', box: '13', type: 'yesno', required: false }, { key: 'state', label: 'State', box: '15', type: 'state', required: false }, money('stateWages', 'State wages', '16'), money('stateWithheld', 'State income tax', '17'), money('localWithheld', 'Local income tax', '19')] },
   '1099-INT': { title: 'Interest Income', description: 'Interest from a bank, broker or the Treasury.', fields: [...PAYER, money('interest', 'Interest income', '1', { required: true }), money('earlyWithdrawalPenalty', 'Early withdrawal penalty', '2'), money('treasuryInterest', 'Interest on U.S. Savings Bonds and Treasury obligations', '3'), WITHHELD('4'), money('foreignTaxPaid', 'Foreign tax paid', '6'), money('taxExemptInterest', 'Tax-exempt interest', '8')] },
   '1099-DIV': { title: 'Dividends and Distributions', description: 'Dividends and fund distributions.', fields: [...PAYER, money('ordinaryDividends', 'Total ordinary dividends', '1a', { required: true }), money('qualifiedDividends', 'Qualified dividends', '1b'), money('capitalGainDistributions', 'Total capital gain distributions', '2a'), WITHHELD('4'), money('section199aDividends', 'Section 199A dividends', '5'), money('foreignTaxPaid', 'Foreign tax paid', '7'), money('exemptInterestDividends', 'Exempt-interest dividends', '12')] },
   '1099-B': { title: 'Proceeds From Broker Transactions', description: 'Sales of stocks, bonds and funds. One sale per form, or a list of sales.', fields: [...PAYER, { key: 'description', label: 'Description of property', box: '1a', type: 'text', required: false }, { key: 'dateAcquired', label: 'Date acquired', box: '1b', type: 'date', required: false }, { key: 'dateSold', label: 'Date sold', box: '1c', type: 'date', required: false }, money('proceeds', 'Proceeds', '1d', { required: true }), money('costBasis', 'Cost or other basis', '1e', { required: true }), money('washSaleLossDisallowed', 'Wash sale loss disallowed', '1g'), { key: 'term', label: 'Short-term or long-term', box: '2', type: 'term', required: true }, { key: 'basisReportedToIrs', label: 'Basis reported to IRS', box: '12', type: 'yesno', required: false }, WITHHELD('4')] },
   '1099-NEC': { title: 'Nonemployee Compensation', description: 'Pay for work as a contractor.', fields: [...PAYER, money('nonemployeeCompensation', 'Nonemployee compensation', '1', { required: true }), WITHHELD('4')] },
   '1099-MISC': { title: 'Miscellaneous Information', description: 'Rents, royalties, prizes and other income.', fields: [...PAYER, money('rents', 'Rents', '1'), money('royalties', 'Royalties', '2'), money('otherIncome', 'Other income', '3'), WITHHELD('4')] },
   '1099-G': { title: 'Certain Government Payments', description: 'Unemployment and state tax refunds.', fields: [...PAYER, money('unemployment', 'Unemployment compensation', '1'), money('stateRefund', 'State or local income tax refunds', '2'), WITHHELD('4')] },
-  '1099-R': { title: 'Distributions From Pensions, Annuities, Retirement Plans, IRAs', description: 'Pension, annuity and IRA payouts.', fields: [...PAYER, money('grossDistribution', 'Gross distribution', '1', { required: true }), money('taxableAmount', 'Taxable amount', '2a'), WITHHELD('4'), { key: 'distributionCode', label: 'Distribution code', box: '7', type: 'code', required: false }, { key: 'iraSepSimple', label: 'IRA/SEP/SIMPLE', box: '7', type: 'yesno', required: false }] },
+  '1099-R': { title: 'Distributions From Pensions, Annuities, Retirement Plans, IRAs', description: 'Pension, annuity and IRA payouts. For an early distribution, add the Form 5329 exception number if one applies.', fields: [...PAYER, money('grossDistribution', 'Gross distribution', '1', { required: true }), money('taxableAmount', 'Taxable amount', '2a'), { key: 'taxableNotDetermined', label: 'Taxable amount not determined', box: '2b', type: 'yesno', required: false }, { key: 'totalDistribution', label: 'Total distribution', box: '2b', type: 'yesno', required: false }, WITHHELD('4'), money('employeeContributions', 'Employee contributions, designated Roth contributions or insurance premiums', '5'), { key: 'distributionCode', label: 'Distribution code', box: '7', type: 'code', required: false }, { key: 'iraSepSimple', label: 'IRA/SEP/SIMPLE', box: '7', type: 'yesno', required: false }, { key: 'percentOfTotal', label: 'Your percentage of total distribution', box: '9a', type: 'percent', required: false }, money('stateWithheld', 'State tax withheld', '14'), { key: 'state', label: 'State', box: '15', type: 'state', required: false }, money('stateDistribution', 'State distribution', '16'), { key: 'exceptionCode', label: 'Form 5329 exception number (01 to 24, or 99 for more than one) if the 10% early distribution tax does not apply', box: '', type: 'code', required: false }, money('exceptionAmount', 'Amount the exception covers (empty means all of the taxable amount)', ''), { key: 'qualifiedDisasterDistribution', label: 'Qualified disaster recovery distribution', box: '', type: 'yesno', required: false }] },
+  5498: { title: 'IRA Contribution Information', description: 'Contributions to an IRA and its value on December 31, for Form 8606 and the 6% tax on excess contributions.', fields: [{ key: 'payer', label: 'Trustee or issuer name', box: '', type: 'text', required: true }, { key: 'payerTin', label: 'Trustee TIN (EIN)', box: '', type: 'ein', required: false }, { key: 'accountType', label: 'Account type: traditional, sep, simple or roth', box: '7', type: 'iraType', required: true }, money('iraContributions', 'IRA contributions', '1'), money('rolloverContributions', 'Rollover contributions', '2'), money('rothConversion', 'Roth IRA conversion amount', '3'), money('recharacterized', 'Recharacterized contributions', '4'), money('fairMarketValue', 'Fair market value of account', '5', { required: true }), money('sepContributions', 'SEP contributions', '8'), money('simpleContributions', 'SIMPLE contributions', '9'), money('rothContributions', 'Roth IRA contributions', '10')] },
   'SSA-1099': { title: 'Social Security Benefit Statement', description: 'Social Security benefits.', fields: [{ key: 'payer', label: 'Payer', box: '', type: 'text', required: false }, money('netBenefits', 'Net benefits (negative when repayments were larger)', '5', { required: true, negative: true }), WITHHELD('6')] },
-  1098: { title: 'Mortgage Interest Statement', description: 'Home mortgage interest and property tax.', fields: [...PAYER, money('mortgageInterest', 'Mortgage interest received', '1', { required: true }), money('outstandingPrincipal', 'Outstanding mortgage principal', '2'), money('pointsPaid', 'Points paid on purchase', '6'), money('propertyTax', 'Property tax paid from escrow', '10')] },
+  1098: { title: 'Mortgage Interest Statement', description: 'Home mortgage interest and property tax.', fields: [...PAYER, money('mortgageInterest', 'Mortgage interest received', '1', { required: true }), money('outstandingPrincipal', 'Outstanding mortgage principal', '2'), money('mortgageInsurancePremiums', 'Mortgage insurance premiums (deductible from 2026)', '5'), money('pointsPaid', 'Points paid on purchase', '6'), money('propertyTax', 'Property tax paid from escrow', '10')] },
   '1098-E': { title: 'Student Loan Interest Statement', description: 'Interest paid on a student loan.', fields: [...PAYER, money('studentLoanInterest', 'Student loan interest received', '1', { required: true })] },
   '1095-A': { title: 'Health Insurance Marketplace Statement', description: 'Coverage bought on HealthCare.gov or a state Marketplace, for the premium tax credit (Form 8962). Enter the monthly amounts, or only the line 33 totals if nothing changed all year.', fields: [{ key: 'payer', label: 'Marketplace identifier', box: '1', type: 'text', required: true }, { key: 'policyNumber', label: 'Marketplace-assigned policy number', box: '2', type: 'text', required: false }, { key: 'issuer', label: 'Policy issuer\'s name', box: '3', type: 'text', required: false }, { key: 'recipientName', label: 'Recipient\'s name', box: '4', type: 'text', required: false }, ...MARKETPLACE_MONTHS, money('enrollmentPremiumAnnual', 'Annual total: enrollment premiums', '33A'), money('slcspPremiumAnnual', 'Annual total: SLCSP premiums', '33B'), money('advancePaymentAnnual', 'Annual total: advance payments of the premium tax credit', '33C')] },
   [RENTAL_ENTRY_KIND]: { title: 'Rental Property or Royalty (Schedule E)', description: 'One rental property or royalty source: rents, royalties, expenses, depreciation and passive loss details.', fields: [
@@ -56,8 +60,11 @@ export const FORM_SPECS = Object.freeze({
     { key: 'notAtRisk', label: 'Part of the investment is not at risk (Form 6198)', box: '', type: 'yesno', required: false },
     { key: 'soldInYear', label: 'Sold or disposed of during the year', box: '', type: 'yesno', required: false },
   ] },
-  '1098-T': { title: 'Tuition Statement', description: 'College tuition for an education credit.', fields: [...PAYER, { key: 'studentName', label: 'Student name', box: '', type: 'text', required: false }, money('tuitionPaid', 'Payments received for qualified tuition', '1', { required: true }), money('scholarships', 'Scholarships or grants', '5'), { key: 'atLeastHalfTime', label: 'At least half-time student', box: '8', type: 'yesno', required: false }, { key: 'graduate', label: 'Graduate student', box: '9', type: 'yesno', required: false }] },
+  '1099-SA': { title: 'Distributions From an HSA, Archer MSA, or Medicare Advantage MSA', description: 'Money taken out of a health savings account (Form 8889 Part II). One form per account holder.', fields: [{ key: 'payer', label: 'Trustee name', box: '', type: 'text', required: true }, { key: 'payerTin', label: 'Trustee TIN (EIN)', box: '', type: 'ein', required: false }, money('grossDistribution', 'Gross distribution', '1', { required: true }), money('earningsOnExcess', 'Earnings on excess contributions', '2'), { key: 'distributionCode', label: 'Distribution code (1 normal, 2 excess contributions, 3 disability, 4 death other than to the spouse, 5 prohibited transaction, 6 death to the spouse)', box: '3', type: 'code', required: false }, { key: 'accountType', label: 'Account type: HSA, ARCHER (Archer MSA) or MA (Medicare Advantage MSA)', box: '5', type: 'code', required: false }] },
+  '5498-SA': { title: 'HSA, Archer MSA, or Medicare Advantage MSA Information', description: 'What went into a health savings account, from the trustee. It usually arrives in May; the interview question on your own contributions is used first.', fields: [{ key: 'payer', label: 'Trustee name', box: '', type: 'text', required: true }, { key: 'payerTin', label: 'Trustee TIN (EIN)', box: '', type: 'ein', required: false }, money('contributionsMade', 'Total contributions made in the year', '2'), money('contributionsNextYear', 'Total HSA or Archer MSA contributions made in the next year for this year', '3'), money('rolloverContributions', 'Rollover contributions', '4'), money('fairMarketValue', 'Fair market value of the account', '5'), { key: 'accountType', label: 'Account type: HSA, ARCHER (Archer MSA) or MA (Medicare Advantage MSA)', box: '6', type: 'code', required: false }] },
+  '1098-T': { title: 'Tuition Statement', description: 'College tuition for an education credit.', fields: [...PAYER, { key: 'studentName', label: 'Student name', box: '', type: 'text', required: false }, money('tuitionPaid', 'Payments received for qualified tuition', '1', { required: true }), money('scholarships', 'Scholarships or grants', '5'), { key: 'atLeastHalfTime', label: 'At least half-time student', box: '8', type: 'yesno', required: false }, { key: 'graduate', label: 'Graduate student', box: '9', type: 'yesno', required: false }, { key: 'aotcClaimedFourYears', label: 'American opportunity (or Hope) credit already claimed for this student for 4 earlier tax years (Form 8863 line 23)', box: '', type: 'yesno', required: false }, { key: 'firstFourYearsCompleted', label: 'Student completed the first 4 years of college before this year (Form 8863 line 25)', box: '', type: 'yesno', required: false }, { key: 'felonyDrugConviction', label: 'Student convicted of a felony drug offense by the end of the year (Form 8863 line 26)', box: '', type: 'yesno', required: false }] },
   '2441-PROVIDER': { title: 'Child and dependent care provider', description: 'A daycare, after-school program, sitter or other person you paid for care so you could work (Form 2441). Add one for each provider.', fields: [{ key: 'payer', label: 'Care provider name', box: '1a', type: 'text', required: true }, { key: 'payerTin', label: 'Provider EIN', box: '1c', type: 'ein', required: false }, { key: 'providerAddress', label: 'Provider address', box: '1b', type: 'text', required: false }, money('amountPaid', 'Amount you paid for care this year', '1e', { required: true }), { key: 'qualifyingPerson', label: 'Who was cared for (first name, or spouse)', box: '2a', type: 'text', required: false }, { key: 'householdEmployee', label: 'Household employee, such as a nanny', box: '1d', type: 'yesno', required: false }] },
+  '5695-ITEM': { title: 'Home energy improvement or clean energy property', description: 'One item installed on your home in the United States, for the residential energy credits (Form 5695): solar panels, a battery, a heat pump, windows, doors, insulation and the like. Only for 2025: the credits ended for property installed after 2025-12-31; for 2026 answer only the carryforward question in the interview.', fields: [{ key: 'payer', label: 'Seller or installer', box: '', type: 'text', required: true }, { key: 'category', label: `Type of item: ${ENERGY_CATEGORIES.join(', ')}`, box: '', type: 'code', required: true }, money('cost', 'Cost, less any rebate or subsidy (include installation labor, except for insulation, doors and windows)', '', { required: true }), { key: 'qmid', label: 'Qualified manufacturer identification number (QMID), four letters or digits; needed from 2025 for doors, windows, air conditioners, water heaters, furnaces, boilers, panelboards, heat pumps and biomass stoves', box: '', type: 'code', required: false }, { key: 'capacity', label: 'Capacity: kilowatt hours for a battery, kilowatts for a fuel cell', box: '', type: 'quantity', required: false }, { key: 'placedInService', label: 'Date installation was completed', box: '', type: 'date', required: false }] },
 });
 
 const QUESTIONS = Object.freeze([
@@ -69,11 +76,13 @@ const QUESTIONS = Object.freeze([
   { id: 'businessExpenses', text: 'Self-employment: total business expenses', help: 'Supplies, software, advertising, travel, the business part of your phone, and the like.', kind: 'amount', when: (ctx) => !ctx.usesBooks && ctx.manualBusiness },
   { id: 'estimatedTaxPayments', text: 'Federal estimated tax paid for the year (Form 1040-ES)', help: 'All four instalments together, including one paid in January.', kind: 'amount' },
   { id: 'priorYearTax', text: 'Last year\'s total federal tax (Form 1040 line 24)', help: 'Used to check whether an estimated tax penalty can apply. Leave empty if you did not file last year.', kind: 'amount' },
-  { id: 'priorYearAgi', text: 'Last year\'s adjusted gross income (Form 1040 line 11)', help: 'Above $150,000 ($75,000 separate) the safe harbor is 110% of last year\'s tax.', kind: 'amount', when: (ctx) => ctx.answers?.priorYearTax !== undefined },
+  { id: 'priorYearAgi', text: 'Last year\'s adjusted gross income (Form 1040 line 11, or line 11b from 2025)', help: 'Above $150,000 ($75,000 separate) the safe harbor is 110% of last year\'s tax.', kind: 'amount', when: (ctx) => ctx.answers?.priorYearTax !== undefined },
   { id: 'priorYearOverpaymentApplied', text: 'Last year\'s refund applied to this year', help: 'Only if you chose to apply it rather than receive it.', kind: 'amount' },
   { id: 'stateRefundTaxable', text: 'How much of the state refund on your 1099-G is taxable?', help: 'Zero if you took the standard deduction last year. If you itemized, the part that lowered your federal tax.', kind: 'amount', when: (ctx) => ctx.hasStateRefund },
-  { id: 'earlyDistributionException', text: 'Does an exception to the 10% early distribution tax apply to your 1099-R with code 1?', help: 'For example a first home (IRA, up to $10,000), higher education costs, disability or certain medical costs. An exception is claimed on Form 5329.', kind: 'yesno', when: (ctx) => ctx.hasEarlyDistribution },
-  { id: 'qbiMaterialParticipation', text: 'Did you work in your business regularly, continuously and substantially this year?', help: 'This is material participation, for example more than 500 hours, or most of the work in the business. From 2026 it can give you a minimum business income deduction of $400 (IRC 199A(i)).', kind: 'yesno', when: (ctx) => ctx.hasBusiness && Number(ctx.taxYear) >= 2026 },
+  { id: 'qbiMaterialParticipation', text: 'Did you work in your business regularly, continuously and substantially this year?', help: 'This is material participation (IRC 469(h)), for example more than 500 hours, or most of the work in the business; on a joint return your spouse\'s work in it counts too. From 2026 it can give you a minimum business income deduction of $400 (IRC 199A(i)). It covers your one business; a business added with its own answer uses that answer.', kind: 'yesno', when: (ctx) => ctx.hasBusiness && (ctx.taxpayerBusiness || !ctx.spouseBusiness) && Number(ctx.taxYear) >= 2026 },
+  { id: 'spouseQbiMaterialParticipation', text: 'Did you or your spouse work in your spouse\'s business regularly, continuously and substantially this year?', help: 'Material participation (IRC 469(h)) in the business on your spouse\'s 1099-NEC. From 2026 it can give you a minimum business income deduction of $400 (IRC 199A(i)).', kind: 'yesno', when: (ctx) => ctx.spouseBusiness && Number(ctx.taxYear) >= 2026 },
+  { id: 'qbiLossCarryforward', text: 'Qualified business loss carried forward from last year (Form 8995 line 3)', help: 'Last year\'s total qualified business loss carryforward: 2025 Form 8995 line 16, or line 18 from 2026. Enter it as a positive amount. Leave empty if none.', kind: 'amount', when: (ctx) => ctx.hasBusiness || ctx.hasRental || ctx.answers?.qbiLossCarryforward !== undefined },
+  { id: 'qbiReitPtpLossCarryforward', text: 'REIT dividend and publicly traded partnership loss carried forward from last year (Form 8995 line 7)', help: 'Last year\'s qualified PTP loss carryforward: 2025 Form 8995 line 17, or line 19 from 2026. Enter it as a positive amount. Leave empty if none.', kind: 'amount', when: (ctx) => ctx.hasDividends || ctx.answers?.qbiReitPtpLossCarryforward !== undefined },
   { id: 'rentalIncome', text: 'Did you have rental or royalty income not on a 1099-MISC?', help: 'Renting out a home, room or vacation property, or royalties. Add each one as a rental property; they go on Schedule E.', kind: 'yesno' },
   { id: 'rentalQbiSafeHarbor', text: 'Do your rentals meet the 250-hour safe harbor of Rev. Proc. 2019-38, and do you want them treated as a business for the QBI deduction?', help: 'Separate books for each enterprise, 250 or more hours of rental services a year and contemporaneous records of them. Not for a home you used personally or a triple net lease.', kind: 'yesno', when: (ctx) => ctx.hasRental },
   { id: 'realEstateProfessional', text: 'Were you a real estate professional (more than half your working time and over 750 hours in real property businesses)?', help: 'Real estate professionals can treat rentals as nonpassive (section 469(c)(7)).', kind: 'yesno', when: (ctx) => ctx.hasRental },
@@ -84,6 +93,10 @@ const QUESTIONS = Object.freeze([
   { id: 'careBenefitsCarriedIn', text: 'Dependent care benefits carried over from last year and used in this year\'s grace period', help: 'Form 2441 line 13. Leave empty if your plan has no grace period.', kind: 'amount', when: (ctx) => ctx.hasCareBenefits },
   { id: 'careBenefitsForfeited', text: 'Dependent care benefits you forfeited or carried forward to next year', help: 'Form 2441 line 14: amounts in W-2 box 10 you did not use for care this year.', kind: 'amount', when: (ctx) => ctx.hasCareBenefits },
   { id: 'careSpouseEarnedIncome', text: 'Your spouse\'s earned income for the year', help: 'On a separate return the dependent care benefit exclusion is limited to the smaller of your and your spouse\'s earned income (Form 2441 line 19).', kind: 'amount', when: (ctx) => ctx.status === 'mfs' && ctx.hasCareBenefits && ctx.answers?.careMfsUnmarried !== true },
+  { id: 'energyCarryforward', text: 'Residential clean energy credit carried forward from last year (your last Form 5695, line 16)', help: 'The unused part of a solar, battery, geothermal, wind or fuel cell credit. Leave empty if none.', kind: 'amount' },
+  { id: 'energyMainHome', text: 'Were your energy improvements installed on your main home in the United States?', help: 'Insulation, doors, windows, a home energy audit and fuel cells qualify only on your main home (Form 5695 lines 7a, 17a and 26a).', kind: 'yesno', when: (ctx) => ctx.hasEnergyItems },
+  { id: 'energyOriginalUser', text: 'Are you the first user of those improvements and do you expect them to stay in use at least 5 years?', help: 'Form 5695 lines 17b, 17c and 21b.', kind: 'yesno', when: (ctx) => ctx.hasEnergyItems },
+  { id: 'energyNewConstruction', text: 'Were any of the insulation, doors or windows part of building a new home?', help: 'Those do not qualify (Form 5695 line 17e).', kind: 'yesno', when: (ctx) => ctx.hasEnergyItems },
   { id: 'marketplaceCoverage', text: 'Did anyone on this return have health coverage from the Marketplace (Form 1095-A)?', help: 'Coverage bought on HealthCare.gov or a state exchange. If yes, add the Form 1095-A on the Tax forms step.', kind: 'yesno' },
   { id: 'marketplacePolicyShared', text: 'Did a Marketplace policy on your 1095-A also cover someone outside this return\'s tax family, or cover someone on this return under another person\'s 1095-A?', help: 'For example a policy shared with a former spouse or with an adult child who files their own return (Form 8962 Part IV).', kind: 'yesno', when: (ctx) => ctx.hasMarketplace },
   { id: 'marketplaceDependentsMagi', text: 'Modified AGI of your dependents who must file their own return', help: 'Their AGI plus tax-exempt interest, excluded foreign income and untaxed Social Security (Form 8962 Worksheet 1-2). Leave empty if no dependent has to file.', kind: 'amount', when: (ctx) => ctx.hasMarketplace && ctx.hasDependents },
@@ -92,6 +105,11 @@ const QUESTIONS = Object.freeze([
   { id: 'marketplaceLawfullyPresent', text: 'Was the person enrolled a lawfully present immigrant who could not get Medicaid because of immigration status?', help: 'For 2025 this lets the credit be taken with household income below the poverty line. It does not apply from 2026.', kind: 'yesno', when: (ctx) => ctx.hasMarketplace && ctx.taxYear === '2025' },
   { id: 'marketplaceAbuseException', text: 'Are you living apart from your spouse and unable to file jointly because of domestic abuse or spousal abandonment?', help: 'Checking box A on Form 8962 lets a married person filing separately take the premium tax credit, for at most three years in a row.', kind: 'yesno', when: (ctx) => ctx.hasMarketplace && ctx.status === 'mfs' },
   { id: 'marketplaceMarriageAlternative', text: 'Did you marry during the year and want the alternative calculation for the year of marriage?', help: 'Form 8962 Part V can lower the repayment of advance payments for the months before the marriage.', kind: 'yesno', when: (ctx) => ctx.hasMarketplace && (ctx.status === 'mfj' || ctx.status === 'mfs') },
+  { id: 'otherNetInvestmentIncome', text: 'Other net investment income not already on your forms or rental properties (for example passive business income or non-retirement annuities)', help: 'Net of its expenses. Interest, dividends, capital gains and Schedule E rentals are already counted. Used only for the 3.8% net investment income tax (Form 8960). Leave empty if none.', kind: 'amount', when: (ctx) => ctx.hasInvestmentForms || ctx.answers.rentalIncome === true },
+  { id: 'foreignEarnedIncomeExclusion', text: 'Are you filing Form 2555 to exclude foreign earned income or housing?', help: 'If you file Form 2555 you cannot take the refundable additional child tax credit (Schedule 8812). MyCA does not prepare Form 2555 or apply the exclusion; your CPA does.', kind: 'yesno', when: (ctx) => ctx.hasDependents },
+  { id: 'aotcFullTimeStudent', text: 'Were you a full-time student for at least part of 5 calendar months this year?', help: 'For the American opportunity credit: if you were under 24 at year end, this decides whether part of the credit can be refunded (Form 8863 line 7).', kind: 'yesno', when: (ctx) => ctx.aotcUnder24 && (ctx.taxpayerAge === null || ctx.taxpayerAge > 18) },
+  { id: 'aotcEarnedUnderHalfSupport', text: 'Was your earned income less than half of your own support for the year?', help: 'Support is food, housing, clothing, medical care, education and the like, paid by you, your parents and others. A scholarship is not support if you were a full-time student (Form 8863 line 7).', kind: 'yesno', when: (ctx) => ctx.aotcUnder24 && (ctx.taxpayerAge === null || ctx.taxpayerAge >= 18) },
+  { id: 'aotcParentAlive', text: 'Was at least one of your parents alive at the end of the year?', help: 'For the refundable part of the American opportunity credit (Form 8863 line 7).', kind: 'yesno', when: (ctx) => ctx.aotcUnder24 },
   { id: 'otherIncome', text: 'Other income not on a form', help: 'Prizes, jury duty pay, hobby income and similar.', kind: 'amount' },
   { id: 'qualifiedTips', text: 'Tips you received as an employee in a job where tips are customary', help: 'For the no-tax-on-tips deduction (2025 to 2028): the tips on your W-2 or Form 4137 (Schedule 1-A line 4).', kind: 'amount' },
   { id: 'spouseQualifiedTips', text: 'Tips your spouse received as an employee', help: 'For the no-tax-on-tips deduction.', kind: 'amount', when: (ctx) => ctx.joint },
@@ -103,32 +121,95 @@ const QUESTIONS = Object.freeze([
   { id: 'carLoanInterest', text: 'Interest on a loan for a new US-assembled car bought for personal use', help: 'Loans taken after 2024, up to $10,000 of interest (2025 to 2028).', kind: 'amount' },
   { id: 'educatorExpenses', text: 'Classroom supplies you paid for as a K-12 teacher', help: 'Only if you are an eligible educator. Up to $300 for 2025 and $350 for 2026 is deducted from income; from 2026 the rest is an itemized deduction (IRC 67(b)(13)).', kind: 'amount' },
   { id: 'spouseEducatorExpenses', text: 'Classroom supplies your spouse paid for as a K-12 teacher', help: '', kind: 'amount', when: (ctx) => ctx.joint },
-  { id: 'hsaDeduction', text: 'HSA deduction (Form 8889 line 13)', help: 'Your own contributions to a health savings account, not those through payroll.', kind: 'amount' },
+  ...['taxpayer', 'spouse'].flatMap((owner) => {
+    const id = (name) => `${owner === 'spouse' ? 'spouseHsa' : 'hsa'}${name}`;
+    const your = owner === 'spouse' ? 'your spouse\'s' : 'your';
+    const you = owner === 'spouse' ? 'your spouse' : 'you';
+    const shown = (ctx) => owner === 'taxpayer' || ctx.joint;
+    const covered = (ctx) => shown(ctx) && ['self-only', 'family'].includes(ctx.answers?.[id('Coverage')]);
+    const months = (ctx) => covered(ctx) && ctx.answers?.[id('Months')] !== undefined && Number(ctx.answers[id('Months')]) < 12;
+    const active = (ctx) => covered(ctx) || (shown(ctx) && ctx.hsa[owner]);
+    const paid = (ctx) => shown(ctx) && ctx.hsaDistributions[owner];
+    return [
+      { id: id('Coverage'), text: `Did ${you} have a high-deductible health plan (HDHP) with a health savings account (HSA) this year? Choose ${your} coverage`, help: `Self-only or family HDHP coverage on the first day of the months ${you} were eligible (family if both at once, or the type on December 1 if it changed). Choose none if there was no HDHP; HSA payouts are still reported. Telehealth and other remote care before the deductible no longer stops you being eligible (P.L. 119-21, from 2025). From 2026 a bronze or catastrophic plan, on or off a Marketplace, counts as an HDHP, and a direct primary care arrangement within the monthly fee limit does not stop you being eligible.`, kind: 'choice', options: ['none', 'self-only', 'family'], when: shown },
+      { id: id('Months'), text: `For how many months of the year ${owner === 'spouse' ? 'was your spouse' : 'were you'} an eligible individual on the first day of the month?`, help: 'Covered by the HDHP with no other health coverage (dental, vision, accident, disability, long-term care and telehealth are allowed), not enrolled in Medicare and not someone\'s dependent. 12 if all year.', kind: 'amount', when: covered },
+      { id: id('EligibleDecember'), text: `Was ${you} an eligible individual on December 1?`, help: 'The last-month rule: eligible on December 1 gives the full-year limit, if you stay eligible through December of next year (the testing period).', kind: 'yesno', when: months },
+      { id: id('CoverageChanged'), text: `Did ${your} HDHP coverage change between self-only and family during the year?`, help: 'The limit is then worked out month by month (Form 8889 line 3 worksheet).', kind: 'yesno', when: covered },
+      { id: id('OwnContributions'), text: `HSA contributions ${you} made for the year, not through payroll`, help: 'What you or others (not an employer) put in for this year, including deposits up to the April filing deadline. Leave out employer and payroll contributions (W-2 box 12 code W) and rollovers. MyCA works out the deduction (Form 8889 line 13).', kind: 'amount', when: active },
+      { id: id('Disabled'), text: `${owner === 'spouse' ? 'Is your spouse' : 'Are you'} disabled?`, help: 'HSA payouts not used for medical costs are taxed, but the extra 20% tax does not apply after the account holder becomes disabled, turns 65 or dies.', kind: 'yesno', when: paid },
+      { id: id('QualifiedExpenses'), text: `Qualified medical expenses paid from ${your} HSA payouts (1099-SA)`, help: 'Unreimbursed medical, dental and vision costs for you, your spouse and dependents incurred after the HSA was opened (Form 8889 line 15). Over-the-counter medicines count.', kind: 'amount', when: paid },
+      { id: id('Rollover'), text: `HSA payouts ${you} rolled over to another HSA within 60 days`, help: 'Only one rollover in 12 months. A direct trustee-to-trustee transfer is not a payout and is not on the 1099-SA.', kind: 'amount', when: paid },
+      { id: id('TestingPeriodIncome'), text: `Contributions on last year's return that ${you} could make only because of the last-month rule, if ${you} stopped being eligible this year`, help: 'Form 8889 line 18: last year\'s contributions less the limit worked out month by month. Taxed this year with a 10% additional tax, unless eligibility ended because of death or disability. Leave empty if it does not apply.', kind: 'amount', when: active },
+    ];
+  }),
+  { id: 'hsaSpouseHasHsa', text: 'Does your spouse have their own HSA with the family coverage?', help: 'Spouses with family coverage share one family limit between their HSAs.', kind: 'yesno', when: (ctx) => ctx.status === 'mfs' && ['self-only', 'family'].includes(ctx.answers?.hsaCoverage) },
+  { id: 'hsaFamilyShare', text: 'Your share of the family HSA limit', help: 'Spouses with family coverage split the family limit equally unless they agree otherwise (Form 8889 line 6); the catch-up from 55 stays with each spouse. Leave empty to split it equally.', kind: 'amount', when: (ctx) => (ctx.status === 'mfj' || ctx.status === 'mfs') && (ctx.answers?.hsaCoverage === 'family' || ctx.answers?.spouseHsaCoverage === 'family') && (ctx.status === 'mfs' ? ctx.answers?.hsaSpouseHasHsa === true : ['self-only', 'family'].includes(ctx.answers?.hsaCoverage) && ['self-only', 'family'].includes(ctx.answers?.spouseHsaCoverage)) },
+  { id: 'retirementSavings', text: 'Did you or your spouse put money in a traditional or Roth IRA, or in your own ABLE account, for the year?', help: 'For the retirement savings contributions credit (saver\'s credit, Form 8880). Pay you deferred into a 401(k), 403(b), 457(b), SIMPLE or TSP is taken from W-2 box 12.', kind: 'yesno' },
+  { id: 'saverIraContributions', text: 'Your traditional and Roth IRA contributions for the year', help: 'Including contributions made by the filing due date for this year. Not rollovers or conversions.', kind: 'amount', when: (ctx) => ctx.answers?.retirementSavings === true },
+  { id: 'spouseSaverIraContributions', text: 'Your spouse\'s traditional and Roth IRA contributions for the year', help: 'Not rollovers or conversions.', kind: 'amount', when: (ctx) => ctx.joint && ctx.answers?.retirementSavings === true },
+  { id: 'saverAbleContributions', text: 'What you put in your own ABLE account as its designated beneficiary', help: 'ABLE accounts are for people who became disabled before age 26 (46 from 2026).', kind: 'amount', when: (ctx) => ctx.answers?.retirementSavings === true },
+  { id: 'spouseSaverAbleContributions', text: 'What your spouse put in their own ABLE account', help: '', kind: 'amount', when: (ctx) => ctx.joint && ctx.answers?.retirementSavings === true },
+  { id: 'saverDistributions', text: 'Retirement or ABLE distributions you received in the two years before this one, this year, and this year up to the filing due date', help: 'From IRAs, Roth IRAs, ABLE accounts and workplace plans (Form 8880 line 4). They reduce the contributions counted. Leave out rollovers, trustee-to-trustee transfers, returned excess contributions, plan loans, and distributions from an inherited IRA.', kind: 'amount', when: (ctx) => ctx.saverContributions },
+  { id: 'spouseSaverDistributions', text: 'Such distributions your spouse received in the same period', help: 'On a joint return both spouses\' distributions reduce both spouses\' contributions.', kind: 'amount', when: (ctx) => ctx.joint && ctx.saverContributions },
+  { id: 'saverStudent', text: 'Were you a full-time student during any part of 5 months of the year?', help: 'Students cannot take the saver\'s credit. A school includes technical and trade schools, not on-the-job training or online-only courses.', kind: 'yesno', when: (ctx) => ctx.saverContributions },
+  { id: 'spouseSaverStudent', text: 'Was your spouse a full-time student during any part of 5 months of the year?', help: '', kind: 'yesno', when: (ctx) => ctx.joint && ctx.saverContributions },
   { id: 'iraDeduction', text: 'Deductible traditional IRA contributions', help: 'The deductible amount from the IRA worksheet; your CPA can confirm it if you have a workplace plan.', kind: 'amount' },
+  { id: 'iraNondeductibleContributions', text: 'Nondeductible contributions to a traditional IRA for this year (Form 8606 line 1)', help: 'Contributions you are not deducting, for example a backdoor Roth contribution, including those made by April 15 of next year. Leave empty if none.', kind: 'amount' },
+  { id: 'iraNondeductibleAfterYearEnd', text: 'Of those, the amount contributed from January 1 to April 15 of next year (Form 8606 line 4)', help: '', kind: 'amount', when: (ctx) => Number(ctx.answers?.iraNondeductibleContributions || 0) > 0 && ctx.hasTraditionalIra },
+  { id: 'priorIraBasis', text: 'Your basis in traditional IRAs from last year\'s Form 8606 line 14', help: 'The nondeductible contributions you made in earlier years and have not taken out. Zero if you never filed a Form 8606.', kind: 'amount', when: (ctx) => ctx.hasTraditionalIra || Number(ctx.answers?.iraNondeductibleContributions || 0) > 0 },
+  { id: 'rothConversionAmount', text: 'Amount you converted from traditional, SEP or SIMPLE IRAs to a Roth IRA this year', help: 'Part of your 1099-R distributions that went into a Roth IRA (Form 8606 line 8; the Roth trustee\'s Form 5498 box 3). Leave empty if none.', kind: 'amount', when: (ctx) => ctx.hasTraditionalIra },
+  { id: 'iraYearEndValue', text: 'Value of all your traditional, SEP and SIMPLE IRAs on December 31, plus any rollover in transit', help: 'From the December statements or Form 5498 box 5. Used for the pro-rata rule on Form 8606 line 6.', kind: 'amount', when: (ctx) => ctx.hasTraditionalIra || ctx.answers?.iraExcessContributions === true },
+  { id: 'rothContributionBasis', text: 'Your total regular Roth IRA contributions over the years, less earlier Roth distributions', help: 'Your basis in Roth IRA contributions (Form 8606 line 22). A nonqualified Roth distribution comes out of these first, tax free.', kind: 'amount', when: (ctx) => ctx.hasRothDistribution },
+  { id: 'rothConversionBasis', text: 'Your conversions and rollovers into Roth IRAs over the years, less earlier distributions of them', help: 'Your basis in conversions (Form 8606 line 24), taken out tax free after your contributions.', kind: 'amount', when: (ctx) => ctx.hasRothDistribution },
+  { id: 'rothFirstHomeExpenses', text: 'Qualified first-time homebuyer costs paid from the Roth IRA distribution', help: 'Up to $10,000 in your lifetime (Form 8606 line 20). Leave empty if none.', kind: 'amount', when: (ctx) => ctx.hasRothDistribution },
+  { id: 'rothFiveYearMet', text: 'Was your first Roth IRA contribution or conversion for a year at least five years before this one?', help: 'For example 2021 or earlier for a 2025 return. With code T on the 1099-R, this makes the distribution qualified and tax free.', kind: 'yesno', when: (ctx) => ctx.hasRothT },
+  { id: 'iraExcessContributions', text: 'Did you contribute more than allowed to a traditional or Roth IRA this year, or still have an excess from an earlier year?', help: 'An excess left in the IRA after the due date of the return is taxed 6% each year (Form 5329 Parts III and IV).', kind: 'yesno' },
+  { id: 'iraExcessPrior', text: 'Traditional IRA excess carried from last year (last year\'s Form 5329 line 16)', help: '', kind: 'amount', when: (ctx) => ctx.answers?.iraExcessContributions === true },
+  { id: 'iraExcessApplied', text: 'Unused traditional IRA contribution room this year that absorbs last year\'s excess (Form 5329 line 10)', help: 'Your contribution limit less what you contributed to traditional and Roth IRAs for this year.', kind: 'amount', when: (ctx) => ctx.answers?.iraExcessContributions === true },
+  { id: 'iraExcessWithdrawn', text: 'Prior-year traditional IRA excess you had returned to you this year (Form 5329 line 12)', help: '', kind: 'amount', when: (ctx) => ctx.answers?.iraExcessContributions === true },
+  { id: 'iraExcessCurrent', text: 'Traditional IRA excess contributions for this year not withdrawn by the due date (Form 5329 line 15)', help: '', kind: 'amount', when: (ctx) => ctx.answers?.iraExcessContributions === true },
+  { id: 'rothExcessPrior', text: 'Roth IRA excess carried from last year (last year\'s Form 5329 line 24)', help: '', kind: 'amount', when: (ctx) => ctx.answers?.iraExcessContributions === true },
+  { id: 'rothExcessApplied', text: 'Unused Roth IRA contribution room this year that absorbs last year\'s excess (Form 5329 line 19)', help: '', kind: 'amount', when: (ctx) => ctx.answers?.iraExcessContributions === true },
+  { id: 'rothExcessCurrent', text: 'Roth IRA excess contributions for this year not withdrawn by the due date (Form 5329 line 23)', help: 'For example a contribution made when your income was above the Roth limit.', kind: 'amount', when: (ctx) => ctx.answers?.iraExcessContributions === true },
+  { id: 'rothYearEndValue', text: 'Value of all your Roth IRAs on December 31', help: 'The 6% tax is not more than 6% of this value.', kind: 'amount', when: (ctx) => ctx.answers?.iraExcessContributions === true },
+  { id: 'otherAccountExcess', text: 'Did you also have excess contributions to an Archer MSA, Coverdell ESA or ABLE account?', help: 'Form 5329 Parts V, VI and VIII. HSA excess contributions come from the Form 8889 questions.', kind: 'yesno', when: (ctx) => ctx.answers?.iraExcessContributions === true },
+  { id: 'rmdShortfall', text: 'Did you take less than a required minimum distribution (RMD) from an IRA or retirement plan this year?', help: 'Required from age 73, and for most inherited accounts. The shortfall is taxed 25%, or 10% if corrected in time (Form 5329 Part IX).', kind: 'yesno', when: (ctx) => ctx.hasRetirement || ctx.rmdAge },
+  { id: 'rmdRequired', text: 'Required minimum distribution for the year (Form 5329 line 52)', help: '', kind: 'amount', when: (ctx) => ctx.answers?.rmdShortfall === true },
+  { id: 'rmdDistributed', text: 'Amount actually distributed toward that RMD during the year (Form 5329 line 53)', help: '', kind: 'amount', when: (ctx) => ctx.answers?.rmdShortfall === true },
+  { id: 'rmdCorrected', text: 'Have you taken out the whole shortfall within the correction window?', help: 'Then the tax is 10% instead of 25% (IRC 4974(e)).', kind: 'yesno', when: (ctx) => ctx.answers?.rmdShortfall === true },
+  { id: 'rmdWaiverAmount', text: 'Part of the shortfall you are asking the IRS to waive for reasonable error', help: 'Entered as "RC" next to line 54 with a statement of explanation. Leave empty for no waiver request.', kind: 'amount', when: (ctx) => ctx.answers?.rmdShortfall === true },
   { id: 'retirementPlanDeduction', text: 'SEP, SIMPLE or solo 401(k) contributions for yourself', help: '', kind: 'amount', when: (ctx) => ctx.hasBusiness },
   { id: 'selfEmployedHealthInsurance', text: 'Health insurance you paid as a self-employed person', help: '', kind: 'amount', when: (ctx) => ctx.hasBusiness },
   { id: 'studentLoanInterest', text: 'Student loan interest not on a 1098-E', help: '', kind: 'amount' },
   { id: 'shortTermLossCarryover', text: 'Short-term capital loss carried over from last year', help: 'From last year\'s capital loss carryover worksheet.', kind: 'amount' },
   { id: 'longTermLossCarryover', text: 'Long-term capital loss carried over from last year', help: '', kind: 'amount' },
+  { id: 'qofDisposition', text: 'During the year, did you sell, exchange or otherwise dispose of any investment in a qualified opportunity fund?', help: 'The yes or no question at the top of Schedule D. Most people answer no; a yes needs Form 8997, which MyCA does not prepare.', kind: 'yesno', when: (ctx) => ctx.hasCapitalSales },
+  { id: 'foreignAccounts', text: 'At any time during the year, did you have a financial interest in or signature authority over a financial account in a foreign country?', help: 'Schedule B line 7a, asked when you file Schedule B. A bank, securities or other financial account located outside the United States counts; a US account holding foreign shares does not.', kind: 'yesno', when: (ctx) => ctx.hasInterestOrDividends },
+  { id: 'foreignTrust', text: 'During the year, did you receive a distribution from, or were you the grantor of or transferor to, a foreign trust?', help: 'Schedule B line 8, asked when you file Schedule B.', kind: 'yesno', when: (ctx) => ctx.hasInterestOrDividends },
   { id: 'itemize', text: 'Itemize deductions?', help: 'Auto picks whichever is larger: the standard deduction or your itemized deductions.', kind: 'choice', options: ['auto', 'yes', 'no'] },
+  { id: 'stateEstimatedPayments', text: 'State and local income tax estimated payments made during the year', help: 'Payments made during the year toward this year\'s state or local income tax. W-2 withholding is already counted.', kind: 'amount', when: (ctx) => ctx.mayItemize },
+  { id: 'priorYearStateTaxPaid', text: 'State or local income tax paid this year for an earlier year', help: 'For example the balance due on last year\'s state return, or last year\'s fourth-quarter estimate paid in January.', kind: 'amount', when: (ctx) => ctx.mayItemize },
+  { id: 'useSalesTax', text: 'Deduct state and local general sales taxes instead of income taxes?', help: 'Usually better only in a state without an income tax (Schedule A line 5a).', kind: 'yesno', when: (ctx) => ctx.mayItemize },
+  { id: 'generalSalesTax', text: 'State and local general sales taxes paid', help: 'Actual receipts or the IRS sales tax calculator amount, plus sales tax on a car or boat.', kind: 'amount', when: (ctx) => ctx.mayItemize && ctx.answers.useSalesTax === true },
+  { id: 'otherMortgageInterest', text: 'Home mortgage interest not reported on a Form 1098', help: 'For example interest paid to a private lender or the seller (Schedule A line 8b).', kind: 'amount', when: (ctx) => ctx.mayItemize },
+  { id: 'otherItemizedDeductions', text: 'Other itemized deductions (Schedule A line 16, line 17 from 2026)', help: 'Only the kinds listed in the Schedule A instructions for line 16, such as gambling losses up to your gambling winnings.', kind: 'amount', when: (ctx) => ctx.mayItemize },
   { id: 'medicalExpenses', text: 'Medical and dental expenses you paid', help: 'Only the part above 7.5% of your AGI counts, and only if you itemize.', kind: 'amount' },
   { id: 'realEstateTaxes', text: 'Property tax paid on your home (not through escrow)', help: '', kind: 'amount' },
   { id: 'personalPropertyTaxes', text: 'Personal property tax (for example on a car)', help: 'The part based on value.', kind: 'amount' },
   { id: 'charityCash', text: 'Cash gifts to charities', help: 'From 2026 non-itemizers can deduct up to $1,000 ($2,000 joint).', kind: 'amount' },
   { id: 'charityNonCash', text: 'Non-cash gifts to charities (clothes, goods)', help: 'At fair market value.', kind: 'amount' },
   { id: 'livedWithSpouse', text: 'Did you live with your spouse at any time during the year?', help: 'Affects how Social Security benefits are taxed on a separate return.', kind: 'yesno', when: (ctx) => ctx.status === 'mfs' },
+  { id: 'spouseHasNoIncome', text: 'Did your spouse have no gross income, not file a return, and could not be claimed as a dependent by anyone?', help: 'Only then can you take the extra standard deduction for a spouse who is 65 or older or blind on a separate return.', kind: 'yesno', when: (ctx) => ctx.status === 'mfs' },
   { id: 'spouseItemizes', text: 'Is your spouse itemizing on their separate return?', help: 'If so, you must itemize too.', kind: 'yesno', when: (ctx) => ctx.status === 'mfs' },
   { id: 'separatedFromSpouse', text: 'Did you live apart from your spouse for the last six months of the year?', help: 'Needed for the earned income credit on a separate return.', kind: 'yesno', when: (ctx) => ctx.status === 'mfs' },
   { id: 'applyToNextYear', text: 'Refund to apply to next year\'s estimated tax', help: 'Leave empty to get it all back.', kind: 'amount' },
+  { id: 'noTaxForms', text: 'I have no W-2, 1099 or 1098 for this year', help: 'Asked on the tax documents step, not in the interview.', kind: 'yesno', when: () => false },
 ]);
 
 const LINE_LABELS = Object.freeze({
-  '1040': { '1a': 'Wages (W-2 box 1)', '1e': 'Taxable dependent care benefits (Form 2441)', '1z': 'Total wages', '2a': 'Tax-exempt interest', '2b': 'Taxable interest', '3a': 'Qualified dividends', '3b': 'Ordinary dividends', '4a': 'IRA distributions', '4b': 'IRA distributions, taxable', '5a': 'Pensions and annuities', '5b': 'Pensions and annuities, taxable', '6a': 'Social security benefits', '6b': 'Social security benefits, taxable', 7: 'Capital gain or loss', 8: 'Additional income (Schedule 1)', 9: 'Total income', 10: 'Adjustments to income (Schedule 1)', 11: 'Adjusted gross income', 12: 'Standard or itemized deduction', '13a': 'Qualified business income deduction', '13b': 'Additional deductions (Schedule 1-A)', 14: 'Total deductions', 15: 'Taxable income', 16: 'Tax', 17: 'Schedule 2, line 3', 18: 'Tax before credits', 19: 'Child tax credit and credit for other dependents', 20: 'Other credits (Schedule 3)', 21: 'Total credits', 22: 'Tax after credits', 23: 'Other taxes (Schedule 2)', 24: 'Total tax', '25a': 'Federal tax withheld, W-2', '25b': 'Federal tax withheld, 1099', '25c': 'Federal tax withheld, other', '25d': 'Total withholding', 26: 'Estimated tax payments', 27: 'Earned income credit', 28: 'Additional child tax credit', 29: 'American opportunity credit, refundable', 31: 'Other payments (Schedule 3)', 32: 'Total other payments and refundable credits', 33: 'Total payments', 34: 'Overpaid', '35a': 'Refund', 36: 'Applied to next year\'s estimated tax', 37: 'Amount you owe' },
-  'Schedule 1': { 1: 'Taxable state and local refunds', 3: 'Business income (Schedule C)', 5: 'Rental real estate and royalties (Schedule E)', 7: 'Unemployment compensation', '8z': 'Other income', 10: 'Total additional income', 11: 'Educator expenses', 13: 'HSA deduction', 15: 'Deductible part of self-employment tax', 16: 'SEP, SIMPLE and qualified plans', 17: 'Self-employed health insurance', 18: 'Penalty on early withdrawal of savings', 20: 'IRA deduction', 21: 'Student loan interest deduction', 26: 'Total adjustments' },
-  'Schedule 1-A': { 13: 'No tax on tips', 21: 'No tax on overtime', 30: 'Car loan interest', 37: 'Enhanced deduction for seniors', charity: 'Charitable gifts (non-itemizer)', 38: 'Total additional deductions' },
-  'Schedule 2': { '1a': 'Excess advance premium tax credit repayment (Form 8962)', 3: 'Total additions to tax (to Form 1040 line 17)', 4: 'Self-employment tax', 8: 'Additional tax on early retirement distributions', 11: 'Additional Medicare tax', 12: 'Net investment income tax', 21: 'Total other taxes' },
-  'Schedule 3': { 1: 'Foreign tax credit', 2: 'Child and dependent care credit (Form 2441)', 3: 'Education credits', 8: 'Total nonrefundable credits', 9: 'Net premium tax credit (Form 8962)', 11: 'Excess social security tax withheld', 15: 'Total other payments' },
-  'Schedule A': { 4: 'Medical and dental above 7.5% of AGI', '5d': 'State and local taxes before the cap', '5e': 'State and local taxes after the cap', 10: 'Home mortgage interest', 14: 'Gifts to charity', 16: 'Other itemized deductions', 17: 'Total itemized deductions' },
+  'Schedule 1': { 1: 'Taxable state and local refunds', 3: 'Business income (Schedule C)', 5: 'Rental real estate and royalties (Schedule E)', 7: 'Unemployment compensation', '8f': 'Income from Form 8889 (taxable HSA distributions)', '8z': 'Other income', 9: 'Total other income', 10: 'Total additional income', 11: 'Educator expenses', 13: 'HSA deduction', 15: 'Deductible part of self-employment tax', 16: 'SEP, SIMPLE and qualified plans', 17: 'Self-employed health insurance', 18: 'Penalty on early withdrawal of savings', 20: 'IRA deduction', 21: 'Student loan interest deduction', 26: 'Total adjustments' },
+  'Form 8880': { 7: 'Contributions counted, up to $2,000 a person', 10: 'Credit before the tax limit', 11: 'Tax left after earlier credits', 12: 'Retirement savings contributions credit' },
+  'Form 5695': { '6b': 'Clean energy property, 30% of cost', 11: 'Fuel cell credit', 12: 'Credit carried forward from last year', 13: 'Residential clean energy credit before the tax limit', 14: 'Tax left for the residential clean energy credit', 15: 'Residential clean energy credit', 16: 'Carried forward to next year', 28: 'Improvements, windows, doors and audits (at most $1,200)', '29h': 'Heat pumps and biomass (at most $2,000)', 30: 'Home improvement credit before the tax limit', 31: 'Tax left for the home improvement credit', 32: 'Energy efficient home improvement credit' },
   'Form 2441': { 3: 'Care expenses within the dollar limit', 4: 'Your earned income', 5: 'Spouse\'s earned income', 6: 'Smallest of expenses and earned incomes', '9a': 'Credit before the tax limit', 10: 'Tax liability limit', 11: 'Child and dependent care credit', 12: 'Dependent care benefits received', 25: 'Excluded dependent care benefits', 26: 'Taxable dependent care benefits' },
   'Schedule E': { '23a': 'Total rents received', '23b': 'Total royalties received', '23c': 'Total mortgage interest', '23d': 'Total depreciation and depletion', '23e': 'Total expenses', 24: 'Income', 25: 'Losses allowed', 26: 'Total rental real estate and royalty income or loss' },
   'Schedule D': { 7: 'Net short-term gain or loss', 13: 'Capital gain distributions', 15: 'Net long-term gain or loss', 16: 'Net gain or loss', 21: 'Loss allowed this year' },
@@ -257,13 +338,41 @@ export function coerceFields(kind, fields, problems) {
     if (item.type === 'money') {
       const number = Number(value);
       if (!Number.isFinite(number) || Math.abs(number) > MAX_AMOUNT) problems.push(`${item.label} must be an amount.`);
-      else if (number < 0 && !item.negative && kind !== '1099-B') problems.push(`${item.label} cannot be negative.`);
+      else if (number < 0 && !item.negative && !(kind === '1099-B' && item.key === 'proceeds')) problems.push(`${item.label} cannot be negative.`);
       else out[item.key] = Math.round(number * 100) / 100;
     } else if (item.type === 'yesno') out[item.key] = value === true || ['yes', 'y', 'true', '1'].includes(String(value).trim().toLowerCase());
     else if (item.type === 'days') {
       const days = Number(value);
       if (!Number.isInteger(days) || days < 0 || days > 366) problems.push(`${item.label} is a whole number of days from 0 to 366.`);
       else out[item.key] = days;
+    } else if (item.type === 'percent') {
+      const number = Number(String(value).replace('%', ''));
+      if (!Number.isFinite(number) || number < 0 || number > 100) problems.push(`${item.label} (box ${item.box}) is a percentage from 0 to 100.`);
+      else out[item.key] = Math.round(number * 100) / 100;
+    } else if (item.type === 'iraType') {
+      const type = String(value).trim().toLowerCase();
+      if (!['traditional', 'sep', 'simple', 'roth'].includes(type)) problems.push('Account type is traditional, sep, simple or roth.');
+      else out[item.key] = type;
+    } else if (item.key === 'distributionCode') {
+      const code = text(value, 4).toUpperCase().replace(/\s+/g, '');
+      if (!/^[1-9ABCDEFGHJKLMNPQRSTUWY]{1,2}$/.test(code)) problems.push('Distribution code (box 7) is one or two of the 1099-R codes, such as 7, 1, G or 4D.');
+      else out[item.key] = code;
+    } else if (item.key === 'exceptionCode') {
+      const code = text(value, 4).replace(/\s+/g, '');
+      if (!/^\d{1,2}$/.test(code) || !((Number(code) >= 1 && Number(code) <= 24) || Number(code) === 99)) problems.push('The Form 5329 exception number is 01 to 24, or 99 for more than one.');
+      else out[item.key] = code.padStart(2, '0');
+    }
+    else if (item.type === 'term') {
+      if (value !== 'short' && value !== 'long') problems.push('Term is short or long.');
+      else out[item.key] = value;
+    } else if (item.type === 'state') {
+      const code = text(value, 2).toUpperCase();
+      if (!US_STATES.has(code)) problems.push('State must be a two-letter code.');
+      else out[item.key] = code;
+    } else if (item.type === 'date') {
+      if (String(value).toLowerCase() === 'various') out[item.key] = 'VARIOUS';
+      else if (!isDate(value)) problems.push(`${item.label} must be YYYY-MM-DD.`);
+      else out[item.key] = String(value);
     }
     else if (item.type === 'term') {
       if (value !== 'short' && value !== 'long') problems.push('Term is short or long.');
@@ -279,6 +388,10 @@ export function coerceFields(kind, fields, problems) {
     } else if (item.key === 'box12') {
       const list = Array.isArray(value) ? value : [];
       out.box12 = list.slice(0, 8).map((row) => ({ code: text(row?.code, 2).toUpperCase(), amount: Math.round(Number(row?.amount || 0) * 100) / 100 })).filter((row) => /^[A-Z]{1,2}$/.test(row.code));
+    } else if (item.type === 'quantity') {
+      const number = Number(value);
+      if (!Number.isFinite(number) || number < 0 || number > 1e6) problems.push(`${item.label} must be a number of zero or more.`);
+      else out[item.key] = Math.round(number * 1000) / 1000;
     } else out[item.key] = text(value, 60);
   }
   if (kind === RENTAL_ENTRY_KIND) rentalEntryProblems(out, problems);
@@ -330,6 +443,32 @@ function rentalEntryProblems(out, problems) {
   if (type === 8 && !out.otherDescription) problems.push('Describe the property when its type is 8 (other).');
 }
 
+function savingsAccountProblems(kind, fields) {
+  const problems = [];
+  const account = String(fields.accountType || 'HSA').toUpperCase().replace(/\s*MSA$/, '').replace(/^MEDICARE ADVANTAGE$/, 'MA');
+  if (!['HSA', 'ARCHER', 'MA'].includes(account)) problems.push(`Account type (box ${kind === '1099-SA' ? '5' : '6'}) is HSA, ARCHER or MA.`);
+  else fields.accountType = account;
+  if (kind === '1099-SA') {
+    const code = String(fields.distributionCode || '1').trim();
+    if (!/^[1-6]$/.test(code)) problems.push('Distribution code (box 3) is 1 to 6.');
+    else fields.distributionCode = code;
+    if (Number(fields.earningsOnExcess || 0) > Number(fields.grossDistribution || 0)) problems.push('Earnings on excess contributions (box 2) cannot be more than the gross distribution (box 1).');
+  }
+  return problems;
+}
+
+function energyItemProblems(fields) {
+  const problems = [];
+  if (fields.category !== undefined) fields.category = String(fields.category).trim().toLowerCase().replace(/[\s_]+/g, '-');
+  if (fields.category !== undefined && !ENERGY_CATEGORIES.includes(fields.category)) problems.push(`The type of item is one of ${ENERGY_CATEGORIES.join(', ')}.`);
+  if (fields.qmid !== undefined) {
+    if (!isQmid(fields.qmid)) problems.push('A QMID has four letters or digits.');
+    else fields.qmid = fields.qmid.toUpperCase();
+  }
+  if (CLEAN_ENERGY_CATEGORIES.includes(fields.category) && fields.qmid !== undefined) delete fields.qmid;
+  return problems;
+}
+
 export function planUsTaxForm(state, args = {}) {
   const taxYear = yearArg(args.taxYear);
   if (!taxYear) return fail('TAX_YEAR_NOT_SUPPORTED', { supported: SUPPORTED_YEARS });
@@ -351,19 +490,24 @@ export function planUsTaxForm(state, args = {}) {
   }
   if (kind === 'W-2' && fields.wages > 0 && fields.federalWithheld > fields.wages) problems.push('Federal tax withheld is more than the wages.');
   if (kind === '1095-A') problems.push(...marketplaceProblems(fields));
+  if (kind === '1099-SA' || kind === '5498-SA') problems.push(...savingsAccountProblems(kind, fields));
+  if (kind === '5695-ITEM') problems.push(...energyItemProblems(fields));
   if (problems.length) return fail('US_TAX_FORM_INVALID', { problems });
   const source = ['upload', 'payroll'].includes(args.source) ? args.source : 'manual';
-  return { ok: true, taxYear, form: { kind, owner, payer, payerTin: payerTin.replace(/^(\d{2})-?(\d{7})$/, '$1-$2'), fields, source, documentId: text(args.documentId, 80) } };
+  return { ok: true, taxYear, form: { kind, owner, payer, payerTin: payerTin.replace(/^(\d{2})-?(\d{7})$/, '$1-$2'), fields, source, documentId: text(args.documentId || args.documentSha256, 80) } };
 }
 
 export function addUsTaxForm(state, args = {}) {
   const plan = planUsTaxForm(state, args);
   if (!plan.ok) return plan;
   const ret = returnOf(state, plan.taxYear, true);
-  const form = { id: `usf-${plan.taxYear}-${ret.nextFormNumber++}`, ...plan.form, addedOn: localToday() };
-  ret.forms.push(form);
+  const index = args.id ? ret.forms.findIndex((item) => item.id === String(args.id)) : -1;
+  if (args.id && index < 0) return fail('US_TAX_FORM_NOT_FOUND', { id: args.id, taxYear: plan.taxYear });
+  const form = index >= 0 ? { id: ret.forms[index].id, ...plan.form, addedOn: ret.forms[index].addedOn, updatedOn: localToday() } : { id: `usf-${plan.taxYear}-${ret.nextFormNumber++}`, ...plan.form, addedOn: localToday() };
+  if (index >= 0) ret.forms[index] = form;
+  else ret.forms.push(form);
   ret.updatedAt = new Date().toISOString();
-  audit(state, 'us_tax_form_added', { taxYear: plan.taxYear, id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, source: form.source });
+  audit(state, index >= 0 ? 'us_tax_form_updated' : 'us_tax_form_added', { taxYear: plan.taxYear, id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, source: form.source });
   return { ok: true, data: formView(form) };
 }
 
@@ -406,12 +550,32 @@ function booksScheduleC(state, taxYear) {
   return summary.ok ? summary.data : null;
 }
 
+function retirementContext(ret) {
+  const joint = ret?.filingStatus === 'mfj';
+  const mine = (ret?.forms || []).filter((form) => form.kind === '1099-R' && (form.owner !== 'spouse' || !joint));
+  const code = (form) => String(form.fields?.distributionCode || '').toUpperCase();
+  const ageOf = (person) => (person?.dateOfBirth ? Number(ret.taxYear) - Number(String(person.dateOfBirth).slice(0, 4)) : 0);
+  return {
+    hasRetirement: (ret?.forms || []).some((form) => form.kind === '1099-R'),
+    hasTraditionalIra: mine.some((form) => form.fields?.iraSepSimple && !/[JQT]/.test(code(form))),
+    hasRothDistribution: mine.some((form) => /J/.test(code(form)) || (/T/.test(code(form)) && ret.answers?.rothFiveYearMet !== true)),
+    hasRothT: mine.some((form) => /T/.test(code(form))),
+    rmdAge: ageOf(ret?.taxpayer) >= 72 || (joint && ageOf(ret?.spouse) >= 72),
+  };
+}
+
 function context(state, ret) {
   const answers = ret?.answers || {};
   const books = ret ? booksScheduleC(state, ret.taxYear) : null;
   const usesBooks = Boolean(books) && answers.useBooksForScheduleC !== false;
   const manualBusiness = Number(answers.businessGrossReceipts || 0) > 0;
-  return { taxYear: ret?.taxYear || '', status: ret?.filingStatus || '', hasMarketplace: (ret?.forms || []).some((form) => form.kind === '1095-A') || answers.marketplaceCoverage === true, answers: ret?.answers || {}, hasDependents: (ret?.dependents || []).length > 0, joint: ret?.filingStatus === 'mfj', booksHaveIncome: Boolean(books), usesBooks, books, manualBusiness, hasBusiness: usesBooks || manualBusiness || (ret?.forms || []).some((form) => form.kind === '1099-NEC'), hasStateRefund: (ret?.forms || []).some((form) => form.kind === '1099-G' && Number(form.fields.stateRefund || 0) > 0), hasEarlyDistribution: (ret?.forms || []).some((form) => form.kind === '1099-R' && String(form.fields.distributionCode || '').includes('1')), hasCareBenefits: (ret?.forms || []).some((form) => form.kind === 'W-2' && Number(form.fields.dependentCareBenefits || 0) > 0), hasCare: (ret?.forms || []).some((form) => form.kind === '2441-PROVIDER' || (form.kind === 'W-2' && Number(form.fields.dependentCareBenefits || 0) > 0)), hasRental: (ret?.forms || []).some((form) => form.kind === RENTAL_ENTRY_KIND || (form.kind === '1099-MISC' && Number(form.fields.rents || 0) + Number(form.fields.royalties || 0) > 0)) || answers.rentalIncome === true };
+  const forms = ret?.forms || [];
+  const ownerOf = (form) => (form.owner === 'spouse' ? 'spouse' : 'taxpayer');
+  const employerHsa = (form) => (Array.isArray(form.fields?.box12) && form.fields.box12.some((row) => row.code === 'W' && Number(row.amount) > 0)) || Number(form.fields?.hsaEmployerContributions || 0) > 0;
+  const hsaPaid = (owner) => forms.some((form) => form.kind === '1099-SA' && ownerOf(form) === owner);
+  const hsaActive = (owner) => hsaPaid(owner) || forms.some((form) => ownerOf(form) === owner && (form.kind === '5498-SA' || (form.kind === 'W-2' && employerHsa(form))));
+  const taxpayerAge = ret ? ageAtYearEnd(ret.taxpayer?.dateOfBirth, ret.taxYear, { dayBefore: true }) : null;
+  return { taxYear: ret?.taxYear || '', status: ret?.filingStatus || '', hsa: { taxpayer: hsaActive('taxpayer'), spouse: hsaActive('spouse') }, hsaDistributions: { taxpayer: hsaPaid('taxpayer'), spouse: hsaPaid('spouse') }, taxpayerAge, aotcUnder24: forms.some((form) => form.kind === '1098-T') && ret?.filingStatus !== 'mfj' && (taxpayerAge === null || taxpayerAge < 24), hasInvestmentForms: forms.some((form) => ['1099-INT', '1099-DIV', '1099-B', '1099-MISC'].includes(form.kind)), hasInterestOrDividends: forms.some((form) => ['1099-INT', '1099-DIV'].includes(form.kind)), hasCapitalSales: forms.some((form) => form.kind === '1099-B' || (form.kind === '1099-DIV' && Number(form.fields?.capitalGainDistributions || 0) > 0)) || Number(answers.shortTermLossCarryover || 0) > 0 || Number(answers.longTermLossCarryover || 0) > 0, mayItemize: answers.itemize !== 'no' || (ret?.filingStatus === 'mfs' && answers.spouseItemizes === true), hasMarketplace: (ret?.forms || []).some((form) => form.kind === '1095-A') || answers.marketplaceCoverage === true, answers: ret?.answers || {}, hasDependents: (ret?.dependents || []).length > 0, joint: ret?.filingStatus === 'mfj', booksHaveIncome: Boolean(books), usesBooks, books, manualBusiness, hasBusiness: usesBooks || manualBusiness || (ret?.forms || []).some((form) => form.kind === '1099-NEC'), hasStateRefund: (ret?.forms || []).some((form) => form.kind === '1099-G' && Number(form.fields.stateRefund || 0) > 0), ...retirementContext(ret), hasCareBenefits: (ret?.forms || []).some((form) => form.kind === 'W-2' && Number(form.fields.dependentCareBenefits || 0) > 0), hasCare: (ret?.forms || []).some((form) => form.kind === '2441-PROVIDER' || (form.kind === 'W-2' && Number(form.fields.dependentCareBenefits || 0) > 0)), hasRental: (ret?.forms || []).some((form) => form.kind === RENTAL_ENTRY_KIND || (form.kind === '1099-MISC' && Number(form.fields.rents || 0) + Number(form.fields.royalties || 0) > 0)) || answers.rentalIncome === true, taxpayerBusiness: usesBooks || manualBusiness || (ret?.forms || []).some((form) => form.kind === '1099-NEC' && form.owner !== 'spouse'), spouseBusiness: ret?.filingStatus === 'mfj' && (ret?.forms || []).some((form) => form.kind === '1099-NEC' && form.owner === 'spouse'), hasDividends: (ret?.forms || []).some((form) => form.kind === '1099-DIV'), hasEnergyItems: (ret?.forms || []).some((form) => form.kind === '5695-ITEM' && !['solar-electric', 'solar-water', 'small-wind', 'geothermal', 'battery'].includes(form.fields.category)), saverContributions: answers.retirementSavings === true || (ret?.forms || []).some((form) => form.kind === 'W-2' && (form.fields.box12 || []).some((row) => SAVERS_DEFERRAL_CODES.includes(row.code) && Number(row.amount) > 0)) };
 }
 
 function visibleQuestions(state, ret) {
@@ -434,6 +598,7 @@ export function planUsInterviewAnswer(state, args = {}) {
   if (!question) return fail('US_QUESTION_UNKNOWN', { known: QUESTIONS.map((item) => item.id) });
   const raw = args.answer;
   if (raw === null || raw === undefined || raw === '') return { ok: true, taxYear, id: question.id, answer: null, question };
+  if (question.kind === 'amount' && /HsaMonths$|^hsaMonths$/.test(question.id) && !(Number.isInteger(Number(raw)) && Number(raw) >= 0 && Number(raw) <= 12)) return fail('US_ANSWER_INVALID', { problems: ['The number of months is a whole number from 0 to 12.'] });
   if (question.kind === 'amount') {
     const number = Number(raw);
     if (!Number.isFinite(number) || number < 0 || number > MAX_AMOUNT) return fail('US_ANSWER_INVALID', { problems: ['The answer is an amount of zero or more.'] });
@@ -487,7 +652,7 @@ export function engineInput(state, ret, { forFiling = false } = {}) {
   };
 }
 
-const STEP_OF_CODE = { SSA_NET_REPAYMENT: 'forms', SSA_REPAYMENT_1341: 'forms', TIPS_ABOVE_NET_INCOME: 'interview', SPOUSE_REQUIRED: 'profile', SPOUSE_NAME_FOR_MFS: 'profile', HOH_NEEDS_QUALIFYING_PERSON: 'profile', QSS_NEEDS_CHILD: 'profile', DEPENDENT_DOB_INVALID: 'profile', CHILD_WITHOUT_SSN: 'profile', TAXPAYER_DOB_MISSING: 'profile', SPOUSE_FORM_ON_NON_JOINT: 'forms', NEC_ABOVE_RECEIPTS: 'forms', RENTAL_PROPERTY_NEEDED: 'forms', SCHEDULE_K1_NOT_COVERED: 'interview', REAL_ESTATE_PROFESSIONAL_NOT_COVERED: 'interview', VACATION_HOME_LIMIT: 'forms', SHORT_TERM_RENTAL_NOT_COVERED: 'forms', FORM_6198_NOT_COVERED: 'forms', FORM_4797_NOT_COVERED: 'forms', RENTAL_FROM_1099_ONLY: 'forms', RENTS_BELOW_1099: 'forms', ROYALTIES_BELOW_1099: 'forms', RENTAL_TYPE_INVALID: 'forms', RENTAL_DAYS_REQUIRED: 'forms', RENTAL_UNDER_15_DAYS: 'forms', RENTAL_PERSONAL_SHARE: 'forms', RENTAL_NOT_DEPRECIABLE: 'forms', RENTAL_RECOVERY_CLASS_REQUIRED: 'forms', RENTAL_DEPRECIATION_INVALID: 'forms', ROYALTY_NOT_PASSIVE: 'forms', ACTIVE_PARTICIPATION_UNANSWERED: 'forms', PASSIVE_LOSS_CARRYFORWARD: 'review', CARE_PROVIDERS_NEEDED: 'forms', CARE_PERSON_UNKNOWN: 'forms', CARE_PERSON_NOT_NAMED: 'forms', CARE_PERSON_NOT_QUALIFYING: 'forms', CARE_PROVIDER_TIN_MISSING: 'forms', CARE_HOUSEHOLD_EMPLOYEE: 'forms', CARE_CREDIT_MFS: 'interview', CARE_NO_QUALIFYING_PERSON: 'profile', CARE_SPOUSE_EARNED_INCOME: 'interview', FORM_8962_NOT_COVERED: 'interview', FORM_2210_MAY_APPLY: 'interview', QBI_ABOVE_THRESHOLD: 'review', NO_INCOME_DOCUMENTS: 'forms', EARLY_DISTRIBUTION: 'forms', FORM_AMOUNT_NEGATIVE: 'forms', DEPENDENT_FILER_WITH_DEPENDENTS: 'profile', DEPENDENT_BORN_AFTER_YEAR: 'profile', TAXPAYER_DOB_INVALID: 'profile', CTC_NEEDS_FILER_SSN: 'profile', FORM_1116_NEEDED: 'forms', ITEMIZED_37_LIMIT: 'interview', STATE_REFUND_TAXABILITY: 'interview', SE_HEALTH_ABOVE_PROFIT: 'interview', MORTGAGE_DEBT_LIMIT: 'forms', FORM_8283: 'interview', EMPLOYER_OVERWITHHELD_SS: 'forms', FORM_1095A_MISSING: 'forms', FORM_1095A_MONTHLY_NEEDED: 'forms', FORM_1095A_ANNUAL_ONLY: 'forms', FORM_1095A_SLCSP_DIFFERS: 'forms', FORM_8962_ALLOCATION_NOT_COVERED: 'interview', FORM_8962_MARRIAGE_ALTERNATIVE_NOT_COVERED: 'interview', PTC_MFS_NOT_ALLOWED: 'interview', PTC_BELOW_POVERTY_LINE: 'interview', PTC_ABOVE_400_PERCENT: 'review', PTC_CLAIMED_AS_DEPENDENT: 'profile', PTC_SE_HEALTH_INSURANCE: 'interview', PTC_RULES_MISSING: 'review' };
+const STEP_OF_CODE = { SAVERS_CREDIT_PERSON_EXCLUDED: 'interview', SAVERS_CREDIT_AGI_TOO_HIGH: 'review', SAVERS_CREDIT_LIMITED_BY_TAX: 'review', ENERGY_ITEM_OTHER_YEAR: 'forms', ENERGY_HOME_IMPROVEMENT_ENDED: 'forms', ENERGY_CLEAN_ENERGY_ENDED: 'forms', ENERGY_QMID_MISSING: 'forms', ENERGY_SECTION_A_NOT_ALLOWED: 'interview', ENERGY_SECTION_B_NOT_ALLOWED: 'interview', ENERGY_AUDIT_NOT_ALLOWED: 'interview', ENERGY_PANELBOARD_WITHOUT_ENABLED: 'forms', ENERGY_HOME_IMPROVEMENT_LIMITED_BY_TAX: 'review', ENERGY_BATTERY_TOO_SMALL: 'forms', ENERGY_FUEL_CELL_NOT_MAIN_HOME: 'interview', ENERGY_FUEL_CELL_CAPACITY: 'forms', ENERGY_CLEAN_ENERGY_CARRYFORWARD: 'review', ENERGY_HOME_UNANSWERED: 'interview', AOTC_REFUNDABLE_QUESTIONS: 'interview', AOTC_NOT_ALLOWED: 'forms', MORTGAGE_INSURANCE_NOT_DEDUCTIBLE: 'forms', SSA_NET_REPAYMENT: 'forms', SSA_REPAYMENT_1341: 'forms', TIPS_ABOVE_NET_INCOME: 'interview', SPOUSE_REQUIRED: 'profile', SPOUSE_NAME_FOR_MFS: 'profile', HOH_NEEDS_QUALIFYING_PERSON: 'profile', QSS_NEEDS_CHILD: 'profile', DEPENDENT_DOB_INVALID: 'profile', CHILD_WITHOUT_SSN: 'profile', TAXPAYER_DOB_MISSING: 'profile', SPOUSE_FORM_ON_NON_JOINT: 'forms', NEC_ABOVE_RECEIPTS: 'forms', RENTAL_PROPERTY_NEEDED: 'forms', SCHEDULE_K1_NOT_COVERED: 'interview', REAL_ESTATE_PROFESSIONAL_NOT_COVERED: 'interview', VACATION_HOME_LIMIT: 'forms', SHORT_TERM_RENTAL_NOT_COVERED: 'forms', FORM_6198_NOT_COVERED: 'forms', FORM_4797_NOT_COVERED: 'forms', RENTAL_FROM_1099_ONLY: 'forms', RENTS_BELOW_1099: 'forms', ROYALTIES_BELOW_1099: 'forms', RENTAL_TYPE_INVALID: 'forms', RENTAL_DAYS_REQUIRED: 'forms', RENTAL_UNDER_15_DAYS: 'forms', RENTAL_PERSONAL_SHARE: 'forms', RENTAL_NOT_DEPRECIABLE: 'forms', RENTAL_RECOVERY_CLASS_REQUIRED: 'forms', RENTAL_DEPRECIATION_INVALID: 'forms', ROYALTY_NOT_PASSIVE: 'forms', ACTIVE_PARTICIPATION_UNANSWERED: 'forms', PASSIVE_LOSS_CARRYFORWARD: 'review', CARE_PROVIDERS_NEEDED: 'forms', CARE_PERSON_UNKNOWN: 'forms', CARE_PERSON_NOT_NAMED: 'forms', CARE_PERSON_NOT_QUALIFYING: 'forms', CARE_PROVIDER_TIN_MISSING: 'forms', CARE_HOUSEHOLD_EMPLOYEE: 'forms', CARE_CREDIT_MFS: 'interview', CARE_NO_QUALIFYING_PERSON: 'profile', CARE_SPOUSE_EARNED_INCOME: 'interview', FORM_8962_NOT_COVERED: 'interview', FORM_2210_MAY_APPLY: 'interview', HSA_COVERAGE_NEEDED: 'interview', HSA_QUALIFIED_EXPENSES_NEEDED: 'interview', HSA_TESTING_PERIOD: 'interview', HSA_EXCESS_CONTRIBUTION: 'interview', HSA_TURNED_65_IN_YEAR: 'interview', HSA_DEPENDENT_NO_DEDUCTION: 'profile', HSA_FAMILY_SPLIT_PART_YEAR: 'interview', HSA_COVERAGE_CHANGED: 'interview', HSA_CONTRIBUTIONS_FROM_5498SA: 'forms', FORM_8853_NOT_COVERED: 'forms', HSA_RULES_MISSING: 'review', QBI_ABOVE_THRESHOLD: 'review', NO_INCOME_DOCUMENTS: 'forms', EARLY_DISTRIBUTION: 'forms', EARLY_DISTRIBUTION_EXCEPTION_INVALID: 'forms', EARLY_DISTRIBUTION_EXCEPTION_CODE: 'forms', EARLY_DISTRIBUTION_EXCEPTION_CAPPED: 'forms', DOMESTIC_ABUSE_ACCOUNT_LIMIT: 'forms', EMERGENCY_DISTRIBUTION_REPEAT: 'forms', QUALIFIED_DISASTER_DISTRIBUTION: 'forms', ROTH_BASIS_NEEDED: 'interview', ROTH_FIVE_YEAR_RULE: 'interview', ROTH_CONVERSION_RECAPTURE: 'review', FORM_8606_SPOUSE: 'forms', IRA_BASIS_UNKNOWN: 'interview', IRA_VALUE_FOR_EXCESS: 'interview', FORM_5329_OTHER_ACCOUNTS: 'interview', RMD_NO_SHORTFALL: 'interview', RMD_WAIVER_REQUESTED: 'interview', FORM_AMOUNT_NEGATIVE: 'forms', DEPENDENT_FILER_WITH_DEPENDENTS: 'profile', DEPENDENT_BORN_AFTER_YEAR: 'profile', TAXPAYER_DOB_INVALID: 'profile', CTC_NEEDS_FILER_SSN: 'profile', FORM_1116_NEEDED: 'forms', ITEMIZED_37_LIMIT: 'interview', STATE_REFUND_TAXABILITY: 'interview', SE_HEALTH_ABOVE_PROFIT: 'interview', MORTGAGE_DEBT_LIMIT: 'forms', FORM_8283: 'interview', EMPLOYER_OVERWITHHELD_SS: 'forms', FORM_1095A_MISSING: 'forms', FORM_1095A_MONTHLY_NEEDED: 'forms', FORM_1095A_ANNUAL_ONLY: 'forms', FORM_1095A_SLCSP_DIFFERS: 'forms', FORM_8962_ALLOCATION_NOT_COVERED: 'interview', FORM_8962_MARRIAGE_ALTERNATIVE_NOT_COVERED: 'interview', PTC_MFS_NOT_ALLOWED: 'interview', PTC_BELOW_POVERTY_LINE: 'interview', PTC_ABOVE_400_PERCENT: 'review', PTC_CLAIMED_AS_DEPENDENT: 'profile', PTC_SE_HEALTH_INSURANCE: 'interview', PTC_RULES_MISSING: 'review', QBI_MINIMUM_NEEDS_ANSWER: 'interview' };
 
 function profileChecks(ret) {
   const checks = [];
@@ -510,9 +675,10 @@ function computedFor(state, taxYear, options = {}) {
 
 function reviewLines(data) {
   const rows = [];
+  const yearLabels = lineLabels(data.taxYear);
   const push = (form, values, sourceFor = () => 'computed') => {
-    const labels = LINE_LABELS[form] || {};
-    for (const [line, label] of Object.entries(labels)) {
+    const labels = yearLabels[form] || Object.entries(LINE_LABELS[form] || {});
+    for (const [line, label] of labels) {
       if (!Object.hasOwn(values, line)) continue;
       const amount = values[line];
       if (form !== '1040' && !amount) continue;
@@ -521,7 +687,7 @@ function reviewLines(data) {
   };
   const fromForms = new Set(['1a', '1z', '2a', '2b', '3a', '3b', '4a', '5a', '6a', '25a', '25b']);
   push('1040', data.lines, (line) => (fromForms.has(line) ? 'forms' : line === '26' ? 'interview' : 'computed'));
-  for (const [key, form] of [['1', 'Schedule 1'], ['1-A', 'Schedule 1-A'], ['2', 'Schedule 2'], ['3', 'Schedule 3'], ['2441', 'Form 2441'], ['A', 'Schedule A'], ['D', 'Schedule D']]) if (data.schedules[key]) push(form, data.schedules[key]);
+  for (const [key, form] of [['1', 'Schedule 1'], ['1-A', 'Schedule 1-A'], ['2', 'Schedule 2'], ['3', 'Schedule 3'], ['2441', 'Form 2441'], ['5695', 'Form 5695'], ['8880', 'Form 8880'], ['A', 'Schedule A'], ['D', 'Schedule D']]) if (data.schedules[key]) push(form, data.schedules[key]);
   if (data.schedules.E) push('Schedule E', data.schedules.E.lines);
   return rows;
 }
@@ -557,12 +723,12 @@ export function usReturnStatus(state, args = {}) {
   const questions = visibleQuestions(state, ret);
   const done = {
     profile: !errors.some((item) => item.step === 'profile'),
-    forms: ret.forms.length > 0 || context(state, ret).hasBusiness,
+    forms: ret.forms.length > 0 || context(state, ret).hasBusiness || ret.answers.noTaxForms === true,
     interview: questions.every((question) => Object.hasOwn(ret.answers, question.id)),
     review: review.computed && errors.length === 0,
     sign: Boolean(state.usEfile?.returns?.[String(taxYear)]?.signature?.signedAt),
   };
-  return { ok: true, data: { taxYear, started: true, filingStatus: ret.filingStatus, taxpayerName: ret.taxpayer ? `${ret.taxpayer.firstName} ${ret.taxpayer.lastName}`.trim() : '', steps: STEPS.map(([id, label]) => ({ id, label, done: done[id] })), refund: review.refund, owed: review.owed, readyToSign: done.profile && done.forms && done.review, errors: errors.length, warnings: review.checks.length - errors.length, unsupported: review.unsupported || [] } };
+  return { ok: true, data: { taxYear, started: true, filingStatus: ret.filingStatus, taxpayerName: ret.taxpayer ? `${ret.taxpayer.firstName} ${ret.taxpayer.lastName}`.trim() : '', steps: STEPS.map(([id, label]) => ({ id, label, done: done[id] })), refund: review.refund, owed: review.owed, readyToSign: done.profile && done.forms && done.review, errors: errors.length, warnings: review.checks.length - errors.length, unsupported: review.unsupported || [], ...(importedPriorYear(state, taxYear) ? { priorYear: importedPriorYear(state, taxYear) } : {}) } };
 }
 
 function efileShape(ret, data, input) {
@@ -574,8 +740,9 @@ function efileShape(ret, data, input) {
     taxpayer: person(input.taxpayer),
     spouse: person(input.spouse),
     address: ret.address,
-    dependents: input.dependents.map((item, index) => ({ firstName: item.firstName, lastName: item.lastName, ssn: item.ssn, relationship: item.relationship, ctcEligible: data.dependents[index]?.ctcEligible || false, odcEligible: data.dependents[index]?.odcEligible || false, months: item.months })),
+    dependents: input.dependents.map((item, index) => ({ firstName: item.firstName, lastName: item.lastName, ssn: item.ssn, relationship: item.relationship, ctcEligible: data.dependents[index]?.ctcEligible || false, odcEligible: data.dependents[index]?.odcEligible || false, eitcChild: data.dependents[index]?.eitcChild || false, dob: item.dateOfBirth, student: Boolean(item.student), disabled: Boolean(item.disabled), bornOrDiedInYear: Boolean(item.bornOrDiedInYear), months: item.months })),
     digitalAssets: ret.answers.digitalAssets === true,
+    answers: { ...ret.answers },
     lines: data.lines,
     schedules: data.schedules.C ? { ...data.schedules, C: data.schedules.C.map((item) => ({ ...item, businessName: item.name, activityCode: ret.answers.businessActivityCode || '' })) } : data.schedules,
     forms: ret.forms.map((form) => ({ id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, payerTin: form.payerTin, fields: form.fields })),
@@ -655,7 +822,7 @@ export function usTaxFormPreview(state, args) {
   const f = plan.form;
   const main = FORM_SPECS[f.kind].fields.find((item) => item.required && item.type === 'money');
   const amount = main && f.fields[main.key] !== undefined ? ` ${main.label.toLowerCase()} $${Number(f.fields[main.key]).toLocaleString('en-US')}` : '';
-  return { blockers: [], summary: `${f.kind} from ${f.payer || 'the payer'}${f.owner === 'spouse' ? ' (spouse)' : ''}:${amount}${f.fields.federalWithheld ? `, federal tax withheld $${Number(f.fields.federalWithheld).toLocaleString('en-US')}` : ''}.`, effects: [`Added to the ${plan.taxYear} return.`], figures: { taxYear: plan.taxYear, kind: f.kind } };
+  return { blockers: [], summary: `${f.kind} from ${f.payer || 'the payer'}${f.owner === 'spouse' ? ' (spouse)' : ''}:${amount}${f.fields.federalWithheld ? `, federal tax withheld $${Number(f.fields.federalWithheld).toLocaleString('en-US')}` : ''}.`, effects: [args.id ? `Replaces ${args.id} on the ${plan.taxYear} return.` : `Added to the ${plan.taxYear} return.`], figures: { taxYear: plan.taxYear, kind: f.kind } };
 }
 
 export function removeUsTaxFormPreview(state, args) {
@@ -669,6 +836,14 @@ export function usInterviewPreview(state, args) {
   if (!plan.ok) return { blockers: plan.problems || [plan.error], summary: '', effects: [], figures: {} };
   const shown = plan.answer === null ? 'cleared' : plan.question.kind === 'amount' ? `$${Number(plan.answer).toLocaleString('en-US')}` : plan.question.kind === 'yesno' ? (plan.answer ? 'yes' : 'no') : String(plan.answer);
   return { blockers: [], summary: `${plan.question.text}: ${shown}.`, effects: [`Saved on the ${plan.taxYear} return.`], figures: { taxYear: plan.taxYear, id: plan.id } };
+}
+
+export function importedPriorYear(state, taxYear) {
+  const ret = returnOf(state, String(taxYear));
+  const value = ret?.answers?.priorYearAgi;
+  if (value === undefined || value === null || value === '' || !Number.isFinite(Number(value)) || Number(value) < 0) return null;
+  const prior = returnOf(state, String(Number(taxYear) - 1));
+  return { agi: Math.round(Number(value)), joint: prior?.filingStatus === 'mfj' };
 }
 
 export function usReturnRecord(state, taxYear, { create = false, scopeId = '' } = {}) {

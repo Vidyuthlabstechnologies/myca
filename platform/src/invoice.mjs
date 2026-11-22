@@ -11,7 +11,7 @@ import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-de
 import { gstin as gstinRules, rules } from './sprint-load.mjs';
 import { needsSelfInvoice, reverseChargeOf } from './reverse-charge.mjs';
 import { cessLineNotInForce, chargesCess } from './compensation-cess.mjs';
-import { COMPOSITION_DECLARATION, documentTitleOf, exportEndorsementOf, hsnShownOn, reverseChargeLineOf } from './invoice-compliance.mjs';
+import { COMPOSITION_DECLARATION, documentTitleOf, exportEndorsementOf, hsnDigitIssues, hsnShownOn, reverseChargeLineOf } from './invoice-compliance.mjs';
 
 function badGstin(value) {
   const said = String(value || '').trim();
@@ -67,6 +67,23 @@ function cessFields(line, taxable, qty, levied) {
   if (!hasCessInput(line)) return null;
   const computed = cessOf(line, taxable, qty);
   return levied ? computed : { ...computed, cessAdval: 0, cessNonAdval: 0, cess: 0 };
+}
+
+export function allocateDiscount(taxablesPaise, discountPaise) {
+  const total = taxablesPaise.reduce((sum, value) => sum + Math.max(0, value), 0);
+  if (!(discountPaise > 0) || !(total > 0)) return taxablesPaise.map(() => 0);
+  const shares = taxablesPaise.map((value) => Math.floor((Math.max(0, value) * discountPaise) / total));
+  let left = discountPaise - shares.reduce((sum, value) => sum + value, 0);
+  const remainderOf = (i) => (Math.max(0, taxablesPaise[i]) * discountPaise) % total;
+  const byRoom = taxablesPaise.map((value, i) => i).sort((a, b) => remainderOf(b) - remainderOf(a) || taxablesPaise[b] - taxablesPaise[a] || a - b);
+  for (const i of byRoom) {
+    if (left <= 0) break;
+    if (shares[i] < taxablesPaise[i]) {
+      shares[i] += 1;
+      left -= 1;
+    }
+  }
+  return shares;
 }
 
 function sumOf(lines, key) {
@@ -178,7 +195,7 @@ export function lastGstRateFor(state, { name, gstin }, kind = 'sale') {
   return Number.isFinite(Number(rate)) ? { gstRate: Number(rate), from: latest.id, date: latest.date } : null;
 }
 
-const UNNAMED_BUYERS = ['', 'walk-in', 'walk-in customer', 'cash', 'cash sale', 'cash customer'];
+export const UNNAMED_BUYERS = ['', 'walk-in', 'walk-in customer', 'cash', 'cash sale', 'cash customer'];
 
 function buyerDetailsNeeded(state, input, { date, reg, exportSale, rawLines, specs }) {
   if (exportSale || String(input.partyGstin || '').trim() || !String(reg?.gstin || '').trim() || state.company?.composition === true) return null;
@@ -196,7 +213,52 @@ function buyerDetailsNeeded(state, input, { date, reg, exportSale, rawLines, spe
   return { missing, thresholdRupees: rupees, rule: found.record.id, hint: `A tax invoice to an unregistered buyer with a taxable value of ₹${rupees.toLocaleString('en-IN')} or more must carry the buyer's name and address with the state (rule 46(e)). Add the buyer's ${missing.map((field) => (field === 'partyName' ? 'name' : 'address with the state')).join(' and ')} before you give out this invoice.` };
 }
 
-export function createInvoice(state, input) {
+export function invoiceFigures(rawLines, specs, { supplierState, pos, exportSale = null, supplyType = '', loyaltyDiscountPaise = 0 }) {
+  const rateOf = (i) => (exportSale ? Math.round(specs[i].rate * exportSale.exchangeRate * 100) / 100 : specs[i].rate);
+  const pointsOff = loyaltyDiscountPaise > 0 && !exportSale ? allocateDiscount(specs.map((s, i) => Math.round(s.qty * rateOf(i) * 100)), loyaltyDiscountPaise) : specs.map(() => 0);
+  const lines = rawLines.map((l, i) => {
+    const { qty, rate: foreignRate, gstRate } = specs[i];
+    const rateAmt = rateOf(i);
+    const grossTaxable = Math.round(qty * rateAmt * 100) / 100;
+    const loyaltyDiscount = pointsOff[i] / 100;
+    const taxable = Math.round((grossTaxable - loyaltyDiscount) * 100) / 100;
+    const computed = gstSplit({
+      taxable,
+      rate: gstRate,
+      supplierState,
+      partyState: pos,
+      interState: supplyType === 'SEZWP',
+    });
+    const untaxed = (exportSale && !exportSale.withTax) || supplyType === 'SEZWOP';
+    const split = untaxed ? { intra: false, cgst: 0, sgst: 0, igst: 0, tax: 0 } : computed;
+    const cess = cessFields(l, taxable, qty, !untaxed);
+    return {
+      description: l.description,
+      hsn: String(l.hsn ?? '').trim(),
+      qty,
+      ...(String(l.unit ?? '').trim() ? { unit: String(l.unit).trim() } : {}),
+      rate: rateAmt,
+      ...(exportSale && exportSale.currency !== 'INR' ? { foreignRate, foreignAmount: Math.round(qty * foreignRate * 100) / 100 } : {}),
+      gstRate,
+      ...(gstRate === 0 && l.supply ? { supply: String(l.supply) } : {}),
+      ...(loyaltyDiscount > 0 ? { grossTaxable, loyaltyDiscount } : {}),
+      taxable,
+      ...split,
+      ...(cess || {}),
+      amount: Math.round((taxable + split.tax + (cess ? cess.cess : 0)) * 100) / 100,
+    };
+  });
+  const taxable = sumOf(lines, 'taxable');
+  const cgst = sumOf(lines, 'cgst');
+  const sgst = sumOf(lines, 'sgst');
+  const igst = sumOf(lines, 'igst');
+  const withCess = lines.some((l) => l.cess != null);
+  const cessTotal = sumOf(lines, 'cess');
+  const total = Math.round((taxable + cgst + sgst + igst + cessTotal) * 100) / 100;
+  return { lines, taxable, cgst, sgst, igst, withCess, cessTotal, total, pointsOff };
+}
+
+export function planInvoice(state, input) {
   const company = state.company;
   if (company?.setupNeeded) return { ok: false, error: 'SETUP_REQUIRED' };
   const regd = regArg(state, input.registrationGstin);
@@ -239,49 +301,23 @@ export function createInvoice(state, input) {
   if (supplyOnRated >= 0) return { ok: false, error: 'SUPPLY_TYPE_NEEDS_ZERO_RATE', line: supplyOnRated + 1 };
   const grossTaxable = specs.reduce((sum, s) => sum + Math.round(s.qty * s.rate * 100) / 100, 0);
   if (grossTaxable <= 0) return { ok: false, error: 'ZERO_AMOUNT' };
-
   const partyName = String(input.partyName ?? '').trim() || 'Walk-in';
   const buyerDetails = buyerDetailsNeeded(state, input, { date, reg, exportSale, rawLines, specs });
   const terms = invoiceTerms(state, { name: partyName, gstin: input.partyGstin, override: input.paymentTermsDays });
   if (terms.error) return { ok: false, error: terms.error };
+  const pos = exportSale ? FOREIGN_POS : stateCodeOf(input.partyState) || partyStateOf(normGstin(input.partyGstin)) || reg.state;
+  const figures = invoiceFigures(rawLines, specs, { supplierState: reg.state, pos, exportSale, supplyType });
+  return { ok: true, date, reg, supplyType, exportSale, rawLines, specs, partyName, buyerDetails, terms, pos, figures };
+}
+
+export function createInvoice(state, input, { loyaltyDiscountPaise = 0, loyaltyPoints = 0 } = {}) {
+  const plan = planInvoice(state, input);
+  if (!plan.ok) return plan;
+  const { date, reg, supplyType, exportSale, rawLines, partyName, buyerDetails, terms } = plan;
   const party = ensureParty(state, { name: partyName, gstin: input.partyGstin, stateCode: exportSale ? FOREIGN_POS : input.partyState, address: input.partyAddress });
-  const pos = exportSale ? FOREIGN_POS : placeOfSupply(input, party, { ...company, state: reg.state });
-  const lines = rawLines.map((l, i) => {
-    const { qty, rate: foreignRate, gstRate } = specs[i];
-    const rateAmt = exportSale ? Math.round(foreignRate * exportSale.exchangeRate * 100) / 100 : foreignRate;
-    const taxable = Math.round(qty * rateAmt * 100) / 100;
-    const computed = gstSplit({
-      taxable,
-      rate: gstRate,
-      supplierState: reg.state,
-      partyState: pos,
-      interState: supplyType === 'SEZWP',
-    });
-    const untaxed = (exportSale && !exportSale.withTax) || supplyType === 'SEZWOP';
-    const split = untaxed ? { intra: false, cgst: 0, sgst: 0, igst: 0, tax: 0 } : computed;
-    const cess = cessFields(l, taxable, qty, !untaxed);
-    return {
-      description: l.description,
-      hsn: String(l.hsn ?? '').trim(),
-      qty,
-      ...(String(l.unit ?? '').trim() ? { unit: String(l.unit).trim() } : {}),
-      rate: rateAmt,
-      ...(exportSale && exportSale.currency !== 'INR' ? { foreignRate, foreignAmount: Math.round(qty * foreignRate * 100) / 100 } : {}),
-      gstRate,
-      ...(gstRate === 0 && l.supply ? { supply: String(l.supply) } : {}),
-      taxable,
-      ...split,
-      ...(cess || {}),
-      amount: Math.round((taxable + split.tax + (cess ? cess.cess : 0)) * 100) / 100,
-    };
-  });
-  const taxable = sumOf(lines, 'taxable');
-  const cgst = sumOf(lines, 'cgst');
-  const sgst = sumOf(lines, 'sgst');
-  const igst = sumOf(lines, 'igst');
-  const withCess = lines.some((l) => l.cess != null);
-  const cessTotal = sumOf(lines, 'cess');
-  const total = Math.round((taxable + cgst + sgst + igst + cessTotal) * 100) / 100;
+  const pos = exportSale ? FOREIGN_POS : placeOfSupply(input, party, { ...state.company, state: reg.state });
+  const figures = pos === plan.pos && !(loyaltyDiscountPaise > 0) ? plan.figures : invoiceFigures(rawLines, plan.specs, { supplierState: reg.state, pos, exportSale, supplyType, loyaltyDiscountPaise });
+  const { lines, taxable, cgst, sgst, igst, withCess, cessTotal, total, pointsOff } = figures;
   const assignedSeq = !input.id;
   const seqBefore = state.invoiceSeq || 0;
   const seqByFyBefore = JSON.stringify(state.invoiceSeqByFy || {});
@@ -365,6 +401,7 @@ export function createInvoice(state, input) {
     igst,
     ...(withCess ? { cess: cessTotal } : {}),
     total,
+    ...(pointsOff.some((v) => v > 0) ? { loyaltyRedeemed: { points: loyaltyPoints, value: pointsOff.reduce((sum, v) => sum + v, 0) / 100 } } : {}),
     ...(supplyType ? { supplyType } : {}),
     ...(supplyType === 'SEZWOP' ? { zeroRated: true } : supplyType === 'SEZWP' ? { zeroRated: false } : {}),
     ...(terms.days == null ? {} : { paymentTermsDays: terms.days, dueDate: dueDateOf(date, terms.days) }),
@@ -375,7 +412,8 @@ export function createInvoice(state, input) {
   };
   state.invoices = state.invoices || [];
   state.invoices.push(invoice);
-  return { ok: true, invoice, posted, ...(buyerDetails ? { buyerDetails } : {}) };
+  const hsnWarnings = hsnDigitIssues(state, invoice);
+  return { ok: true, invoice, posted, ...(buyerDetails ? { buyerDetails } : {}), ...(hsnWarnings.length ? { hsnWarnings } : {}) };
 }
 
 export function planReceipt(state, { invoiceId, amount, date, mode, advance } = {}) {
@@ -698,7 +736,7 @@ export function printInvoice(state, id) {
 <body><p>${htmlEscape(c.name)} · ${htmlEscape(inv.registrationGstin || c.gstin)}</p><h1>${htmlEscape(title)} ${htmlEscape(inv.id)}</h1>
 <p>${sale ? 'Bill to' : 'Supplier'}: ${htmlEscape(inv.partyName)} ${htmlEscape(inv.partyGstin || '')}<br>Date ${htmlEscape(inv.date)}</p>${noted}
 <table><thead><tr><th>Item</th>${hsnHead}<th>Qty</th><th>Rate</th><th>Taxable</th><th>GST</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
-<footer>Taxable ₹${htmlEscape(inv.taxable)} &nbsp; CGST ₹${htmlEscape(inv.cgst)} &nbsp; SGST ₹${htmlEscape(inv.sgst)} &nbsp; IGST ₹${htmlEscape(inv.igst)}${Number(inv.cess || 0) > 0 ? ` &nbsp; Cess ₹${htmlEscape(inv.cess)}` : ''}<br><strong>Total ₹${htmlEscape(inv.total)}</strong></footer>${pay}${terms}${signed}${foot}</body></html>`;
+<footer>${inv.loyaltyRedeemed ? `Loyalty points redeemed (${htmlEscape(inv.loyaltyRedeemed.points)} points) −₹${htmlEscape(inv.loyaltyRedeemed.value)} before GST<br>` : ''}Taxable ₹${htmlEscape(inv.taxable)} &nbsp; CGST ₹${htmlEscape(inv.cgst)} &nbsp; SGST ₹${htmlEscape(inv.sgst)} &nbsp; IGST ₹${htmlEscape(inv.igst)}${Number(inv.cess || 0) > 0 ? ` &nbsp; Cess ₹${htmlEscape(inv.cess)}` : ''}<br><strong>Total ₹${htmlEscape(inv.total)}</strong></footer>${pay}${terms}${signed}${foot}</body></html>`;
   return { ok: true, html, invoice: inv };
 }
 

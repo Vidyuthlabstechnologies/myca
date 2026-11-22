@@ -1,5 +1,6 @@
 import { computeForm1040, ageAtYearEnd, dependentFlags } from '../../us-1040.mjs';
 import { engineInput } from '../../us-return.mjs';
+import { layoutOf } from '../../us-line-map.mjs';
 import { whole, positive, sum, check, yesNo, INCOME_KEYS, sourcedAgi } from './state-kit.mjs';
 
 export { INCOME_KEYS, sourcedAgi };
@@ -89,13 +90,37 @@ export function w2States(input) {
   return rows;
 }
 
+const LEGACY_1040_KEYS = Object.freeze({ '7a': '7', '11b': '11', '12e': '12', '27a': '27' });
+const LEGACY_FORMS = Object.freeze([1040, '1-A', 2, 3, 'A', 8959]);
+
+function legacyForm(taxYear, form, values) {
+  const current = values && layoutOf(taxYear, form);
+  if (!current) return values;
+  const currentKeys = new Set(current.map(([key]) => key));
+  const named = {};
+  for (const [key, name] of current) if (values[key] !== undefined) named[name] = values[key];
+  if (form === 1040 && named.nonItemizerCharity) named.additionalDeductions = whole(named.additionalDeductions) + whole(named.nonItemizerCharity);
+  const out = Object.fromEntries(Object.entries(values).filter(([key]) => !currentKeys.has(key)));
+  for (const [key, name] of layoutOf('2025', form) || []) {
+    if (named[name] === undefined || (form === 1040 && key === '11a')) continue;
+    out[form === 1040 ? LEGACY_1040_KEYS[key] || key : key] = named[name];
+  }
+  return out;
+}
+
+export function legacyFederal(data) {
+  const schedules = { ...(data.schedules || {}) };
+  for (const form of LEGACY_FORMS) if (form !== 1040 && schedules[form]) schedules[form] = legacyForm(data.taxYear, form, schedules[form]);
+  return { ...data, lines: legacyForm(data.taxYear, 1040, data.lines || {}), schedules };
+}
+
 export function buildStateContext(state, taxYear) {
   const ret = state.usReturns?.[taxYear];
   if (!ret || !ret.filingStatus) return { ok: false, error: 'US_RETURN_NOT_STARTED', taxYear, hint: `Start the ${taxYear} federal return first; every state return starts from it.` };
   const input = engineInput(state, ret);
   const computed = computeForm1040(input, taxYear);
   if (!computed.ok) return computed;
-  const federal = computed.data;
+  const federal = legacyFederal({ ...computed.data, taxYear: computed.data.taxYear || taxYear });
   const dependents = (input.dependents || []).map((item) => ({ ...dependentFlags(item, taxYear), relationship: item.relationship || '', months: Number(item.months ?? 12), student: Boolean(item.student), disabled: Boolean(item.disabled) }));
   const filers = [person(input.taxpayer, taxYear, 'taxpayer'), input.filingStatus === 'mfj' ? person(input.spouse, taxYear, 'spouse') : null].filter(Boolean);
   return {

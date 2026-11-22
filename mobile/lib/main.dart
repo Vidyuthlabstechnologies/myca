@@ -14,6 +14,7 @@ import 'api/http_myca_api.dart';
 import 'app_config.dart';
 import 'app_services.dart';
 import 'app_state.dart';
+import 'format.dart' show formatLanguage;
 import 'india/india_strings.dart';
 import 'brand.dart';
 import 'cloud/apple_auth.dart';
@@ -25,6 +26,9 @@ import 'cloud/plaid_link.dart';
 import 'crash_reports.dart';
 import 'lock/app_lock.dart';
 import 'notifications.dart';
+import 'offline/offline_billing.dart';
+import 'offline/offline_files.dart';
+import 'package:path_provider/path_provider.dart';
 import 'lock/device_app_lock.dart';
 import 'screens/bill_capture_screen.dart';
 import 'screens/business_setup_screen.dart';
@@ -112,6 +116,7 @@ void main() {
         edition: editionFor(appFlavor),
         installationId: deviceInstallationId,
         languages: const DeviceLanguageStore(),
+        offline: OfflineBilling(DirectoryOfflineFiles(getApplicationSupportDirectory)),
       ),
     ),
   );
@@ -215,15 +220,17 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
             theme: widget.state.edition == 'MY' ? _myDesign.light : widget.state.edition == 'AE' ? uaeDesign.light : widget.state.edition == 'US' ? usAppTheme() : widget.state.edition == 'GB' ? MycaDesign.forFlavor('uk').light : mycaTheme(),
             darkTheme: widget.state.edition == 'MY' ? _myDesign.dark : widget.state.edition == 'AE' ? uaeDesign.dark : widget.state.edition == 'US' ? usAppTheme(brightness: Brightness.dark) : widget.state.edition == 'GB' ? MycaDesign.forFlavor('uk').dark : mycaTheme(Brightness.dark),
             themeMode: ThemeMode.system,
-            localizationsDelegates: widget.state.edition == 'MY' ? _myDelegates : widget.state.edition == 'AE' || widget.state.edition == 'IN' ? MycaDesign.localizationsDelegates : null,
+            localizationsDelegates: widget.state.edition == 'MY' ? _myDelegates : widget.state.edition == 'AE' ? MycaDesign.localizationsDelegates : widget.state.edition == 'IN' ? indiaLocalizationsDelegates : null,
             supportedLocales: widget.state.edition == 'MY' ? const [Locale('en', 'MY'), Locale('ms', 'MY')] : widget.state.edition == 'AE' ? uaeDesign.supportedLocales : widget.state.edition == 'IN' ? indiaLocales : const [Locale('en', 'US')],
-            locale: widget.state.edition == 'MY' ? _myLocale(widget.state.language) : null,
+            locale: widget.state.edition == 'MY' ? _myLocale(widget.state.language) : widget.state.edition == 'IN' ? indiaChosenLocale(widget.state.language) : null,
             localeResolutionCallback: widget.state.edition == 'MY' ? (device, supported) => device?.languageCode == 'ms' ? const Locale('ms', 'MY') : const Locale('en', 'MY') : widget.state.edition == 'AE' ? uaeResolveLocale : widget.state.edition == 'IN' ? indiaResolveLocale : null,
             builder: (context, child) => PaletteSync(
               brightness: Theme.of(context).brightness,
               child: ListenableBuilder(
               listenable: widget.state,
-              builder: (context, _) => Stack(
+              builder: (context, _) {
+                formatLanguage = indiaLang(context);
+                return Stack(
                 children: [
                   if (widget.state.testServer)
                     Column(
@@ -243,7 +250,8 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
                   if (_tour.coaching && !widget.state.locked) TourCoach(tour: _tour),
                   if (widget.state.locked) AppScope(state: widget.state, child: const LockScreen()),
                 ],
-                ),
+                );
+              },
               ),
             ),
             home: const AppGate(),
@@ -344,7 +352,9 @@ class TestServerBanner extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Text(
-            sandbox
+            indiaLang(context) != 'en'
+                ? (sandbox ? inText(context, 'Sandbox mode: nothing is filed with the government yet') : inText(context, 'Test environment: nothing is filed, paid or sent'))
+                : sandbox
                 ? myMalayOr(context, UaeStrings.of(context).serverBanner(true), 'Mod kotak pasir: belum ada apa-apa difailkan kepada kerajaan')
                 : myMalayOr(context, UaeStrings.of(context).serverBanner(false), 'Persekitaran ujian: tiada apa difailkan, dibayar atau dihantar'),
             textAlign: TextAlign.center,
@@ -384,7 +394,7 @@ class AppGate extends StatelessWidget {
                 const BrandMark(size: 56),
                 const SizedBox(height: 24),
                 Text(
-                  malaysia ? MyStrings.of(context).outOfReach : UaeStrings.of(context).outOfReach,
+                  malaysia ? MyStrings.of(context).outOfReach : indiaLang(context) != 'en' ? inText(context, 'MyCA is out of reach') : UaeStrings.of(context).outOfReach,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),

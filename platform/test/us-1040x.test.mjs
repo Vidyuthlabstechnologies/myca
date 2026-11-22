@@ -194,7 +194,7 @@ test('No change from the original is a warning; a year without rules or a missin
 });
 
 test('figuresOf1040 maps Form 1040 lines to Form 1040-X lines: 18 to 6, 21 to 7, 25d plus Schedule 3 line 11 to 12, 28, 29 and the rest of line 31 to 15', () => {
-  const f = figuresOf1040({ filingStatus: 'hoh', lines: { 11: 40000, 12: 23625, '13a': 0, '13b': 0, 15: 16375, 16: 1640, 18: 1640, 21: 1640, 23: 0, 24: 0, '25d': 900, 26: 0, 27: 3000, 28: 1200, 29: 0, 31: 300, '35a': 5400, 36: 0, 37: 0 }, schedules: { 3: { 11: 300 } } }, [{ firstName: 'Leo', relationship: 'son', months: 12, ctcEligible: true }]);
+  const f = figuresOf1040({ taxYear: '2025', filingStatus: 'hoh', lines: { '11a': 40000, '11b': 40000, '12e': 23625, '13a': 0, '13b': 0, 15: 16375, 16: 1640, 18: 1640, 21: 1640, 23: 0, 24: 0, '25d': 900, 26: 0, '27a': 3000, 28: 1200, 29: 0, 31: 300, '35a': 5400, 36: 0, 37: 0 }, schedules: { 3: { 11: 300 } } }, [{ firstName: 'Leo', relationship: 'son', months: 12, ctcEligible: true }]);
   assert.equal(f.tax, 1640);
   assert.equal(f.credits, 1640);
   assert.equal(f.withholding, 1200);

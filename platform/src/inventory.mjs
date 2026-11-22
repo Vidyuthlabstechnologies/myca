@@ -1,6 +1,7 @@
 import { createAccounts, createTransfers, paise, TRANSFER_FLAGS } from './ledger.mjs';
 import { localToday, postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
+import { costingMethod, costLedger, COSTING_WORDS } from './inventory-costing.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 export const INVENTORY_ACCOUNT = 1300;
@@ -25,6 +26,20 @@ export function lastValuation(state) {
 }
 
 export function stockValueAt(state, asOf) {
+  const method = costingMethod(state);
+  if (method) {
+    const lines = [];
+    const uncosted = [];
+    let value = 0;
+    for (const row of costLedger(state, { asOf }).bySku.values()) {
+      if (row.qty <= 0) continue;
+      if (row.uncostedQty > 0) uncosted.push({ sku: row.sku, qty: row.uncostedQty });
+      if (row.costedQty <= 0 || row.unitCost == null) continue;
+      value = round2(value + row.value);
+      lines.push({ sku: row.sku, qty: row.costedQty, cost: row.unitCost, value: row.value });
+    }
+    return { asOf, method, value, lines, uncosted };
+  }
   const costs = state.skus && typeof state.skus === 'object' ? state.skus : {};
   const qtyBySku = new Map();
   for (const move of state.stockMoves || []) {
@@ -42,7 +57,7 @@ export function stockValueAt(state, asOf) {
     value = round2(value + amount);
     lines.push({ sku, qty, cost: Number(cost), value: amount });
   }
-  return { asOf, value, lines, uncosted };
+  return { asOf, method: '', value, lines, uncosted };
 }
 
 export function planInventoryValuation(state, args = {}) {
@@ -56,7 +71,7 @@ export function planInventoryValuation(state, args = {}) {
   if (!stock.lines.length && !stock.uncosted.length && !previous) return fail('NO_STOCK', { hint: 'Record stock and SKU costs first; a valuation posts the value of what is on hand.' });
   const before = previous ? previous.value : 0;
   const delta = round2(stock.value - before);
-  return { ok: true, plan: { asOf, value: stock.value, before, delta, lines: stock.lines, uncosted: stock.uncosted, previousAsOf: previous ? previous.asOf : '' } };
+  return { ok: true, plan: { asOf, method: stock.method, methodWords: COSTING_WORDS[stock.method], value: stock.value, before, delta, lines: stock.lines, uncosted: stock.uncosted, previousAsOf: previous ? previous.asOf : '' } };
 }
 
 export function valueInventory(state, args = {}) {
@@ -78,7 +93,7 @@ export function valueInventory(state, args = {}) {
     }
     transferIds.push(posted[0].id);
   }
-  const record = { id, asOf: plan.asOf, value: plan.value, before: plan.before, delta: plan.delta, skus: plan.lines.length, uncosted: plan.uncosted.map((row) => row.sku), transferIds, recordedOn: localToday() };
+  const record = { id, asOf: plan.asOf, ...(plan.method ? { method: plan.method } : {}), value: plan.value, before: plan.before, delta: plan.delta, skus: plan.lines.length, uncosted: plan.uncosted.map((row) => row.sku), transferIds, recordedOn: localToday() };
   state.inventoryValuations = Array.isArray(state.inventoryValuations) ? state.inventoryValuations : [];
   state.inventoryValuations.push(record);
   return { ok: true, valuation: record, lines: plan.lines, uncosted: plan.uncosted };
@@ -93,7 +108,7 @@ export function listInventoryValuations(state) {
 
 export function valuationWords(result, money) {
   const v = result.valuation;
-  const lines = [`Inventory at ${v.asOf}: ${money(v.value)} across ${v.skus === 1 ? '1 SKU' : `${v.skus} SKUs`} at recorded cost${v.before ? `, ${money(v.before)} before` : ''}. ${v.delta > 0 ? `Posted ${money(v.delta)} to Inventory against Change in inventory, so cost of goods this period falls by that much.` : v.delta < 0 ? `Posted ${money(-v.delta)} out of Inventory, so cost of goods this period rises by that much.` : 'No change to post.'}`];
+  const lines = [`Inventory at ${v.asOf}: ${money(v.value)} across ${v.skus === 1 ? '1 SKU' : `${v.skus} SKUs`} at ${COSTING_WORDS[v.method || ''] === 'recorded cost' ? 'recorded cost' : `${COSTING_WORDS[v.method]} cost`}${v.before ? `, ${money(v.before)} before` : ''}. ${v.delta > 0 ? `Posted ${money(v.delta)} to Inventory against Change in inventory, so cost of goods this period falls by that much.` : v.delta < 0 ? `Posted ${money(-v.delta)} out of Inventory, so cost of goods this period rises by that much.` : 'No change to post.'}`];
   if (result.uncosted.length) lines.push(`Left out, no cost set: ${result.uncosted.map((row) => `${row.sku} (${row.qty})`).join(', ')}.`);
   return lines.join('\n');
 }

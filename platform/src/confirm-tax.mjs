@@ -1,3 +1,4 @@
+import { irnTurnoverProblems, irnWarnings } from './nic-config.mjs';
 import { planAdvanceTaxPayment } from './advance-tax.mjs';
 import { checkAnswer, stepText } from './gst-review.mjs';
 import { keyTooLongErrors, parse2bFile, twobFor } from './gstr2b-check.mjs';
@@ -17,6 +18,7 @@ import { filingRows } from './deadline-run.mjs';
 import { money, REVIEW_REASONS } from './confirm-words.mjs';
 
 export function gstPaymentPreview(state, args) {
+  if (countryOf(state) !== 'IN') return { blockers: ['That is for a different country edition, so nothing was posted.'], summary: '', effects: [], figures: {} };
   const plan = planGstPayment(state, args);
   if (!plan.ok) {
     const reason = { INVALID_PERIOD: 'Say the month as YYYY-MM, for example 2026-09.', INVALID_DATE: 'That is not a date I can read.', FUTURE_DATE: 'That date has not come yet.', PERIOD_LOCKED: `That date is in a locked period (through ${plan.lockThrough}).`, ALREADY_RECORDED: `The GST payment for ${plan.period} is already recorded (paid ${plan.paidOn}).`, BAD_CPIN: 'A CPIN is the fourteen-digit challan number from the GST portal.', NOTHING_DUE: `Nothing is due for ${plan.period}: no tax to pay and no credit to set off.` }[plan.error] || plan.error;
@@ -348,10 +350,13 @@ export function billTdsPreview(state, args) {
 export function irnPreview(state, args, cancel) {
   const inv = (state.invoices || []).find((i) => i.id === args.invoiceId);
   const what = cancel ? 'Cancel the IRN for' : 'Send';
+  const turnover = inv && !cancel ? irnTurnoverProblems(state, inv).map((problem) => problem.words) : [];
+  const warnings = inv && !cancel ? irnWarnings(state, inv) : [];
   return {
-    blockers: inv ? [] : [`${args.invoiceId} is not in these books.`],
+    blockers: inv ? turnover : [`${args.invoiceId} is not in these books.`],
     summary: `${what} ${args.invoiceId}${inv ? ` (${inv.partyName}, ${money(inv.total)})` : ''} to the e-invoice portal.`,
     effects: [
+      ...warnings,
       'Nothing leaves this machine unless live calls are switched on.',
       'A live call still needs a CA approval bound to this exact payload, made by someone other than the requester.',
     ],

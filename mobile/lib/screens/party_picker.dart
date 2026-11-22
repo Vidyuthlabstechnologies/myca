@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api/models.dart';
 import '../app_state.dart';
+import '../india/india_strings.dart';
 import '../migration.dart';
 import '../registers.dart';
 import '../theme.dart';
@@ -58,9 +59,6 @@ Future<PickedParty?> showNewPartySheet(
   );
 }
 
-String _one(RegisterKind kind) =>
-    kind == RegisterKind.sales ? 'customer' : 'supplier';
-
 class _PartyPicker extends StatefulWidget {
   const _PartyPicker({required this.kind});
 
@@ -103,6 +101,7 @@ class _PartyPickerState extends State<_PartyPicker> {
     final tint = sales ? Tint.sales : Tint.purchases;
     final text = Theme.of(context).textTheme;
     final ae = uaeEdition(context) ? UaeStrings.of(context) : null;
+    final s = UaeStrings.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -119,7 +118,7 @@ class _PartyPickerState extends State<_PartyPicker> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              ae != null ? (sales ? ae.whoSoldTo : ae.whoBoughtFrom) : (sales ? 'Who did you sell to?' : 'Who did you buy from?'),
+              sales ? s.whoSoldTo : s.whoBoughtFrom,
               style: text.headlineSmall,
             ),
             const SizedBox(height: 14),
@@ -131,8 +130,8 @@ class _PartyPickerState extends State<_PartyPicker> {
                 hintText: ae != null
                     ? (all.isEmpty ? ae.typeName(sales) : ae.searchOrType)
                     : all.isEmpty
-                    ? 'Type the ${_one(widget.kind)} name'
-                    : 'Search or type a new name',
+                    ? (sales ? inText(context, 'Type the customer name') : inText(context, 'Type the supplier name'))
+                    : s.searchOrType,
                 prefixIcon: const Icon(Icons.search),
               ),
               onChanged: (_) => setState(() {}),
@@ -153,8 +152,8 @@ class _PartyPickerState extends State<_PartyPicker> {
                         backgroundColor: Palette.ink,
                         child: Icon(Icons.add, color: Palette.onInk, size: 20),
                       ),
-                      title: Text(ae != null ? ae.addNamed(typed) : 'Add “$typed”', style: text.titleMedium),
-                      subtitle: Text(ae != null ? ae.newParty(sales) : 'New ${_one(widget.kind)}'),
+                      title: Text(s.addNamed(typed), style: text.titleMedium),
+                      subtitle: Text(s.newParty(sales)),
                       onTap: () => _addNew(typed),
                     ),
                   for (final party in matches)
@@ -173,9 +172,7 @@ class _PartyPickerState extends State<_PartyPicker> {
                     ),
                   if (matches.isEmpty && !offerNew)
                     EmptyNote(
-                      text: ae != null
-                          ? ae.noPartiesYet(sales)
-                          : 'No ${_one(widget.kind)}s yet. Type a name to add the first one.',
+                      text: s.noPartiesYet(sales),
                     ),
                 ],
               ),
@@ -215,7 +212,7 @@ class _NewPartySheetState extends State<_NewPartySheet> {
     final gstin = _gstin.text.trim().toUpperCase();
     final uk = AppScope.of(context).edition == 'GB';
     final shape = uk ? null : gstinShapeError(gstin);
-    if (name.isEmpty) return setState(() => _error = 'Enter a name.');
+    if (name.isEmpty) return setState(() => _error = UaeStrings.of(context).enterName);
     if (shape != null) return setState(() => _error = shape);
     Navigator.of(context).pop((name: name, gstin: gstin));
   }
@@ -247,13 +244,13 @@ class _NewPartySheetState extends State<_NewPartySheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(ae != null ? ae.newParty(widget.kind == RegisterKind.sales) : 'New ${_one(widget.kind)}', style: text.headlineSmall),
+            Text(UaeStrings.of(context).newParty(widget.kind == RegisterKind.sales), style: text.headlineSmall),
             const SizedBox(height: 16),
             TextField(
               controller: _name,
               autofocus: widget.initialName.isEmpty,
               textCapitalization: TextCapitalization.words,
-              decoration: InputDecoration(labelText: ae != null ? ae.name : 'Name'),
+              decoration: InputDecoration(labelText: UaeStrings.of(context).name),
               onSubmitted: uk ? (_) => _submit() : null,
             ),
             if (!uk) const SizedBox(height: 12),
@@ -267,10 +264,9 @@ class _NewPartySheetState extends State<_NewPartySheet> {
               keyboardType: ae != null ? TextInputType.number : null,
               decoration: ae != null
                   ? InputDecoration(labelText: ae.trnOptional, helperText: ae.trnOptionalHint, helperMaxLines: 2)
-                  : const InputDecoration(
-                      labelText: 'GSTIN (optional)',
-                      helperText:
-                          'Leave empty for a customer without GST registration',
+                  : InputDecoration(
+                      labelText: inText(context, 'GSTIN (optional)'),
+                      helperText: inText(context, 'Leave empty for a customer without GST registration'),
                     ),
               onSubmitted: (_) => _submit(),
             ),
@@ -285,7 +281,7 @@ class _NewPartySheetState extends State<_NewPartySheet> {
               ),
             ],
             const SizedBox(height: 18),
-            FilledButton(onPressed: _submit, child: Text(ae != null ? ae.continueLabel : 'Continue')),
+            FilledButton(onPressed: _submit, child: Text(UaeStrings.of(context).continueLabel)),
           ],
         ),
       ),

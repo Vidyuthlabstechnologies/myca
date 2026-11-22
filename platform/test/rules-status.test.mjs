@@ -50,12 +50,13 @@ test('a US business sees only the US families, and chat answers "rules status" i
   const stateReturns = out.data.families.find((f) => f.key === 'us-state-returns');
   assert.ok(stateReturns && stateReturns.records > 0, 'the state return records report as their own family');
   assert.deepEqual(out.data.families.map((f) => f.key).filter((key) => key !== 'us-state-returns'), ['us-federal', 'us-individual', 'us-sales-tax', 'us-states']);
-  assert.equal(out.data.totals.records - stateReturns.records, 92);
-  assert.equal(out.data.totals.ending - stateReturns.ending.length, 8, 'the 2027 federal figures follow on 2027-01-01; the eight 2026 state records have no 2027 successor yet');
-  assert.deepEqual(out.data.families.filter((f) => f.attention && f.key !== 'us-state-returns').map((f) => f.key), ['us-states']);
+  assert.equal(out.data.totals.records - stateReturns.records, 112);
+  assert.equal(out.data.totals.ending - stateReturns.ending.length, 9, 'the 2027 federal figures follow on 2027-01-01; the eight 2026 state records and the 2026 saver\'s credit (replaced by the saver\'s match from 2027) have no 2027 successor yet');
+  assert.deepEqual(out.data.families.find((f) => f.key === 'us-individual').ending, [{ id: 'us.federal.individual.savers-credit', effectiveTo: '2026-12-31' }]);
+  assert.deepEqual(out.data.families.filter((f) => f.attention && f.key !== 'us-state-returns').map((f) => f.key), ['us-individual', 'us-states']);
   assert.match(out.data.notes[0], /US CPA/);
   const federal = out.data.families[0];
-  assert.equal(federal.inForce, 8);
+  assert.equal(federal.inForce, 9);
   assert.equal(federal.latestFrom, '2027-01-01');
   const reply = await chat(state, 'rules status');
   assert.match(reply.reply, new RegExp(`${out.data.totals.records} dated statutory records for the United States`));

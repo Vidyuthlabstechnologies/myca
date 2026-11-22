@@ -37,7 +37,7 @@ class UsStateSheet {
   }
 }
 
-const _federalLines = [('1z', 'Wages'), ('9', 'Total income'), ('10', 'Adjustments to income'), ('11', 'Adjusted gross income'), ('12', 'Standard or itemized deduction'), ('15', 'Taxable income'), ('24', 'Total tax'), ('25a', 'Federal tax withheld on W-2s')];
+const _federalLines = [('1z', 'Wages'), ('9', 'Total income'), ('10', 'Adjustments to income'), ('11', 'Adjusted gross income'), ('11b', 'Adjusted gross income'), ('12', 'Standard or itemized deduction'), ('12e', 'Standard or itemized deduction'), ('15', 'Taxable income'), ('24', 'Total tax'), ('24c', 'Total tax'), ('25a', 'Federal tax withheld on W-2s')];
 
 UsStateSheet buildStateSheet({required String state, required int taxYear, required UsReturnStatus status, required UsReview review, required List<UsTaxForm> forms}) => UsStateSheet(
       state: state,

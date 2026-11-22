@@ -15,7 +15,7 @@ test('a recorded state unemployment rate is charged on wages up to its base, pos
   const before = await runTool(state, 'payroll_run', { period: '2026-01' });
   assert.equal(before.data.rows[0].suta, 0);
   assert.match(before.data.rows[0].notes.join(' '), /No state unemployment rate is recorded for TX/);
-  assert.equal((await runTool(state, 'set_suta_rate', { state: 'TX', ratePercent: 2.7, wageBase: 9000 })).ok, true);
+  assert.equal((await runTool(state, 'set_suta_rate', { state: 'TX', ratePercent: 2.7, wageBase: 9000, from: '2026-01-01' })).ok, true);
   assert.equal((await runTool(state, 'set_suta_rate', { state: 'TX', ratePercent: 40, wageBase: 9000 })).error, 'BAD_RATE');
   const january = await runTool(state, 'payroll_run', { period: '2026-01' });
   const ana = january.data.rows[0];

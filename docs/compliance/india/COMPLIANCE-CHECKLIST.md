@@ -71,7 +71,11 @@ building them now avoids a second release.
 | 5.5 | Bill of supply for exempt or composition sellers (r.46A) | Done | `platform/src/invoice-compliance.mjs` `documentTitleOf`; composition declaration when `company.composition` |
 | 5.6 | HSN printed on B2B tax invoices even if the design hides it (Notification 78/2020 lets AATO ≤ ₹5 cr leave it off B2C) | Done | `hsnShownOn` |
 | 5.7 | Reverse charge line, export endorsement (with LUT) on the invoice | Done | `reverseChargeLineOf`, `exportEndorsementOf`, `exportSale.lutNumber` |
-| 5.8 | HSN digits by turnover; 30-day IRN window for AATO ≥ ₹10 cr; cess; UQC; CN/DN document and s.34 deadline | Next | Later PRs; needs AATO stored per year |
+| 5.8 | AATO stored per FY (`set_company` `aato`/`aatoFy`), estimated from the books when not entered | Done | `platform/src/aato.mjs`; estimate is this book's sales only, flagged as an estimate |
+| 5.9 | HSN digits by AATO (Notification 78/2020: 4 up to ₹5 cr, 6 above; B2C may omit up to ₹5 cr) on invoices, the IRN payload and GSTR-1 table 12 | Done (warning on the invoice, refusal on the IRN) | rule `gst.hsn.digits`; `hsnDigitIssues`, `irnTurnoverProblems`, `HSN_AATO_ESTIMATED` |
+| 5.10 | 30-day IRP reporting window, AATO ≥ ₹100 cr from 1 Nov 2023 and ≥ ₹10 cr from 1 Apr 2025 (NIC/GSTN advisories) | Done (refusal when AATO known or books reach it, warning when unknown) | rule `gst.einvoice.reporting-window`; `IRN_REPORTING_WINDOW_PASSED` on the IRN preflight and confirm card |
+| 5.11 | Credit note s.34(2) and GSTR-1 amendment s.37(3): 30 November after the year or the GSTR-9 date, whichever is earlier | Done | rules `gst.credit-note.declaration-deadline`, `gst.gstr1.amendment-deadline`; debit notes have no s.34 time limit |
+| 5.12 | Cess, UQC, CN/DN document layout | Next | Later PRs |
 
 ## 6. Google Play
 

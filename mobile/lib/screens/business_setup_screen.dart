@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../cloud/cloud_session.dart';
+import '../india/india_strings.dart';
 import '../migration.dart';
 import 'invitation_cards.dart';
 import '../theme.dart';
@@ -55,11 +56,11 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
     final gstin = _gstin.text.trim().toUpperCase();
     final shape = gstinShapeError(gstin);
     if (name.isEmpty) {
-      return setState(() => _error = 'Enter your business name.');
+      return setState(() => _error = inText(context, 'Enter your business name.'));
     }
     if (shape != null) return setState(() => _error = shape);
     if (gstin.isEmpty && _state == null) {
-      return setState(() => _error = 'Choose the state your business is in.');
+      return setState(() => _error = inText(context, 'Choose the state your business is in.'));
     }
     final state = AppScope.of(context);
     setState(() {
@@ -184,7 +185,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
         actions: [
           TextButton(
             onPressed: AppScope.of(context).signOut,
-            child: const Text('Sign out'),
+            child: Text(inText(context, 'Sign out')),
           ),
           const SizedBox(width: 8),
         ],
@@ -201,7 +202,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('You have been invited', style: text.headlineMedium),
+                    Text(inText(context, 'You have been invited'), style: text.headlineMedium),
                     const SizedBox(height: 14),
                     InvitationCards(invitations: invitations, onChanged: _answered),
                     const SizedBox(height: 10),
@@ -211,10 +212,10 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                 );
               },
             ),
-            Text('Tell us about the business', style: text.headlineMedium),
+            Text(inText(context, 'Tell us about the business'), style: text.headlineMedium),
             const SizedBox(height: 6),
             Text(
-              'This goes on your invoices and returns.',
+              inText(context, 'This goes on your invoices and returns.'),
               style: text.bodyLarge?.copyWith(color: Palette.muted),
             ),
             const SizedBox(height: 24),
@@ -222,15 +223,15 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
               controller: _name,
               autofocus: true,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Business name'),
+              decoration: InputDecoration(labelText: inText(context, 'Business name')),
             ),
             const SizedBox(height: 14),
             TextField(
               controller: _gstin,
               textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'GSTIN',
-                helperText: 'Leave empty if you are not registered for GST',
+                helperText: inText(context, 'Leave empty if you are not registered for GST'),
               ),
               onChanged: (_) => setState(() {}),
             ),
@@ -244,9 +245,9 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                     initialValue: _state,
                     isExpanded: true,
                     decoration: InputDecoration(
-                      labelText: 'State',
+                      labelText: inText(context, 'State'),
                       helperText: loaded.hasError
-                          ? 'Could not load the list of states.'
+                          ? inText(context, 'Could not load the list of states.')
                           : null,
                     ),
                     items: [
@@ -274,17 +275,17 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _busy ? null : _create,
-              child: Text(_busy ? 'Setting up…' : 'Continue'),
+              child: Text(_busy ? inText(context, 'Setting up…') : inText(context, 'Continue')),
             ),
             const SizedBox(height: 10),
             OutlinedButton(
               key: const Key('setup.tryDemo'),
               onPressed: _busy ? null : _tryDemo,
-              child: const Text('Try a demo business first'),
+              child: Text(inText(context, 'Try a demo business first')),
             ),
             const SizedBox(height: 6),
             Text(
-              'A made-up trader with three months of invoices, purchases and expenses. It cannot reach the GST portal, banks or other people, and you can delete it any time.',
+              inText(context, 'A made-up trader with three months of invoices, purchases and expenses. It cannot reach the GST portal, banks or other people, and you can delete it any time.'),
               style: text.bodySmall?.copyWith(color: Palette.muted),
             ),
           ],

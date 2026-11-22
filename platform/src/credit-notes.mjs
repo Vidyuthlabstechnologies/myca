@@ -1,6 +1,8 @@
 import { createTransfers, paise, TRANSFER_FLAGS } from './ledger.mjs';
 import { gstSplit, hasCess, scaledCess, ensureCessAccounts, OUTPUT_CESS_ACCOUNT_ID } from './chart.mjs';
-import { postingDate } from './dates.mjs';
+import { localToday, postingDate } from './dates.mjs';
+import { rule } from '../../sprints/statutory-rules/src/index.mjs';
+import { filingFor } from './filings.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
@@ -12,10 +14,21 @@ function splitFor(invoice, taxable, gstRate, company) {
 }
 
 
-export function gstCorrectionDeadline(invoiceDate) {
+export function gstCorrectionDeadline(invoiceDate, { state = null, gstin = '', ruleId = 'gst.credit-note.declaration-deadline', onDate } = {}) {
   const [y, m] = String(invoiceDate || '').split('-').map(Number);
   const fyStart = m >= 4 ? y : y - 1;
-  return `${fyStart + 1}-11-30`;
+  const found = rule(ruleId, onDate || localToday());
+  const value = found.ok ? found.value : { month: 11, day: 30, orAnnualReturnIfEarlier: true };
+  const statutory = `${fyStart + 1}-${String(value.month).padStart(2, '0')}-${String(value.day).padStart(2, '0')}`;
+  const fy = `${fyStart}-${String((fyStart + 1) % 100).padStart(2, '0')}`;
+  const annual = state && value.orAnnualReturnIfEarlier ? filingFor(state, 'GSTR-9', fy, gstin)?.filedOn : '';
+  return annual && annual < statutory ? annual : statutory;
+}
+
+export function gstCorrectionDeadlineWhy(invoiceDate, lastDate) {
+  const [y, m] = String(invoiceDate || '').split('-').map(Number);
+  const fyStart = m >= 4 ? y : y - 1;
+  return lastDate === `${fyStart + 1}-11-30` ? `30 November ${fyStart + 1}, after the year of the supply` : `${lastDate}, when the annual return (GSTR-9) for FY ${fyStart}-${String((fyStart + 1) % 100).padStart(2, '0')} was filed`;
 }
 
 function nextTransferId(state) {
@@ -134,8 +147,8 @@ export function planCreditNote(state, args = {}) {
   const withCess = lines.some((line) => line.cess != null);
   const cess = round2(lines.reduce((sum, line) => sum + Number(line.cess || 0), 0));
   const total = round2(taxable + cgst + sgst + igst + cess + salesTax);
-  const lastDate = gstCorrectionDeadline(invoice.date);
-  if (invoice.country !== 'US' && cgst + sgst + igst + cess > 0 && date > lastDate) return { ok: false, error: 'CREDIT_NOTE_TIME_BARRED', invoiceId, date, lastDate, hint: `GST on ${invoiceId} can be reduced by a credit note only up to ${lastDate} (section 34(2)); after that issue a financial credit note without GST.` };
+  const lastDate = gstCorrectionDeadline(invoice.date, { state, gstin: invoice.registrationGstin, onDate: date });
+  if (invoice.country !== 'US' && cgst + sgst + igst + cess > 0 && date > lastDate) return { ok: false, error: 'CREDIT_NOTE_TIME_BARRED', invoiceId, date, lastDate, ruleId: 'gst.credit-note.declaration-deadline', hint: `GST on ${invoiceId} can be reduced by a credit note only up to ${gstCorrectionDeadlineWhy(invoice.date, lastDate)}, whichever is earlier (CGST Act section 34(2)). A credit note dated ${date} cannot reduce the GST; issue a financial credit note without GST, or ask your CA.` };
   const cashReceived = round2((invoice.receipts || []).filter((receipt) => receipt.mode !== 'tds').reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0));
   const refundDue = round2(Math.min(cashReceived, Math.max(0, receivedAgainst(invoice) + alreadyCredited + total - Number(invoice.total))));
   return {

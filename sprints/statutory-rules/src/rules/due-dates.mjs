@@ -132,6 +132,26 @@ const INCOME_TAX_RULES = [
         { month: 3, day: 15, cumulativePercent: 100 }
       ]
     },
+    '2024-04-01', LAST_DAY_UNDER_1961, 'IT-1961', '211(1)(a)',
+    'Income-tax Act 1961 s.211(1)(a) as substituted by the Finance Act, 2016: not less than 15% by 15 June, 45% by 15 September, 75% by 15 December and the whole by 15 March of the financial year, for every assessee; incometaxindia.gov.in Tax Calendar "Payment of Advance Tax". Registry coverage starts 1-4-2024 (FY 2024-25)'
+  ),
+  record(
+    'due-date.income-tax.advance-tax.presumptive',
+    { period: 'year', instalments: [{ month: 3, day: 15, cumulativePercent: 100 }] },
+    '2024-04-01', LAST_DAY_UNDER_1961, 'IT-1961', '211(1)(b)',
+    'Income-tax Act 1961 s.211(1)(b): an assessee declaring profits and gains under s.44AD(1) or s.44ADA(1) pays the whole advance tax on or before 15 March; incometaxindia.gov.in Tax Calendar "Payment of Advance Tax". Registry coverage starts 1-4-2024 (FY 2024-25)'
+  ),
+  record(
+    'due-date.income-tax.advance-tax',
+    {
+      period: 'year',
+      instalments: [
+        { month: 6, day: 15, cumulativePercent: 15 },
+        { month: 9, day: 15, cumulativePercent: 45 },
+        { month: 12, day: 15, cumulativePercent: 75 },
+        { month: 3, day: 15, cumulativePercent: 100 }
+      ]
+    },
     FIRST_DAY_UNDER_2025, IN_FORCE, 'IT-2025', '408(1)',
     'Income-tax Act 2025 (30 of 2025) s.408(1) Table: not less than 15% by 15 June, 45% by 15 September, 75% by 15 December and the whole by 15 March of the financial year'
   ),

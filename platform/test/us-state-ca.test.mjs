@@ -31,7 +31,7 @@ test('California resident single: Schedule CA removes Treasury interest and unem
   const state = await household({
     state: 'CA',
     forms: [w2(60000, { state: 'CA', stateWithheld: 2000 }), { kind: '1099-INT', fields: { interest: 500, treasuryInterest: 300, taxExemptInterest: 400 } }, { kind: '1099-G', fields: { unemployment: 4000 } }],
-    answers: { hsaDeduction: 2000 },
+    answers: { hsaCoverage: 'self-only', hsaMonths: 12, hsaEligibleDecember: true, hsaOwnContributions: 2000 },
   });
   await residency(state, '2025', [{ state: 'CA', residency: 'full-year', answers: { fullYearCoverage: true, useTax: 25, nonCaliforniaExemptInterest: 400, hsaEarnings: 50, renterQualifies: true } }]);
   const ca = await stateReturn(state, '2025', 'CA');

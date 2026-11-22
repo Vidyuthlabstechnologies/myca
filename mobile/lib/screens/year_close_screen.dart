@@ -5,6 +5,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../india/india_strings.dart';
 import '../marks.dart';
 import '../proposal_flow.dart';
 import '../theme.dart';
@@ -60,7 +61,7 @@ class _YearCloseScreenState extends State<YearCloseScreen> with ProposalFlow {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Close the year')),
+      appBar: AppBar(title: Text(inText(context, 'Close the year'))),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _closings,
         builder: (context, snap) {
@@ -72,19 +73,21 @@ class _YearCloseScreenState extends State<YearCloseScreen> with ProposalFlow {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   children: [
                     Text(
-                      'Closing a year moves its income and expenses to capital as new entries and locks the books through its last day. Do it once your CA has signed the year off; nothing already posted changes.',
+                      inText(context, 'Closing a year moves its income and expenses to capital as new entries and locks the books through its last day. Do it once your CA has signed the year off; nothing already posted changes.'),
                       style: text.bodyMedium,
                     ),
                     const SizedBox(height: 16),
                     if (closings.isNotEmpty) ...[
-                      const SectionLabel('Closed'),
+                      SectionLabel(inText(context, 'Closed')),
                       Panel(
                         children: [
                           for (final row in closings)
                             RowCard(
                               leading: const TintTile(tint: Tint.taxes, mark: Mark.confirm),
-                              title: 'Year ${row['year']}',
-                              subtitle: '${(row['profit'] as num? ?? 0) >= 0 ? 'Profit' : 'Loss'} ${rupees(((row['profit'] as num?) ?? 0).abs())} · closed ${longDate('${row['closedOn'] ?? ''}')}',
+                              title: inFormat(context, 'Year {year}', {'year': row['year']}),
+                              subtitle: (row['profit'] as num? ?? 0) >= 0
+                                  ? inFormat(context, 'Profit {amount} · closed {date}', {'amount': rupees(((row['profit'] as num?) ?? 0).abs()), 'date': longDate('${row['closedOn'] ?? ''}')})
+                                  : inFormat(context, 'Loss {amount} · closed {date}', {'amount': rupees(((row['profit'] as num?) ?? 0).abs()), 'date': longDate('${row['closedOn'] ?? ''}')}),
                             ),
                         ],
                       ),
@@ -93,23 +96,23 @@ class _YearCloseScreenState extends State<YearCloseScreen> with ProposalFlow {
                     if (pending == null && !_posted) ...[
                       TextField(
                         controller: _year,
-                        decoration: const InputDecoration(labelText: 'Year to close', helperText: 'The financial year as 2025-26, or the calendar year as 2025 for a US business'),
+                        decoration: InputDecoration(labelText: inText(context, 'Year to close'), helperText: inText(context, 'The financial year as 2025-26, or the calendar year as 2025 for a US business')),
                       ),
                       const SizedBox(height: 14),
                       FilledButton(
-                        onPressed: busy ? null : () => propose('Close the year ${_year.text.trim()}', 'close_year', {'year': _year.text.trim()}),
-                        child: const Text('Preview the closing'),
+                        onPressed: busy ? null : () => propose(inFormat(context, 'Close the year {year}', {'year': _year.text.trim()}), 'close_year', {'year': _year.text.trim()}),
+                        child: Text(inText(context, 'Preview the closing')),
                       ),
                     ],
                     for (final entry in entries) entry.toBubble(),
                     if (_posted) ...[
                       const SizedBox(height: 16),
-                      FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Done')),
+                      FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(inText(context, 'Done'))),
                     ],
                   ],
                 ),
               ),
-              if (pending != null) ProposalBar(busy: busy, onPost: postPending, onDiscard: discardPending, postLabel: 'Close it'),
+              if (pending != null) ProposalBar(busy: busy, onPost: postPending, onDiscard: discardPending, postLabel: inText(context, 'Close it')),
             ],
           );
         },

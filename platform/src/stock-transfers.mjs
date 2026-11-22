@@ -80,8 +80,8 @@ export function recordStockTransfer(state, args = {}) {
   }
   invoice.transfer = { sku: plan.sku, qty: plan.qty, toGstin: plan.to.gstin, billId: purchase.id, atCost: plan.atCost };
   purchase.transfer = { sku: plan.sku, qty: plan.qty, fromGstin: plan.from.gstin, invoiceId: invoice.id, atCost: plan.atCost };
-  recordStock(state, { sku: plan.sku, qty: -plan.qty, location: plan.fromLocation, date: plan.date, ref: invoice.id, note: `Transferred to ${plan.to.label}` });
-  recordStock(state, { sku: plan.sku, qty: plan.qty, location: plan.toLocation, date: plan.date, ref: purchase.id, note: `Received from ${plan.from.label}` });
+  recordStock(state, { sku: plan.sku, qty: -plan.qty, location: plan.fromLocation, date: plan.date, ref: invoice.id, note: `Transferred to ${plan.to.label}`, internal: true });
+  recordStock(state, { sku: plan.sku, qty: plan.qty, location: plan.toLocation, date: plan.date, ref: purchase.id, note: `Received from ${plan.from.label}`, internal: true });
   const eway = ewayBillStatus(state, invoice);
   return { ok: true, invoice, purchase, taxable: plan.taxable, tax: round2(invoice.total - invoice.taxable), ewayBill: { needed: Boolean(eway.needed), why: eway.why || '' }, from: plan.from, to: plan.to, atCost: plan.atCost, seqBefore };
 }

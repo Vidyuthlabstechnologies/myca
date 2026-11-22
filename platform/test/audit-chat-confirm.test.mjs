@@ -108,7 +108,8 @@ test('H10: an expired preview is refused instead of posted', async () => {
   assert.equal(state.invoices.length, 0);
 });
 
-test('H10: a preview reports what would stop the posting, and holds nothing', async () => {
+test('H10: a preview reports what would stop the posting, and holds nothing', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 15, 12).getTime() });
   const state = createState();
   state.lockThrough = '2026-12-31';
   const out = await chat(state, SALE);
