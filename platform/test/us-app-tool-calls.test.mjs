@@ -13,7 +13,7 @@ test('the fixture recorded from the US app covers its writes and reads', () => {
   for (const tool of [...WRITES, 'us_return_status', 'us_efile_status', 'us_interview', 'us_return_review', 'read_us_tax_document', 'us_amended_return']) assert.ok(tools.has(tool), `no recorded call for ${tool}`);
 });
 
-test('every argument set the US app sends passes the server\'s own tool schema', { todo: 'fails until PR #349 accepts numeric tax years and the form id and document hash' }, () => {
+test('every argument set the US app sends passes the server\'s own tool schema', () => {
   const refused = [];
   for (const { tool, args } of calls) {
     const checked = validateAssistantToolCall(tool, args);
