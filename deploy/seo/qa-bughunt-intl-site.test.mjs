@@ -24,3 +24,13 @@ test('the home page names its canonical address and its own og:url', () => {
   assert.match(html, new RegExp(`<link rel="canonical" href="${ORIGIN}/">`));
   assert.match(html, new RegExp(`<meta property="og:url" content="${ORIGIN}/">`));
 });
+
+test('a folder of pages answers its trailing-slash address with a redirect, not a forbidden directory listing', () => {
+  const conf = readFileSync(join(PUBLIC_DIR, '..', 'site', 'default.conf.template'), 'utf8');
+  const folders = readdirSync(PUBLIC_DIR, { withFileTypes: true }).filter((entry) => entry.isDirectory() && entry.name !== 'assets').map((entry) => entry.name);
+  assert.ok(folders.length > 0);
+  for (const folder of folders) {
+    assert.ok(readdirSync(join(PUBLIC_DIR, folder)).every((name) => name !== 'index.html'), `${folder} has its own index`);
+    assert.match(conf, new RegExp(`location = /${folder}/ \\{\\s*return 301 /${folder};\\s*\\}`), folder);
+  }
+});
