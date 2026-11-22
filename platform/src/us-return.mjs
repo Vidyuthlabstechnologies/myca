@@ -62,8 +62,8 @@ export const FORM_SPECS = Object.freeze({
   ] },
   '1099-SA': { title: 'Distributions From an HSA, Archer MSA, or Medicare Advantage MSA', description: 'Money taken out of a health savings account (Form 8889 Part II). One form per account holder.', fields: [{ key: 'payer', label: 'Trustee name', box: '', type: 'text', required: true }, { key: 'payerTin', label: 'Trustee TIN (EIN)', box: '', type: 'ein', required: false }, money('grossDistribution', 'Gross distribution', '1', { required: true }), money('earningsOnExcess', 'Earnings on excess contributions', '2'), { key: 'distributionCode', label: 'Distribution code (1 normal, 2 excess contributions, 3 disability, 4 death other than to the spouse, 5 prohibited transaction, 6 death to the spouse)', box: '3', type: 'code', required: false }, { key: 'accountType', label: 'Account type: HSA, ARCHER (Archer MSA) or MA (Medicare Advantage MSA)', box: '5', type: 'code', required: false }] },
   '5498-SA': { title: 'HSA, Archer MSA, or Medicare Advantage MSA Information', description: 'What went into a health savings account, from the trustee. It usually arrives in May; the interview question on your own contributions is used first.', fields: [{ key: 'payer', label: 'Trustee name', box: '', type: 'text', required: true }, { key: 'payerTin', label: 'Trustee TIN (EIN)', box: '', type: 'ein', required: false }, money('contributionsMade', 'Total contributions made in the year', '2'), money('contributionsNextYear', 'Total HSA or Archer MSA contributions made in the next year for this year', '3'), money('rolloverContributions', 'Rollover contributions', '4'), money('fairMarketValue', 'Fair market value of the account', '5'), { key: 'accountType', label: 'Account type: HSA, ARCHER (Archer MSA) or MA (Medicare Advantage MSA)', box: '6', type: 'code', required: false }] },
-  '1098-T': { title: 'Tuition Statement', description: 'College tuition for an education credit.', fields: [...PAYER, { key: 'studentName', label: 'Student name', box: '', type: 'text', required: false }, money('tuitionPaid', 'Payments received for qualified tuition', '1', { required: true }), money('scholarships', 'Scholarships or grants', '5'), { key: 'atLeastHalfTime', label: 'At least half-time student', box: '8', type: 'yesno', required: false }, { key: 'graduate', label: 'Graduate student', box: '9', type: 'yesno', required: false }, { key: 'aotcClaimedFourYears', label: 'American opportunity (or Hope) credit already claimed for this student for 4 earlier tax years (Form 8863 line 23)', box: '', type: 'yesno', required: false }, { key: 'firstFourYearsCompleted', label: 'Student completed the first 4 years of college before this year (Form 8863 line 25)', box: '', type: 'yesno', required: false }, { key: 'felonyDrugConviction', label: 'Student convicted of a felony drug offense by the end of the year (Form 8863 line 26)', box: '', type: 'yesno', required: false }] },
-  '2441-PROVIDER': { title: 'Child and dependent care provider', description: 'A daycare, after-school program, sitter or other person you paid for care so you could work (Form 2441). Add one for each provider.', fields: [{ key: 'payer', label: 'Care provider name', box: '1a', type: 'text', required: true }, { key: 'payerTin', label: 'Provider EIN', box: '1c', type: 'ein', required: false }, { key: 'providerAddress', label: 'Provider address', box: '1b', type: 'text', required: false }, money('amountPaid', 'Amount you paid for care this year', '1e', { required: true }), { key: 'qualifyingPerson', label: 'Who was cared for (first name, or spouse)', box: '2a', type: 'text', required: false }, { key: 'householdEmployee', label: 'Household employee, such as a nanny', box: '1d', type: 'yesno', required: false }] },
+  '1098-T': { title: 'Tuition Statement', description: 'College tuition for an education credit.', fields: [...PAYER, { key: 'studentName', label: 'Student (first name of you, your spouse or a dependent, as on the About you step)', box: '', type: 'text', required: false }, { key: 'schoolAddress', label: 'School street address', box: '', type: 'text', required: false }, { key: 'schoolCity', label: 'School city', box: '', type: 'text', required: false }, { key: 'schoolState', label: 'School state', box: '', type: 'state', required: false }, { key: 'schoolZip', label: 'School ZIP code', box: '', type: 'text', required: false }, { key: 'priorYear1098T', label: 'Student also got a Form 1098-T from this school for last year with box 7 checked (Form 8863 line 22)', box: '7', type: 'yesno', required: false }, money('tuitionPaid', 'Payments received for qualified tuition', '1', { required: true }), money('scholarships', 'Scholarships or grants', '5'), { key: 'atLeastHalfTime', label: 'At least half-time student', box: '8', type: 'yesno', required: false }, { key: 'graduate', label: 'Graduate student', box: '9', type: 'yesno', required: false }, { key: 'aotcClaimedFourYears', label: 'American opportunity (or Hope) credit already claimed for this student for 4 earlier tax years (Form 8863 line 23)', box: '', type: 'yesno', required: false }, { key: 'firstFourYearsCompleted', label: 'Student completed the first 4 years of college before this year (Form 8863 line 25)', box: '', type: 'yesno', required: false }, { key: 'felonyDrugConviction', label: 'Student convicted of a felony drug offense by the end of the year (Form 8863 line 26)', box: '', type: 'yesno', required: false }] },
+  '2441-PROVIDER': { title: 'Child and dependent care provider', description: 'A daycare, after-school program, sitter or other person you paid for care so you could work (Form 2441). Add one for each provider.', fields: [{ key: 'payer', label: 'Care provider name', box: '1a', type: 'text', required: true }, { key: 'payerTin', label: 'Provider EIN', box: '1c', type: 'ein', required: false }, { key: 'providerSsn', label: 'Provider SSN, for an individual provider who has no EIN', box: '1c', type: 'text', required: false }, { key: 'providerAddress', label: 'Provider street address', box: '1b', type: 'text', required: false }, { key: 'providerCity', label: 'Provider city', box: '1b', type: 'text', required: false }, { key: 'providerState', label: 'Provider state', box: '1b', type: 'state', required: false }, { key: 'providerZip', label: 'Provider ZIP code', box: '1b', type: 'text', required: false }, money('amountPaid', 'Amount you paid for care this year', '1e', { required: true }), { key: 'qualifyingPerson', label: 'Who was cared for (first name, or spouse)', box: '2a', type: 'text', required: false }, { key: 'householdEmployee', label: 'Household employee, such as a nanny', box: '1d', type: 'yesno', required: false }] },
   '5695-ITEM': { title: 'Home energy improvement or clean energy property', description: 'One item installed on your home in the United States, for the residential energy credits (Form 5695): solar panels, a battery, a heat pump, windows, doors, insulation and the like. Only for 2025: the credits ended for property installed after 2025-12-31; for 2026 answer only the carryforward question in the interview.', fields: [{ key: 'payer', label: 'Seller or installer', box: '', type: 'text', required: true }, { key: 'category', label: `Type of item: ${ENERGY_CATEGORIES.join(', ')}`, box: '', type: 'code', required: true }, money('cost', 'Cost, less any rebate or subsidy (include installation labor, except for insulation, doors and windows)', '', { required: true }), { key: 'qmid', label: 'Qualified manufacturer identification number (QMID), four letters or digits; needed from 2025 for doors, windows, air conditioners, water heaters, furnaces, boilers, panelboards, heat pumps and biomass stoves', box: '', type: 'code', required: false }, { key: 'capacity', label: 'Capacity: kilowatt hours for a battery, kilowatts for a fuel cell', box: '', type: 'quantity', required: false }, { key: 'placedInService', label: 'Date installation was completed', box: '', type: 'date', required: false }] },
 });
 
@@ -84,6 +84,8 @@ const QUESTIONS = Object.freeze([
   { id: 'qbiLossCarryforward', text: 'Qualified business loss carried forward from last year (Form 8995 line 3)', help: 'Last year\'s total qualified business loss carryforward: 2025 Form 8995 line 16, or line 18 from 2026. Enter it as a positive amount. Leave empty if none.', kind: 'amount', when: (ctx) => ctx.hasBusiness || ctx.hasRental || ctx.answers?.qbiLossCarryforward !== undefined },
   { id: 'qbiReitPtpLossCarryforward', text: 'REIT dividend and publicly traded partnership loss carried forward from last year (Form 8995 line 7)', help: 'Last year\'s qualified PTP loss carryforward: 2025 Form 8995 line 17, or line 19 from 2026. Enter it as a positive amount. Leave empty if none.', kind: 'amount', when: (ctx) => ctx.hasDividends || ctx.answers?.qbiReitPtpLossCarryforward !== undefined },
   { id: 'rentalIncome', text: 'Did you have rental or royalty income not on a 1099-MISC?', help: 'Renting out a home, room or vacation property, or royalties. Add each one as a rental property; they go on Schedule E.', kind: 'yesno' },
+  { id: 'rentalPayments1099', text: 'Did you make any payments for your rentals or royalties this year that would require you to file Form 1099?', help: 'Schedule E line A: for example $600 or more paid to a contractor or repair business in the course of renting the property.', kind: 'yesno', when: (ctx) => ctx.hasRental },
+  { id: 'rentalFiled1099', text: 'Did you or will you file all the Forms 1099 you had to?', help: 'Schedule E line B.', kind: 'yesno', when: (ctx) => ctx.hasRental && ctx.answers.rentalPayments1099 === true },
   { id: 'rentalQbiSafeHarbor', text: 'Do your rentals meet the 250-hour safe harbor of Rev. Proc. 2019-38, and do you want them treated as a business for the QBI deduction?', help: 'Separate books for each enterprise, 250 or more hours of rental services a year and contemporaneous records of them. Not for a home you used personally or a triple net lease.', kind: 'yesno', when: (ctx) => ctx.hasRental },
   { id: 'realEstateProfessional', text: 'Were you a real estate professional (more than half your working time and over 750 hours in real property businesses)?', help: 'Real estate professionals can treat rentals as nonpassive (section 469(c)(7)).', kind: 'yesno', when: (ctx) => ctx.hasRental },
   { id: 'scheduleK1Income', text: 'Did you receive a Schedule K-1 from a partnership, S corporation, estate or trust?', help: 'Those amounts go on Schedule E Parts II and III.', kind: 'yesno' },
@@ -457,6 +459,41 @@ function savingsAccountProblems(kind, fields) {
   return problems;
 }
 
+const ZIP_CODE = /^\d{5}(-?\d{4})?$/;
+const CARE_SSN_SCOPE = 'care-provider';
+
+function careProviderProblems(fields) {
+  const problems = [];
+  if (fields.providerZip !== undefined && !ZIP_CODE.test(fields.providerZip)) problems.push('Provider ZIP code is five digits, or five plus four.');
+  const ssn = fields.providerSsn;
+  if (ssn !== undefined && !/^\*/.test(ssn) && !isSealedTin(ssn)) {
+    const error = tinShapeError(ssn);
+    if (error) problems.push(error === 'TIN_NOT_NINE_DIGITS' ? 'Provider SSN must have nine digits.' : 'That provider SSN cannot have been issued.');
+  }
+  return problems;
+}
+
+function sealCareProviderSsn(ret, form, previous) {
+  const ssn = form.fields?.providerSsn;
+  if (form.kind !== '2441-PROVIDER' || ssn === undefined) return form;
+  const fields = { ...form.fields };
+  if (/^\*/.test(ssn)) {
+    if (previous?.fields?.providerSsnSealed) fields.providerSsnSealed = previous.fields.providerSsnSealed;
+    else delete fields.providerSsn;
+    return { ...form, fields };
+  }
+  const sealed = sealTin(ssn, { scope: `${ret.scopeId}:${CARE_SSN_SCOPE}` });
+  fields.providerSsn = maskTin(sealed.last4);
+  fields.providerSsnSealed = sealed.sealed;
+  return { ...form, fields };
+}
+
+function formFields(ret, form, forFiling) {
+  if (!form.fields?.providerSsnSealed) return form.fields;
+  const { providerSsnSealed, ...fields } = form.fields;
+  return { ...fields, providerSsn: forFiling ? openTin(providerSsnSealed, { scope: `${ret.scopeId}:${CARE_SSN_SCOPE}` }) : fields.providerSsn };
+}
+
 function energyItemProblems(fields) {
   const problems = [];
   if (fields.category !== undefined) fields.category = String(fields.category).trim().toLowerCase().replace(/[\s_]+/g, '-');
@@ -492,6 +529,8 @@ export function planUsTaxForm(state, args = {}) {
   if (kind === '1095-A') problems.push(...marketplaceProblems(fields));
   if (kind === '1099-SA' || kind === '5498-SA') problems.push(...savingsAccountProblems(kind, fields));
   if (kind === '5695-ITEM') problems.push(...energyItemProblems(fields));
+  if (kind === '2441-PROVIDER') problems.push(...careProviderProblems(fields));
+  if (kind === '1098-T' && fields.schoolZip !== undefined && !ZIP_CODE.test(fields.schoolZip)) problems.push('School ZIP code is five digits, or five plus four.');
   if (problems.length) return fail('US_TAX_FORM_INVALID', { problems });
   const source = ['upload', 'payroll'].includes(args.source) ? args.source : 'manual';
   return { ok: true, taxYear, form: { kind, owner, payer, payerTin: payerTin.replace(/^(\d{2})-?(\d{7})$/, '$1-$2'), fields, source, documentId: text(args.documentId || args.documentSha256, 80) } };
@@ -503,7 +542,7 @@ export function addUsTaxForm(state, args = {}) {
   const ret = returnOf(state, plan.taxYear, true);
   const index = args.id ? ret.forms.findIndex((item) => item.id === String(args.id)) : -1;
   if (args.id && index < 0) return fail('US_TAX_FORM_NOT_FOUND', { id: args.id, taxYear: plan.taxYear });
-  const form = index >= 0 ? { id: ret.forms[index].id, ...plan.form, addedOn: ret.forms[index].addedOn, updatedOn: localToday() } : { id: `usf-${plan.taxYear}-${ret.nextFormNumber++}`, ...plan.form, addedOn: localToday() };
+  const form = sealCareProviderSsn(ret, index >= 0 ? { id: ret.forms[index].id, ...plan.form, addedOn: ret.forms[index].addedOn, updatedOn: localToday() } : { id: `usf-${plan.taxYear}-${ret.nextFormNumber++}`, ...plan.form, addedOn: localToday() }, index >= 0 ? ret.forms[index] : null);
   if (index >= 0) ret.forms[index] = form;
   else ret.forms.push(form);
   ret.updatedAt = new Date().toISOString();
@@ -529,7 +568,8 @@ export function removeUsTaxForm(state, args = {}) {
 }
 
 function formView(form) {
-  return { id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, payerTin: form.payerTin, amounts: form.fields, source: form.source, documentId: form.documentId || '', addedOn: form.addedOn };
+  const { providerSsnSealed, ...amounts } = form.fields || {};
+  return { id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, payerTin: form.payerTin, amounts, source: form.source, documentId: form.documentId || '', addedOn: form.addedOn };
 }
 
 export function listUsTaxForms(state, args = {}) {
@@ -646,7 +686,7 @@ export function engineInput(state, ret, { forFiling = false } = {}) {
     spouse: personInput(ret.spouse, `${ret.scopeId}:spouse`, forFiling),
     dependents: ret.dependents.map((item) => ({ ...personInput(item, `${ret.scopeId}:dependent-${item.id}`, forFiling), id: item.id, relationship: item.relationship, months: item.months, student: item.student, disabled: item.disabled, bornOrDiedInYear: item.bornOrDiedInYear })),
     address: ret.address,
-    forms: ret.forms.map((form) => ({ id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, fields: form.fields })),
+    forms: ret.forms.map((form) => ({ id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, payerTin: form.payerTin || '', fields: formFields(ret, form, forFiling) })),
     businesses,
     answers,
   };
@@ -740,12 +780,12 @@ function efileShape(ret, data, input) {
     taxpayer: person(input.taxpayer),
     spouse: person(input.spouse),
     address: ret.address,
-    dependents: input.dependents.map((item, index) => ({ firstName: item.firstName, lastName: item.lastName, ssn: item.ssn, relationship: item.relationship, ctcEligible: data.dependents[index]?.ctcEligible || false, odcEligible: data.dependents[index]?.odcEligible || false, eitcChild: data.dependents[index]?.eitcChild || false, dob: item.dateOfBirth, student: Boolean(item.student), disabled: Boolean(item.disabled), bornOrDiedInYear: Boolean(item.bornOrDiedInYear), months: item.months })),
+    dependents: input.dependents.map((item, index) => ({ id: item.id, firstName: item.firstName, lastName: item.lastName, ssn: item.ssn, relationship: item.relationship, ctcEligible: data.dependents[index]?.ctcEligible || false, odcEligible: data.dependents[index]?.odcEligible || false, eitcChild: data.dependents[index]?.eitcChild || false, dob: item.dateOfBirth, student: Boolean(item.student), disabled: Boolean(item.disabled), bornOrDiedInYear: Boolean(item.bornOrDiedInYear), months: item.months })),
     digitalAssets: ret.answers.digitalAssets === true,
     answers: { ...ret.answers },
     lines: data.lines,
     schedules: data.schedules.C ? { ...data.schedules, C: data.schedules.C.map((item) => ({ ...item, businessName: item.name, activityCode: ret.answers.businessActivityCode || '' })) } : data.schedules,
-    forms: ret.forms.map((form) => ({ id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, payerTin: form.payerTin, fields: form.fields })),
+    forms: ret.forms.map((form, index) => ({ id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, payerTin: form.payerTin, fields: input.forms[index]?.fields || form.fields })),
     w2s,
     refund: ret.directDeposit || null,
     summary: data.summary,
