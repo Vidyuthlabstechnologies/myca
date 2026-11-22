@@ -47,3 +47,12 @@ test('saving a report from chat still needs no confirmation', async () => {
   assert.equal(saved.awaitingConfirmation, undefined);
   assert.equal(Object.keys(state.reports).length, 1);
 });
+
+test('a held report preview survives the books being saved and loaded again, as the hosted API does between requests', async () => {
+  const { restoredPending } = await import('../src/chat-confirm.mjs');
+  const state = books();
+  const held = await propose(state, 'save_report', { name: 'Sales by month', metric: 'sales', groupBy: 'month' });
+  assert.equal(held.awaitingConfirmation, true, held.reply);
+  const reloaded = JSON.parse(JSON.stringify(state.pendingChatAction));
+  assert.equal(restoredPending(reloaded)?.name, 'save_report');
+});

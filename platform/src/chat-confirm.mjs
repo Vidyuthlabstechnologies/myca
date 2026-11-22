@@ -196,7 +196,7 @@ export function persistablePending(pending) {
 
 export function restoredPending(raw) {
   if (!raw || typeof raw !== 'object' || typeof raw.token !== 'string' || typeof raw.name !== 'string') return null;
-  if (!CONFIRM_TOOLS.has(raw.name)) return null;
+  if (!proposable(raw.name)) return null;
   return raw;
 }
 
