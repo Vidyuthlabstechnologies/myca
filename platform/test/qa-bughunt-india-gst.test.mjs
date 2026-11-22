@@ -90,3 +90,31 @@ test('the e-invoice gives the buyer\'s state code from the buyer\'s GSTIN, and t
   assert.equal(ewb.partA.toStateCode, 29);
   assert.equal(ewb.partA.actToStateCode, 27);
 });
+
+test('GSTR-1 reports nil-rated, exempt and non-GST lines only in table 8, never in B2B or B2CS, and nets their credit notes there', async () => {
+  const state = books();
+  await sell(state, { partyName: 'Walk-in', lines: [{ description: 'Rice', hsn: '1006', qty: 10, rate: 50, gstRate: 0, supply: 'nil' }, { description: 'Oil', hsn: '1508', qty: 2, rate: 200, gstRate: 5 }] });
+  await sell(state, { partyName: 'Clinic', partyGstin: BUYER_MH, lines: [{ description: 'Hearing aid', hsn: '9021', qty: 1, rate: 8000, gstRate: 0, supply: 'exempt' }] });
+  const mixed = state.invoices[0];
+  const note = await runTool(state, 'create_credit_note', { invoiceId: mixed.id, reason: 'Returned', date: `${PERIOD}-20` });
+  assert.equal(note.ok, true, JSON.stringify(note));
+  assert.equal(note.creditNote.lines[0].supply, 'nil');
+  const file = await runTool(state, 'export_gstr1_json', { fp: '092026' });
+  assert.equal(file.ok, true, JSON.stringify(file));
+  assert.deepEqual(file.data.b2b, []);
+  assert.ok(file.data.b2cs.every((row) => row.rt !== 0), JSON.stringify(file.data.b2cs));
+  const nil = Object.fromEntries(file.data.nil.inv.map((row) => [row.sply_ty, row]));
+  assert.equal(nil.INTRAB2C.nil_amt, 0);
+  assert.equal(nil.INTRAB2B.expt_amt, 8000);
+});
+
+test('GSTR-3B 3.1(e) non-GST supplies are net of a credit note on the non-GST line', async () => {
+  const state = books();
+  const sale = await sell(state, { partyName: 'Pump Customer', lines: [{ description: 'Petrol', hsn: '2710', qty: 10, rate: 100, gstRate: 0, supply: 'non-gst' }, { description: 'Engine oil', hsn: '2710', qty: 1, rate: 1000, gstRate: 18 }] });
+  const note = await runTool(state, 'create_credit_note', { invoiceId: sale.id, reason: 'Wrong bill', date: `${PERIOD}-12` });
+  assert.equal(note.ok, true, JSON.stringify(note));
+  const portal = gstr3bPortalJson(state, PERIOD);
+  assert.equal(portal.ok, true, JSON.stringify(portal));
+  assert.equal(portal.body.sup_details.osup_nongst.txval, 0);
+  assert.equal(portal.body.sup_details.osup_det.txval, 0);
+});
