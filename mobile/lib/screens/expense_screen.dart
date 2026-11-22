@@ -225,7 +225,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
                   ),
                 ] else
                 Text(
-                  moneyCountry == 'GB' ? 'Give the VAT rate only if the receipt shows VAT. Reclaim VAT only with a valid VAT receipt from a VAT-registered supplier.' : inText(context, 'Give the GST rate only if the bill shows GST. Credit is taken only when the supplier GSTIN is on the bill; add it later from the Purchases chat if you need it.'),
+                  moneyCountry == 'GB' ? 'Give the VAT rate only if the receipt shows VAT. Reclaim VAT only with a valid VAT receipt from a VAT-registered supplier.' : moneyCountry == 'US' ? 'Give the sales tax rate only if the receipt shows sales tax. Sales tax you pay is part of the cost of the expense.' : inText(context, 'Give the GST rate only if the bill shows GST. Credit is taken only when the supplier GSTIN is on the bill; add it later from the Purchases chat if you need it.'),
                   style: text.bodySmall,
                 ),
                 if (_error.isNotEmpty) ...[
