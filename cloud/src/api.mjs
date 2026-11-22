@@ -255,6 +255,14 @@ function createBodyReaders(budget) {
   return { readRaw, readJson, release };
 }
 
+function decodedSegment(segment) {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return '';
+  }
+}
+
 function bearer(req) {
   const match = /^Bearer\s+(\S+)$/i.exec(String(req.headers.authorization || ''));
   return match ? match[1] : '';
@@ -650,7 +658,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     if (parts[1] === 'me' && parts[2] === 'us-consents') {
       if (parts.length === 3 && method === 'GET') return usConsents.list(user.userId);
       if (parts.length === 3 && method === 'POST') return usConsents.sign(user.userId, user.deviceId, await readJson(req));
-      if (parts.length === 4 && method === 'DELETE') return usConsents.revoke(user.userId, decodeURIComponent(parts[3]));
+      if (parts.length === 4 && method === 'DELETE') return usConsents.revoke(user.userId, decodedSegment(parts[3]));
       throw httpError(404, 'NOT_FOUND');
     }
 

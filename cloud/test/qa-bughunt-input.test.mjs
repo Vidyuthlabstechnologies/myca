@@ -71,3 +71,10 @@ test('a field sent as an object with its own toString key is a wrong value, not 
   const crashes = await api.db.query("select count(*)::int as n from crash_reports where kind = 'server'");
   assert.equal(crashes.rows[0].n, 0);
 });
+
+test('a US consent named with a broken percent escape is an unknown consent, not a 500', async () => {
+  const owner = await api.ownerWithBusiness('9876502004');
+  const r = await api.call('DELETE', '/v1/me/us-consents/%E0%A4', { token: owner.token });
+  crashFree(r);
+  assert.equal(r.body.error, 'CONSENT_UNKNOWN');
+});
