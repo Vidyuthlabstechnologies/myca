@@ -5,6 +5,7 @@ import { localToday } from './dates.mjs';
 import { filingFor } from './filings.mjs';
 import { regArg, registrationsOf, docGstin, scopeKey } from './registrations.mjs';
 import { twobFor } from './gstr2b-check.mjs';
+import { isVoided } from './gstr1-tables.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
@@ -113,7 +114,7 @@ export function gstr9Draft(state, args = {}) {
     outward.b2b += docs.invoices.filter((inv) => inv.partyGstin).length;
     outward.b2c += docs.invoices.filter((inv) => !inv.partyGstin && !inv.export).length;
     for (const inv of docs.invoices) {
-      if (inv.status === 'cancelled') continue;
+      if (isVoided(inv)) continue;
       if (inv.supplyType === 'SEZWP' || inv.supplyType === 'SEZWOP') {
         const into = inv.supplyType === 'SEZWP' ? sez.withTax : sez.withoutTax;
         into.count += 1;
@@ -138,7 +139,7 @@ export function gstr9Draft(state, args = {}) {
     itc.purchases += docs.purchases.length;
     for (const bill of docs.purchases) if (bill.itcEligible === false) add(itc.blocked, bill);
     for (const inv of docs.invoices) {
-      if (inv.status === 'cancelled') continue;
+      if (isVoided(inv)) continue;
       for (const line of inv.lines || []) {
         if (Number(line.gstRate || 0) === 0 && !inv.export && inv.supplyType !== 'SEZWOP') {
           nilRated.taxable = round2(nilRated.taxable + Number(line.taxable || 0));
@@ -147,6 +148,7 @@ export function gstr9Draft(state, args = {}) {
           bucket.taxable = round2(bucket.taxable + Number(line.taxable || 0));
           bucket.lines += 1;
         }
+        if (inv.status === 'cancelled') continue;
         const key = `${line.hsn || ''}|${line.gstRate}`;
         const row = hsn.get(key) || { hsn: line.hsn || '', ratePercent: Number(line.gstRate || 0), qty: 0, taxable: 0, tax: heads() };
         row.qty = round2(row.qty + Number(line.qty || 0));

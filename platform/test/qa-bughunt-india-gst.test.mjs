@@ -10,6 +10,7 @@ import { createState } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
 import { gstr3bPortalJson } from '../src/gstr3b-portal.mjs';
 import { paymentFor } from '../src/gst-payment.mjs';
+import { gstr9Draft } from '../src/gstr9.mjs';
 import { invoiceToNicPayload, nicPartyFor } from '../src/nic-config.mjs';
 import { ewayBillPartA } from '../src/eway-bill.mjs';
 import { validateAssistantToolCall, validateAppToolCall } from '../src/assistant-tools.mjs';
@@ -141,4 +142,21 @@ test('GSTR-3B table 3.2 inter-state sales to unregistered buyers is net of credi
   assert.equal(portal.ok, true, JSON.stringify(portal));
   assert.deepEqual(portal.body.inter_sup.unreg_details, [{ pos: '29', txval: 5000, iamt: 250 }]);
   assert.deepEqual(portal.body.sup_details.osup_det, { txval: 5000, iamt: 250, camt: 0, samt: 0, csamt: 0 });
+});
+
+test('GSTR-9 table 5 keeps a cancelled exempt sale and a cancelled export with their credit notes, not the credit note alone', async () => {
+  const state = books();
+  const exempt = await sell(state, { date: '2026-05-10', partyName: 'Clinic', lines: [{ description: 'Hearing aid', hsn: '9021', qty: 1, rate: 500, gstRate: 0, supply: 'exempt' }, { description: 'Battery', hsn: '8506', qty: 2, rate: 200, gstRate: 18 }] });
+  const exported = await sell(state, { date: '2026-05-10', partyName: 'Dubai Buyer', exportSale: { currency: 'INR', lutNumber: 'AD270326000001', countryCode: 'AE' }, lines: [{ description: 'Saree', hsn: '5407', qty: 1, rate: 3000, gstRate: 5 }] });
+  for (const sale of [exempt, exported]) {
+    const cancelled = await runTool(state, 'cancel_invoice', { invoiceId: sale.id, date: '2026-05-11' });
+    assert.equal(cancelled.ok, true, JSON.stringify(cancelled));
+  }
+  const draft = gstr9Draft(state, { fy: '2026-27' });
+  assert.equal(draft.ok, true, JSON.stringify(draft));
+  const t5 = draft.data.table5;
+  assert.equal(t5.creditNotes, 3500);
+  assert.equal(t5.exempt, 500);
+  assert.equal(t5.exportsWithoutTax.taxable, 3000);
+  assert.equal(t5.exempt + t5.exportsWithoutTax.taxable - t5.creditNotes, 0);
 });
