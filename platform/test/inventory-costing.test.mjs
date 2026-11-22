@@ -174,7 +174,7 @@ test('a purchase bill with SKU lines stocks in a lot at the bill rate with its b
   assert.equal(lot.expiry, '2027-03-31');
 });
 
-test('batches with expiry: selling an expired batch warns, the alerts list what expires within 30 days, what has expired and what is below its reorder level', async () => {
+test('batches with expiry: taking an expired batch out of stock warns, the alerts list what expires within 30 days, what has expired and what is below its reorder level', async () => {
   const state = books();
   await runTool(state, 'set_sku_cost', { sku: 'SYRUP', name: 'Cough syrup', unit: 'BTL', reorderLevel: 30, cost: 60 });
   assert.equal((await runTool(state, 'record_stock', { sku: 'SYRUP', qty: 10, date: shift(-90), batch: 'OLD1', expiry: shift(-2) })).ok, true);
@@ -191,12 +191,12 @@ test('batches with expiry: selling an expired batch warns, the alerts list what 
   assert.equal(sold.warnings[0].code, 'EXPIRED_BATCH');
 
   const fefo = await runTool(state, 'record_stock', { sku: 'SYRUP', qty: -1 });
-  assert.equal(fefo.warnings[0].code, 'EXPIRED_BATCH', 'without a batch the earliest expiry goes first, and that one has expired');
+  assert.deepEqual(fefo.warnings, [], 'without a batch the earliest expiry that has not passed goes first');
 
   await runTool(state, 'record_stock', { sku: 'SYRUP', qty: -30, batch: 'NEW3' });
   const alerts = (await runTool(state, 'stock_alerts', {})).data;
-  assert.deepEqual(alerts.expired.map((row) => [row.sku, row.batch, row.qty]), [['SYRUP', 'OLD1', 7]]);
-  assert.deepEqual(alerts.expiring.map((row) => [row.sku, row.batch, row.qty, row.daysLeft]), [['SYRUP', 'MID2', 12, 20]]);
+  assert.deepEqual(alerts.expired.map((row) => [row.sku, row.batch, row.qty]), [['SYRUP', 'OLD1', 8]]);
+  assert.deepEqual(alerts.expiring.map((row) => [row.sku, row.batch, row.qty, row.daysLeft]), [['SYRUP', 'MID2', 11, 20]]);
   assert.deepEqual(alerts.lowStock.map((row) => [row.sku, row.onHand, row.reorderLevel, row.unit]), [['SYRUP', 29, 30, 'BTL']]);
   const words = await chat(state, 'what is expiring soon');
   assert.match(words.reply, /MID2/);
@@ -209,13 +209,45 @@ test('batches with expiry: selling an expired batch warns, the alerts list what 
   assert.match(row.why, /reorder level/);
 });
 
-test('an invoice that sells an expired batch says so in its preview', async () => {
+test('an invoice that would sell an expired batch is blocked, in the preview and when it runs, and fresh stock is sold first', async () => {
   const state = books();
   await runTool(state, 'set_sku_cost', { sku: 'DROPS', name: 'Eye drops', unit: 'BTL', price: 80, gstRate: 12, hsn: '3004' });
   await runTool(state, 'record_stock', { sku: 'DROPS', qty: 5, date: shift(-60), batch: 'E1', expiry: shift(-1) });
-  const preview = previewOf(state, 'create_invoice', { partyName: 'Walk-in customer', lines: [{ description: 'Eye drops', sku: 'DROPS', hsn: '3004', qty: 1, rate: 80, gstRate: 12 }] });
-  assert.ok(preview.effects.some((line) => /E1 expired on/.test(line)), JSON.stringify(preview.effects));
-  assert.ok(preview.effects.some((line) => /Stock out: 1 BTL of DROPS/.test(line)), JSON.stringify(preview.effects));
+  const sale = { partyName: 'Walk-in customer', lines: [{ description: 'Eye drops', sku: 'DROPS', hsn: '3004', qty: 1, rate: 80, gstRate: 12 }] };
+  const preview = previewOf(state, 'create_invoice', sale);
+  assert.ok(preview.blockers.some((line) => /E1 of DROPS expired on .* cannot be sold/.test(line)), JSON.stringify(preview.blockers));
+  const invoicesBefore = (state.invoices || []).length;
+  const refused = await runTool(state, 'create_invoice', sale);
+  assert.equal(refused.ok, false);
+  assert.equal(refused.error, 'EXPIRED_BATCH');
+  assert.equal((state.invoices || []).length, invoicesBefore, 'no invoice is made');
+  const named = await runTool(state, 'create_invoice', { ...sale, lines: [{ ...sale.lines[0], batch: 'E1' }] });
+  assert.equal(named.error, 'EXPIRED_BATCH');
+
+  await runTool(state, 'record_stock', { sku: 'DROPS', qty: 3, date: shift(-5), batch: 'F2', expiry: shift(200) });
+  const fresh = previewOf(state, 'create_invoice', sale);
+  assert.deepEqual(fresh.blockers, []);
+  assert.ok(fresh.effects.some((line) => /Stock out: 1 BTL of DROPS/.test(line)), JSON.stringify(fresh.effects));
+  const sold = await runTool(state, 'create_invoice', sale);
+  assert.equal(sold.ok, true, JSON.stringify(sold));
+  assert.equal(sold.stockWarnings, undefined);
+  const alerts = (await runTool(state, 'stock_alerts', {})).data;
+  assert.deepEqual(alerts.expired.map((row) => [row.batch, row.qty]), [['E1', 5]], 'the expired batch is untouched');
+
+  const writeOff = await runTool(state, 'record_stock', { sku: 'DROPS', qty: -5, batch: 'E1', note: 'Expired, destroyed' });
+  assert.equal(writeOff.ok, true, 'expired stock can still be written off');
+  assert.equal(writeOff.warnings[0].code, 'EXPIRED_BATCH');
+});
+
+test('a quote cannot be turned into an invoice that sells an expired batch', async () => {
+  const state = books();
+  await runTool(state, 'set_sku_cost', { sku: 'DROPS', name: 'Eye drops', unit: 'BTL', price: 80, gstRate: 12, hsn: '3004' });
+  await runTool(state, 'record_stock', { sku: 'DROPS', qty: 5, date: shift(-60), batch: 'E1', expiry: shift(-1) });
+  const quote = await runTool(state, 'create_quote', { partyName: 'Clinic', lines: [{ description: 'Eye drops', sku: 'DROPS', hsn: '3004', qty: 2, rate: 80, gstRate: 12 }] });
+  assert.equal(quote.ok, true, JSON.stringify(quote));
+  const converted = await runTool(state, 'convert_quote', { id: quote.quote.id });
+  assert.equal(converted.ok, false, JSON.stringify(converted));
+  assert.equal(converted.error, 'EXPIRED_BATCH');
 });
 
 test('moving stock between locations is not a sale, item details survive later edits and imports, and chat chooses the method with a preview', async () => {

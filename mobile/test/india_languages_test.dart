@@ -144,7 +144,31 @@ void main() {
     });
   }
 
-  test('every regional language is offered once its table is filled', () {
-    expect([for (final language in indiaOfferedLanguages) language.code], ['en', 'hi', 'mr', 'gu', 'ta', 'te', 'kn', 'bn']);
+  test('India launches with English and Hindi, and a regional language is offered only once it is marked reviewed', () {
+    expect([for (final language in indiaOfferedLanguages) language.code], ['en', 'hi']);
+    for (final language in indiaLanguages.where((language) => !['en', 'hi'].contains(language.code))) {
+      expect(language.table, isNotEmpty, reason: language.englishName);
+      expect(language.offered, language.reviewed, reason: language.englishName);
+      expect(indiaChosenLocale(language.code), language.reviewed ? language.locale : isNull, reason: language.englishName);
+    }
+    const reviewedTamil = IndiaLanguage('ta', 'தமிழ்', 'Tamil', {'Sales': 'விற்பனை'}, reviewed: true);
+    expect(reviewedTamil.offered, isTrue);
+    const unreviewedTamil = IndiaLanguage('ta', 'தமிழ்', 'Tamil', {'Sales': 'விற்பனை'}, reviewed: false);
+    expect(unreviewedTamil.offered, isFalse);
+  });
+
+  testWidgets('a Tamil phone opens the India app in English until Tamil is reviewed', (tester) async {
+    tester.platformDispatcher.localesTestValue = const [Locale('ta', 'IN')];
+    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+    await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true))));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('New entry'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('in.language')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('in.language.hi')), findsOneWidget);
+    for (final code in ['mr', 'gu', 'ta', 'te', 'kn', 'bn']) {
+      expect(find.byKey(Key('in.language.$code')), findsNothing);
+    }
+    expect(tester.takeException(), isNull);
   });
 }

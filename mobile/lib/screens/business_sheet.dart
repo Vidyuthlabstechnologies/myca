@@ -63,7 +63,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                       key: const Key('business.language'),
                       leading: const TintTile(tint: Tint.ask, letter: 'अ'),
                       title: inText(sheet, 'Language'),
-                      subtitle: indiaLanguage(state.language.isEmpty ? indiaLang(sheet) : state.language).nativeName,
+                      subtitle: indiaLanguage(indiaChosenLocale(state.language) == null ? indiaLang(sheet) : state.language).nativeName,
                       trailing: const Chevron(),
                       onTap: () {
                         navigator.pop();

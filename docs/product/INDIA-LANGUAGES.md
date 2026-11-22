@@ -1,8 +1,10 @@
 # India app languages
 
-The India app can be shown in English, Hindi, Marathi, Gujarati, Tamil, Telugu, Kannada and Bengali. It follows the
-phone's language, and the owner can pick another one from the translate button on the home screen (or "Same as my
-phone").
+The India app has tables for English, Hindi, Marathi, Gujarati, Tamil, Telugu, Kannada and Bengali. **It launches with
+English and Hindi only** (owner decision, 22 Nov 2026). The six regional languages stay in the code but are not offered
+in the language switch, and a phone set to one of them opens the app in English, until a native speaker has reviewed
+that language. The app follows the phone's language when it is offered, and the owner can pick another one from the
+translate button on the home screen (or "Same as my phone").
 
 ## Native review status
 
@@ -10,15 +12,15 @@ phone").
 aiming for the words a shopkeeper uses (for example "बिल", "उधार", "GST", "रिटर्न"), not textbook translation. Before
 launch each language needs one native speaker who runs a business to read every line in the app.
 
-| Language | Code | Lines | Native review |
-| --- | --- | --- | --- |
-| Hindi | hi | all India lines (about 1,990) | needed |
-| Marathi | mr | all of Hindi's lines | needed |
-| Gujarati | gu | all of Hindi's lines | needed |
-| Tamil | ta | all of Hindi's lines | needed |
-| Telugu | te | all of Hindi's lines | needed |
-| Kannada | kn | all of Hindi's lines | needed |
-| Bengali | bn | all of Hindi's lines | needed |
+| Language | Code | Lines | Native review | In the app |
+| --- | --- | --- | --- | --- |
+| Hindi | hi | all India lines (about 1,990) | needed | yes, launched before review (`launch: true`) |
+| Marathi | mr | all of Hindi's lines | needed | hidden |
+| Gujarati | gu | all of Hindi's lines | needed | hidden |
+| Tamil | ta | all of Hindi's lines | needed | hidden |
+| Telugu | te | all of Hindi's lines | needed | hidden |
+| Kannada | kn | all of Hindi's lines | needed | hidden |
+| Bengali | bn | all of Hindi's lines | needed | hidden |
 
 Lines the translators flagged as uncertain (greetings like "Good afternoon", short month names, reminder tone words that are
 slotted into a sentence, balance-sheet terms such as Equity and Liabilities, and the tour line that says the assistant
@@ -26,7 +28,10 @@ understands the language) are the first place for a reviewer to look. Buttons na
 button's own translation.
 
 When a reviewer signs off a language, set `reviewed: true` for it in `mobile/lib/india/india_strings.dart` and update
-this table.
+this table. That one flag switches the language on: a language is offered when its table is filled and it is either
+`reviewed` or has `launch: true` (only Hindi has that). Then add its code to the expected list in the test
+"India launches with English and Hindi, ..." in `mobile/test/india_languages_test.dart`. Hidden languages are still
+checked for script, `{part}` and coverage by the same test file.
 
 ## How it works
 
@@ -52,7 +57,7 @@ this table.
 2. Add one `IndiaLanguage(...)` entry to `indiaLanguages` with its script range.
 3. Run `flutter test test/india_languages_test.dart`.
 
-A language with an empty table is not offered in the picker, so a half-started language never reaches owners.
+A language with an empty table, or one not yet marked `reviewed`, is not offered in the picker, so a half-started or unreviewed language never reaches owners.
 
 ## What stays in English
 

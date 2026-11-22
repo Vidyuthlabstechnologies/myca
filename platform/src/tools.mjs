@@ -15,7 +15,7 @@ import { findItem, setSkuCost, importSkuCosts, recordStock, stockPosition, skuMa
 import { dailyClose } from './daily-close.mjs';
 import { setCatalogueSettings, setCatalogueItems, catalogueView, storeOrders, storeOrderAction } from './catalogue.mjs';
 import { setCostingMethod, inventoryCosting, stockAlerts } from './inventory-costing.mjs';
-import { withItemUnits, moveDocumentStock, returnDocumentStock } from './document-stock.mjs';
+import { withItemUnits, moveDocumentStock, returnDocumentStock, expiredSale } from './document-stock.mjs';
 import { regArg, companyAs, forRegistration, setRegistration, retireRegistration, listRegistrations } from './registrations.mjs';
 import { recordStockTransfer } from './stock-transfers.mjs';
 import { valueInventory, listInventoryValuations } from './inventory.mjs';
@@ -51,7 +51,7 @@ const { auditRun } = audit;
 import { listAccounts, journal, trialBalance, verifyChain, createTransfers, paise } from './ledger.mjs';
 import { createInvoice, recordReceipt, recordPayment, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice, addBillTds } from './invoice.mjs';
 import { invoiceDocument, quoteDocument } from './invoice-document.mjs';
-import { createQuote, markQuote, convertQuote, listQuotes, invoiceArgsFromQuote } from './quotes.mjs';
+import { createQuote, markQuote, convertQuote, listQuotes, invoiceArgsFromQuote, checkConvert } from './quotes.mjs';
 import { addRecurring, stopRecurring, listRecurring, runRecurring } from './recurring.mjs';
 import { postExpense, retagExpense, listExpenses, expenseHeads } from './expenses.mjs';
 import { businessSummary } from './business-summary.mjs';
@@ -633,6 +633,8 @@ export const TOOLS = [
       const own = engineBooks(countryOf(state), 'create_invoice')?.(state, args);
       if (own != null) return own;
       if (countryOf(state) === 'US') return createUsInvoice(state, args);
+      const expired = countryOf(state) === 'IN' ? expiredSale(state, args) : null;
+      if (expired) return expired;
       const result = loyaltyInvoice(state, withItemUnits(state, args));
       if (result.ok && countryOf(state) === 'IN') {
         const stockWarnings = moveDocumentStock(state, result.invoice, args, 'sale');
@@ -1365,6 +1367,9 @@ export const TOOLS = [
     description: 'Raise the tax invoice for a quote, proforma, sales order or delivery challan with the same lines, linked both ways. A declined, cancelled, returned or already-invoiced document is refused, and so is a job-work challan, which is not a sale.',
     args: ['id', 'date'],
     run: (state, args = {}) => {
+      const checked = countryOf(state) === 'IN' ? checkConvert(state, args) : null;
+      const expired = checked?.ok ? expiredSale(state, invoiceArgsFromQuote(checked.quote, args)) : null;
+      if (expired) return expired;
       const result = loyaltyAfterInvoice(state, convertQuote(state, args));
       if (result.ok && result.invoice && countryOf(state) === 'IN') {
         const stockWarnings = moveDocumentStock(state, result.invoice, invoiceArgsFromQuote(result.quote, args), 'sale');

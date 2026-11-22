@@ -12,7 +12,7 @@ import 'lang/ta.dart';
 import 'lang/te.dart';
 
 class IndiaLanguage {
-  const IndiaLanguage(this.code, this.nativeName, this.englishName, this.table, {required this.reviewed, this.script});
+  const IndiaLanguage(this.code, this.nativeName, this.englishName, this.table, {required this.reviewed, this.launch = false, this.script});
 
   final String code;
 
@@ -22,6 +22,10 @@ class IndiaLanguage {
 
   final bool reviewed;
 
+  final bool launch;
+
+  bool get offered => code == 'en' || (table.isNotEmpty && (reviewed || launch));
+
   final RegExp? script;
 
   Locale get locale => code == 'en' ? const Locale('en', 'US') : Locale(code, 'IN');
@@ -29,7 +33,7 @@ class IndiaLanguage {
 
 final indiaLanguages = <IndiaLanguage>[
   const IndiaLanguage('en', 'English', 'English', <String, String>{}, reviewed: true),
-  IndiaLanguage('hi', 'हिन्दी', 'Hindi', hindi, reviewed: false, script: RegExp(r'[ऀ-ॿ]')),
+  IndiaLanguage('hi', 'हिन्दी', 'Hindi', hindi, reviewed: false, launch: true, script: RegExp(r'[ऀ-ॿ]')),
   IndiaLanguage('mr', 'मराठी', 'Marathi', marathi, reviewed: false, script: RegExp(r'[ऀ-ॿ]')),
   IndiaLanguage('gu', 'ગુજરાતી', 'Gujarati', gujarati, reviewed: false, script: RegExp(r'[઀-૿]')),
   IndiaLanguage('ta', 'தமிழ்', 'Tamil', tamil, reviewed: false, script: RegExp(r'[஀-௿]')),
@@ -38,7 +42,7 @@ final indiaLanguages = <IndiaLanguage>[
   IndiaLanguage('bn', 'বাংলা', 'Bengali', bengali, reviewed: false, script: RegExp(r'[ঀ-৿]')),
 ];
 
-List<IndiaLanguage> get indiaOfferedLanguages => [for (final language in indiaLanguages) if (language.code == 'en' || language.table.isNotEmpty) language];
+List<IndiaLanguage> get indiaOfferedLanguages => [for (final language in indiaLanguages) if (language.offered) language];
 
 IndiaLanguage indiaLanguage(String code) => indiaLanguages.firstWhere((language) => language.code == code, orElse: () => indiaLanguages.first);
 

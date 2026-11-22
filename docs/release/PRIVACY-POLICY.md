@@ -27,6 +27,7 @@ portal.
 | Google account (name, email) or phone number | To sign you in and to show who did what in a business | The hosted service in Google Cloud, Mumbai region |
 | A random device id the server makes when you sign in | To let you see and sign out your devices | The hosted service |
 | The books: invoices, bills, expenses, payroll, bank lines, tax figures, GSTIN and PAN you enter | The service the app provides | The hosted service |
+| The owner's date of birth, only if you enter it | To apply the senior and super senior citizen income tax rules to a proprietor's return and advance tax | The hosted service |
 | Documents you choose to upload (bank statements, bills, photos of bills) | To import entries or to read a bill into a draft purchase | The hosted service, addressed by a hash of their content |
 | Chat messages to the assistant | To carry out what you ask; recent turns are kept for context | The hosted service |
 | Google Play subscription records | To know which plan you have paid for | The hosted service |
