@@ -104,6 +104,11 @@ export function parseExternalId(value) {
 
 const money = (value) => Math.round(Number(value) || 0);
 
+function formFields(fields, sendTins) {
+  const { providerSsn, providerSsnSealed, ...rest } = fields && typeof fields === 'object' ? fields : {};
+  return sendTins && /^\d{3}-?\d{2}-?\d{4}$/.test(String(providerSsn || '')) ? { ...rest, providerSsn: String(providerSsn).replace(/-/g, '') } : rest;
+}
+
 function person(item, sendTins) {
   if (!item) return null;
   return {
@@ -145,7 +150,7 @@ export function partnerPrefill(computed, { sendTins = false, contact = {}, prior
       state_wages: money(w.stateWages),
       state_withheld: money(w.stateWithheld),
     })),
-    other_forms: forms.filter((f) => f.kind !== 'W-2').map((f) => ({ kind: f.kind, owner: f.owner, payer: f.payer || '', payer_tin: f.payerTin || '', fields: f.fields || {} })),
+    other_forms: forms.filter((f) => f.kind !== 'W-2').map((f) => ({ kind: f.kind, owner: f.owner, payer: f.payer || '', payer_tin: f.payerTin || '', fields: formFields(f.fields, sendTins) })),
     digital_assets: computed.digitalAssets === true,
     businesses: (computed.schedules?.C || []).map((item) => ({ owner: item.owner, name: item.businessName || item.name || '', activity_code: item.activityCode || '', gross_receipts: money(item.lines?.['1']), cost_of_goods_sold: money(item.lines?.['4']), total_expenses: money(item.lines?.['28']), net_profit: money(item.lines?.['31']) })),
     answers: computed.answers && typeof computed.answers === 'object' ? { ...computed.answers } : {},

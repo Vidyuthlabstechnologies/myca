@@ -25,7 +25,7 @@ const LAYOUTS = Object.freeze({
     2: Object.freeze([['1a', 'ptcRepayment'], ['1z', 'ptcRepayment'], ['2', 'amt'], ['3', 'partI'], ['4', 'seTax'], ['8', 'accountTaxes'], ['11', 'additionalMedicare'], ['12', 'niit'], ['17c', 'hsaDistributionTax'], ['17d', 'hsaTestingTax'], ['18', 'otherAdditionalTaxes'], ['21', 'total']]),
     3: Object.freeze(['1', '2', '3', '4', '5a', '5b', '8', '9', '11', '15'].map((key) => [key, key])),
     A: Object.freeze(['1', '2', '3', '4', '5a', '5b', '5c', '5d', '5e', '7', '8a', '8b', '8d', '8e', '10', '11', '12', '14', '16', '17'].map((key) => [key, key])),
-    8959: Object.freeze(['1', '5', '6', '7', '8', '13', '18', '19', '20', '21', '22', '24'].map((key) => [key, key])),
+    8959: Object.freeze(['1', '4', '5', '6', '7', '8', '11', '12', '13', '18', '19', '20', '21', '22', '24'].map((key) => [key, key])),
   }),
   2026: Object.freeze({
     1040: FORM_1040_2026,
@@ -33,7 +33,7 @@ const LAYOUTS = Object.freeze({
     2: Object.freeze([['1a', 'ptcRepayment'], ['1z', 'ptcRepayment'], ['2', 'amt'], ['3', 'partI'], ['4', 'seTax'], ['5', 'earlyDistributionTax'], ['6', 'niit'], ['11', 'seAdditionalMedicare'], ['13c', 'hsaDistributionTax'], ['13d', 'hsaTestingTax'], ['14', 'otherAdditionalTaxes'], ['15', 'incomeTaxesPartII'], ['17b', 'wageAdditionalMedicare'], ['17d', 'wageAdditionalMedicare'], ['18', 'accountExciseTaxes'], ['20', 'employmentAndOtherTaxes'], ['21', 'total']]),
     3: Object.freeze(['1', '2', '3', '4', '5a', '8', '9', '11', '15'].map((key) => [key, key])),
     A: Object.freeze([['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['5a', '5a'], ['5b', '5b'], ['5c', '5c'], ['5d', '5d'], ['5e', '5e'], ['7', '7'], ['8a', '8a'], ['8b', '8b'], ['8d', '8d'], ['8e', '8e'], ['10', '10'], ['11', '11'], ['12', '12'], ['13', '14'], ['15', '14'], ['17z', '16'], ['18', '17']]),
-    8959: Object.freeze([['1', '1'], ['5', '5'], ['6', '6'], ['7', '7'], ['12', '7'], ['13', '8'], ['14', '5'], ['18', '13'], ['19', '19'], ['20', '20'], ['21', '21'], ['22', '22'], ['24', '24']]),
+    8959: Object.freeze([['1', '1'], ['4', '4'], ['5', '5'], ['6', '6'], ['7', '7'], ['12', '7'], ['13', '8'], ['14', '5'], ['16', '11'], ['17', '12'], ['18', '13'], ['19', '19'], ['20', '20'], ['21', '21'], ['22', '22'], ['24', '24']]),
   }),
 });
 

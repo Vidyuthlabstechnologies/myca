@@ -531,7 +531,7 @@ export function computeForm1040(input = {}, taxYearArg) {
   const seTax = sum(seByOwner, (item) => item.tax);
   const seDeduction = sum(seByOwner, (item) => item.deduction);
 
-  const careProviders = formsOf(input, '2441-PROVIDER').map((form) => ({ name: form.payer || '', tin: form.payerTin || '', address: String(form.fields?.providerAddress || ''), householdEmployee: Boolean(form.fields?.householdEmployee), amount: field(form, 'amountPaid'), qualifyingPerson: form.fields?.qualifyingPerson || '' }));
+  const careProviders = formsOf(input, '2441-PROVIDER').map((form) => ({ name: form.payer || '', tin: form.payerTin || '', ssn: String(form.fields?.providerSsn || ''), address: String(form.fields?.providerAddress || ''), city: String(form.fields?.providerCity || ''), state: String(form.fields?.providerState || ''), zip: String(form.fields?.providerZip || ''), householdEmployee: Boolean(form.fields?.householdEmployee), amount: field(form, 'amountPaid'), qualifyingPerson: form.fields?.qualifyingPerson || '' }));
   const carePlanLimit = careExclusionRule ? fromCents(careExclusionRule.maxCents) : Infinity;
   const careBenefitsBy = (owner) => sum(w2s.filter((form) => ownerOf(form) === owner), (form) => Math.min(field(form, 'dependentCareBenefits'), carePlanLimit));
   const careBenefitsReceived = sum(owners, careBenefitsBy);
@@ -855,7 +855,7 @@ export function computeForm1040(input = {}, taxYearArg) {
   if (hasCare) {
     for (const problem of careQualifying.problems) checks.push(check(problem.level, problem.code, problem.message, problem.code === 'CARE_PERSON_UNKNOWN' ? 'Use the first name of a dependent on the About you step, or "spouse".' : '', '2441'));
     for (const provider of careQualifying.providers) {
-      if (!provider.tin) checks.push(check('warning', 'CARE_PROVIDER_TIN_MISSING', `${provider.name || 'A care provider'} has no identifying number. Form 2441 line 1 needs the provider's EIN, or an individual's SSN, and the credit can be disallowed without it unless you show due diligence (Form W-10).`, 'Add the EIN, or ask your CPA to enter an individual\'s SSN when filing.', '2441'));
+      if (!provider.tin && !provider.ssn) checks.push(check('warning', 'CARE_PROVIDER_TIN_MISSING', `${provider.name || 'A care provider'} has no identifying number. Form 2441 line 1 needs the provider's EIN, or an individual's SSN, and the credit can be disallowed without it unless you show due diligence (Form W-10).`, 'Add the provider\'s EIN, or an individual provider\'s SSN, on the care provider form.', '2441'));
       if (provider.householdEmployee) checks.push(check('warning', 'CARE_HOUSEHOLD_EMPLOYEE', `${provider.name || 'A care provider'} was your household employee, so you may owe employment taxes on Schedule H, which MyCA does not prepare.`, 'Ask your CPA about Schedule H.', '2441'));
     }
     let creditBlocked = '';
@@ -871,9 +871,10 @@ export function computeForm1040(input = {}, taxYearArg) {
   }
 
   const educationRows = [];
+  const studentFacts = (student) => ({ ...(student.institution ? { institution: student.institution } : {}), questions: { 23: Number(student.aotcPriorYears || 0) >= education.aotcMaxYears, 24: student.halfTime ?? student.credit !== 'llc', 25: Boolean(student.firstFourYearsCompleted), 26: Boolean(student.felonyDrugConviction) } });
   let aotcTotal = 0;
   let llcExpenses = 0;
-  const students = Array.isArray(answers.education) && answers.education.length ? answers.education : formsOf(input, '1098-T').map((form) => ({ student: form.fields?.studentName || form.payer || 'Student', credit: form.fields?.atLeastHalfTime ? 'aotc' : 'llc', expenses: Math.max(0, field(form, 'tuitionPaid') - field(form, 'scholarships')), aotcPriorYears: form.fields?.aotcClaimedFourYears ? education.aotcMaxYears : 0, firstFourYearsCompleted: form.fields?.firstFourYearsCompleted ?? form.fields?.graduate, felonyDrugConviction: form.fields?.felonyDrugConviction }));
+  const students = Array.isArray(answers.education) && answers.education.length ? answers.education : formsOf(input, '1098-T').map((form) => ({ student: form.fields?.studentName || form.payer || 'Student', credit: form.fields?.atLeastHalfTime ? 'aotc' : 'llc', expenses: Math.max(0, field(form, 'tuitionPaid') - field(form, 'scholarships')), aotcPriorYears: form.fields?.aotcClaimedFourYears ? education.aotcMaxYears : 0, firstFourYearsCompleted: form.fields?.firstFourYearsCompleted ?? form.fields?.graduate, felonyDrugConviction: form.fields?.felonyDrugConviction, halfTime: Boolean(form.fields?.atLeastHalfTime), institution: { name: form.payer || '', ein: form.payerTin || '', line1: String(form.fields?.schoolAddress || ''), city: String(form.fields?.schoolCity || ''), state: String(form.fields?.schoolState || ''), zip: String(form.fields?.schoolZip || ''), priorYear1098T: form.fields?.priorYear1098T } }));
   if (students.length && status === 'mfs') checks.push(check('warning', 'EDUCATION_MFS', 'Education credits are not allowed on a separate return.', ''));
   else if (students.length && tp.canBeClaimedAsDependent) checks.push(check('warning', 'EDUCATION_DEPENDENT', 'Someone who can be claimed as a dependent cannot take an education credit; the person claiming them takes it.', ''));
   else {
@@ -888,10 +889,13 @@ export function computeForm1040(input = {}, taxYearArg) {
         const quarter = fromCents(education.aotcQuarterCents);
         const credit = Math.min(expenses, full) + Math.round(Math.min(Math.max(0, expenses - full), quarter) / 4);
         aotcTotal += credit;
-        educationRows.push({ student: String(student.student || ''), credit: 'aotc', expenses, tentative: credit });
+        const line27 = Math.min(expenses, full + quarter);
+        const line28 = Math.max(0, line27 - full);
+        const line29 = Math.round(line28 / 4);
+        educationRows.push({ student: String(student.student || ''), credit: 'aotc', expenses, tentative: credit, ...studentFacts(student), lines: { 27: line27, 28: line28, 29: line29, 30: line28 ? full + line29 : line27 } });
       } else {
         llcExpenses += expenses;
-        educationRows.push({ student: String(student.student || ''), credit: 'llc', expenses, tentative: 0 });
+        educationRows.push({ student: String(student.student || ''), credit: 'llc', expenses, tentative: 0, ...studentFacts(student), lines: { 31: expenses } });
       }
     }
   }
@@ -905,7 +909,9 @@ export function computeForm1040(input = {}, taxYearArg) {
   const llcAfter = Math.round(llcTentative * educationFraction);
   const educationNonrefundableTentative = aotcAfter - aotcRefundable + llcAfter;
   const educationCredit = Math.min(educationNonrefundableTentative, Math.max(0, line18 - foreignCredit - careCredit));
-  const form8863 = students.length && educationRows.length ? { students: educationRows, 1: aotcTotal, 7: aotcAfter, line7Under24: aotcRefundableBlocked, 8: aotcRefundable, 9: aotcAfter - aotcRefundable, 10: llcExpenses, 12: llcTentative, 18: llcAfter + aotcAfter - aotcRefundable, 19: educationCredit, phaseOutFraction: educationFraction } : null;
+  const educationRange = jointOr(education.phaseOutCents, status);
+  const phaseOutLines = (first) => ({ [first]: fromCents(educationRange.to), [first + 1]: magi, [first + 2]: Math.max(0, fromCents(educationRange.to) - magi), [first + 3]: fromCents(educationRange.to - educationRange.from), [first + 4]: educationFraction });
+  const form8863 = students.length && educationRows.length ? { students: educationRows, 1: aotcTotal, ...(aotcTotal > 0 ? phaseOutLines(2) : {}), 7: aotcAfter, line7Under24: aotcRefundableBlocked, 8: aotcRefundable, 9: aotcAfter - aotcRefundable, 10: llcExpenses, ...(llcExpenses > 0 ? { 11: Math.min(llcExpenses, fromCents(education.llcExpenseCapCents)) } : {}), 12: llcTentative, ...(llcTentative > 0 ? phaseOutLines(13) : {}), 18: llcAfter, 19: educationCredit, phaseOutFraction: educationFraction } : null;
 
   const ctcBase = ctcChildren * fromCents(ctc.perChildCents) + otherDependents * fromCents(ctc.otherDependentCents);
   const ctcStart = fromCents(jointOr({ mfj: ctc.phaseOutStartCents.mfj, other: ctc.phaseOutStartCents.other }, status));
@@ -922,12 +928,12 @@ export function computeForm1040(input = {}, taxYearArg) {
   const seAdditional = ofBasis(Math.max(0, seEarnings - Math.max(0, amtThreshold - medicareWages)), addBp);
   const additionalMedicare = wageAdditional + seAdditional;
   const additionalWithheld = Math.max(0, medicareWithheld - ofBasis(medicareWages, medicare.employeeBasisPoints));
-  const form8959 = additionalMedicare > 0 || additionalWithheld > 0 ? { 1: medicareWages, 5: amtThreshold, 6: Math.max(0, medicareWages - amtThreshold), 7: wageAdditional, 8: seEarnings, 13: seAdditional, 18: additionalMedicare, 19: medicareWithheld, 20: medicareWages, 21: ofBasis(medicareWages, medicare.employeeBasisPoints), 22: additionalWithheld, 24: additionalWithheld } : null;
+  const form8959 = additionalMedicare > 0 || additionalWithheld > 0 ? { 1: medicareWages, 4: medicareWages, 5: amtThreshold, 6: Math.max(0, medicareWages - amtThreshold), 7: wageAdditional, 8: seEarnings, ...(seEarnings > 0 ? { 11: Math.max(0, amtThreshold - medicareWages), 12: Math.max(0, seEarnings - Math.max(0, amtThreshold - medicareWages)) } : {}), 13: seAdditional, 18: additionalMedicare, 19: medicareWithheld, 20: medicareWages, 21: ofBasis(medicareWages, medicare.employeeBasisPoints), 22: additionalWithheld, 24: additionalWithheld } : null;
 
   const netInvestmentIncome = Math.max(0, taxableInterest + ordinaryDividends + scheduleE.line26 + Math.max(capitalLine, d.has ? d.allowedLoss : 0) + positive(answers.otherNetInvestmentIncome));
   const niitThreshold = fromCents(niit.thresholdCents[status]);
   const niitTax = ofBasis(Math.min(netInvestmentIncome, Math.max(0, agi - niitThreshold)), niit.basisPoints);
-  const form8960 = niitTax > 0 ? { 1: taxableInterest, 2: ordinaryDividends, ...(scheduleE.has ? { '4a': scheduleE.line26, '4c': scheduleE.line26 } : {}), '5a': capitalLine, 8: netInvestmentIncome, 12: netInvestmentIncome, 13: agi, 14: niitThreshold, 15: Math.max(0, agi - niitThreshold), 16: Math.min(netInvestmentIncome, Math.max(0, agi - niitThreshold)), 17: niitTax } : null;
+  const form8960 = niitTax > 0 ? { 1: taxableInterest, 2: ordinaryDividends, ...(scheduleE.has ? { '4a': scheduleE.line26, '4c': scheduleE.line26 } : {}), '5a': capitalLine, '5d': Math.max(capitalLine, d.has ? d.allowedLoss : 0), ...(positive(answers.otherNetInvestmentIncome) ? { 7: positive(answers.otherNetInvestmentIncome) } : {}), 8: netInvestmentIncome, 12: netInvestmentIncome, 13: agi, 14: niitThreshold, 15: Math.max(0, agi - niitThreshold), 16: Math.min(netInvestmentIncome, Math.max(0, agi - niitThreshold)), 17: niitTax } : null;
 
   const earlyTax5329 = sum(forms5329, (item) => item.result.earlyTax);
   const otherAdditionalTaxes = hsa.distributionTax + hsa.testingPeriodTax;
@@ -1069,7 +1075,7 @@ export function computeForm1040(input = {}, taxYearArg) {
     ...(schedule1A.total > 0 ? { '1-A': stringKeys(layoutLines(taxYear, '1-A', schedule1A)) } : {}),
     ...(schedule2.total + schedule2.partI > 0 ? { 2: stringKeys(layoutLines(taxYear, 2, schedule2)) } : {}),
     ...(schedule3[8] + schedule3[15] > 0 ? { 3: stringKeys(layoutLines(taxYear, 3, schedule3)) } : {}),
-    ...(itemize ? { A: { ...stringKeys(layoutLines(taxYear, 'A', String(taxYear) >= '2026' && scheduleA.afterSection68 !== undefined ? { ...scheduleA, 17: scheduleA.afterSection68 } : scheduleA)), ...(scheduleA.section68Reduction ? { section68Reduction: scheduleA.section68Reduction, afterSection68: scheduleA.afterSection68 } : {}) } } : {}),
+    ...(itemize ? { A: { ...(useSalesTax ? { salesTax: true } : {}), ...stringKeys(layoutLines(taxYear, 'A', String(taxYear) >= '2026' && scheduleA.afterSection68 !== undefined ? { ...scheduleA, 17: scheduleA.afterSection68 } : scheduleA)), ...(scheduleA.section68Reduction ? { section68Reduction: scheduleA.section68Reduction, afterSection68: scheduleA.afterSection68 } : {}) } } : {}),
     ...(taxableInterest > 1500 || ordinaryDividends > 1500 ? { B: { interest: ints.map((form) => ({ payer: form.payer || '', amount: field(form, 'interest') + field(form, 'treasuryInterest') })), dividends: divs.map((form) => ({ payer: form.payer || '', amount: field(form, 'ordinaryDividends') })), 4: taxableInterest, 6: ordinaryDividends, ...(typeof answers.foreignAccounts === 'boolean' ? { foreignAccounts: answers.foreignAccounts } : {}), ...(typeof answers.foreignTrust === 'boolean' ? { foreignTrust: answers.foreignTrust } : {}) } } : {}),
     ...(businesses.length ? { C: businesses.map((item) => ({ id: item.id, name: item.name, owner: item.owner, source: item.source, lines: stringKeys(item.lines), expenses: item.expenses })) } : {}),
     ...(d.has ? { D: { ...stringKeys(d.lines), carryoverToNextYear: carryover, ...(typeof answers.qofDisposition === 'boolean' ? { qofDisposition: answers.qofDisposition } : {}) }, 8949: d.transactions.map(({ formId, ...row }) => row) } : {}),
