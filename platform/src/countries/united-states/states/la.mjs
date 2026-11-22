@@ -218,7 +218,7 @@ function nonresidentReturn(ctx, filing, rules, checks) {
     if (n !== 8) npr[`${n}.louisiana`] = louisiana[n];
   }
   Object.assign(npr, { '10.federal': f10, '10.louisiana': l10, '11.federal': f11, '11.louisiana': l11, '12.federal': f12, '12.louisiana': l12, 13: npr13, 18: npr18, ...codes, 20: npr20, 21: npr21 });
-  const lines = lineTable({ 7: line7, 8: line8, 9: line9, 10: line10, '11A': fed['9A'], '11B': fed['9B'], '11C': fed['9C'], '11D': fed['9D'], '11E': line11E, 12: line12, 13: lineTax, 14: line14, 15: line15, 16: 0, 17: 0, 18: 0, 19: line19, 20: line20, 21: 0, 22: line22, 23: line23, '24A': line24A, '24B': 0, 25: line25, 28: filing.payments.withheld, 30: filing.payments.estimated, 31: filing.payments.extension });
+  const lines = lineTable({ 7: line7, 8: line8, 9: line9, 10: line10, '11A': fed['9A'], '11B': fed['9B'], '11C': fed['9C'], '11D': fed['9D'], '11E': line11E, 12: line12, 13: lineTax, 14: line14, 15: line15, 16: 0, 17: 0, 18: 0, 19: line19, 20: line20, 21: 0, 22: line22, 23: line23, '24A': line24A, '24B': 0, 25: line25, 28: filing.payments.withheld, 31: filing.payments.estimated, 32: filing.payments.extension });
   return {
     form: 'IT-540B',
     lines,
@@ -300,8 +300,8 @@ const IT540B_LABELS = Object.freeze({
   '24B': 'Electric and hybrid vehicle road usage fee',
   25: 'Total income tax, consumer use tax and road usage fee',
   28: 'Louisiana tax withheld',
-  30: 'Estimated payments',
-  31: 'Extension payment',
+  31: 'Estimated payments',
+  32: 'Extension payment',
 });
 
 const louisianaLabels = (taxYear, residency, form) => (form === 'IT-540B' ? IT540B_LABELS : IT540_LABELS);
