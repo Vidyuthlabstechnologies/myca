@@ -21,7 +21,7 @@ import { planLocalToolCall, validateAssistantToolCall } from './assistant-contra
 import { validateAppToolCall } from './assistant-tools.mjs';
 import { OFFLINE_TOOLS, offlineWords } from './offline-sales.mjs';
 import { imsWords, imsDecidedWords } from './ims.mjs';
-import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply, rowsCounted } from './chat-confirm.mjs';
+import { needsConfirmation, proposable, previewOf, openPending, takePending, clearPending, previewReply, blockedReply, rowsCounted } from './chat-confirm.mjs';
 import { referenceImportContent, resolveImportContent } from './import-documents.mjs';
 import { openPendingArgs } from './us-efile.mjs';
 import { spoken } from './words.mjs';
@@ -1116,7 +1116,7 @@ function holdForConfirmation(state, plan, validate = validateAssistantToolCall) 
 // A form on the phone already knows the tool and its arguments, so it skips the
 // text parser but not the preview: the same token must come back before anything posts.
 function proposeCore(state, name, args = {}) {
-  if (!needsConfirmation(name)) {
+  if (!proposable(name)) {
     return { reply: `${String(name)} is not an action that is previewed.`, tools: [], posted: false, blocked: true, error: 'NOT_PROPOSABLE' };
   }
   return holdForConfirmation(state, { name, args: args && typeof args === 'object' ? args : {} }, validateAppToolCall);

@@ -156,3 +156,24 @@ export function reportWords(name, r, money) {
   if (!r.rows.length) lines.push('Nothing in that period.');
   return lines.join('\n');
 }
+
+const SAVE_REFUSALS = { NAME_REQUIRED: 'Give the report a name.', BAD_METRIC: `Say what the report is of: ${REPORT_METRICS.join(', ')}.`, BAD_GROUP: `Group it by ${REPORT_GROUPS.join(', ')}.`, BAD_PERIOD: `Say the period: ${REPORT_PERIODS.join(', ')} or a month such as 2026-10.`, TOO_MANY_REPORTS: `You can keep up to ${MAX_REPORTS} saved reports; delete one first.` };
+
+export function saveReportPreview(state, args = {}) {
+  const planned = planSaveReport(state, args);
+  if (!planned.ok) return { blockers: [SAVE_REFUSALS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  const { plan } = planned;
+  const what = `${METRIC_WORDS[plan.spec.metric]} ${GROUP_WORDS[plan.spec.groupBy]} ${plan.spec.period}${plan.spec.compare ? ', compared with the period before' : ''}`.replace(/\s+/g, ' ').trim();
+  return {
+    blockers: [],
+    summary: `${plan.replaces ? 'Replace' : 'Save'} the report "${plan.name}": ${what}.`,
+    effects: ['Only the report definition is saved; the books are untouched.'],
+    figures: {},
+  };
+}
+
+export function deleteReportPreview(state, args = {}) {
+  const found = savedReportSpec(state, args.name);
+  if (!found.ok) return { blockers: [`There is no saved report called ${String(args.name || '').trim() || 'that'}.`], summary: '', effects: [], figures: {} };
+  return { blockers: [], summary: `Delete the saved report "${found.name}".`, effects: ['Only the report definition is removed; the books are untouched.'], figures: {} };
+}

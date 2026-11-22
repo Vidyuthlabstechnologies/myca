@@ -26,6 +26,7 @@ import { documentStockPlan, withItemUnits } from './document-stock.mjs';
 import { checkConvert, invoiceArgsFromQuote } from './quotes.mjs';
 
 import { offlineDevicePreview, offlineSalesPreview } from './offline-sales.mjs';
+import { saveReportPreview, deleteReportPreview } from './reports.mjs';
 
 export { TDS_REASONS, rowsCounted } from './confirm-tax.mjs';
 
@@ -68,6 +69,8 @@ function countSkips(skipped = []) {
 }
 
 const PREVIEWERS = {
+  save_report: saveReportPreview,
+  delete_report: deleteReportPreview,
   sign_us_return: signPreview,
   file_us_return: filePreview,
   import_payroll_tax_forms: importPayrollTaxFormsPreview,
@@ -204,6 +207,12 @@ export function restoredConfirmation(raw) {
 
 export function needsConfirmation(name) {
   return CONFIRM_TOOLS.has(name);
+}
+
+export const FORM_PREVIEW_TOOLS = new Set(['save_report', 'delete_report']);
+
+export function proposable(name) {
+  return CONFIRM_TOOLS.has(name) || FORM_PREVIEW_TOOLS.has(name);
 }
 
 export function previewOf(state, name, args = {}) {
