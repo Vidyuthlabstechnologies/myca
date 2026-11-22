@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 test('Montana resident single: federal taxable income is the start and 4.7% / 5.9% applies above $21,100', async () => {
   const state = await household({ state: 'MT', forms: [w2(50000, { state: 'MT', stateWithheld: 2000 })] });
@@ -136,4 +137,21 @@ test('Montana 2026: House Bill 337 widens the 4.7% bracket to $47,500 and double
   assert.equal(mt.lines['7'], 43900);
   assert.equal(mt.lines['8'], 2063);
   assert.equal(mt.provisional, false);
+});
+
+test('Montana labels every line of a resident Form 2', async () => {
+  const state = await household({ state: 'MT', forms: [w2(60000, { state: 'MT', stateWithheld: 2000 })] });
+  await residency(state, '2025', [{ state: 'MT', residency: 'full-year' }]);
+  const mt = await stateReturn(state, '2025', 'MT');
+  for (const key of Object.keys(mt.lines)) assert.ok(typeof mt.labels[key] === 'string' && mt.labels[key].length > 0, key);
+});
+
+test('Montana asks the elderly homeowner/renter credit questions only of a filer 60 or over', async () => {
+  const ids = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'MT' })).data.states[0].questions.map((item) => item.id);
+  const young = await household({ state: 'MT', forms: [w2(60000, { state: 'MT' })] });
+  const first = await ids(young);
+  assert.equal(first.includes('mtRentPaid'), false);
+  assert.equal(first.includes('railroadTier2'), false);
+  const senior = await household({ state: 'MT', dateOfBirth: '1958-03-01', forms: [w2(20000, { state: 'MT' })] });
+  assert.ok((await ids(senior)).includes('mtRentPaid'));
 });

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const spouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1984-06-01' };
 const olderSpouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1952-06-01' };
@@ -151,4 +152,25 @@ test('Louisiana 2026: inflation-adjusted standard deduction of $12,875 published
   assert.equal(la.due, '2027-05-15');
   assert.equal(la.provisional, false);
   assert.deepEqual(la.missingRules, []);
+});
+
+test('Louisiana labels every line of a resident Form IT-540', async () => {
+  const state = await household({ state: 'LA', forms: [w2(60000, { state: 'LA', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'LA', residency: 'full-year' }]);
+  const la = await stateReturn(state, '2025', 'LA');
+  for (const key of Object.keys(la.lines)) assert.ok(typeof la.labels[key] === 'string' && la.labels[key].length > 0, key);
+});
+
+test('Louisiana asks the exempt retirement questions only when there is retirement income, and the START count only after START contributions', async () => {
+  const plain = await household({ state: 'LA', forms: [w2(60000, { state: 'LA' })] });
+  const ids = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'LA' })).data.states[0].questions.map((item) => item.id);
+  const first = await ids(plain);
+  assert.equal(first.includes('teacherRetirement'), false);
+  assert.equal(first.includes('spouseExemptRetirement'), false);
+  assert.equal(first.includes('startBeneficiaries'), false);
+  assert.equal(first.includes('louisianaRentalIncome'), false);
+  await runTool(plain, 'set_us_state_answers', { taxYear: '2025', state: 'LA', answers: { startContributions: 1000 } });
+  assert.ok((await ids(plain)).includes('startBeneficiaries'));
+  const retired = await household({ state: 'LA', forms: [w2(20000, { state: 'LA' }), { kind: '1099-R', fields: { grossDistribution: 20000, taxableAmount: 20000 } }] });
+  assert.ok((await ids(retired)).includes('teacherRetirement'));
 });

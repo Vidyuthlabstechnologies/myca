@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const SPOUSE = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1986-06-01' };
 const KID = { firstName: 'Leo', lastName: 'Diaz', ssn: '400-12-9876', relationship: 'son', dateOfBirth: '2018-02-02', months: 12 };
@@ -86,4 +87,22 @@ test('North Dakota resident with Wisconsin wages: Schedule ND-1CR limits the cre
   assert.equal(nd.lines['20'], 308);
   assert.equal(nd.lines['21'], 116);
   assert.equal(nd.lines['25'], 192);
+});
+
+test('North Dakota labels every line of a resident Form ND-1', async () => {
+  const state = await household({ state: 'ND', forms: [w2(60000, { state: 'ND', stateWithheld: 800 })] });
+  await residency(state, '2025', [{ state: 'ND', residency: 'full-year' }]);
+  const nd = await stateReturn(state, '2025', 'ND');
+  for (const key of Object.keys(nd.lines)) assert.ok(typeof nd.labels[key] === 'string' && nd.labels[key].length > 0, key);
+});
+
+test('North Dakota asks the spouse railroad question only when there is a spouse on the return', async () => {
+  const ids = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'ND' })).data.states[0].questions.map((item) => item.id);
+  const single = await household({ state: 'ND', forms: [w2(60000, { state: 'ND' })] });
+  const first = await ids(single);
+  assert.equal(first.includes('spouseRailroadRetirement'), false);
+  assert.equal(first.includes('militaryRetirement'), false);
+  assert.ok(first.includes('railroadRetirement'));
+  const couple = await household({ state: 'ND', filingStatus: 'mfj', spouse: { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1984-06-01' }, forms: [w2(60000, { state: 'ND' })] });
+  assert.ok((await ids(couple)).includes('spouseRailroadRetirement'));
 });

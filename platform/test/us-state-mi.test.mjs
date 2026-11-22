@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 import { STATE } from '../src/countries/united-states/states/mi.mjs';
 
 const spouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1984-01-01' };
@@ -175,4 +176,27 @@ test('Michigan asks for the school district code and lists city income taxes as 
   assert.ok(STATE.questions.some((item) => item.id === 'schoolDistrictCode'));
   assert.ok(STATE.questions.some((item) => item.id === 'rentPaid'));
   assert.ok(STATE.notCovered.some((item) => /City income taxes/.test(item)));
+});
+
+test('Michigan labels every line of a resident Form MI-1040', async () => {
+  const state = await household({ state: 'MI', forms: [w2(60000, { state: 'MI', stateWithheld: 2500 })] });
+  await residency(state, '2025', [{ state: 'MI', residency: 'full-year', answers: { schoolDistrictCode: '82010' } }]);
+  const mi = await stateReturn(state, '2025', 'MI');
+  for (const key of Object.keys(mi.lines)) assert.ok(typeof mi.labels[key] === 'string' && mi.labels[key].length > 0, key);
+});
+
+test('Michigan asks the homestead credit questions only of full-year residents and the taxable value only after property taxes', async () => {
+  const ids = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'MI' })).data.states[0].questions.map((item) => item.id);
+  const state = await household({ state: 'MI', forms: [w2(60000, { state: 'MI' })] });
+  const first = await ids(state);
+  assert.ok(first.includes('homesteadPropertyTaxes'));
+  assert.equal(first.includes('homesteadTaxableValue'), false);
+  assert.equal(first.includes('michiganTipsAndOvertime'), false);
+  assert.equal(first.includes('nonqualifyingRetirement'), false);
+  await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'MI', answers: { homesteadPropertyTaxes: 3200 } });
+  assert.ok((await ids(state)).includes('homesteadTaxableValue'));
+  await residency(state, '2025', [{ state: 'OH', residency: 'full-year' }, { state: 'MI', residency: 'nonresident' }]);
+  const nonresident = await ids(state);
+  assert.equal(nonresident.includes('homesteadPropertyTaxes'), false);
+  assert.ok(nonresident.includes('michiganTipsAndOvertime'));
 });

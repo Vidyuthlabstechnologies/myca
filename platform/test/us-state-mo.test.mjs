@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 import { chartTax, missouriPercent } from '../src/countries/united-states/states/mo.mjs';
 import { stateRuleReader } from '../src/countries/united-states/state-kit.mjs';
 
@@ -141,4 +142,25 @@ test('Missouri 2026: brackets indexed to $1,348 from the 2026 withholding formul
   assert.equal(r.lines['30Y'], 1478);
   assert.equal(r.refund, 322);
   assert.equal(r.provisional, true);
+});
+
+test('Missouri labels every line of a resident Form MO-1040, in both columns of a combined return', async () => {
+  const couple = await household({ state: 'MO', filingStatus: 'mfj', spouse: { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1984-06-01' }, forms: [w2(50000, { state: 'MO', stateWithheld: 1500 }), w2(40000, { state: 'MO', owner: 'spouse' })] });
+  await residency(couple, '2025', [{ state: 'MO', residency: 'full-year' }]);
+  const mo = await stateReturn(couple, '2025', 'MO');
+  assert.ok('5S' in mo.lines);
+  for (const key of Object.keys(mo.lines)) assert.ok(typeof mo.labels[key] === 'string' && mo.labels[key].length > 0, key);
+});
+
+test('Missouri asks the spouse questions only on a joint return and the other state income only after the other state tax', async () => {
+  const ids = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'MO' })).data.states[0].questions.map((item) => item.id);
+  const single = await household({ state: 'MO', forms: [w2(60000, { state: 'MO' })] });
+  const first = await ids(single);
+  assert.equal(first.includes('spouseOtherIncome'), false);
+  assert.equal(first.includes('otherStateIncome'), false);
+  assert.equal(first.includes('publicPension'), false);
+  await runTool(single, 'set_us_state_answers', { taxYear: '2025', state: 'MO', answers: { otherStateTax: 400 } });
+  assert.ok((await ids(single)).includes('otherStateIncome'));
+  const couple = await household({ state: 'MO', filingStatus: 'mfj', spouse: { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1984-06-01' }, forms: [w2(60000, { state: 'MO' })] });
+  assert.ok((await ids(couple)).includes('spouseOtherIncome'));
 });

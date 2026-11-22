@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 import { fivePercentTableTax } from '../src/countries/united-states/states/ma.mjs';
 
 const codes = (item) => (item.checks || []).map((entry) => `${entry.level}:${entry.code}`);
@@ -121,4 +122,28 @@ test('Massachusetts Schedule OJC credit for tax paid to Connecticut', async () =
   lines(ma, { 17: 98000, 19: 93600, 22: 4680, 28: 4680, 30: 2340, 32: 2340 });
   assert.deepEqual(ma.schedules.OJC, { columns: [{ 1: 50000, 2: 100000, 3: 0.5, 4: 4680, 5: 0, 6: 4680, 7: 2340, 8: 2488, 9: 2340, state: 'CT' }], total: 2340 });
   assert.deepEqual(codes(ma), ['info:MA_SCHEDULE_OJC', 'info:MA_SCHEDULE_HC_DETAILS']);
+});
+
+test('Massachusetts labels every line of a resident Form 1', async () => {
+  const state = await household({ state: 'MA', forms: [w2(60000, { state: 'MA', stateWithheld: 2500 })] });
+  await residency(state, '2025', [{ state: 'MA', residency: 'full-year' }]);
+  const ma = await stateReturn(state, '2025', 'MA');
+  for (const key of Object.keys(ma.lines)) assert.ok(typeof ma.labels[key] === 'string' && ma.labels[key].length > 0, key);
+});
+
+test('Massachusetts asks the Senior Circuit Breaker questions only of a filer 65 or over, and the homeowner ones only after owner is chosen', async () => {
+  const ids = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'MA' })).data.states[0].questions.map((item) => item.id);
+  const young = await household({ state: 'MA', forms: [w2(60000, { state: 'MA' })] });
+  const first = await ids(young);
+  assert.equal(first.includes('circuitBreakerHousing'), false);
+  assert.equal(first.includes('spouseCommuterCosts'), false);
+  assert.equal(first.includes('exemptPension'), false);
+  const senior = await household({ state: 'MA', dateOfBirth: '1955-03-01', forms: [w2(30000, { state: 'MA' })] });
+  const before = await ids(senior);
+  assert.ok(before.includes('circuitBreakerHousing'));
+  assert.equal(before.includes('circuitBreakerAssessedValue'), false);
+  await runTool(senior, 'set_us_state_answers', { taxYear: '2025', state: 'MA', answers: { circuitBreakerHousing: 'owner' } });
+  const after = await ids(senior);
+  assert.ok(after.includes('circuitBreakerAssessedValue'));
+  assert.equal(after.includes('circuitBreakerRentSubsidy'), false);
 });

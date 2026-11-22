@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const spouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1986-06-01' };
 const kids = [
@@ -183,4 +184,26 @@ test('Maine 2026: published rates and the 2% surcharge above $1,000,000, with pr
   assert.equal(me.schedules.phaseout.surcharge, 4000);
   assert.equal(me.lines['20'], 85280 + 4000);
   assert.equal(me.provisional, true);
+});
+
+test('Maine labels every line of a resident Form 1040ME', async () => {
+  const state = await household({ state: 'ME', forms: [w2(60000, { state: 'ME', stateWithheld: 2500 })] });
+  await residency(state, '2025', [{ state: 'ME', residency: 'full-year' }]);
+  const me = await stateReturn(state, '2025', 'ME');
+  for (const key of Object.keys(me.lines)) assert.ok(typeof me.labels[key] === 'string' && me.labels[key].length > 0, key);
+});
+
+test('Maine asks the Schedule NRH questions only on a joint return, and the utilities amount only when rent included utilities', async () => {
+  const ids = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'ME' })).data.states[0].questions.map((item) => item.id);
+  const single = await household({ state: 'ME', forms: [w2(60000, { state: 'ME' })] });
+  const first = await ids(single);
+  assert.equal(first.includes('nrhElectSingle'), false);
+  assert.equal(first.includes('utilitiesInRent'), false);
+  assert.ok(first.includes('rentIncludesUtilities'));
+  await runTool(single, 'set_us_state_answers', { taxYear: '2025', state: 'ME', answers: { rentPaid: 9000, rentIncludesUtilities: true } });
+  assert.ok((await ids(single)).includes('utilitiesInRent'));
+  const couple = await household({ state: 'ME', filingStatus: 'mfj', spouse: { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1984-06-01' }, forms: [w2(60000, { state: 'ME' })] });
+  const married = await ids(couple);
+  assert.ok(married.includes('nrhElectSingle'));
+  assert.equal(married.includes('nrhFiler'), false);
 });

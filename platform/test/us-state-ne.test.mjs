@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const spouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1986-06-01' };
 const kids = [
@@ -130,4 +131,23 @@ test('Nebraska 2026: the published schedule with the third and fourth brackets b
   assert.equal(ne.lines['35'], 1395);
   assert.equal(ne.refund, 105);
   assert.equal(ne.provisional, false);
+});
+
+test('Nebraska labels every line of a resident Form 1040N', async () => {
+  const state = await household({ state: 'NE', forms: [w2(60000, { state: 'NE', stateWithheld: 2000 })] });
+  await residency(state, '2025', [{ state: 'NE', residency: 'full-year' }]);
+  const ne = await stateReturn(state, '2025', 'NE');
+  for (const key of Object.keys(ne.lines)) assert.ok(typeof ne.labels[key] === 'string' && ne.labels[key].length > 0, key);
+});
+
+test('Nebraska asks the school district only of residents and the bond interest only when there is tax-exempt interest', async () => {
+  const ids = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'NE' })).data.states[0].questions.map((item) => item.id);
+  const plain = await household({ state: 'NE', forms: [w2(60000, { state: 'NE' })] });
+  const first = await ids(plain);
+  assert.ok(first.includes('highSchoolDistrictCode'));
+  assert.equal(first.includes('nebraskaBondInterest'), false);
+  await residency(plain, '2025', [{ state: 'IA', residency: 'full-year' }, { state: 'NE', residency: 'nonresident' }]);
+  assert.equal((await ids(plain)).includes('highSchoolDistrictCode'), false);
+  const saver = await household({ state: 'NE', forms: [w2(60000, { state: 'NE' }), { kind: '1099-INT', fields: { interest: 100, taxExemptInterest: 800 } }] });
+  assert.ok((await ids(saver)).includes('nebraskaBondInterest'));
 });

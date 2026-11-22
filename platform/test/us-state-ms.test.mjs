@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const spouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1986-06-01' };
 const kids = [
@@ -124,4 +125,23 @@ test('Mississippi 2026: the 4.0% rate set by HB 531 is final and only the Schedu
   assert.equal(ms.refund, 232);
   assert.equal(ms.provisional, true);
   assert.ok(ms.rulesUsed.includes('us.state-return.ms.income-tax@2026-01-01'));
+});
+
+test('Mississippi labels every line of a resident Form 80-105', async () => {
+  const state = await household({ state: 'MS', forms: [w2(60000, { state: 'MS', stateWithheld: 2000 })] });
+  await residency(state, '2025', [{ state: 'MS', residency: 'full-year' }]);
+  const ms = await stateReturn(state, '2025', 'MS');
+  for (const key of Object.keys(ms.lines)) assert.ok(typeof ms.labels[key] === 'string' && ms.labels[key].length > 0, key);
+});
+
+test('Mississippi asks the spouse National Guard question only on a joint return and the other state income only of residents', async () => {
+  const ids = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'MS' })).data.states[0].questions.map((item) => item.id);
+  const single = await household({ state: 'MS', forms: [w2(60000, { state: 'MS' })] });
+  const first = await ids(single);
+  assert.equal(first.includes('spouseNationalGuardPay'), false);
+  assert.ok(first.includes('otherStateTaxableIncome'));
+  await residency(single, '2025', [{ state: 'AL', residency: 'full-year' }, { state: 'MS', residency: 'nonresident' }]);
+  assert.equal((await ids(single)).includes('otherStateTaxableIncome'), false);
+  const couple = await household({ state: 'MS', filingStatus: 'mfj', spouse: { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1984-06-01' }, forms: [w2(60000, { state: 'MS' })] });
+  assert.ok((await ids(couple)).includes('spouseNationalGuardPay'));
 });

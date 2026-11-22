@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 import { STATE, njTax } from '../src/countries/united-states/states/nj.mjs';
 import { RULES } from '../../sprints/statutory-rules/src/rules/us-state/nj.mjs';
 
@@ -210,4 +211,27 @@ test('New Jersey: property tax on Form 1098 feeds the property tax deduction whe
   const nj = await stateReturn(state, '2025', 'NJ');
   assert.equal(nj.lines['40a'], 5000);
   assert.ok(codes(nj).includes('NJ_PROPERTY_TAX_FROM_1098'));
+});
+
+test('New Jersey labels every line of a resident Form NJ-1040', async () => {
+  const state = await household({ state: 'NJ', forms: [w2(60000, { state: 'NJ', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'NJ', residency: 'full-year' }]);
+  const nj = await stateReturn(state, '2025', 'NJ');
+  for (const key of Object.keys(nj.lines)) assert.ok(typeof nj.labels[key] === 'string' && nj.labels[key].length > 0, key);
+});
+
+test('New Jersey asks the uncovered months only after someone lacked coverage, and the New Jersey-source questions only of nonresidents', async () => {
+  const ids = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'NJ' })).data.states[0].questions.map((item) => item.id);
+  const state = await household({ state: 'NJ', forms: [w2(60000, { state: 'NJ' })] });
+  const first = await ids(state);
+  assert.ok(first.includes('njHealthCoverage'));
+  assert.equal(first.includes('njUncoveredAdultMonths'), false);
+  assert.equal(first.includes('njSpouseVeteran'), false);
+  assert.equal(first.includes('njSourceRentsRoyalties'), false);
+  await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'NJ', answers: { njHealthCoverage: 'not-everyone' } });
+  assert.ok((await ids(state)).includes('njUncoveredAdultMonths'));
+  await residency(state, '2025', [{ state: 'NY', residency: 'full-year' }, { state: 'NJ', residency: 'nonresident' }]);
+  const nonresident = await ids(state);
+  assert.ok(nonresident.includes('njSourceRentsRoyalties'));
+  assert.equal(nonresident.includes('njHealthCoverage'), false);
 });

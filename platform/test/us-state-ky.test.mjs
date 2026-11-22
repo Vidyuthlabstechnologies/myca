@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const kids = [{ firstName: 'Leo', lastName: 'Diaz', ssn: '400-12-9876', relationship: 'son', dateOfBirth: '2017-02-02', months: 12 }, { firstName: 'Mia', lastName: 'Diaz', ssn: '400-12-9877', relationship: 'daughter', dateOfBirth: '2020-05-05', months: 12 }];
 const spouse = (dateOfBirth = '1990-03-03') => ({ firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth });
@@ -97,4 +98,29 @@ test('Kentucky 2026: 3.5 percent rate under 2025 HB 1 and the $3,360 standard de
   assert.equal(r.lines['12'], 1702);
   assert.equal(r.refund, 98);
   assert.equal(r.provisional, true);
+});
+
+test('Kentucky labels every line of a resident Form 740, including both columns of a combined return', async () => {
+  const single = await household({ state: 'KY', forms: [w2(60000, { state: 'KY', stateWithheld: 2000 })] });
+  await residency(single, '2025', [{ state: 'KY', residency: 'full-year' }]);
+  const couple = await household({ state: 'KY', filingStatus: 'mfj', spouse: { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1984-06-01' }, forms: [w2(50000, { state: 'KY' }), w2(40000, { state: 'KY', owner: 'spouse' })] });
+  await residency(couple, '2025', [{ state: 'KY', residency: 'full-year' }]);
+  for (const ky of [await stateReturn(single, '2025', 'KY'), await stateReturn(couple, '2025', 'KY')]) {
+    for (const key of Object.keys(ky.lines)) assert.ok(typeof ky.labels[key] === 'string' && ky.labels[key].length > 0, key);
+  }
+});
+
+test('Kentucky asks the spouse and joint return questions only of a married couple, and the other state income only after the other state tax', async () => {
+  const single = await household({ state: 'KY', forms: [w2(60000, { state: 'KY' })] });
+  const ids = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'KY' })).data.states[0].questions.map((item) => item.id);
+  const first = await ids(single);
+  assert.equal(first.includes('spouseNationalGuard'), false);
+  assert.equal(first.includes('jointReturn'), false);
+  assert.equal(first.includes('otherStateIncome'), false);
+  await runTool(single, 'set_us_state_answers', { taxYear: '2025', state: 'KY', answers: { otherStateTax: 300 } });
+  assert.ok((await ids(single)).includes('otherStateIncome'));
+  const couple = await household({ state: 'KY', filingStatus: 'mfj', spouse: { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1984-06-01' }, forms: [w2(60000, { state: 'KY' })] });
+  const married = await ids(couple);
+  assert.ok(married.includes('spouseNationalGuard'));
+  assert.ok(married.includes('jointReturn'));
 });
