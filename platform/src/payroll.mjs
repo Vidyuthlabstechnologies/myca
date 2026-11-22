@@ -104,6 +104,14 @@ function fyMonths(fy) {
   return months;
 }
 
+function expectedGrossPaise(employee, month) {
+  const worked = daysWorked(employee, month);
+  const structure = salaryOn(employee, lastDay(month)) || salaryOn(employee, employee.joinedOn);
+  if (!structure || worked <= 0) return 0;
+  const fraction = worked / daysIn(month);
+  return structure.components.reduce((sum, item) => sum + Math.round(paise(item.amount) * fraction), 0);
+}
+
 function approvedRuns(state) {
   return Object.values(state.payrollRuns || {}).filter((run) => run && run.status === 'approved');
 }
@@ -121,10 +129,11 @@ function salaryTds(state, employee, period, grossPaise, used, unreviewed, notes)
     return sum + (employedIn(month) ? grossPaise : 0);
   }, 0);
   const tdsSoFar = earlier.reduce((sum, run) => sum + ((run.rows.find((row) => row.employeeId === employee.id)?.tdsPaise) || 0), 0);
-  const remaining = months.length - index;
   const lastDayOfMonth = lastDay(period);
-  const monthsLeftAfter = months.slice(index + 1).filter(employedIn).length;
-  const projected = paidSoFar + grossPaise + grossPaise * monthsLeftAfter;
+  const monthsAfter = months.slice(index + 1).filter(employedIn);
+  const monthsLeftAfter = monthsAfter.length;
+  const remaining = 1 + monthsLeftAfter;
+  const projected = paidSoFar + grossPaise + monthsAfter.reduce((sum, month) => sum + expectedGrossPaise(employee, month), 0);
   if (months.slice(0, index).some((month) => !runFor(month) && employedIn(month))) notes.add(`${employee.name}: earlier months of this year were not run in MyCA, so they are taken at this month's pay when estimating the year's salary for TDS.`);
   const regime = employee.taxRegime === 'old' ? 'old' : 'new';
   if (!employee.taxRegime) notes.add(`${employee.name}: no tax regime recorded, so the new regime (the default in law) is used for salary TDS.`);
@@ -132,7 +141,7 @@ function salaryTds(state, employee, period, grossPaise, used, unreviewed, notes)
   if (tax.error) return { error: tax.error, ruleId: tax.ruleId };
   used.push(`income-tax.${regime}-regime@${fy}`);
   const annual = tax.taxPayablePaise;
-  let monthly = Math.max(0, Math.round((annual - tdsSoFar) / Math.max(1, remaining - 0)));
+  let monthly = Math.max(0, Math.round((annual - tdsSoFar) / remaining));
   monthly = Math.min(monthly, grossPaise);
   let noPan = false;
   if (annual > 0 && !employee.pan) {
