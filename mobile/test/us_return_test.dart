@@ -107,6 +107,8 @@ class UsFakeApi implements MycaApi {
     {'form': 'Form 1040', 'line': '25a', 'label': 'Federal tax withheld', 'amount': 6100, 'source': 'W-2 box 2'},
   ];
   final tools = <String, Object?>{};
+  Object? Function(String name, Map<String, Object?> args)? stateTools;
+  void Function(Map<String, Object?> args)? stateSaved;
   Map<String, Object?> signed = {};
   int _token = 0;
   final _pending = <String, Proposal>{};
@@ -168,6 +170,8 @@ class UsFakeApi implements MycaApi {
         forms.removeWhere((f) => f['id'] == args['id']);
       case 'answer_us_interview':
         answers['${args['id']}'] = args['answer'];
+      case 'set_us_state_residency':
+        stateSaved?.call(args);
       case 'sign_us_return':
         signed = args;
         efile = 'signed';
@@ -244,6 +248,8 @@ class UsFakeApi implements MycaApi {
         return _ok({'base64': 'JVBERi0xLjQK'});
     }
     if (tools.containsKey(name)) return tools[name];
+    final state = stateTools;
+    if (state != null && name.startsWith('us_state_')) return state(name, args);
     return {'ok': false, 'error': 'UNKNOWN_TOOL'};
   }
 

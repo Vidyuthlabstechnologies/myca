@@ -9,6 +9,7 @@ import '../../marks.dart';
 import '../../theme.dart';
 import '../../us/us_filing_fee.dart';
 import '../../us/us_return.dart';
+import '../../us/us_state.dart';
 import '../../widgets.dart';
 import '../ask_screen.dart';
 import '../businesses_screen.dart';
@@ -27,7 +28,8 @@ import 'us_review_screen.dart';
 import 'us_plus_screen.dart';
 import 'us_prior_year_screen.dart';
 import 'us_sign_screen.dart';
-import 'us_state_sheet_screen.dart';
+import 'us_state_residency_screen.dart';
+import 'us_state_return_screen.dart';
 
 class UsReturnHomeScreen extends StatefulWidget {
   const UsReturnHomeScreen({super.key, required this.snapshot});
@@ -39,13 +41,16 @@ class UsReturnHomeScreen extends StatefulWidget {
 }
 
 class _Hub {
-  const _Hub(this.status, this.efile, {this.review, this.state = '', this.fee});
+  const _Hub(this.status, this.efile, {this.review, this.state = '', this.fee, this.states, this.statesProblem = '', this.coverage = UsStateCoverage.unknown});
 
   final UsReturnStatus status;
   final UsEfileStatus efile;
   final UsReview? review;
   final String state;
   final UsFilingFee? fee;
+  final UsStateReturns? states;
+  final String statesProblem;
+  final UsStateCoverage coverage;
 }
 
 class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
@@ -74,10 +79,22 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
       loadReview(_api, year).then<Object?>((r) => r).catchError((_) => null),
       _api.query('us_taxpayer', {'taxYear': year}).then<Object?>((t) => t).catchError((_) => null),
       fees.status(year).then<Object?>((f) => f).catchError((_) => null),
+      loadStateReturns(_api, year).then<Object?>((r) => r).catchError((Object err) => err is UsStateProblem ? err : null),
+      loadStateCoverage(_api),
     ]);
     final address = toolData(extras[1])['address'];
-    final state = address is Map ? '${address['state'] ?? ''}' : '';
-    return _Hub(status, results[1] as UsEfileStatus, review: extras[0] as UsReview?, state: state, fee: extras[2] as UsFilingFee?);
+    final state = address is Map ? '${address['state'] ?? ''}'.toUpperCase() : '';
+    final states = extras[3];
+    return _Hub(
+      status,
+      results[1] as UsEfileStatus,
+      review: extras[0] as UsReview?,
+      state: state,
+      fee: extras[2] as UsFilingFee?,
+      states: states is UsStateReturns ? states : null,
+      statesProblem: states is UsStateProblem ? states.hint : '',
+      coverage: extras[4] as UsStateCoverage,
+    );
   }
 
   Widget _priceLine(_Hub hub) {
@@ -357,6 +374,60 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
     );
   }
 
+  String _residencyLine(UsStateReturns states) {
+    if (states.assumed) return 'Check where you lived and worked in $_year';
+    final lines = [for (final r in states.residency) r.spoken];
+    return lines.isEmpty ? 'Tell us where you lived and worked' : lines.join(' · ');
+  }
+
+  List<Widget> _stateSection(_Hub hub) {
+    final text = Theme.of(context).textTheme;
+    final states = hub.states;
+    final year = _year!;
+    final coverage = hub.state.isEmpty ? null : hub.coverage.message(hub.state);
+    final totals = states == null
+        ? ''
+        : states.refund > 0
+            ? 'State refunds ${dollars(states.refund)}'
+            : states.owed > 0
+                ? 'State tax due ${dollars(states.owed)}'
+                : '';
+    return [
+      const SizedBox(height: 18),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          const Expanded(child: SectionLabel('State returns')),
+          if (totals.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(totals, key: const Key('usHub.stateTotals'), style: text.bodySmall)),
+        ],
+      ),
+      if (states == null && coverage != null)
+        KeyedSubtree(key: const Key('usHub.stateCoverage'), child: UsStateCoverageNote(message: coverage))
+      else
+        Panel(
+          children: [
+            RowCard(
+              key: const Key('usHub.stateResidency'),
+              leading: const TintTile(tint: Tint.ask, mark: Mark.people),
+              title: 'Where you lived and worked',
+              subtitle: states == null ? (hub.statesProblem.isEmpty ? 'Your home state, any move, and states where you earned wages' : hub.statesProblem) : _residencyLine(states),
+              trailing: states == null || !states.assumed ? const Chevron() : StatusTag(text: 'Check', color: context.myca.warn),
+              onTap: () => _open(UsStateResidencyScreen(taxYear: year)),
+            ),
+            for (final r in states?.returns ?? const <UsStateReturn>[])
+              RowCard(
+                key: Key('usHub.stateReturn.${r.state}'),
+                leading: TintTile(tint: Tint.taxes, letter: r.state),
+                title: '${r.stateName}${r.form.isEmpty ? '' : ' · ${r.form}'}',
+                subtitle: r.headline('$year'),
+                trailing: const Chevron(),
+                onTap: () => _open(UsStateReturnScreen(taxYear: year, state: r.state)),
+              ),
+          ],
+        ),
+    ];
+  }
+
   static const _steps = [
     ('profile', Mark.people, 'About you', 'Filing status, Social Security numbers, dependents and address'),
     ('forms', Mark.paper, 'Tax documents', 'W-2s, 1099s and 1098s: snap a photo or type them in'),
@@ -449,7 +520,8 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
                           ),
                       ],
                     ),
-                    if (hub.efile.status == 'not_filed' || hub.efile.filed || stateHasIncomeTax(hub.state)) ...[
+                    ..._stateSection(hub),
+                    if (hub.efile.status == 'not_filed' || hub.efile.filed) ...[
                     const SizedBox(height: 14),
                     Panel(
                       children: [
@@ -470,15 +542,6 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
                             subtitle: 'Bring in your ${year - 1} details, carryovers and the forms to expect',
                             trailing: const Chevron(),
                             onTap: () => _open(UsPriorYearScreen(taxYear: year)),
-                          ),
-                        if (stateHasIncomeTax(hub.state))
-                          RowCard(
-                            key: const Key('usHub.state'),
-                            leading: const TintTile(tint: Tint.ask, mark: Mark.paper),
-                            title: 'Your state return',
-                            subtitle: stateReturnNote,
-                            trailing: const Chevron(),
-                            onTap: () => _open(UsStateSheetScreen(taxYear: year, state: hub.state)),
                           ),
                       ],
                     ),

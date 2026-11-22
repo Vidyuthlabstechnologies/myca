@@ -10,12 +10,16 @@ import 'package:myca/app_state.dart';
 import 'package:myca/format.dart';
 import 'package:myca/main.dart';
 import 'package:myca/screens/us/us_prior_year_screen.dart';
+import 'package:myca/screens/us/us_state_questions_screen.dart';
+import 'package:myca/screens/us/us_state_residency_screen.dart';
+import 'package:myca/screens/us/us_state_return_screen.dart';
 
 import 'package:myca/screens/us/us_amended_screen.dart';
 import 'package:myca/screens/us/us_form_editor_screen.dart';
 
 import 'us_forms_screens_test.dart' show AmendApi, rentalKind, show;
 import 'us_return_test.dart' show UsFakeApi, scrollTap, usState;
+import 'us_state_book.dart';
 
 const fixturePath = '../platform/test/fixtures/us-app-tool-calls.json';
 const documentSha = 'f1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2';
@@ -255,6 +259,56 @@ void main() {
     record(prior);
   });
 
+  testWidgets('state residency, a state\'s questions, its return and the filing hand-off', (tester) async {
+    final api = ContractApi()
+      ..taxpayer = {'filingStatus': 'single', 'address': {'state': 'NY'}}
+      ..route = 'partner';
+    api.forms.add({'id': 'usf-2025-1', 'kind': 'W-2', 'payer': 'Acme', 'amounts': {'wages': 52000, 'state': 'NJ', 'stateWages': 52000, 'stateWithheld': 1100}});
+    final book = StateBook(assumed: true, questions: {'NY': [nyQuestions[0], nyQuestions[1], nyQuestions[2], nyQuestions[3]]})..attach(api);
+    await tester.pumpWidget(MycaApp(state: usState(api)));
+    await tester.pumpAndSettle();
+    await scrollTap(tester, find.byKey(const Key('usHub.stateResidency')));
+    expect(find.byType(UsStateResidencyScreen), findsOneWidget);
+    await open(tester, 'usResidency.movedYes');
+    await tester.enterText(find.descendant(of: find.byKey(const Key('usResidency.lived0.to')), matching: find.byType(TextField)), '03/31/2025');
+    await tester.enterText(find.descendant(of: find.byKey(const Key('usResidency.lived1.from')), matching: find.byType(TextField)), '04/01/2025');
+    await scrollTap(tester, find.byKey(const Key('usResidency.lived0.state.0')));
+    await tester.tap(find.text('Connecticut').last);
+    await tester.pumpAndSettle();
+    await open(tester, 'usResidency.save');
+    expect(book.saves.single.map((s) => s['residency']), ['part-year', 'part-year', 'nonresident']);
+    record(api);
+
+    final questions = ContractApi();
+    final asked = StateBook(questions: {'NY': [nyQuestions[0], nyQuestions[1], nyQuestions[2], nyQuestions[3]]})..attach(questions);
+    await tester.pumpWidget(AppScope(state: usState(questions), child: const MaterialApp(home: UsStateQuestionsScreen(taxYear: 2025, state: 'NY'))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Yes, all year'));
+    await open(tester, 'usStateQuestions.next');
+    await tester.enterText(find.byKey(const Key('usStateQuestions.count')), '12');
+    await open(tester, 'usStateQuestions.next');
+    await open(tester, 'usStateQuestions.no');
+    await open(tester, 'usStateQuestions.next');
+    await tester.enterText(find.byKey(const Key('usStateQuestions.amount')), '1200');
+    await open(tester, 'usStateQuestions.next');
+    expect(asked.saves.last.first['answers'], {'nycResident': 'full-year', 'nycMonths': 12, 'yonkersNonresidentWages': false, 'ny529Contributions': 1200});
+    await open(tester, 'usStateQuestions.see');
+    expect(find.byType(UsStateReturnScreen), findsOneWidget);
+    record(questions);
+
+    final signing = ContractApi()
+      ..taxpayer = {'filingStatus': 'single'}
+      ..route = 'partner';
+    signing.forms.add({'id': 'usf-2025-1', 'kind': 'W-2', 'payer': 'Acme', 'amounts': {'wages': 52000}});
+    StateBook().attach(signing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(MycaApp(state: usState(signing, opened: <Uri>[])));
+    await tester.pumpAndSettle();
+    await open(tester, 'usHub.step.sign');
+    expect(find.byKey(const Key('usSign.states')), findsOneWidget);
+    record(signing);
+  });
+
   test('the recorded calls match the fixture the server suite checks against its schemas', () {
     final recorded = const JsonEncoder.withIndent('  ').convert(calls.values.toList()..sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b))));
     final file = File(fixturePath);
@@ -264,6 +318,6 @@ void main() {
     }
     expect(file.readAsStringSync().trim(), recorded, reason: 'The app now sends different US tool arguments. Run UPDATE_US_TOOL_CALLS=1 flutter test test/us_tool_contract_test.dart, then cd platform && node --test test/us-app-tool-calls.test.mjs.');
     final tools = {for (final c in calls.values) c['tool']};
-    expect(tools, containsAll(['set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'sign_us_return', 'file_us_return', 'import_us_prior_year', 'us_return_status', 'us_efile_status', 'read_us_tax_document', 'start_us_amended_return', 'set_us_amended_return', 'us_amended_return']));
+    expect(tools, containsAll(['set_us_state_residency', 'us_state_returns', 'us_state_questions', 'us_state_coverage', 'us_state_filing_package', 'set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'sign_us_return', 'file_us_return', 'import_us_prior_year', 'us_return_status', 'us_efile_status', 'read_us_tax_document', 'start_us_amended_return', 'set_us_amended_return', 'us_amended_return']));
   });
 }

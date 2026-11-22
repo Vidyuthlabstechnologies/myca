@@ -70,3 +70,13 @@ export const STATE = Object.freeze({
 instructions and the date it was read. A figure the state has not published yet for the year
 carries `provisional: true` in its value, and the filing package blocks it until replaced.
 No record is edited after it is published; a change in law is a new record.
+
+## In the app
+
+The US app shows the state returns as their own section under the five federal steps on the 1040
+hub (`us_return_status` lists no state step). `us_state_residency_screen.dart` saves
+`set_us_state_residency`, starting from the home address and the W-2 box 15 states;
+`us_state_questions_screen.dart` asks `us_state_questions` one at a time and saves the answers into
+that state's entry; `us_state_return_screen.dart` shows `us_state_returns` with the coverage message
+from `us_state_coverage`; the sign screen shows `us_state_filing_package` on the e-file partner route.
+The app computes no state figure.
