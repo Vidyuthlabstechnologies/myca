@@ -829,6 +829,7 @@ function fmtToolResultCore(name, result, args) {
   if ((name === 'dsc_certificates' || name === 'dsc_sign') && dscWords(name, result)) return dscWords(name, result);
   if (name === 'suggest_expense_head' && result.headName) return `${result.why} Say "record the expense" with the amount to post it.`;
   if (name === 'attach_document' && result.id) return `The document is kept with ${result.kind} ${result.id}${result.replaced ? ', replacing the earlier one' : ''}. Nothing was posted.`;
+  if (name === 'set_employee_bank' && result.employee) return `${result.employee.name} is paid into account ${result.employee.bankAccount}, ${result.employee.ifsc}, on the salary payout file.`;
   if (name === 'save_report' && result.report) return `Saved "${result.report.name}"${result.replaced ? ' (replacing the earlier one)' : ''}. Say "run report ${result.report.name}" any time.\n${reportWords('', result.result, money)}`;
   if (name === 'run_report' && result.result) return reportWords(result.name, result.result, money);
   if (name === 'list_reports' && result.reports) return result.reports.length ? `Saved reports:\n${result.reports.map((r) => `· ${r.name}: ${r.metric}${r.groupBy !== 'none' ? ` by ${r.groupBy}` : ''}, ${r.period}${r.compare ? ', compared with the period before' : ''}`).join('\n')}\nSay "run report <name>".` : 'No saved reports yet. Say "save report Top customers: sales by customer this month vs last month".';

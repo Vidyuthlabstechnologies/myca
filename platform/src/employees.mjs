@@ -168,15 +168,22 @@ export function planLeaving(state, args = {}) {
   return { ok: true, employee, leftOn };
 }
 
-export function setEmployeeBank(state, args = {}) {
+export function planEmployeeBank(state, args = {}) {
   if (salaryPrivate(state)) return fail('SALARIES_PRIVATE');
   const employee = findEmployee(state, args.id);
   if (!employee) return fail('EMPLOYEE_NOT_FOUND', { id: args.id });
   const more = detailsOf({ bankAccount: args.bankAccount, ifsc: args.ifsc }, employee);
   if (!more.ok) return more;
   if (!more.details.bankAccount || !more.details.ifsc) return fail('BANK_DETAILS_REQUIRED');
-  employee.bankAccount = more.details.bankAccount;
-  employee.ifsc = more.details.ifsc;
+  return { ok: true, employee, bankAccount: more.details.bankAccount, ifsc: more.details.ifsc };
+}
+
+export function setEmployeeBank(state, args = {}) {
+  const plan = planEmployeeBank(state, args);
+  if (!plan.ok) return plan;
+  const { employee } = plan;
+  employee.bankAccount = plan.bankAccount;
+  employee.ifsc = plan.ifsc;
   return { ok: true, employee: { id: employee.id, name: employee.name, bankAccount: `xxxx${employee.bankAccount.slice(-4)}`, ifsc: employee.ifsc } };
 }
 
