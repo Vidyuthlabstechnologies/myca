@@ -27,6 +27,12 @@ export const MANIFEST = Object.freeze({
   ]),
   tools: Object.freeze([
     Object.freeze({
+      name: 'set_us_state_answers', title: 'Answer one state\'s questions',
+      description: 'Save answers to one state\'s own questions for a tax year (from us_state_questions) without changing where you lived. Only the answers given change; give null to clear one. Writes the book after you confirm.',
+      access: 'write',
+      schema: schema({ taxYear, state: stateCode, answers: Object.freeze({ type: 'object' }) }, ['state', 'answers']),
+    }),
+    Object.freeze({
       name: 'set_us_state_residency', title: 'Say where you lived and worked',
       description: 'Save, for one tax year, each US state you lived in or earned income in: full-year resident, part-year resident with the dates, or nonresident, plus the income received there and the state\'s own questions (renter\'s credit, property tax paid, New York City residence and the like). Every state return is worked out from this.',
       access: 'write',
