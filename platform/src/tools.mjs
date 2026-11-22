@@ -49,7 +49,7 @@ const { validateGstin } = gstin;
 const { filingPrep } = filing;
 const { auditRun } = audit;
 import { listAccounts, journal, trialBalance, verifyChain, createTransfers, paise } from './ledger.mjs';
-import { createInvoice, recordReceipt, recordPayment, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice, addBillTds } from './invoice.mjs';
+import { createInvoice, recordReceipt, recordPayment, invoicesToSalesCsv, createPurchase, printInvoice, addBillTds } from './invoice.mjs';
 import { invoiceDocument, quoteDocument } from './invoice-document.mjs';
 import { createQuote, markQuote, convertQuote, listQuotes, invoiceArgsFromQuote, checkConvert } from './quotes.mjs';
 import { addRecurring, stopRecurring, listRecurring, runRecurring } from './recurring.mjs';
@@ -1730,8 +1730,7 @@ export const TOOLS = [
       const docs = documentsForPeriod(state, args.period, '', regd.gstin);
       if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
       const salesText = invoicesToSalesCsv(docs.invoices);
-      const inwardText = purchasesToInwardCsv(docs.purchases);
-      const filed = filingPrep({ salesText, inwardText, supplierState: regd.registration.state });
+      const filed = filingPrep({ salesText, supplierState: regd.registration.state });
       const payment = paymentFor(state, docs.period, { gstin: regd.gstin });
       if (!payment.ok) return fail(payment.error, payment);
       return ok({
@@ -1739,7 +1738,7 @@ export const TOOLS = [
         period: docs.period,
         periods: docs.periods,
         gstr1: filed.gstr1,
-        gstr3b: filed.gstr3b,
+        gstr3b: gstr3bFor(state, docs),
         payable: payment.data.toPay,
         payment: payment.data,
         payableBasis: 'this return period, after input credit and credit brought forward are set off head by head',
