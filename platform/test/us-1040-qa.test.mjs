@@ -135,3 +135,12 @@ test('Student loan interest worksheet: the reduction is rounded, then subtracted
   const out = computeForm1040({ filingStatus: 'mfj', taxpayer: { dateOfBirth: '1980-01-01' }, spouse: { dateOfBirth: '1980-01-01' }, forms: [{ kind: 'W-2', payer: 'Acme', fields: { wages: 192500 } }, { kind: '1098-E', payer: 'Lender', fields: { studentLoanInterest: 2500 } }] }, '2026');
   assert.equal(out.data.schedules['1']['21'], 1042);
 });
+
+test('Form 8962 uses the monthly method when no single policy covers all 12 months, even if the months add up the same (8962 instructions, line 10)', () => {
+  const half = (from, to) => Object.fromEntries(Array.from({ length: to - from + 1 }, (_, i) => i + from).flatMap((m) => [[`enrollmentPremium${m}`, 500], [`slcspPremium${m}`, 450], [`advancePayment${m}`, 380]]));
+  const out = computeForm1040({ filingStatus: 'single', taxpayer: { firstName: 'Sam', lastName: 'Lee', dateOfBirth: '1985-03-10' }, address: { state: 'CO' }, forms: [{ kind: 'W-2', owner: 'taxpayer', payer: 'Acme', fields: { wages: 29000 } }, { kind: '1095-A', owner: 'taxpayer', payer: 'HealthCare.gov', fields: half(1, 6) }, { kind: '1095-A', owner: 'taxpayer', payer: 'Other plan', fields: half(7, 12) }] }, '2025');
+  assert.equal(out.ok, true);
+  const f = out.data.schedules['8962'];
+  assert.equal(f['24'], 4908);
+  assert.equal(f['26'], 348);
+});

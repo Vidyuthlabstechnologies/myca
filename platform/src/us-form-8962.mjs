@@ -67,7 +67,7 @@ function combine(statements, checks) {
     return { a: rows.reduce((total, row) => total + row.a, 0), b: Math.max(0, ...slcsp), c: rows.reduce((total, row) => total + row.c, 0) };
   });
   if (slcspDiffers) checks.push({ level: 'warning', code: 'FORM_1095A_SLCSP_DIFFERS', message: 'The Forms 1095-A show different second lowest cost silver plan premiums for the same month; the largest is used, which is right for policies in one state. Policies in different states add their SLCSP premiums.', fix: 'Check column B with your CPA.' });
-  const sameAllYear = months.every((row) => row.a > 0 && row.a === months[0].a && row.b === months[0].b);
+  const sameAllYear = monthly.every((item) => item.months.every((row) => row.a > 0 && row.a === item.months[0].a && row.b === item.months[0].b)) && months.every((row) => row.a === months[0].a && row.b === months[0].b);
   return { method: sameAllYear ? 'annual' : 'monthly', fromTotals: false, months, annual: { a: months.reduce((total, row) => total + row.a, 0), b: months.reduce((total, row) => total + row.b, 0), c: months.reduce((total, row) => total + row.c, 0) } };
 }
 

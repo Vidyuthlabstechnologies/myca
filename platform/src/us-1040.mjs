@@ -531,7 +531,8 @@ export function computeForm1040(input = {}, taxYearArg) {
   const seDeduction = sum(seByOwner, (item) => item.deduction);
 
   const careProviders = formsOf(input, '2441-PROVIDER').map((form) => ({ name: form.payer || '', tin: form.payerTin || '', address: String(form.fields?.providerAddress || ''), householdEmployee: Boolean(form.fields?.householdEmployee), amount: field(form, 'amountPaid'), qualifyingPerson: form.fields?.qualifyingPerson || '' }));
-  const careBenefitsBy = (owner) => sum(w2s.filter((form) => ownerOf(form) === owner), (form) => field(form, 'dependentCareBenefits'));
+  const carePlanLimit = careExclusionRule ? fromCents(careExclusionRule.maxCents) : Infinity;
+  const careBenefitsBy = (owner) => sum(w2s.filter((form) => ownerOf(form) === owner), (form) => Math.min(field(form, 'dependentCareBenefits'), carePlanLimit));
   const careBenefitsReceived = sum(owners, careBenefitsBy);
   const careCarriedIn = positive(answers.careBenefitsCarriedIn);
   const hasCare = careProviders.length > 0 || careBenefitsReceived > 0 || careCarriedIn > 0;
