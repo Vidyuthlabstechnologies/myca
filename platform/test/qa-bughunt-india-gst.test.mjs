@@ -12,6 +12,7 @@ import { gstr3bPortalJson } from '../src/gstr3b-portal.mjs';
 import { paymentFor } from '../src/gst-payment.mjs';
 import { invoiceToNicPayload, nicPartyFor } from '../src/nic-config.mjs';
 import { ewayBillPartA } from '../src/eway-bill.mjs';
+import { validateAssistantToolCall, validateAppToolCall } from '../src/assistant-tools.mjs';
 
 const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 function withCheck(first14) {
@@ -117,4 +118,16 @@ test('GSTR-3B 3.1(e) non-GST supplies are net of a credit note on the non-GST li
   assert.equal(portal.ok, true, JSON.stringify(portal));
   assert.equal(portal.body.sup_details.osup_nongst.txval, 0);
   assert.equal(portal.body.sup_details.osup_det.txval, 0);
+});
+
+test('a 40% GST sale, bill, expense and item are accepted from chat and the phone, as the rate has been in force since 22 September 2025', async () => {
+  const line = { description: 'Aerated drink', hsn: '2202', qty: 10, rate: 100, gstRate: 40 };
+  assert.equal(validateAppToolCall('create_invoice', { partyName: 'Walk-in', date: `${PERIOD}-10`, lines: [line] }).ok, true);
+  assert.equal(validateAssistantToolCall('create_purchase', { partyName: 'Bottler', supplierInvoiceNo: 'B-9', date: `${PERIOD}-10`, lines: [line] }).ok, true);
+  assert.equal(validateAssistantToolCall('set_sku_cost', { sku: 'COLA', gstRate: 40, price: 100 }).ok, true);
+  assert.equal(validateAssistantToolCall('create_invoice', { partyName: 'Walk-in', lines: [{ ...line, gstRate: 41 }] }).ok, false);
+  const state = books();
+  assert.equal((await runTool(state, 'set_sku_cost', { sku: 'COLA', gstRate: 40, price: 100 })).ok, true);
+  const spent = await runTool(state, 'post_expense', { amount: 1400, gstRate: 40, narration: 'Staff drinks', date: `${PERIOD}-10` });
+  assert.equal(spent.ok, true, JSON.stringify(spent));
 });

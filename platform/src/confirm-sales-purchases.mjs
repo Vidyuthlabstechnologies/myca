@@ -341,7 +341,7 @@ export function expensePreview(state, args) {
       INVALID_DATE: `${args.date} is not a date I can read.`,
       PERIOD_LOCKED: `${planned.date} is inside the locked period (through ${state.lockThrough}).`,
       BAD_AMOUNT: 'The amount must be a positive number.',
-      BAD_RATE: 'The GST rate must be between 0 and 28.',
+      BAD_RATE: 'The GST rate must be between 0 and 40.',
       BAD_MODE: 'Paid from must be bank or cash.',
       INSUFFICIENT_CASH: `Cash in hand is ${money(planned.inHand)} and this is ${money(planned.amount)}. Record where the cash came from first, or pay it from bank.`,
       BAD_GSTIN: 'That supplier GSTIN is not 15 characters.',
