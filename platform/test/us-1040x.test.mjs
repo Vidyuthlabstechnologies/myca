@@ -67,7 +67,7 @@ test('Form 1040-X lines 1 to 23 from a 2025 single return that left out $1,000 o
   assert.equal(x.form, 'Form 1040-X (Rev. December 2025)');
   assert.ok(codes(x).includes('AMENDED_TAX_DUE'));
   assert.ok(!codes(x).some((code) => /REQUIRED|TOO_LATE/.test(code)));
-  assert.deepEqual(x.rulesUsed, ['us.federal.individual.amended-return@2020-01-01', 'us.federal.individual.return-due@2020-01-01']);
+  assert.deepEqual(x.rulesUsed, ['us.federal.individual.amended-return@2020-01-01', 'us.federal.individual.return-due@2020-01-01', 'us.federal.legal-holidays@2021-06-17']);
 });
 
 test('Lines 18 to 23: a corrected W-2 with $500 more withheld is a $500 overpayment (line 21); $200 applied to next year leaves $300 refunded (line 22)', () => {
@@ -128,14 +128,14 @@ test('Part II explanation and the original filing date are required; a date befo
   for (const filedOn of ['2025-12-31', '2026-12-01']) assert.ok(codes(form1040X({ taxYear: '2025', today: '2026-11-21', amendment: { ...base, explanation: 'x', originalFiledOn: filedOn }, amended: figures({ withholding: 7100 }) }).data).includes('AMENDED_FILED_ON_INVALID'), filedOn);
 });
 
-test('Refund claim deadline (IRC 6511(a), 6513(a)): an early return counts as filed on April 15, 3 years from filing or 2 years from paying, whichever is later', () => {
+test('Refund claim deadline (IRC 6511(a), 6513(a), 7503): an early return counts as filed on April 15, 3 years from filing or 2 years from paying, whichever is later, moved past weekends and DC holidays', () => {
   const claim = (filedOn, today, extra = {}) => form1040X({ taxYear: '2025', today, amendment: { original: figures(), explanation: 'x', originalFiledOn: filedOn, ...extra }, amended: figures({ withholding: 7100 }) }).data;
-  const early = claim('2026-03-01', '2029-04-15');
-  assert.deepEqual(early.deadline, { deemedFiledOn: '2026-04-15', fromFiling: '2029-04-15', fromPayment: '2028-04-15', refundClaimBy: '2029-04-15' });
+  const early = claim('2026-03-01', '2029-04-17');
+  assert.deepEqual([early.deadline.deemedFiledOn, early.deadline.fromFiling, early.deadline.fromPayment, early.deadline.refundClaimBy], ['2026-04-15', '2029-04-17', '2028-04-18', '2029-04-17']);
   assert.ok(!codes(early).includes('AMENDED_CLAIM_TOO_LATE'));
-  assert.ok(codes(claim('2026-03-01', '2029-04-16')).includes('AMENDED_CLAIM_TOO_LATE'));
-  const late = claim('2026-07-01', '2029-06-30');
-  assert.equal(late.deadline.refundClaimBy, '2029-07-01');
+  assert.ok(codes(claim('2026-03-01', '2029-04-18')).includes('AMENDED_CLAIM_TOO_LATE'));
+  const late = claim('2026-07-01', '2029-07-02');
+  assert.equal(late.deadline.refundClaimBy, '2029-07-02');
   assert.ok(!codes(late).includes('AMENDED_CLAIM_TOO_LATE'));
   const paidLater = claim('2026-03-01', '2029-12-01', { lastPaymentOn: '2028-01-10' });
   assert.equal(paidLater.deadline.fromPayment, '2030-01-10');

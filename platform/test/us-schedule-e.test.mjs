@@ -188,14 +188,16 @@ test('depreciation figured from the cost lands on line 18 and Form 4562 in the y
   assert.equal(commercial.data.schedules.E.properties[0].lines['18'], 9598);
 });
 
-test('personal use days split the expenses by 90 of 99 days; above the 14-day/10% limit Pub. 527 is needed; a home rented under 15 days is left off', () => {
+test('personal use days split the expenses by 90 of 99 days; above the 14-day/10% limit Pub. 527 Worksheet 5-1 applies; a home rented under 15 days is left off', () => {
   const split = compute('single', [w2(50000), rental('1', { rents: 9000, insurance: 990, taxes: 1980, mortgageInterest: 3960, fairRentalDays: 90, personalUseDays: 9 })]);
   const lines = split.data.schedules.E.properties[0].lines;
   assert.deepEqual([lines['9'], lines['12'], lines['16'], lines['20'], lines['21']], [900, 3600, 1800, 6300, 2700]);
   assert.ok(codes(split).includes('RENTAL_PERSONAL_SHARE'));
   assert.deepEqual(split.data.unsupported, []);
   const home = compute('single', [w2(50000), rental('1', { rents: 9000, fairRentalDays: 100, personalUseDays: 30 })]);
-  assert.deepEqual(home.data.unsupported.map((item) => item.form), ['Pub 527']);
+  assert.deepEqual(home.data.unsupported, []);
+  assert.equal(home.data.schedules.E.properties[0].usedAsHome, true);
+  assert.equal(home.data.schedules.E.properties[0].lines['21'], 9000);
   const brief = compute('single', [w2(50000), rental('1', { rents: 3000, fairRentalDays: 10, personalUseDays: 20 })]);
   assert.equal(brief.data.schedules.E, undefined);
   assert.ok(codes(brief).includes('RENTAL_UNDER_15_DAYS'));

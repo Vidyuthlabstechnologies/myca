@@ -21,11 +21,14 @@ export function careExpenseLimit(qualifyingPersons, credit) {
   return fromCents(qualifyingPersons >= 2 ? credit.twoOrMoreExpenseCents : credit.onePersonExpenseCents);
 }
 
-export function deemedEarnedIncome(actual, months, qualifyingPersons, credit) {
+export function deemedEarnedIncome(actual, months, qualifyingPersons, credit, otherMonthsPay = 0) {
   const count = Math.max(0, Math.min(12, Math.floor(Number(months) || 0)));
   const monthly = fromCents(qualifyingPersons >= 2 ? credit.deemedMonthlyCents.twoOrMore : credit.deemedMonthlyCents.one);
   const deemed = count * monthly;
-  return { earned: Math.max(whole(actual), deemed), deemed, used: deemed > whole(actual) };
+  const total = Math.max(0, whole(actual));
+  const outside = count >= 12 ? 0 : Math.min(total, Math.max(0, whole(otherMonthsPay)));
+  const inside = total - outside;
+  return { earned: outside + Math.max(inside, deemed), deemed, outside, inside, used: deemed > inside };
 }
 
 export function dependentCareBenefits({ received, carriedIn = 0, forfeited = 0, qualifiedExpenses, earnedTaxpayer, earnedOther, mfsWithSpouseIncome, exclusion }) {

@@ -55,10 +55,10 @@ test('the exclusion limit is $5,000 ($2,500 MFS) for 2025 and $7,500 ($3,750) fr
   assert.deepEqual(rules.rule('us.federal.individual.dependent-care-exclusion', '2026-12-31').value, { maxCents: 750000, mfsMaxCents: 375000 });
 });
 
-test('deemed income is the larger of months times $250 ($500 for two or more) and the actual earnings', () => {
-  assert.deepEqual(deemedEarnedIncome(0, 9, 2, credit2025()), { earned: 4500, deemed: 4500, used: true });
-  assert.deepEqual(deemedEarnedIncome(0, 9, 1, credit2025()), { earned: 2250, deemed: 2250, used: true });
-  assert.deepEqual(deemedEarnedIncome(8000, 9, 2, credit2025()), { earned: 8000, deemed: 4500, used: false });
+test('deemed income is the larger of months times $250 ($500 for two or more) and the pay of those months, plus the pay of the other months', () => {
+  assert.deepEqual(deemedEarnedIncome(0, 9, 2, credit2025()), { earned: 4500, deemed: 4500, outside: 0, inside: 0, used: true });
+  assert.deepEqual(deemedEarnedIncome(0, 9, 1, credit2025()), { earned: 2250, deemed: 2250, outside: 0, inside: 0, used: true });
+  assert.deepEqual(deemedEarnedIncome(8000, 9, 2, credit2025()), { earned: 8000, deemed: 4500, outside: 0, inside: 8000, used: false });
 });
 
 test('2025 single parent, one child, $5,000 of daycare: 3,000 x 22% at AGI 40,000 is 660, taken before the child tax credit', () => {
