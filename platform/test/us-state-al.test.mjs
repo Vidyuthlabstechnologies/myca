@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 import { alTax, alStandardDeduction } from '../src/countries/united-states/states/al.mjs';
 import { stateRuleReader } from '../src/countries/united-states/state-kit.mjs';
 
@@ -141,4 +142,21 @@ test('Alabama pensions block filing until the exempt part is answered', async ()
   const after = await stateReturn(state, '2025', 'AL');
   assert.equal(after.lines['7'], 0);
   assert.ok(!after.checks.some((item) => item.level === 'error'));
+});
+
+test('Alabama: every line of a resident return has a label in the words of Form 40', async () => {
+  const state = await household({ state: 'AL', forms: [w2(50000, { state: 'AL', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'AL', residency: 'full-year' }]);
+  const found = await stateReturn(state, '2025', 'AL');
+  assert.ok(Object.keys(found.lines).length > 0);
+  for (const key of Object.keys(found.lines)) assert.ok(typeof found.labels[key] === 'string' && found.labels[key].length > 0, `line ${key} has no label`);
+});
+
+const questionIds = async (state, code) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: code })).data.states[0].questions.map((item) => item.id);
+
+test('Alabama asks about other states\' bond interest only when there is federally tax-exempt interest', async () => {
+  const plain = await household({ state: 'AL', forms: [w2(50000, { state: 'AL' })] });
+  assert.equal((await questionIds(plain, 'AL')).includes('otherStateMunicipalInterest'), false);
+  const holds = await household({ state: 'AL', forms: [w2(50000, { state: 'AL' }), { kind: '1099-INT', fields: { interest: 0, taxExemptInterest: 500 } }] });
+  assert.ok((await questionIds(holds, 'AL')).includes('otherStateMunicipalInterest'));
 });

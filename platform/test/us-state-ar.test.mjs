@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 import { arkansasRegularTax, arkansasLowIncomeTax } from '../src/countries/united-states/states/ar.mjs';
 import { RULES } from '../../sprints/statutory-rules/src/rules/us-state/ar.mjs';
 
@@ -166,4 +167,21 @@ test('Arkansas 2026: 3.7% top rate from Act 1 of 2026, indexed amounts carried a
   assert.equal(ar.lines['38'], 1363);
   assert.equal(ar.provisional, true);
   assert.deepEqual(ar.missingRules, []);
+});
+
+test('Arkansas: every line of a resident return has a label in the words of Form AR1000F', async () => {
+  const state = await household({ state: 'AR', forms: [w2(50000, { state: 'AR', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'AR', residency: 'full-year' }]);
+  const found = await stateReturn(state, '2025', 'AR');
+  assert.ok(Object.keys(found.lines).length > 0);
+  for (const key of Object.keys(found.lines)) assert.ok(typeof found.labels[key] === 'string' && found.labels[key].length > 0, `line ${key} has no label`);
+});
+
+const questionIds = async (state, code) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: code })).data.states[0].questions.map((item) => item.id);
+
+test('Arkansas asks about non-Arkansas bond interest only when there is federally tax-exempt interest', async () => {
+  const plain = await household({ state: 'AR', forms: [w2(50000, { state: 'AR' })] });
+  assert.equal((await questionIds(plain, 'AR')).includes('nonArkansasMunicipalInterest'), false);
+  const holds = await household({ state: 'AR', forms: [w2(50000, { state: 'AR' }), { kind: '1099-INT', fields: { interest: 0, taxExemptInterest: 500 } }] });
+  assert.ok((await questionIds(holds, 'AR')).includes('nonArkansasMunicipalInterest'));
 });

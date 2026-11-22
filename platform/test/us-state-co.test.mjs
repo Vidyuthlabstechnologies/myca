@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 import { coloradoTableTax } from '../src/countries/united-states/states/co.mjs';
 
 const spouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1984-06-01' };
@@ -118,4 +119,22 @@ test('Colorado 2026: the 4.4% rate holds, there is no TABOR refund, and the retu
   assert.equal(co.lines['38'], 0);
   assert.equal(co.totalTax, 1929);
   assert.equal(co.provisional, true);
+});
+
+test('Colorado: every line of a resident return has a label in the words of Form DR 0104', async () => {
+  const state = await household({ state: 'CO', forms: [w2(50000, { state: 'CO', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'CO', residency: 'full-year' }]);
+  const found = await stateReturn(state, '2025', 'CO');
+  assert.ok(Object.keys(found.lines).length > 0);
+  for (const key of Object.keys(found.lines)) assert.ok(typeof found.labels[key] === 'string' && found.labels[key].length > 0, `line ${key} has no label`);
+});
+
+const questionIds = async (state, code) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: code })).data.states[0].questions.map((item) => item.id);
+
+test('Colorado asks for CollegeInvest beneficiaries only after contributions are given', async () => {
+  const state = await household({ state: 'CO', forms: [w2(50000, { state: 'CO' })] });
+  assert.equal((await questionIds(state, 'CO')).includes('collegeInvestBeneficiaries'), false);
+  const saved = await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'CO', answers: { collegeInvestContributions: 3000 } });
+  assert.equal(saved.ok, true, JSON.stringify(saved));
+  assert.ok((await questionIds(state, 'CO')).includes('collegeInvestBeneficiaries'));
 });

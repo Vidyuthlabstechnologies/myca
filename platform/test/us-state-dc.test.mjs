@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const spouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1986-06-01' };
 const kids = [{ firstName: 'Leo', lastName: 'Diaz', ssn: '400-12-9876', relationship: 'son', dateOfBirth: '2018-02-02', months: 12 }, { firstName: 'Mia', lastName: 'Diaz', ssn: '400-12-9877', relationship: 'daughter', dateOfBirth: '2016-05-05', months: 12 }];
@@ -103,4 +104,21 @@ test('DC 2026 carries the 2025 deductions, table and credits as provisional figu
   const dc = await stateReturn(state, '2026', 'DC');
   assert.equal(dc.lines['20'], 3177);
   assert.equal(dc.provisional, true);
+});
+
+test('District of Columbia: every line of a resident return has a label in the words of Form D-40', async () => {
+  const state = await household({ state: 'DC', forms: [w2(50000, { state: 'DC', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'DC', residency: 'full-year' }]);
+  const found = await stateReturn(state, '2025', 'DC');
+  assert.ok(Object.keys(found.lines).length > 0);
+  for (const key of Object.keys(found.lines)) assert.ok(typeof found.labels[key] === 'string' && found.labels[key].length > 0, `line ${key} has no label`);
+});
+
+const questionIds = async (state, code) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: code })).data.states[0].questions.map((item) => item.id);
+
+test('District of Columbia asks about District bond interest only when there is federally tax-exempt interest', async () => {
+  const plain = await household({ state: 'DC', forms: [w2(50000, { state: 'DC' })] });
+  assert.equal((await questionIds(plain, 'DC')).includes('dcBondInterest'), false);
+  const holds = await household({ state: 'DC', forms: [w2(50000, { state: 'DC' }), { kind: '1099-INT', fields: { interest: 0, taxExemptInterest: 500 } }] });
+  assert.ok((await questionIds(holds, 'DC')).includes('dcBondInterest'));
 });

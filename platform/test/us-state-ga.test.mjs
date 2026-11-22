@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 test('Georgia resident single: U.S. interest is subtracted on Schedule 1 and the 5.19% rate applies to Line 15c', async () => {
   const state = await household({ state: 'GA', forms: [w2(60000, { state: 'GA', stateWithheld: 2500 }), { kind: '1099-INT', fields: { interest: 700, treasuryInterest: 200 } }] });
@@ -139,4 +140,22 @@ test('Georgia 2026: the 4.99% rate and $15,000 standard deduction enacted by HB 
   assert.equal(ga.lines['15c'], 45000);
   assert.equal(ga.lines['16'], 2246);
   assert.equal(ga.provisional, false);
+});
+
+test('Georgia: every line of a resident return has a label in the words of Form 500', async () => {
+  const state = await household({ state: 'GA', forms: [w2(50000, { state: 'GA', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'GA', residency: 'full-year' }]);
+  const found = await stateReturn(state, '2025', 'GA');
+  assert.ok(Object.keys(found.lines).length > 0);
+  for (const key of Object.keys(found.lines)) assert.ok(typeof found.labels[key] === 'string' && found.labels[key].length > 0, `line ${key} has no label`);
+});
+
+const questionIds = async (state, code) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: code })).data.states[0].questions.map((item) => item.id);
+
+test('Georgia asks for Path2College beneficiaries only after contributions are given', async () => {
+  const state = await household({ state: 'GA', forms: [w2(50000, { state: 'GA' })] });
+  assert.equal((await questionIds(state, 'GA')).includes('path2CollegeBeneficiaries'), false);
+  const saved = await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'GA', answers: { path2CollegeContributions: 3000 } });
+  assert.equal(saved.ok, true, JSON.stringify(saved));
+  assert.ok((await questionIds(state, 'GA')).includes('path2CollegeBeneficiaries'));
 });

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const spouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1984-06-01' };
 const leo = { firstName: 'Leo', lastName: 'Diaz', ssn: '400-12-9876', relationship: 'son', dateOfBirth: '2021-02-02', months: 12 };
@@ -124,4 +125,22 @@ test('Arizona high earner: the federal SALT cap phases down to $10,000 at $600,0
   const az = await stateReturn(state, '2025', 'AZ');
   assert.equal(az.totalTax, 14606);
   assert.equal(az.checks.some((item) => item.code === 'AZ_SALT_PHASE_DOWN'), false);
+});
+
+test('Arizona: every line of a resident return has a label in the words of Form 140', async () => {
+  const state = await household({ state: 'AZ', forms: [w2(50000, { state: 'AZ', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'AZ', residency: 'full-year' }]);
+  const found = await stateReturn(state, '2025', 'AZ');
+  assert.ok(Object.keys(found.lines).length > 0);
+  for (const key of Object.keys(found.lines)) assert.ok(typeof found.labels[key] === 'string' && found.labels[key].length > 0, `line ${key} has no label`);
+});
+
+const questionIds = async (state, code) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: code })).data.states[0].questions.map((item) => item.id);
+
+test('Arizona asks for 529 beneficiaries only after 529 contributions are given', async () => {
+  const state = await household({ state: 'AZ', forms: [w2(50000, { state: 'AZ' })] });
+  assert.equal((await questionIds(state, 'AZ')).includes('college529Beneficiaries'), false);
+  const saved = await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'AZ', answers: { college529Contributions: 3000 } });
+  assert.equal(saved.ok, true, JSON.stringify(saved));
+  assert.ok((await questionIds(state, 'AZ')).includes('college529Beneficiaries'));
 });

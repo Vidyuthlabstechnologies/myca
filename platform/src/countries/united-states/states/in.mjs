@@ -223,28 +223,70 @@ function compute(ctx, filing, reader) {
   };
 }
 
+const COMMON_LABELS = Object.freeze({
+  3: 'Income plus Indiana add-backs',
+  5: 'Income after Indiana deductions',
+  7: 'Indiana adjusted gross income',
+  8: 'State adjusted gross income tax',
+  11: 'Indiana taxes',
+  14: 'Indiana credits',
+  15: 'Indiana taxes',
+  16: 'Credits more than taxes',
+  18: 'Overpayment',
+  21: 'Your refund',
+  23: 'Taxes more than credits',
+  26: 'Amount you owe',
+});
+
+const RESIDENT_LABELS = Object.freeze({
+  ...COMMON_LABELS,
+  1: 'Federal adjusted gross income',
+  2: 'Indiana add-backs (Schedule 1)',
+  4: 'Indiana deductions (Schedule 2)',
+  6: 'Exemptions (Schedule 3)',
+  9: 'County tax (Schedule CT-40)',
+  10: 'Other taxes (Schedule 4)',
+  12: 'Credits (Schedule 5)',
+  13: 'Offset credits (Schedule 6)',
+});
+
+const NONRESIDENT_LABELS = Object.freeze({
+  ...COMMON_LABELS,
+  1: 'Indiana income from Schedule A',
+  2: 'Indiana add-backs (Schedule B)',
+  4: 'Indiana deductions (Schedule C)',
+  6: 'Exemptions (Schedule D)',
+  9: 'County tax (Schedule CT-40PNR)',
+  10: 'Other taxes (Schedule E)',
+  12: 'Credits (Schedule F)',
+  13: 'Offset credits (Schedule G)',
+});
+
+const labels = (taxYear, residency) => (residency === 'full-year' ? RESIDENT_LABELS : NONRESIDENT_LABELS);
+
 export const STATE = Object.freeze({
   code: 'IN',
   name: 'Indiana',
   built: true,
   forms: Object.freeze({ resident: 'IT-40', partYear: 'IT-40PNR', nonresident: 'IT-40PNR' }),
   questions: Object.freeze([
-    Object.freeze({ id: 'county', kind: 'choice', options: COUNTY_OPTIONS, text: 'Indiana county where you lived on January 1', help: 'Sets your county income tax rate on Schedule CT-40. A move after January 1 does not change it until next year.' }),
-    Object.freeze({ id: 'spouseCounty', kind: 'choice', options: COUNTY_OPTIONS, text: 'Indiana county where your spouse lived on January 1, if different from yours', help: 'Only for a joint return when you lived in different counties on January 1.' }),
-    Object.freeze({ id: 'workCounty', kind: 'choice', options: COUNTY_OPTIONS, text: 'Indiana county where you worked on January 1, if you did not live in Indiana on January 1', help: 'A nonresident who worked in an Indiana county on January 1 pays that county\'s tax on Schedule CT-40PNR.' }),
+    Object.freeze({ id: 'county', when: Object.freeze({ residency: ['full-year', 'part-year'] }), kind: 'choice', options: COUNTY_OPTIONS, text: 'Indiana county where you lived on January 1', help: 'Sets your county income tax rate on Schedule CT-40. A move after January 1 does not change it until next year.' }),
+    Object.freeze({ id: 'spouseCounty', when: Object.freeze({ residency: ['full-year', 'part-year'], filingStatus: ['mfj'] }), kind: 'choice', options: COUNTY_OPTIONS, text: 'Indiana county where your spouse lived on January 1, if different from yours', help: 'Only for a joint return when you lived in different counties on January 1.' }),
+    Object.freeze({ id: 'workCounty', when: Object.freeze({ residency: ['part-year', 'nonresident'] }), kind: 'choice', options: COUNTY_OPTIONS, text: 'Indiana county where you worked on January 1, if you did not live in Indiana on January 1', help: 'A nonresident who worked in an Indiana county on January 1 pays that county\'s tax on Schedule CT-40PNR.' }),
     Object.freeze({ id: 'rentPaid', kind: 'amount', text: 'Rent you paid on your main home in Indiana', help: 'Renter\'s deduction on Schedule 2 line 1, up to $3,000 ($1,500 married filing separately). Only rent on a place subject to Indiana property tax.' }),
     Object.freeze({ id: 'propertyTaxPaid', kind: 'amount', text: 'Indiana property tax you paid on your main home', help: 'Homeowner\'s residential property tax deduction on Schedule 2 line 2, up to $2,500 ($1,250 married filing separately). Leave out any part deducted on Schedule C, E or F.' }),
-    Object.freeze({ id: 'outOfStateMuniInterest', kind: 'amount', text: 'Tax-exempt interest from bonds of other states bought after 2011', help: 'Added back on Schedule 1 line 3. Indiana bonds and bonds bought before 2012 are not added back. Left blank, all federally tax-exempt interest is added back.' }),
-    Object.freeze({ id: 'privateSchoolChildren', kind: 'count', text: 'Number of dependent children at an Indiana private school or homeschool you paid education costs for', help: '$1,000 each on Schedule 2 line 8.' }),
-    Object.freeze({ id: 'firstYearAdditionalChildren', kind: 'count', text: 'Number of dependent children claimed for the additional child exemption for the first time this year', help: 'Each gets $3,000 instead of $1,500 for that one year (Schedule IN-DEP box F).' }),
-    Object.freeze({ id: 'adoptedChildren', kind: 'count', text: 'Number of adopted dependent children who qualify for the additional adopted child exemption', help: '$3,000 each on Schedule 3 line 6 (Schedule IN-DEP-A).' }),
+    Object.freeze({ id: 'outOfStateMuniInterest', when: Object.freeze({ residency: ['full-year', 'part-year'], has: ['taxExemptInterest'] }), kind: 'amount', text: 'Tax-exempt interest from bonds of other states bought after 2011', help: 'Added back on Schedule 1 line 3. Indiana bonds and bonds bought before 2012 are not added back. Left blank, all federally tax-exempt interest is added back.' }),
+    Object.freeze({ id: 'privateSchoolChildren', when: Object.freeze({ has: ['dependents'] }), kind: 'count', text: 'Number of dependent children at an Indiana private school or homeschool you paid education costs for', help: '$1,000 each on Schedule 2 line 8.' }),
+    Object.freeze({ id: 'firstYearAdditionalChildren', when: Object.freeze({ has: ['dependents'] }), kind: 'count', text: 'Number of dependent children claimed for the additional child exemption for the first time this year', help: 'Each gets $3,000 instead of $1,500 for that one year (Schedule IN-DEP box F).' }),
+    Object.freeze({ id: 'adoptedChildren', when: Object.freeze({ has: ['dependents'] }), kind: 'count', text: 'Number of adopted dependent children who qualify for the additional adopted child exemption', help: '$3,000 each on Schedule 3 line 6 (Schedule IN-DEP-A).' }),
     Object.freeze({ id: 'activeMilitaryPay', kind: 'amount', text: 'Active duty military pay included in federal AGI', help: 'Schedule 2 line 7.' }),
     Object.freeze({ id: 'nationalGuardPay', kind: 'amount', text: 'National Guard or reserve component military pay included in federal AGI', help: 'Deduction code 621.' }),
-    Object.freeze({ id: 'militaryRetirement', kind: 'amount', text: 'Military retirement or survivor\'s benefits included in federal AGI', help: 'Deduction code 632.' }),
+    Object.freeze({ id: 'militaryRetirement', when: Object.freeze({ has: ['retirementIncome'] }), kind: 'amount', text: 'Military retirement or survivor\'s benefits included in federal AGI', help: 'Deduction code 632.' }),
     Object.freeze({ id: 'useTax', kind: 'amount', text: 'Indiana use tax owed on purchases with no Indiana sales tax', help: 'Schedule 4 line 1: 7% of the price. Enter 0 if none.' }),
-    Object.freeze({ id: 'otherStateTax', kind: 'amount', text: 'Income tax you paid to another state whose return MyCA does not prepare', help: 'The tax on that state\'s return, not the amount withheld. Used only when no other state return is worked out here.' }),
-    Object.freeze({ id: 'otherStateIncome', kind: 'amount', text: 'Income taxed by that other state and also by Indiana', help: 'For the Schedule 6 line 5 credit.' }),
+    Object.freeze({ id: 'otherStateTax', when: Object.freeze({ residency: ['full-year', 'part-year'] }), kind: 'amount', text: 'Income tax you paid to another state whose return MyCA does not prepare', help: 'The tax on that state\'s return, not the amount withheld. Used only when no other state return is worked out here.' }),
+    Object.freeze({ id: 'otherStateIncome', when: Object.freeze({ residency: ['full-year', 'part-year'], answer: { id: 'otherStateTax' } }), kind: 'amount', text: 'Income taxed by that other state and also by Indiana', help: 'For the Schedule 6 line 5 credit.' }),
   ]),
+  labels,
   notCovered: Object.freeze([
     'Schedule 1 add-backs other than out-of-state bond interest (tax add-back, net operating loss, bonus depreciation, Section 179 and other coded add-backs)',
     'Schedule 2 coded deductions other than military retirement, National Guard pay and, for 2026, the federal tips, overtime and car loan interest deductions; the Indiana net operating loss and railroad retirement benefits',

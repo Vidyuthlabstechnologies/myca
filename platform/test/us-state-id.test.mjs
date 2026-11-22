@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 test('Idaho resident single: U.S. interest is subtracted on Form 39R and 5.3% applies above $4,811', async () => {
   const state = await household({ state: 'ID', forms: [w2(60000, { state: 'ID', stateWithheld: 2500 }), { kind: '1099-INT', fields: { interest: 700, treasuryInterest: 200 } }] });
@@ -138,4 +139,21 @@ test('Idaho 2026: the child tax credit has ended and the indexed zero-tax amount
   assert.equal(id.lines['24'], 0);
   assert.equal(id.provisional, true);
   assert.ok(id.notes.some((note) => note.includes('63-3029L')));
+});
+
+test('Idaho: every line of a resident return has a label in the words of Form 40', async () => {
+  const state = await household({ state: 'ID', forms: [w2(50000, { state: 'ID', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'ID', residency: 'full-year' }]);
+  const found = await stateReturn(state, '2025', 'ID');
+  assert.ok(Object.keys(found.lines).length > 0);
+  for (const key of Object.keys(found.lines)) assert.ok(typeof found.labels[key] === 'string' && found.labels[key].length > 0, `line ${key} has no label`);
+});
+
+const questionIds = async (state, code) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: code })).data.states[0].questions.map((item) => item.id);
+
+test('Idaho asks about child care costs only of a household with dependents', async () => {
+  const plain = await household({ state: 'ID', forms: [w2(50000, { state: 'ID' })] });
+  assert.equal((await questionIds(plain, 'ID')).includes('childCareExpenses'), false);
+  const holds = await household({ state: 'ID', forms: [w2(50000, { state: 'ID' })], filingStatus: 'hoh', dependents: [{ firstName: 'Leo', lastName: 'Diaz', ssn: '400-12-9876', relationship: 'son', dateOfBirth: '2018-05-05', months: 12 }] });
+  assert.ok((await questionIds(holds, 'ID')).includes('childCareExpenses'));
 });

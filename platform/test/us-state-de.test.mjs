@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const spouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1986-06-01' };
 const kids = [{ firstName: 'Leo', lastName: 'Diaz', ssn: '400-12-9876', relationship: 'son', dateOfBirth: '2018-02-02', months: 12 }, { firstName: 'Mia', lastName: 'Diaz', ssn: '400-12-9877', relationship: 'daughter', dateOfBirth: '2016-05-05', months: 12 }];
@@ -130,4 +131,21 @@ test('Delaware 2026 figures are statutory, so the return is not provisional apar
   const itemizer = await stateReturn(owner, '2026', 'DE');
   assert.equal(itemizer.lines['20'], 12000);
   assert.equal(itemizer.provisional, true);
+});
+
+test('Delaware: every line of a resident return has a label in the words of Form PIT-RES', async () => {
+  const state = await household({ state: 'DE', forms: [w2(50000, { state: 'DE', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'DE', residency: 'full-year' }]);
+  const found = await stateReturn(state, '2025', 'DE');
+  assert.ok(Object.keys(found.lines).length > 0);
+  for (const key of Object.keys(found.lines)) assert.ok(typeof found.labels[key] === 'string' && found.labels[key].length > 0, `line ${key} has no label`);
+});
+
+const questionIds = async (state, code) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: code })).data.states[0].questions.map((item) => item.id);
+
+test('Delaware asks about military pensions only when there is retirement income', async () => {
+  const plain = await household({ state: 'DE', forms: [w2(50000, { state: 'DE' })] });
+  assert.equal((await questionIds(plain, 'DE')).includes('militaryPension'), false);
+  const holds = await household({ state: 'DE', forms: [w2(50000, { state: 'DE' }), { kind: '1099-R', fields: { grossDistribution: 12000, taxableAmount: 12000 } }] });
+  assert.ok((await questionIds(holds, 'DE')).includes('militaryPension'));
 });

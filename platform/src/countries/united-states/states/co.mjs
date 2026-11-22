@@ -242,18 +242,50 @@ function compute(ctx, filing, reader) {
   };
 }
 
+const LABELS = Object.freeze({
+  1: 'Federal taxable income',
+  2: 'State income tax deduction addback',
+  3: 'Qualified business income deduction addback',
+  4: 'Federal standard or itemized deduction addback',
+  5: 'Business meals deduction addback',
+  6: 'CollegeInvest non-qualified distributions',
+  7: 'ABLE account non-qualified distributions',
+  9: 'Other additions, including non-Colorado bond interest',
+  10: 'Federal taxable income plus additions',
+  11: 'Subtractions from Schedule DR 0104AD',
+  12: 'Colorado taxable income',
+  13: 'Colorado tax',
+  14: 'Alternative minimum tax',
+  15: 'Recapture of prior year credits',
+  16: 'Tax before credits',
+  17: 'Nonrefundable credits from DR 0104CR',
+  21: 'Net income tax',
+  22: 'Other tax added to net income tax',
+  23: 'Total tax',
+  24: 'Colorado income tax withheld',
+  26: 'Estimated tax payments',
+  27: 'Extension payment',
+  31: 'Refundable credits from DR 0104CR',
+  34: 'Federal adjusted gross income',
+  35: 'Nontaxable Social Security benefits',
+  36: 'Non-Colorado bond interest added back',
+  37: 'Modified AGI for the TABOR refund',
+  38: 'TABOR state sales tax refund',
+});
+
 export const STATE = Object.freeze({
   code: 'CO',
   name: 'Colorado',
   built: true,
   forms: Object.freeze({ resident: 'DR 0104', partYear: 'DR 0104 with DR 0104PN', nonresident: 'DR 0104 with DR 0104PN' }),
   questions: Object.freeze([
-    Object.freeze({ id: 'nonColoradoMunicipalInterest', kind: 'amount', text: 'Interest from bonds of states and local governments other than Colorado that was tax-exempt on your federal return', help: 'Added on DR 0104 line 9.' }),
+    Object.freeze({ id: 'nonColoradoMunicipalInterest', when: Object.freeze({ has: ['taxExemptInterest'] }), kind: 'amount', text: 'Interest from bonds of states and local governments other than Colorado that was tax-exempt on your federal return', help: 'Added on DR 0104 line 9.' }),
     Object.freeze({ id: 'collegeInvestContributions', kind: 'amount', text: 'Contributions you made to a CollegeInvest 529 account', help: 'Subtracted on DR 0104AD line 10 up to the per-beneficiary limit ($25,400, or $38,100 joint, for 2025).' }),
-    Object.freeze({ id: 'collegeInvestBeneficiaries', kind: 'count', text: 'Number of beneficiaries of those CollegeInvest contributions', help: 'Sets the per-beneficiary limit.' }),
+    Object.freeze({ id: 'collegeInvestBeneficiaries', when: Object.freeze({ answer: { id: 'collegeInvestContributions' } }), kind: 'count', text: 'Number of beneficiaries of those CollegeInvest contributions', help: 'Sets the per-beneficiary limit.' }),
     Object.freeze({ id: 'famliBenefits', kind: 'amount', text: 'Colorado FAMLI paid leave benefits included in federal income', help: 'Subtracted on DR 0104AD line 19. Do not include unemployment.' }),
     Object.freeze({ id: 'otherSubtractions', kind: 'amount', text: 'Other Colorado subtractions (DR 0104AD lines 7 to 9, 11, 13 to 18 and 20), such as military retirement under 55, railroad retirement or Colorado ABLE contributions', help: 'U.S. Treasury interest, Social Security, pensions and the charitable subtraction are worked out automatically.' }),
   ]),
+  labels: LABELS,
   notCovered: Object.freeze(['Business meals addback (line 5), CollegeInvest and ABLE non-qualified distributions (lines 6 and 7) and the other additions on line 9 apart from non-Colorado bond interest', 'Colorado alternative minimum tax (DR 0104AMT) and credit recapture', 'DR 0104CR credits other than the child tax credit, family affordability tax credit, earned income tax credit and credit for tax paid to another state (child care, ITIN and under-25 EITC, enterprise zone and others)', 'Pension and Social Security subtraction for survivor beneficiaries under 55', 'Voluntary contributions (DR 0104CH), penalties and interest']),
   compute,
 });

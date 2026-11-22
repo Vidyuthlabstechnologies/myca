@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const kids = [
   { firstName: 'Mia', lastName: 'Diaz', ssn: '400-12-9871', relationship: 'daughter', dateOfBirth: '2015-03-03', months: 12 },
@@ -111,4 +112,21 @@ test('Iowa 2026 keeps the statutory 3.8% rate and is provisional until the 2026 
   assert.equal(ia.provisional, true);
   assert.equal(ia.lines['5'], Math.round(ia.lines['4'] * 0.038));
   assert.equal(ia.due, '2027-04-30');
+});
+
+test('Iowa: every line of a resident return has a label in the words of the IA 1040', async () => {
+  const state = await household({ state: 'IA', forms: [w2(50000, { state: 'IA', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'IA', residency: 'full-year' }]);
+  const found = await stateReturn(state, '2025', 'IA');
+  assert.ok(Object.keys(found.lines).length > 0);
+  for (const key of Object.keys(found.lines)) assert.ok(typeof found.labels[key] === 'string' && found.labels[key].length > 0, `line ${key} has no label`);
+});
+
+const questionIds = async (state, code) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: code })).data.states[0].questions.map((item) => item.id);
+
+test('Iowa asks about military retirement pay only when there is retirement income', async () => {
+  const plain = await household({ state: 'IA', forms: [w2(50000, { state: 'IA' })] });
+  assert.equal((await questionIds(plain, 'IA')).includes('militaryRetirement'), false);
+  const holds = await household({ state: 'IA', forms: [w2(50000, { state: 'IA' }), { kind: '1099-R', fields: { grossDistribution: 12000, taxableAmount: 12000 } }] });
+  assert.ok((await questionIds(holds, 'IA')).includes('militaryRetirement'));
 });

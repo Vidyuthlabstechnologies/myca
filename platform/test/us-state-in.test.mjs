@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const kids = [{ firstName: 'Leo', lastName: 'Diaz', ssn: '400-12-9876', relationship: 'son', dateOfBirth: '2017-02-02', months: 12 }, { firstName: 'Mia', lastName: 'Diaz', ssn: '400-12-9877', relationship: 'daughter', dateOfBirth: '2020-05-05', months: 12 }];
 const spouse = (dateOfBirth = '1990-03-03') => ({ firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth });
@@ -102,4 +103,22 @@ test('Indiana resident with no county answer is blocked with an error check', as
   await residency(state, '2025', [{ state: 'IN', residency: 'full-year', answers: { useTax: 0 } }]);
   const r = await stateReturn(state, '2025', 'IN');
   assert.ok(r.checks.some((item) => item.level === 'error' && item.code === 'IN_COUNTY_REQUIRED'));
+});
+
+test('Indiana: every line of a resident return has a label in the words of Form IT-40', async () => {
+  const state = await household({ state: 'IN', forms: [w2(50000, { state: 'IN', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'IN', residency: 'full-year' }]);
+  const found = await stateReturn(state, '2025', 'IN');
+  assert.ok(Object.keys(found.lines).length > 0);
+  for (const key of Object.keys(found.lines)) assert.ok(typeof found.labels[key] === 'string' && found.labels[key].length > 0, `line ${key} has no label`);
+});
+
+const questionIds = async (state, code) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: code })).data.states[0].questions.map((item) => item.id);
+
+test('Indiana asks for income taxed by another state only after that state\'s tax is given', async () => {
+  const state = await household({ state: 'IN', forms: [w2(50000, { state: 'IN' })] });
+  assert.equal((await questionIds(state, 'IN')).includes('otherStateIncome'), false);
+  const saved = await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'IN', answers: { otherStateTax: 400 } });
+  assert.equal(saved.ok, true, JSON.stringify(saved));
+  assert.ok((await questionIds(state, 'IN')).includes('otherStateIncome'));
 });

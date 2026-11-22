@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 import { hiScheduleTax, hiTableTax, ratioTwoPlaces } from '../src/countries/united-states/states/hi.mjs';
 
 const HI_2025 = { brackets: { single: [0, 9600, 14400, 19200, 24000, 36000, 48000, 125000, 175000, 225000, 275000, 325000].map((over, index) => ({ overCents: over * 100, rateBp: [140, 320, 550, 640, 680, 720, 760, 790, 825, 900, 1000, 1100][index] })) }, tableBelow: 100000, tableBand: 50 };
@@ -153,4 +154,22 @@ test('Hawaii 2026: Act 46 raises the standard deduction to $8,000 and net capita
   assert.equal(hi.provisional, false);
   assert.equal(hi.refund, 0);
   assert.equal(hi.owed, 2658);
+});
+
+test('Hawaii: every line of a resident return has a label in the words of Form N-11', async () => {
+  const state = await household({ state: 'HI', forms: [w2(50000, { state: 'HI', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'HI', residency: 'full-year' }]);
+  const found = await stateReturn(state, '2025', 'HI');
+  assert.ok(Object.keys(found.lines).length > 0);
+  for (const key of Object.keys(found.lines)) assert.ok(typeof found.labels[key] === 'string' && found.labels[key].length > 0, `line ${key} has no label`);
+});
+
+const questionIds = async (state, code) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: code })).data.states[0].questions.map((item) => item.id);
+
+test('Hawaii asks about rent exclusions only after rent paid is given', async () => {
+  const state = await household({ state: 'HI', forms: [w2(50000, { state: 'HI' })] });
+  assert.equal((await questionIds(state, 'HI')).includes('hiRentExclusions'), false);
+  const saved = await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'HI', answers: { hiRentPaid: 9000 } });
+  assert.equal(saved.ok, true, JSON.stringify(saved));
+  assert.ok((await questionIds(state, 'HI')).includes('hiRentExclusions'));
 });
