@@ -177,6 +177,34 @@ class _UsStateReturnScreenState extends State<UsStateReturnScreen> {
     );
   }
 
+  Widget _everyLine(UsStateReturn r) {
+    final text = Theme.of(context).textTheme;
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        key: const Key('usStateReturn.everyLine'),
+        tilePadding: EdgeInsets.zero,
+        title: Text(r.form.isEmpty ? 'Every line of the return' : 'Every line of Form ${r.form}', style: text.titleSmall),
+        children: [
+          Panel(
+            children: [
+              for (final l in r.lines)
+                Padding(
+                  key: Key('usStateReturn.formLine.${l.line}'),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: AmountRow(
+                    start: Text('Line ${l.line} · ${l.label}', style: text.bodyMedium?.copyWith(color: context.myca.ink)),
+                    amount: l.shown,
+                    style: text.titleSmall?.copyWith(fontFeatures: moneyFigures),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _notCovered(UsStateReturn r) {
     final text = Theme.of(context).textTheme;
     if (r.notCovered.isEmpty) return const SizedBox.shrink();
@@ -242,6 +270,7 @@ class _UsStateReturnScreenState extends State<UsStateReturnScreen> {
         const SizedBox(height: 18),
         SectionLabel(r.form.isEmpty ? 'Your return' : 'Form ${r.form}'),
         Panel(children: _lines(r)),
+        if (r.lines.isNotEmpty) _everyLine(r),
         if (r.otherStateCredit > 0) ...[
           const SizedBox(height: 10),
           Text(

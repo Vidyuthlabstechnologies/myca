@@ -112,6 +112,46 @@
     }
   },
   {
+    "tool": "set_us_state_answers",
+    "args": {
+      "taxYear": "2025",
+      "state": "NY",
+      "answers": {
+        "ny529Contributions": 1200.0
+      }
+    }
+  },
+  {
+    "tool": "set_us_state_answers",
+    "args": {
+      "taxYear": "2025",
+      "state": "NY",
+      "answers": {
+        "nycMonths": 7
+      }
+    }
+  },
+  {
+    "tool": "set_us_state_answers",
+    "args": {
+      "taxYear": "2025",
+      "state": "NY",
+      "answers": {
+        "nycResident": "part-year"
+      }
+    }
+  },
+  {
+    "tool": "set_us_state_answers",
+    "args": {
+      "taxYear": "2025",
+      "state": "NY",
+      "answers": {
+        "yonkersNonresidentWages": false
+      }
+    }
+  },
+  {
     "tool": "set_us_state_residency",
     "args": {
       "taxYear": "2025",
@@ -127,88 +167,6 @@
           "residency": "part-year",
           "from": "2025-04-01",
           "to": "2025-12-31"
-        },
-        {
-          "state": "NJ",
-          "residency": "nonresident"
-        }
-      ]
-    }
-  },
-  {
-    "tool": "set_us_state_residency",
-    "args": {
-      "taxYear": "2025",
-      "states": [
-        {
-          "state": "NY",
-          "residency": "full-year",
-          "answers": {
-            "nycResident": "full-year",
-            "nycMonths": 12,
-            "yonkersNonresidentWages": false,
-            "ny529Contributions": 1200.0
-          }
-        },
-        {
-          "state": "NJ",
-          "residency": "nonresident"
-        }
-      ]
-    }
-  },
-  {
-    "tool": "set_us_state_residency",
-    "args": {
-      "taxYear": "2025",
-      "states": [
-        {
-          "state": "NY",
-          "residency": "full-year",
-          "answers": {
-            "nycResident": "full-year",
-            "nycMonths": 12,
-            "yonkersNonresidentWages": false
-          }
-        },
-        {
-          "state": "NJ",
-          "residency": "nonresident"
-        }
-      ]
-    }
-  },
-  {
-    "tool": "set_us_state_residency",
-    "args": {
-      "taxYear": "2025",
-      "states": [
-        {
-          "state": "NY",
-          "residency": "full-year",
-          "answers": {
-            "nycResident": "full-year",
-            "nycMonths": 12
-          }
-        },
-        {
-          "state": "NJ",
-          "residency": "nonresident"
-        }
-      ]
-    }
-  },
-  {
-    "tool": "set_us_state_residency",
-    "args": {
-      "taxYear": "2025",
-      "states": [
-        {
-          "state": "NY",
-          "residency": "full-year",
-          "answers": {
-            "nycResident": "full-year"
-          }
         },
         {
           "state": "NJ",

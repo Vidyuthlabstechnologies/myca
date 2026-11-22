@@ -36,6 +36,8 @@ Map<String, Object?> nyReturn({bool provisional = false}) => {
         'Yonkers nonresident earnings tax (Form Y-203)',
       ],
       'notes': const [],
+      'lines': {'1': 158000, '17': 158000, '19': 158000, '33': 158000, '37': 142000, '39': 8460, '47a': 5390, '72': 13900, '78': 1690, 'ratio': 0.4523},
+      'labels': {'1': 'Wages, salaries, tips, etc.', '17': 'Total federal income', '19': 'Federal adjusted gross income', '33': 'New York adjusted gross income', '37': 'Taxable income', '39': 'New York State tax on line 38 amount', '47a': 'New York City resident tax', '72': 'Total New York State tax withheld', '78': 'Amount of line 77 to be refunded', 'ratio': 'Income percentage'},
       'provisional': provisional,
       'unreviewed': true,
       'rulesUsed': const ['us.state-return.ny.income-tax@2025-01-01'],
@@ -78,7 +80,7 @@ Map<String, Object?> paReciprocal() => {
 
 const nyQuestions = [
   {'id': 'nycResident', 'kind': 'choice', 'options': ['full-year', 'part-year', 'no'], 'text': 'Did you live in New York City (the Bronx, Brooklyn, Manhattan, Queens or Staten Island) this year?', 'help': 'full-year, part-year (you moved in or out) or no. New York City tax is on the state return for city residents.'},
-  {'id': 'nycMonths', 'kind': 'count', 'text': 'Part-year New York City residents: full months you lived in the city', 'help': 'Count a period of more than half a month as a full month (Form IT-360.1, line 39).'},
+  {'id': 'nycMonths', 'when': {'nycResident': 'part-year'}, 'kind': 'count', 'text': 'Part-year New York City residents: full months you lived in the city', 'help': 'Count a period of more than half a month as a full month (Form IT-360.1, line 39).'},
   {'id': 'yonkersNonresidentWages', 'kind': 'yesno', 'text': 'Did you or your spouse work in Yonkers while not living there?', 'help': 'Wages or self-employment earned in Yonkers by a nonresident are taxed on Form Y-203.'},
   {'id': 'ny529Contributions', 'kind': 'amount', 'text': 'Contributions you made this year to New York\'s 529 college savings program as account owner', 'help': 'Subtracted up to \$5,000, or \$10,000 on a joint return (line 30).'},
   {'id': 'schoolDistrict', 'kind': 'text', 'text': 'Your New York school district name', 'help': 'As it appears in the IT-201 instructions.'},
@@ -86,25 +88,44 @@ const nyQuestions = [
 ];
 
 class StateBook {
-  StateBook({List<Map<String, Object?>>? residency, this.assumed = false, Map<String, Map<String, Object?>>? returns, Map<String, List<Map<String, Object?>>>? questions, this.package})
+  StateBook({List<Map<String, Object?>>? residency, this.assumed = false, Map<String, Map<String, Object?>>? returns, Map<String, List<Map<String, Object?>>>? questions, Map<String, Map<String, Object?>>? answers, this.package, this.route = 'partner'})
       : residency = residency ?? [
           {'state': 'NY', 'residency': 'full-year'},
           {'state': 'NJ', 'residency': 'nonresident'},
         ],
         returns = returns ?? {'NY': nyReturn(), 'NJ': njReturn(), 'PA': paReciprocal()},
-        questions = questions ?? {'NY': nyQuestions};
+        questions = questions ?? {'NY': nyQuestions},
+        answers = answers ?? {};
 
   List<Map<String, Object?>> residency;
   bool assumed;
   final Map<String, Map<String, Object?>> returns;
   final Map<String, List<Map<String, Object?>>> questions;
+  final Map<String, Map<String, Object?>> answers;
   Map<String, Object?>? package;
+  String route;
   bool fails = false;
   final saves = <List<Map<String, Object?>>>[];
+  final answered = <Map<String, Object?>>[];
 
   void attach(UsFakeApi api) {
     api.stateTools = query;
     api.stateSaved = saved;
+    api.stateAnswered = answer;
+  }
+
+  void answer(Map<String, Object?> args) {
+    answered.add(args);
+    final code = '${args['state']}';
+    final current = {...?answers[code]};
+    (args['answers'] as Map).forEach((key, value) => value == null ? current.remove('$key') : current['$key'] = value);
+    answers[code] = current;
+  }
+
+  bool _applies(Map<String, Object?> q, Map<String, Object?> given) {
+    final when = q['when'];
+    if (when is! Map) return true;
+    return when.entries.every((e) => given[e.key] == e.value);
   }
 
   void saved(Map<String, Object?> args) {
@@ -137,7 +158,7 @@ class StateBook {
             'taxYear': '${args['taxYear']}',
             'filingStatus': 'mfj',
             'residencyAssumed': assumed,
-            'residency': [for (final e in residency) {...e, if (assumed) 'assumed': true}],
+            'residency': [for (final e in residency) {...e, if (assumed) 'assumed': true, if (answers['${e['state']}']?.isNotEmpty ?? false) 'answers': answers['${e['state']}']}],
             'returns': picked,
             'totals': {
               'tax': computed.fold<num>(0, (t, r) => t + (r['totalTax'] as num)),
@@ -159,9 +180,11 @@ class StateBook {
                   'state': code,
                   'stateName': returns[code]?['stateName'] ?? code,
                   'built': returns.containsKey(code),
+                  'residency': residency.where((e) => e['state'] == code).firstOrNull?['residency'] ?? 'full-year',
+                  'skipped': (questions[code] ?? const []).where((q) => !_applies(q, answers[code] ?? const {})).length,
                   'questions': [
                     for (final q in questions[code] ?? const <Map<String, Object?>>[])
-                      {...q, 'answer': (residency.where((e) => e['state'] == code).firstOrNull?['answers'] as Map?)?[q['id']]},
+                      if (_applies(q, answers[code] ?? const {})) {for (final e in q.entries) if (e.key != 'when') e.key: e.value, 'answer': answers[code]?[q['id']]},
                   ],
                 },
             ],
@@ -189,20 +212,22 @@ class StateBook {
               'data': {
                 'taxYear': '${args['taxYear']}',
                 'contract': 'us-state-filing-v1',
+                'route': route,
+                if (route == 'irs-mef') 'routeNote': 'The federal return goes straight to the IRS, and MyCA does not send state returns with it yet. File the state returns with the e-file partner or on the state\'s own site.',
                 'packages': [
                   for (final e in residency)
                     if (returns[e['state']]?['status'] == 'computed')
                       {
                         'state': e['state'],
                         'form': returns[e['state']]!['form'],
-                        'route': 'partner',
-                        'piggyback': true,
-                        'ready': returns[e['state']]!['provisional'] != true,
-                        'blockers': [if (returns[e['state']]!['provisional'] == true) 'STATE_FIGURES_PROVISIONAL'],
+                        'route': route,
+                        'piggyback': route == 'partner',
+                        'ready': route == 'partner' && returns[e['state']]!['provisional'] != true,
+                        'blockers': [if (route == 'irs-mef') 'STATE_MEF_NOT_BUILT', if (returns[e['state']]!['provisional'] == true) 'STATE_FIGURES_PROVISIONAL'],
                       },
                 ],
                 'missing': const [],
-                'ready': true,
+                'ready': route == 'partner',
               },
             };
     }

@@ -264,6 +264,27 @@ class UsWalk {
     await tester.pumpAndSettle();
   }
 
+  Future<void> typeKey(String key, String text) async {
+    final finder = find.byKey(Key(key));
+    await _reveal(finder);
+    await tester.enterText(finder, text);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> _reveal(Finder finder) async {
+    if (finder.evaluate().isEmpty) {
+      final scroll = tester
+          .stateList<ScrollableState>(find.byType(Scrollable))
+          .firstWhere((s) => s.position.axis == Axis.vertical && (ModalRoute.of(s.context)?.isCurrent ?? true));
+      for (var i = 0; i < 60 && finder.evaluate().isEmpty; i++) {
+        scroll.position.jumpTo((scroll.position.pixels + 200).clamp(0, scroll.position.maxScrollExtent));
+        await tester.pump();
+      }
+    }
+    await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
+  }
+
   Future<void> tapKey(String key) async {
     final finder = find.byKey(Key(key));
     if (finder.evaluate().isEmpty) {
@@ -387,23 +408,31 @@ class UsWalk {
     await open(const UsStateQuestionsScreen(taxYear: walkYear, state: 'NY'), '27d_state_question_choice');
     await tapKey('usStateQuestions.next');
     await snap('27e_state_question_needs_answer');
-    await tapKey('usStateQuestions.option.no');
+    await tapKey('usStateQuestions.option.part-year');
     await tapKey('usStateQuestions.next');
     await snap('27f_state_question_count');
-    await tapKey('usStateQuestions.skip');
+    await typeKey('usStateQuestions.count', '7');
+    await tapKey('usStateQuestions.next');
     await snap('27g_state_question_yes_no');
-    await tapKey('usStateQuestions.skip');
+    await tapKey('usStateQuestions.no');
+    await tapKey('usStateQuestions.next');
     await snap('27h_state_question_amount');
-    await tapKey('usStateQuestions.skip');
+    await tapKey('usStateQuestions.none');
     await snap('27i_state_question_text');
-    await tapKey('usStateQuestions.skip');
+    await typeKey('usStateQuestions.text', 'NYC Geographic District 15');
+    await tapKey('usStateQuestions.next');
     await snap('27j_state_question_long_choice');
-    await tapKey('usStateQuestions.skip');
+    await tapKey('usStateQuestions.pick.county');
+    await tester.tap(find.text('Albany').last);
+    await tester.pumpAndSettle();
+    await tapKey('usStateQuestions.next');
     await snap('27k_state_questions_done');
     await popAll();
     await open(const UsStateReturnScreen(taxYear: walkYear, state: 'NY'), '27l_state_return_refund');
     await tapKey('usStateReturn.notCovered');
     await snap('27m_state_return_not_covered');
+    await tapKey('usStateReturn.everyLine');
+    await snap('27m2_state_return_every_line');
     await popAll();
     await open(const UsStateReturnScreen(taxYear: walkYear, state: 'NJ'), '27n_state_return_owed');
     await popAll();
@@ -494,6 +523,12 @@ class UsWalk {
     await app(usState(partner));
     await open(UsSignScreen(taxYear: walkYear, fees: WalkFees(const UsFilingFee(taxYear: walkYear, enforced: true, paid: true, priceUsd: 99, listPriceUsd: 129))), '42_partner_ready');
     await popAll();
+    final directStates = filledApi();
+    StateBook(route: 'irs-mef').attach(directStates);
+    await app(usState(directStates));
+    await open(UsSignScreen(taxYear: walkYear, fees: WalkFees(const UsFilingFee(taxYear: walkYear, enforced: true, paid: true, priceUsd: 99))), '42a_sign_states_direct');
+    await popAll();
+    await app(usState(partner));
     partner
       ..efile = 'in_progress'
       ..rejections = [

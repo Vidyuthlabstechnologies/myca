@@ -283,15 +283,16 @@ void main() {
     final asked = StateBook(questions: {'NY': [nyQuestions[0], nyQuestions[1], nyQuestions[2], nyQuestions[3]]})..attach(questions);
     await tester.pumpWidget(AppScope(state: usState(questions), child: const MaterialApp(home: UsStateQuestionsScreen(taxYear: 2025, state: 'NY'))));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Yes, all year'));
+    await tester.tap(find.text('Yes, part of the year'));
     await open(tester, 'usStateQuestions.next');
-    await tester.enterText(find.byKey(const Key('usStateQuestions.count')), '12');
+    await tester.enterText(find.byKey(const Key('usStateQuestions.count')), '7');
     await open(tester, 'usStateQuestions.next');
     await open(tester, 'usStateQuestions.no');
     await open(tester, 'usStateQuestions.next');
     await tester.enterText(find.byKey(const Key('usStateQuestions.amount')), '1200');
     await open(tester, 'usStateQuestions.next');
-    expect(asked.saves.last.first['answers'], {'nycResident': 'full-year', 'nycMonths': 12, 'yonkersNonresidentWages': false, 'ny529Contributions': 1200});
+    expect(asked.answers['NY'], {'nycResident': 'part-year', 'nycMonths': 7, 'yonkersNonresidentWages': false, 'ny529Contributions': 1200});
+    expect(asked.saves, isEmpty);
     await open(tester, 'usStateQuestions.see');
     expect(find.byType(UsStateReturnScreen), findsOneWidget);
     record(questions);
@@ -307,6 +308,16 @@ void main() {
     await open(tester, 'usHub.step.sign');
     expect(find.byKey(const Key('usSign.states')), findsOneWidget);
     record(signing);
+
+    final direct = ContractApi()..taxpayer = {'filingStatus': 'single'};
+    direct.forms.add({'id': 'usf-2025-1', 'kind': 'W-2', 'payer': 'Acme', 'amounts': {'wages': 52000}});
+    StateBook(route: 'irs-mef').attach(direct);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(MycaApp(state: usState(direct)));
+    await tester.pumpAndSettle();
+    await open(tester, 'usHub.step.sign');
+    expect(find.byKey(const Key('usSign.stateRoute')), findsOneWidget);
+    record(direct);
   });
 
   test('the recorded calls match the fixture the server suite checks against its schemas', () {
@@ -318,6 +329,6 @@ void main() {
     }
     expect(file.readAsStringSync().trim(), recorded, reason: 'The app now sends different US tool arguments. Run UPDATE_US_TOOL_CALLS=1 flutter test test/us_tool_contract_test.dart, then cd platform && node --test test/us-app-tool-calls.test.mjs.');
     final tools = {for (final c in calls.values) c['tool']};
-    expect(tools, containsAll(['set_us_state_residency', 'us_state_returns', 'us_state_questions', 'us_state_coverage', 'us_state_filing_package', 'set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'sign_us_return', 'file_us_return', 'import_us_prior_year', 'us_return_status', 'us_efile_status', 'read_us_tax_document', 'start_us_amended_return', 'set_us_amended_return', 'us_amended_return']));
+    expect(tools, containsAll(['set_us_state_answers', 'set_us_state_residency', 'us_state_returns', 'us_state_questions', 'us_state_coverage', 'us_state_filing_package', 'set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'sign_us_return', 'file_us_return', 'import_us_prior_year', 'us_return_status', 'us_efile_status', 'read_us_tax_document', 'start_us_amended_return', 'set_us_amended_return', 'us_amended_return']));
   });
 }
