@@ -62,13 +62,6 @@ Map<String, Object?> counterSaleArgs(List<CartLine> cart, {String customer = '',
 
 const counterPayModes = ['cash', 'upi', 'card', 'credit'];
 
-String payModeLabel(String mode) => switch (mode) {
-  'cash' => 'Cash',
-  'upi' => 'UPI',
-  'card' => 'Card',
-  _ => 'Pay later',
-};
-
 String payModeWords(BuildContext context, String mode) => switch (mode) {
   'cash' => inText(context, 'Cash'),
   'upi' => inText(context, 'UPI'),
@@ -269,11 +262,14 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
     try {
       final proposed = await api.propose('record_receipt', args);
       final preview = proposed.preview;
-      if (preview == null) return proposed.reply.isEmpty ? 'The payment was not recorded; record it from the customer\'s thread.' : proposed.reply;
+      if (!mounted) return '';
+      if (preview == null) return proposed.reply.isEmpty ? inText(context, 'The payment was not recorded; record it from the customer\'s thread.') : proposed.reply;
       final done = await api.confirm(preview.token);
-      return done.posted ? 'Paid by ${payModeLabel(_pay)}.' : done.reply;
+      if (!mounted) return '';
+      return done.posted ? inFormat(context, 'Paid by {mode}.', {'mode': payModeWords(context, _pay)}) : done.reply;
     } on MycaApiException catch (err) {
-      return 'The bill is made, but the payment was not recorded: ${err.message}';
+      if (!mounted) return '';
+      return inFormat(context, 'The bill is made, but the payment was not recorded: {why}', {'why': err.message});
     }
   }
 

@@ -1,4 +1,7 @@
 const hiRetail = <String, String>{
+  'Paid by {mode}.': 'भुगतान: {mode}।',
+  'The payment was not recorded; record it from the customer\'s thread.': 'भुगतान दर्ज नहीं हुआ; इसे ग्राहक के थ्रेड से दर्ज करें।',
+  'The bill is made, but the payment was not recorded: {why}': 'बिल बन गया, पर भुगतान दर्ज नहीं हुआ: {why}',
   'Expiring soon and low stock': 'जल्द एक्सपायर होने वाला और कम स्टॉक',
   'Low stock': 'कम स्टॉक',
   'The low-stock level is a number, for example 10.': 'कम स्टॉक का स्तर एक संख्या है, जैसे 10।',
