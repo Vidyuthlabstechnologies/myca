@@ -9,7 +9,7 @@ import { isPeriodLocked } from './period-lock.mjs';
 import { advanceTax234C } from './it-interest.mjs';
 import { ageAtFyEnd, bandOfAge } from './age-band.mjs';
 
-export const ADVANCE_TAX_ACCOUNT = { id: 1300, code: '1300', name: 'Advance tax paid', type: 'asset', flags: 0 };
+export const ADVANCE_TAX_ACCOUNT = { id: 1170, code: '1170', name: 'Advance tax paid', type: 'asset', flags: 0 };
 const INDIVIDUAL_TYPES = new Set(['', 'individual', 'proprietorship', 'proprietor', 'sole proprietor', 'sole proprietorship', 'huf']);
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
