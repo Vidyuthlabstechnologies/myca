@@ -313,19 +313,20 @@ export function batchesOf(state, { asOf = '' } = {}) {
       else buckets.push({ batch: key, expiry: move.expiry || '', qty, received: move.date });
       continue;
     }
-    issueBatches(buckets, -qty, move.batch || null);
+    issueBatches(buckets, -qty, move.batch || null, move.date);
   }
   return bySku;
 }
 
-function fefo(buckets) {
-  return buckets.filter((row) => row.qty > QTY_EPSILON).sort((a, b) => (a.expiry ? 0 : 1) - (b.expiry ? 0 : 1) || String(a.expiry).localeCompare(String(b.expiry)) || String(a.received).localeCompare(String(b.received)));
+function fefo(buckets, day = '') {
+  const expired = (row) => (day && row.expiry && row.expiry < day ? 1 : 0);
+  return buckets.filter((row) => row.qty > QTY_EPSILON).sort((a, b) => expired(a) - expired(b) || (a.expiry ? 0 : 1) - (b.expiry ? 0 : 1) || String(a.expiry).localeCompare(String(b.expiry)) || String(a.received).localeCompare(String(b.received)));
 }
 
-function issueBatches(buckets, qty, batch) {
+function issueBatches(buckets, qty, batch, day = '') {
   const taken = [];
   let left = qty;
-  const order = batch != null ? buckets.filter((row) => row.batch === batch) : fefo(buckets);
+  const order = batch != null ? buckets.filter((row) => row.batch === batch) : fefo(buckets, day);
   for (const row of order) {
     if (left <= QTY_EPSILON) break;
     const take = batch != null ? left : Math.min(row.qty, left);
@@ -348,7 +349,7 @@ function issueBatches(buckets, qty, batch) {
 
 export function batchesTaken(state, sku, qty, batch, date) {
   const buckets = (batchesOf(state, { asOf: date }).get(sku) || []).map((row) => ({ ...row }));
-  return issueBatches(buckets, qty, batch);
+  return issueBatches(buckets, qty, batch, date);
 }
 
 export function knownBatch(state, sku, batch) {
@@ -371,7 +372,7 @@ export function stockWarnings(state, { sku, qty, batch = null, date }) {
 }
 
 export function warningWords(warning) {
-  if (warning.code === 'EXPIRED_BATCH') return `Warning: ${warning.sku} batch ${warning.batch} expired on ${warning.expiry}; do not sell it without checking.`;
+  if (warning.code === 'EXPIRED_BATCH') return `Warning: ${warning.sku} batch ${warning.batch} expired on ${warning.expiry}. This only takes it out of stock, for example to write it off; an expired batch cannot be sold on a bill.`;
   if (warning.code === 'LOW_STOCK') return `${warning.sku} falls to ${warning.onHand}, at or below its reorder level of ${warning.reorderLevel}.`;
   return warning.code;
 }

@@ -12,7 +12,7 @@ building them now avoids a second release.
 
 | # | Requirement | Where in law | Status | Evidence |
 |---|---|---|---|---|
-| 1.1 | Stand-alone notice in plain words: itemised data, the purpose of each, how to withdraw, exercise rights and complain to the Board | s.5; r.3 | Done | `cloud/src/consent.mjs` `PRIVACY_NOTICE` (version `india-2026-11-14`), shown before any books open |
+| 1.1 | Stand-alone notice in plain words: itemised data, the purpose of each, how to withdraw, exercise rights and complain to the Board | s.5; r.3 | Done | `cloud/src/consent.mjs` `PRIVACY_NOTICE` (version `india-2026-11-22`, which adds the owner's date of birth), shown before any books open |
 | 1.2 | Notice names who data is shared with, and transfers outside India | s.5, s.16 | Done | "Who we share it with", "Where it is kept" sections |
 | 1.3 | Consent is free, specific, unambiguous, with a clear affirmative act; recorded with time and device | s.6 | Done | `consents` table; "I agree" button; versioned, re-asked when the notice changes |
 | 1.4 | No processing of children's data without verifiable parental consent | s.9; r.10 | Done (18+ only) | Required "I am 18 or over" box; `consents.adult_declared`; terms say 18+ |

@@ -15,7 +15,7 @@ export const LEGAL_INDIA = Object.freeze({
 
 export const PRIVACY_NOTICE = {
   document: 'privacy',
-  version: 'india-2026-11-14',
+  version: 'india-2026-11-22',
   region: 'IN',
   requiresAdult: true,
   title: 'How MyCA uses your information',
@@ -29,7 +29,7 @@ export const PRIVACY_NOTICE = {
     },
     {
       heading: 'What we collect, and why',
-      body: 'Each item is used only for the purpose next to it. Your mobile number, or the name and email of the Google account you choose: to sign you in and keep your account secure. Your name: so the people you work with see who recorded what. A random id for each phone you sign in on: so you can see and sign out your devices. The books of your businesses (invoices, bills, expenses, payroll, bank lines, tax figures, GSTIN and PAN, and the customers, suppliers and staff named in them) and the files you upload: to keep your books, prepare and, when you confirm, file your returns, and remind you of due dates. Messages you send the assistant: to carry out what you ask. Your Google Play subscription: to know which plan you have paid for. Crash reports, only if you switch them on, with names, amounts, GSTINs and phone numbers removed: to fix the app. Which setup steps you reach, with no names or amounts, and the invite code you joined with: to see in totals where people get stuck. A record of every change to the books and who looked at them: for security and so you can check it. We do not collect location, contacts, SMS or advertising ids, and we do not sell your information or use it for advertising.',
+      body: 'Each item is used only for the purpose next to it. Your mobile number, or the name and email of the Google account you choose: to sign you in and keep your account secure. Your name: so the people you work with see who recorded what. A random id for each phone you sign in on: so you can see and sign out your devices. The books of your businesses (invoices, bills, expenses, payroll, bank lines, tax figures, GSTIN and PAN, and the customers, suppliers and staff named in them) and the files you upload: to keep your books, prepare and, when you confirm, file your returns, and remind you of due dates. The owner\'s date of birth, only if you give it: to apply the senior and super senior citizen income tax rules to a proprietor\'s return and advance tax. Messages you send the assistant: to carry out what you ask. Your Google Play subscription: to know which plan you have paid for. Crash reports, only if you switch them on, with names, amounts, GSTINs and phone numbers removed: to fix the app. Which setup steps you reach, with no names or amounts, and the invite code you joined with: to see in totals where people get stuck. A record of every change to the books and who looked at them: for security and so you can check it. We do not collect location, contacts, SMS or advertising ids, and we do not sell your information or use it for advertising.',
     },
     {
       heading: 'Who we share it with',

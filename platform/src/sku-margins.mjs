@@ -161,6 +161,8 @@ export function planStock(state, args = {}) {
   if (expiry.expiry && !batch) return { ok: false, error: 'BATCH_REQUIRED', hint: 'An expiry belongs to a batch; give the batch number printed on the pack.' };
   if (batch && qty < 0 && !knownBatch(state, sku, batch)) return { ok: false, error: 'UNKNOWN_BATCH', sku, batch, hint: 'No stock of that batch has come in.' };
   const warnings = toLocation ? [] : stockWarnings(state, { sku, qty, batch: batch || null, date });
+  const expired = args.sale === true ? warnings.find((warning) => warning.code === 'EXPIRED_BATCH') : null;
+  if (expired) return { ok: false, error: 'EXPIRED_BATCH', sku, batch: expired.batch, expiry: expired.expiry, hint: `Batch ${expired.batch} of ${sku} expired on ${expired.expiry}, so it cannot be sold. Sell from a batch that has not expired, or write the expired stock off.` };
   return { ok: true, plan: { sku, qty: Math.round(qty * 1000) / 1000, date, location, toLocation, unitCost: unitCost == null ? null : Math.round(unitCost * 10000) / 10000, batch, expiry: expiry.expiry, warnings } };
 }
 

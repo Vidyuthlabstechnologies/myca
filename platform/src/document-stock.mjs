@@ -36,7 +36,7 @@ export function documentStockPlan(state, args, kind) {
   const blockers = [];
   for (const { line, sku } of stockLines(state, args, kind)) {
     const qty = Number(line.qty);
-    const planned = planStock(state, { sku, qty: sale ? -qty : qty, date: args.date, batch: line.batch, expiry: sale ? undefined : line.expiry, unitCost: sale ? undefined : Number(line.rate) });
+    const planned = planStock(state, { sku, qty: sale ? -qty : qty, date: args.date, batch: line.batch, expiry: sale ? undefined : line.expiry, unitCost: sale ? undefined : Number(line.rate), sale });
     if (!planned.ok) {
       blockers.push(`${sku}: ${planned.hint || planned.error}`);
       continue;
@@ -46,6 +46,14 @@ export function documentStockPlan(state, args, kind) {
     for (const warning of planned.plan.warnings) effects.push(warningWords(warning));
   }
   return { blockers, effects };
+}
+
+export function expiredSale(state, args) {
+  for (const { line, sku } of stockLines(state, args, 'sale')) {
+    const planned = planStock(state, { sku, qty: -Number(line.qty), date: args.date, batch: line.batch, sale: true });
+    if (!planned.ok && planned.error === 'EXPIRED_BATCH') return planned;
+  }
+  return null;
 }
 
 export function moveDocumentStock(state, doc, args, kind) {
@@ -61,7 +69,7 @@ export function moveDocumentStock(state, doc, args, kind) {
     if (!stored) continue;
     const qty = Number(line.qty);
     const unitCost = sale ? undefined : round4(Number(stored.taxable || 0) / qty);
-    const moved = recordStock(state, { sku, qty: sale ? -qty : qty, date: doc.date, ref: doc.id, note: sale ? `Sold on ${doc.id}` : `Bought on ${doc.id}`, batch: line.batch, expiry: sale ? undefined : line.expiry, unitCost });
+    const moved = recordStock(state, { sku, qty: sale ? -qty : qty, date: doc.date, ref: doc.id, note: sale ? `Sold on ${doc.id}` : `Bought on ${doc.id}`, batch: line.batch, expiry: sale ? undefined : line.expiry, unitCost, sale });
     if (!moved.ok) {
       warnings.push({ code: moved.error, sku });
       continue;
