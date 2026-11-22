@@ -816,10 +816,11 @@ class CloudSession {
       decoded = null;
     }
     final map = decoded is Map ? decoded.cast<String, dynamic>() : <String, dynamic>{};
-    if (response.statusCode >= 500 && map['error'] is! String && !map.containsKey('reply')) {
-      return (response.statusCode, {'ok': false, 'error': 'SERVER_BUSY'});
+    final status = response.statusCode;
+    if (status >= 400 && map['error'] is! String && !map.containsKey('reply')) {
+      return (status, {'ok': false, 'error': status >= 500 || status == 429 || status == 408 ? 'SERVER_BUSY' : 'HTTP_$status'});
     }
-    return (response.statusCode, map);
+    return (status, map);
   }
 
   Future<bool> _rotate() {
