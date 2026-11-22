@@ -273,11 +273,14 @@ class PlanOffer {
 }
 
 class Entitlement {
-  const Entitlement({required this.plan, required this.planTitle, required this.enforced, required this.trialDaysLeft, required this.status, required this.currentEnd, this.subscriptionPlan = '', this.renews = false, this.testPurchase = false, this.manageUrl = ''});
+  const Entitlement({required this.plan, required this.planTitle, required this.enforced, required this.trialDaysLeft, required this.status, required this.currentEnd, this.subscriptionPlan = '', this.renews = false, this.testPurchase = false, this.manageUrl = '', this.usReturnPriceUsd = 0, this.usReturnListPriceUsd = 0, this.usPlusPriceUsd = 0});
 
   factory Entitlement.fromJson(Map<String, dynamic> map) {
     final trial = map['trial'] is Map ? (map['trial'] as Map).cast<String, dynamic>() : null;
     final sub = map['subscription'] is Map ? (map['subscription'] as Map).cast<String, dynamic>() : null;
+    final usReturn = map['usReturn'] is Map ? (map['usReturn'] as Map).cast<String, dynamic>() : const <String, dynamic>{};
+    final usPlus = map['usPlus'] is Map ? (map['usPlus'] as Map).cast<String, dynamic>() : const <String, dynamic>{};
+    int whole(Object? value) => value is num ? value.toInt() : 0;
     return Entitlement(
       plan: '${map['plan'] ?? 'lapsed'}',
       planTitle: '${map['planTitle'] ?? ''}',
@@ -289,9 +292,15 @@ class Entitlement {
       renews: sub?['renews'] == true,
       testPurchase: sub?['testPurchase'] == true,
       manageUrl: '${map['manageUrl'] ?? ''}',
+      usReturnPriceUsd: whole(usReturn['priceUsd']),
+      usReturnListPriceUsd: whole(usReturn['listPriceUsd']),
+      usPlusPriceUsd: whole(usPlus['priceUsd']),
     );
   }
 
+  final int usReturnPriceUsd;
+  final int usReturnListPriceUsd;
+  final int usPlusPriceUsd;
   final String plan;
   final String planTitle;
   final bool enforced;
