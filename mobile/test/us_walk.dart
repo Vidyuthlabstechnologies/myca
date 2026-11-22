@@ -19,7 +19,9 @@ import 'package:myca/screens/us/us_plus_screen.dart';
 import 'package:myca/screens/us/us_profile_screen.dart';
 import 'package:myca/screens/us/us_review_screen.dart';
 import 'package:myca/screens/us/us_sign_screen.dart';
-import 'package:myca/screens/us/us_state_sheet_screen.dart';
+import 'package:myca/screens/us/us_state_questions_screen.dart';
+import 'package:myca/screens/us/us_state_residency_screen.dart';
+import 'package:myca/screens/us/us_state_return_screen.dart';
 import 'package:myca/us/us_consents.dart';
 import 'package:myca/us/us_filing_fee.dart';
 import 'package:myca/us/us_return.dart';
@@ -29,6 +31,7 @@ import 'fake_api.dart' show MemoryOnboardingStore;
 import 'fake_cloud.dart';
 import 'us_plus_test.dart' show FakePlus;
 import 'us_return_test.dart' show FeeStore, UsFakeApi, usState;
+import 'us_state_book.dart';
 
 class UsDevice {
   const UsDevice(this.name, this.width, this.height, {this.ios = false, this.top = 24, this.bottom = 0});
@@ -372,8 +375,63 @@ class UsWalk {
     await tapKey('usSign.sign');
     await snap('26_sign_errors');
     await popAll();
-    await open(const UsStateSheetScreen(taxYear: walkYear, state: 'CA'), '27_state_sheet');
+    StateBook(assumed: true).attach(api);
+    await app(usState(api));
+    await snap('27_hub_states');
+    await open(const UsStateResidencyScreen(taxYear: walkYear), '27a_state_residency');
+    await tapKey('usResidency.movedYes');
+    await snap('27b_state_residency_moved');
+    await tapKey('usResidency.save');
+    await snap('27c_state_residency_errors');
     await popAll();
+    await open(const UsStateQuestionsScreen(taxYear: walkYear, state: 'NY'), '27d_state_question_choice');
+    await tapKey('usStateQuestions.next');
+    await snap('27e_state_question_needs_answer');
+    await tapKey('usStateQuestions.option.no');
+    await tapKey('usStateQuestions.next');
+    await snap('27f_state_question_count');
+    await tapKey('usStateQuestions.skip');
+    await snap('27g_state_question_yes_no');
+    await tapKey('usStateQuestions.skip');
+    await snap('27h_state_question_amount');
+    await tapKey('usStateQuestions.skip');
+    await snap('27i_state_question_text');
+    await tapKey('usStateQuestions.skip');
+    await snap('27j_state_question_long_choice');
+    await tapKey('usStateQuestions.skip');
+    await snap('27k_state_questions_done');
+    await popAll();
+    await open(const UsStateReturnScreen(taxYear: walkYear, state: 'NY'), '27l_state_return_refund');
+    await tapKey('usStateReturn.notCovered');
+    await snap('27m_state_return_not_covered');
+    await popAll();
+    await open(const UsStateReturnScreen(taxYear: walkYear, state: 'NJ'), '27n_state_return_owed');
+    await popAll();
+    final states = filledApi();
+    StateBook(
+      returns: {'NY': nyReturn(provisional: true), 'PA': paReciprocal()},
+      residency: [
+        {'state': 'NY', 'residency': 'part-year', 'from': '2025-01-01', 'to': '2025-06-30'},
+        {'state': 'NJ', 'residency': 'part-year', 'from': '2025-07-01', 'to': '2025-12-31'},
+        {'state': 'PA', 'residency': 'nonresident'},
+        {'state': 'TX', 'residency': 'nonresident'},
+        {'state': 'ZZ', 'residency': 'nonresident'},
+      ],
+    ).attach(states);
+    await app(usState(states));
+    await snap('27o_hub_states_mixed');
+    await open(const UsStateReturnScreen(taxYear: walkYear, state: 'NY'), '27p_state_return_provisional');
+    await popAll();
+    await open(const UsStateReturnScreen(taxYear: walkYear, state: 'PA'), '27q_state_reciprocal');
+    await popAll();
+    await open(const UsStateReturnScreen(taxYear: walkYear, state: 'TX'), '27r_state_no_income_tax');
+    await popAll();
+    await open(const UsStateReturnScreen(taxYear: walkYear, state: 'ZZ'), '27s_state_not_prepared');
+    await popAll();
+    final texas = filledApi()..taxpayer = {...filledApi().taxpayer, 'address': {'line1': '1 Main St', 'city': 'Austin', 'state': 'TX', 'zip': '78701'}};
+    await app(usState(texas));
+    await snap('27t_hub_no_income_tax');
+    await app(usState(api));
 
     api.efile = 'signed';
     final store = FeeStore(price: '\$99.00');
@@ -432,6 +490,7 @@ class UsWalk {
     await popAll();
 
     final partner = filledApi()..route = 'partner';
+    StateBook().attach(partner);
     await app(usState(partner));
     await open(UsSignScreen(taxYear: walkYear, fees: WalkFees(const UsFilingFee(taxYear: walkYear, enforced: true, paid: true, priceUsd: 99, listPriceUsd: 129))), '42_partner_ready');
     await popAll();
@@ -450,7 +509,8 @@ class UsWalk {
     await open(UsSignScreen(taxYear: walkYear, fees: WalkFees(const UsFilingFee(taxYear: walkYear, enforced: true, paid: true, priceUsd: 99))), '45_filed');
     await popAll();
 
-    final down = WalkApi()..failing.addAll(['us_return_status', 'us_return_review', 'list_us_tax_forms', 'us_interview', 'us_taxpayer']);
+    final down = WalkApi()..failing.addAll(['us_return_status', 'us_return_review', 'list_us_tax_forms', 'us_interview', 'us_taxpayer', 'us_state_returns', 'us_state_questions']);
+    StateBook().attach(down);
     await app(usState(down));
     await snap('46_hub_offline');
     await open(const UsFormsScreen(taxYear: walkYear), '47_documents_offline');
@@ -463,7 +523,11 @@ class UsWalk {
     await popAll();
     await open(UsSignScreen(taxYear: walkYear, fees: WalkFees(const UsFilingFee(taxYear: walkYear, enforced: true, paid: false, priceUsd: 129))), '51_sign_offline');
     await popAll();
-    await open(const UsStateSheetScreen(taxYear: walkYear, state: 'NY'), '52_state_offline');
+    await open(const UsStateReturnScreen(taxYear: walkYear, state: 'NY'), '52_state_offline');
+    await popAll();
+    await open(const UsStateQuestionsScreen(taxYear: walkYear, state: 'NY'), '52a_state_questions_offline');
+    await popAll();
+    await open(const UsStateResidencyScreen(taxYear: walkYear), '52b_state_residency_offline');
     await popAll();
 
     await app(usState(filledApi()));

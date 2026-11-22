@@ -1,5 +1,6 @@
 import { rules } from './sprint-load.mjs';
 import { form1040Amount } from './us-line-map.mjs';
+import { nextFilingDay } from './us-legal-holidays.mjs';
 
 export const ORIGINAL_FIGURES = Object.freeze({
   agi: { line: '1', label: 'Adjusted gross income (Form 1040 line 11; 11b from 2025)', negative: true },
@@ -165,10 +166,19 @@ export function form1040X({ taxYear, amendment = {}, amended, amendedDependents 
   else if (filedOn <= `${year}-12-31` || filedOn > today) add('error', 'AMENDED_FILED_ON_INVALID', `The original ${year} return can only have been filed after ${year} ended and not after today.`, 'Check the filing date.');
   else {
     const deemed = filedOn < dueDate ? dueDate : filedOn;
-    const fromFiling = addYears(deemed, rule.refundYearsFromFiling);
     const paidOn = isDate(amendment.lastPaymentOn) && amendment.lastPaymentOn > `${year}-12-31` ? amendment.lastPaymentOn : null;
-    const fromPayment = paidOn ? addYears(paidOn, rule.refundYearsFromPayment) : addYears(dueDate, rule.refundYearsFromPayment);
-    deadline = { deemedFiledOn: deemed, fromFiling, fromPayment, refundClaimBy: fromFiling > fromPayment ? fromFiling : fromPayment };
+    const filingEnd = addYears(deemed, rule.refundYearsFromFiling);
+    const paymentEnd = paidOn ? addYears(paidOn, rule.refundYearsFromPayment) : addYears(dueDate, rule.refundYearsFromPayment);
+    const holidays = (date) => {
+      const found = rules.rule('us.federal.legal-holidays', date);
+      if (found.ok && !used.includes(`${found.record.id}@${found.record.effectiveFrom}`)) used.push(`${found.record.id}@${found.record.effectiveFrom}`);
+      return nextFilingDay(date, found.ok ? found.value : null);
+    };
+    const filingDay = holidays(filingEnd);
+    const paymentDay = holidays(paymentEnd);
+    const fromFiling = filingDay.date;
+    const fromPayment = paymentDay.date;
+    deadline = { deemedFiledOn: deemed, fromFiling, fromPayment, refundClaimBy: fromFiling > fromPayment ? fromFiling : fromPayment, ...(filingDay.moved || paymentDay.moved ? { movedUnderSection7503: [...(filingDay.moved ? [{ from: filingEnd, to: fromFiling, skipped: filingDay.skipped }] : []), ...(paymentDay.moved ? [{ from: paymentEnd, to: fromPayment, skipped: paymentDay.skipped }] : [])] } : {}) };
     if (claim && today > deadline.refundClaimBy) add('error', 'AMENDED_CLAIM_TOO_LATE', `A refund or credit claim had to be filed by ${deadline.refundClaimBy}: ${rule.refundYearsFromFiling} years from filing (${fromFiling}) or ${rule.refundYearsFromPayment} years from paying the tax (${fromPayment}), whichever is later.`, 'A claim this late is refused unless a disaster postponement or financial disability applies; ask a CPA.');
     else if (claim && today > fromFiling) add('warning', 'AMENDED_REFUND_LIMITED', `More than ${rule.refundYearsFromFiling} years have passed since filing, so the refund is limited to the tax paid in the ${rule.refundYearsFromPayment} years before this claim (IRC 6511(b)(2)(B)).`, '');
   }
@@ -212,7 +222,7 @@ export function form1040X({ taxYear, amendment = {}, amended, amendedDependents 
       efile,
       checks,
       rulesUsed: used,
-      notes: ['Columns A, B and C follow Form 1040-X (Rev. December 2025): A is the original return or as previously adjusted, B the net change, C the corrected amount. Line 9 and lines 24, 26, 28 and 29 are reserved.', 'Attach the corrected Form 1040 and every new or changed schedule. Interest and penalties are left off Form 1040-X; the IRS adjusts them.', 'Deadlines are not moved for weekends, holidays, disaster postponements or combat-zone service.'],
+      notes: ['Columns A, B and C follow Form 1040-X (Rev. December 2025): A is the original return or as previously adjusted, B the net change, C the corrected amount. Line 9 and lines 24, 26, 28 and 29 are reserved.', 'Attach the corrected Form 1040 and every new or changed schedule. Interest and penalties are left off Form 1040-X; the IRS adjusts them.', 'A refund claim deadline on a Saturday, Sunday or District of Columbia legal holiday moves to the next day that is none of these (IRC 7503). Statewide holidays outside the District, disaster postponements and combat-zone service are not applied.'],
     },
   };
 }

@@ -138,6 +138,163 @@ const FORM_8962_2025 = rows(`
 
 const FORM_8962_2026 = Object.freeze(FORM_8962_2025.filter(([line]) => !['28', '29'].includes(line)).flatMap((entry) => (entry[0] === '5' ? [entry, Object.freeze(['6', 'FederalPovertyLevelPct401Ind'])] : [entry])));
 
+const SCHEDULE_A_2025 = rows(`
+  1 MedicalAndDentalExpensesAmt  2 TaxReturnAGIAmt  3 CalculatedMedicalAllowanceAmt  4 TotalMedicalAndDentalExpnssAmt  salesTax StateAndLocalSalesTaxInd  5a StateAndLocalTaxAmt
+  5b RealEstateTaxesAmt  5c PersonalPropertyTaxesAmt  5d TotalStateAndLocalTaxAmt  5e StateAndLocalTaxLimitationAmt  6 OtherTaxesAmt  7 TotalTaxesPaidAmt
+  8a RptHomeMortgIntAndPointsAmt  8b Form1098HomeMortgIntNotRptAmt  8c Form1098PointsNotReportedAmt  8e TotalHomeMortgIntAndPointsAmt  9 InvestmentInterestAmt
+  10 TotalInterestPaidAmt  11 GiftsByCashOrCheckAmt  12 OtherThanByCashOrCheckAmt  13 CarryoverFromPriorYearAmt  14 TotalCharitableContriAmt
+  15 CalcAdjGroIncmMnsTotNetLossAmt  16 OtherMiscellaneousDedAmt  17 TotalItemizedDeductionsAmt
+`);
+
+const SCHEDULE_A_2026 = rows(`
+  1 MedicalAndDentalExpensesAmt  2 TaxReturnAGIAmt  3 CalculatedMedicalAllowanceAmt  4 TotalMedicalAndDentalExpnssAmt  salesTax StateAndLocalSalesTaxInd  5a StateAndLocalTaxAmt
+  5b RealEstateTaxesAmt  5c PersonalPropertyTaxesAmt  5d TotalStateAndLocalTaxAmt  5e StateAndLocalTaxLimitationAmt  6 OtherTaxesAmt  7 TotalTaxesPaidAmt
+  8a RptHomeMortgIntAndPointsAmt  8b Form1098HomeMortgIntNotRptAmt  8c Form1098PointsNotReportedAmt  8d MortgageInsurancePremiumsAmt  8e TotalHomeMortgIntAndPointsAmt
+  9 InvestmentInterestAmt  10 TotalInterestPaidAmt  11 GiftsByCashOrCheckAmt  12 OtherThanByCashOrCheckAmt  13 CharitableContributionDedAmt  14 CarryoverFromPriorYearAmt
+  15 TotalCharitableContriAmt  16 CalcAdjGroIncmMnsTotNetLossAmt  17z OtherMiscellaneousDedAmt  limited ItemizedDeductionsLimitedInd  18 TotalItemizedDeductionsAmt
+`);
+
+const FORM_2441 = rows(`
+  A EligibilityRequirementMetInd  B StudentOrDisabledInd  providers CareProviderGrp  persons QualifyingPersonGrp  3 TotalQlfdExpensesOrLimitAmt  4 PrimaryEarnedIncomeAmt
+  5 SpouseEarnedIncomeAmt  6 SmallerOfExpensesOrIncomeAmt  7 AdjustedGrossIncomeAmt  8 CareExpensesDecimalAmt  9a CalculatedTentativeExpenseAmt  9b CPYECreditAmt
+  9c TotalEligCDCCAmt  10 TaxLiabLmtFromCrLmtWrkshtAmt  11 CreditForChildAndDepdCareAmt  12 DependentCareBenefitsAmt  13 CarryoverAmt  14 ForfeitedAmt
+  15 AdjustedDepdCareBenefitsAmt  16 QualifiedExpensesAmt  17 SmallerOfAdjOrQualifiedAmt  18 EarnedIncomeAmt  19 SpouseIncomeAmt  20 TentativeExclusionAmt
+  21 SpecifiedAmt  q22 Form1040AFiledInd  22 SolePropshpPrtshpAmt  23 PropshpPrtshpLessAdjBnftAmt  24 DeductibleBenefitsAmt  25 ExcludedBenefitsAmt  26 TaxableBenefitsAmt
+  27 AllowedCaredForAmt  28 SumOfDedAndExcludedBenefitsAmt  29 NetAllowableAmt  30 TotalQualifiedExpensesAmt  31 SmallerOfTotalQlfyExpensesAmt
+`);
+
+const FORM_8863 = rows(`
+  1 RefundableAmerOppCreditGroup/TentativeAmerOppCreditAmt  2 RefundableAmerOppCreditGroup/EnterSpecifiedAmountForFSAmt  3 RefundableAmerOppCreditGroup/ModifiedAGIAmt
+  4 RefundableAmerOppCreditGroup/SubtractAGIFromAmt  5 RefundableAmerOppCreditGroup/SpecifiedAmtPerFSAmt  6 RefundableAmerOppCreditGroup/CalcTentativeEducationRt
+  line7Under24 RefundableAmerOppCreditGroup/RefundableAmerOppCrUnder24Ind  7 RefundableAmerOppCreditGroup/CalcTentativeEducationCrAmt  8 RefundableAmerOppCreditGroup/RefundableAmerOppCreditAmt
+  9 NonrefundableEducationCrGroup/TentativeEducCrLessRfdblCrAmt  10 NonrefundableEducationCrGroup/TotalQualifiedExpensesAmt  11 NonrefundableEducationCrGroup/SmllrOfTotExpnssOrSpcfdAmt
+  12 NonrefundableEducationCrGroup/TentLifetimeLearningCreditAmt  13 NonrefundableEducationCrGroup/EnterSpecifiedAmountForFSAmt  14 NonrefundableEducationCrGroup/ModifiedAGIAmt
+  15 NonrefundableEducationCrGroup/SubtractAGIFromAmt  16 NonrefundableEducationCrGroup/SpecifiedAmtPerFSAmt  17 NonrefundableEducationCrGroup/CalcTentativeEducationRt
+  18 NonrefundableEducationCrGroup/CalcTentativeEducationCrAmt  19 NonrefundableEducationCrGroup/NonrefundableEducationCrAmt  students StudentAndEducationalInstnGrp
+`);
+
+const SCHEDULE_E = rows(`
+  q1099 PaymentRqrFilingForm1099Ind  qFiled RequiredForms1099FiledInd  properties PropertyRealEstAndRoyaltyGroup  23a TotAllPaymentsAllRentalPropAmt  23b TotAllPaymentsAllRyltyPropAmt
+  23c TotalMortgageInterestPaidAmt  23d TotalDepreciationAmt  23e TotalAllPropTotalExpensesAmt  24 IncomeAmt  25 LossesAmt  26 TotalIncomeOrLossAmt  41 TotalSuppIncomeOrLossAmt
+`);
+
+const FORM_8582 = rows(`
+  1a RentalRealtyIncomeAmt  1b RentalRealtyLossAmt  1c PYUnallowedRentalLossAmt  1d NetRentalRealtyAmt  2a OtherActivityIncomeAmt  2b OtherActivityLossAmt
+  2c PriorYearUnallowedOtherLossAmt  2d NetOtherActivityAmt  3 TotalPassiveActivityAmt  4 RentalRealtyLossLimitAmt  5 MaximumAllowedIncomeAmt  6 ModifiedAGIAmt
+  7 ModifiedAGIDifferenceAmt  8 PercentNetSpecialAllowanceAmt  9 AllowedRentalRealtyLossAmt  10 TotalIncomeAmt  11 TotalLossesAllowedAmt
+  partIV ParentWrkshtRentalActGrp  partV ParentWrkshtPassiveGrp  partVI ParentWrkshtAllowanceGrp  partVII ParentWrkshtLossGrp  partVIII ParentWrkshtListActivityGrp
+`);
+
+const FORM_4562 = rows(`activity BusinessOrActivityTxt  17 MACRSDedForAstInSrvcBfrPYAmt  19i GeneralDepreciationSystem/GDSResidentialRentalProperty  19j GeneralDepreciationSystem/GDSNonRsdntlRealProp  22 TotalDepreciationAmt`);
+
+const FORM_5329 = rows(`
+  1 EarlyDistributionsAmt  2c EarlyDistriExceptionReasonCd  2 EarlyDistriNotSubjectToTaxAmt  3 EarlyDistriSubjectToTaxAmt  4 IRAEarlyDistributionsTaxAmt
+  9 IRAExcessContriPriorYearAmt  10 IRAExcessContriCreditAmt  11 IRADistriIncludedInIncomeAmt  12 IRAExcessContriWithdrawnAmt  13 IRAExcessContriAdjustmentAmt
+  14 IRAExcessContriPrYrAdjustAmt  15 IRAExcessContriCurrentYearAmt  16 IRAExcessContriTotalAmt  17 IRAExcessContribTaxAmt  18 RothIRAExcessContriPriorYrAmt
+  19 RothIRAExcessContriCreditAmt  20 RothIRADistriIncludedInCYAmt  21 RothIRAExcessContriAdjustAmt  22 RothIRAExcessContriPYWthdrwAmt  23 RothIRAExcessContriCYAmt
+  24 RothIRAExcessContriTotalAmt  25 RothIRAExcessContribTaxAmt  52a QlfyRetirePlanMinRqrDistriAmt  52b AllOthQlfyPlanMinRqrDistriAmt  53a QlfyRetirePlanActualDistriAmt
+  53b AllOthQlfyPlanActualDistriAmt  54a QlfyRetirePlanExcessAccumAmt  54b AllOthQlfyPlanExcessAccumAmt  55 RtmntAnntyExcessContribTaxAmt
+`);
+
+const FORM_8606 = rows(`
+  1 NondedIRACurrTYNondedContriAmt  2 NondedIRABasisForPYAmt  3 NondedIRATotalIRAValueAmt  4 NondedIRAPostTaxYrContriAmt  5 NondedIRATaxYearNetBasisAmt
+  6 NondedIRACurrTYIRAPlusRllvrAmt  7 NondedIRAWthdrwLessRllvrAmt  8 NondedIRATYCombinedIRAValueAmt  9 NondedIRATotRllvrWthdrwVlAmt  10 NondedIRATaxYearBasisRt
+  11 NondedIRANontxCnvrtAmt  12 NondedIRANontxWthdrwUncnvrtAmt  13 NondedIRANontxOfWthdrwAmt  14 NondedIRATotalIRABasisAmt  15a NondedIRANotCnvrtLessRllvrAmt
+  15b NondedIRAQlfyDisasterDistriAmt  15c NondedIRATaxableAmt  16 TotalIRAConvertedToRothAmt  17 TraditionalIRABasisAmt  18 TaxableIRAConversionAmt
+  19 TotNonQlfyDistriFromRothIRAAmt  20 QlfyFirstTimeHmByrExpensesAmt  21 NetQlfyFirstTimeHmByrExpnssAmt  22 ROTHIRAContributionBasisAmt  23 NetBasisInRothIRAContriAmt
+  24 BasisInCnvrtQlfyRtrPlanAmt  25a DistriRothIRALessBasisCnvrtAmt  25b RothIRAQlfyDisasterDistriAmt  25c TaxableIRADistributionAmt
+`);
+
+const FORM_8959_2025 = rows(`
+  5 AdditionalTaxGrp/FilingStatusThresholdCd  1 AdditionalTaxGrp/AdditionalMedicareTaxGrp/TotalW2MedicareWagesAndTipsAmt  2 AdditionalTaxGrp/AdditionalMedicareTaxGrp/TotalUnreportedMedicareTipsAmt
+  3 AdditionalTaxGrp/AdditionalMedicareTaxGrp/TotalWagesWithNoWithholdingAmt  4 AdditionalTaxGrp/AdditionalMedicareTaxGrp/TotalMedicareWagesAndTipsAmt
+  6 AdditionalTaxGrp/AdditionalMedicareTaxGrp/WagesTipsSubjToAddlMedcrTaxAmt  7 AdditionalTaxGrp/AdditionalMedicareTaxGrp/AdditionalMedicareTaxAmt
+  8 AdditionalTaxGrp/AddnlSelfEmploymentTaxGrp/TotalSelfEmploymentIncomeAmt  11 AdditionalTaxGrp/AddnlSelfEmploymentTaxGrp/MedcrWagesTipsBelowThrshldAmt
+  12 AdditionalTaxGrp/AddnlSelfEmploymentTaxGrp/SEIncomeSubjToAddSETaxAmt  13 AdditionalTaxGrp/AddnlSelfEmploymentTaxGrp/AddlSelfEmploymentTaxAmt
+  14 AdditionalTaxGrp/AddnlRailroadRetirementTaxGrp/TotalRailroadRetirementCompAmt  16 AdditionalTaxGrp/AddnlRailroadRetirementTaxGrp/RRTCompSubjToAddRRTTaxAmt
+  17 AdditionalTaxGrp/AddnlRailroadRetirementTaxGrp/AddlRailroadRetirementTaxAmt  18 AdditionalTaxGrp/TotalAMRRTTaxAmt  19 TotalW2MedicareTaxWithheldAmt
+  21 TotalMedicareTaxAmt  22 AddnlMedicareTaxWithholdingAmt  23 TotalW2AddlRRTTaxAmt  24 AddlMedcrRRTTaxWithholdingAmt
+`);
+
+const FORM_8959_2026 = rows(`
+  5 AdditionalTaxGrp/FilingStatusThresholdCd  1 AdditionalTaxGrp/AdditionalMedicareTaxGrp/TotalW2MedicareWagesAndTipsAmt  2 AdditionalTaxGrp/AdditionalMedicareTaxGrp/TotalUnreportedMedicareTipsAmt
+  3 AdditionalTaxGrp/AdditionalMedicareTaxGrp/TotalWagesWithNoWithholdingAmt  4 AdditionalTaxGrp/AdditionalMedicareTaxGrp/TotalMedicareWagesAndTipsAmt
+  6 AdditionalTaxGrp/AdditionalMedicareTaxGrp/WagesTipsSubjToAddlMedcrTaxAmt  7 AdditionalTaxGrp/AdditionalMedicareTaxGrp/AdditionalMedicareTaxAmt
+  8 AdditionalTaxGrp/AddnlRailroadRetirementTaxGrp/TotalRailroadRetirementCompAmt  10 AdditionalTaxGrp/AddnlRailroadRetirementTaxGrp/RRTCompSubjToAddRRTTaxAmt
+  11 AdditionalTaxGrp/AddnlRailroadRetirementTaxGrp/AddlRailroadRetirementTaxAmt  12 AdditionalTaxGrp/TotalAMRRTTaxAmt
+  13 AdditionalTaxGrp/AddnlSelfEmploymentTaxGrp/TotalSelfEmploymentIncomeAmt  16 AdditionalTaxGrp/AddnlSelfEmploymentTaxGrp/MedcrWagesTipsBelowThrshldAmt
+  17 AdditionalTaxGrp/AddnlSelfEmploymentTaxGrp/SEIncomeSubjToAddSETaxAmt  18 AdditionalTaxGrp/AddnlSelfEmploymentTaxGrp/AddlSelfEmploymentTaxAmt  19 TotalW2MedicareTaxWithheldAmt
+  21 TotalMedicareTaxAmt  22 AddnlMedicareTaxWithholdingAmt  23 TotalW2AddlRRTTaxAmt  24 AddlMedcrRRTTaxWithholdingAmt
+`);
+
+const FORM_8960 = rows(`
+  1 TaxableInterestAmt  2 OrdinaryDividendsAmt  3 AnnuitesFromNonQlfPlansAmt  4a NetRentalIncomeOrLossAmt  4b AdjNetIncmOrLossNonSect1411Amt  4c RentalREAndAdjNetIncmOrLossAmt
+  5a PropertyDisposGainOrLossAmt  5b NonNIITPropDisposGainOrLossAmt  5c AdjFromDisposOfStockAmt  5d GainOrLossFromDisposAmt  6 CFCAndPFICInvstIncmChangesAmt
+  7 OtherInvestmentIncomeOrLossAmt  8 TotalIncomeAmt  9a InvestmentInterestAmt  9b StateLocalForeignIncomeTaxAmt  9c MiscInvestmentExpenseAmt  9d InvestmentExpenseAmt
+  10 AdditionalModificationAmt  11 TotalDeductionModificationAmt  12 NetInvestmentIncomeAmt  13 ModifiedAGIAmt  14 FilingThresholdAmt  15 MAGILessThresholdAmt
+  16 SmllrIncmOrMAGILessThrshldAmt  17 IndivNetInvstIncomeTaxAmt
+`);
+
+export const FORM_2441_ROWS = Object.freeze({
+  personName: 'CareProviderPersonName',
+  personControl: 'CareProviderNameControlTxt',
+  businessName: 'CareProviderBusinessName/BusinessNameLine1Txt',
+  businessControl: 'CareProviderBusNameControlTxt',
+  address: 'USAddress',
+  ssn: 'SSN',
+  ein: 'EIN',
+  householdEmployee: 'HouseholdEmployeeInd',
+  paid: 'PaidAmt',
+  qualifyingName: 'QualifyingPersonName',
+  qualifyingControl: 'QualifyingPersonNameControlTxt',
+  qualifyingSsn: 'QualifyingPersonSSN',
+  disabled: 'PrsnOverSpcfdAgeAndDisabledInd',
+  expenses: 'QualifiedCareExpensesPaidAmt',
+});
+
+export const US_ADDRESS_ELEMENTS = Object.freeze({ line1: 'AddressLine1Txt', city: 'CityNm', state: 'StateAbbreviationCd', zip: 'ZIPCd' });
+
+export const FORM_8863_ROWS = Object.freeze({
+  studentName: 'StudentName',
+  studentControl: 'StudentNameControlTxt',
+  studentSsn: 'StudentSSN',
+  institution: 'EducationalInstitutionGroup',
+  institutionName: 'InstitutionName/BusinessNameLine1Txt',
+  address: 'USAddress',
+  current1098T: 'CurrentYear1098TReceivedInd',
+  prior1098T: 'PriorYear1098TReceivedInd',
+  ein: 'EIN',
+  questions: Object.freeze({ 23: 'PriorYearCreditClaimedInd', 24: 'AcademicPdEligibleStudentInd', 25: 'PostSecondaryEducationInd', 26: 'DrugFelonyConvictionInd' }),
+  lines: Object.freeze({ 27: 'AmerOppQualifiedExpensesAmt', 28: 'AmerOppQlfyExpnssLessAllwblAmt', 29: 'AmerOppAllwblExpnssTimesPctAmt', 30: 'AmerOppCreditNetCalcExpnssAmt', 31: 'LifetimeQualifiedExpensesAmt' }),
+});
+
+export const SCHEDULE_E_PROPERTY = Object.freeze({
+  address: 'PropertyUSAddress',
+  type: 'PropertyDesc',
+  otherType: 'OtherPropertyTypeDesc',
+  fairRentalDays: 'FairRentalDaysCnt',
+  personalUseDays: 'PersonalUseDaysCnt',
+  qjv: 'QualifiedJointVentureInd',
+  otherExpense: 'OtherExpenseDetail',
+  otherDesc: 'Desc',
+  otherAmount: 'Amt',
+  lines: Object.freeze({
+    3: 'RentsReceivedAmt', 4: 'TotalRoyaltiesReceivedAmt', 5: 'AdvertisingAmt', 6: 'AutoAndTravelAmt', 7: 'CleaningAndMaintenanceAmt', 8: 'CommissionsAmt', 9: 'InsuranceAmt',
+    10: 'LegalAndOtherProfFeesAmt', 11: 'ManagementFeesAmt', 12: 'MortgageInterestPaidBanksAmt', 13: 'MortgageInterestPaidOtherAmt', 14: 'RepairsAmt', 15: 'SuppliesAmt', 16: 'TaxesAmt',
+    17: 'UtilitiesAmt', 18: 'DeprecExpenseOrDepletionAmt', 20: 'TotalExpensesAmt', 21: 'NetRentalIncomeOrLossAmt', 22: 'DedRentalRealEstateLossAmt',
+  }),
+});
+
+export const FORM_8582_WORKSHEETS = Object.freeze({
+  partIV: Object.freeze({ row: 'WrkshtRentalActGrp', name: 'PassiveActivityNm', columns: Object.freeze({ a: 'CurrentYearNetIncomeAmt', b: 'CurrentYearNetLossAmt', c: 'PriorYearRentalUnallowedAmt', d: 'OverallGainAmt', e: 'OverallLossAmt' }), totals: Object.freeze({ a: 'TotalCurrentYearNetIncomeAmt', b: 'TotalCurrentYearNetLossAmt', c: 'TotalPriorYrRentalUnallowedAmt' }) }),
+  partV: Object.freeze({ row: 'WrkshtPassiveGrp', name: 'NonParticipateActivityNm', columns: Object.freeze({ a: 'CurrentYearNetIncomeAmt', b: 'CurrentYearNetLossAmt', c: 'PriorYearUnallowedLossesAmt', d: 'OverallGainAmt', e: 'OverallLossAmt' }), totals: Object.freeze({ a: 'TotalOtherCurrentYearIncomeAmt', b: 'TotalOtherCurrentYearLossAmt', c: 'TotalOtherPYUnallowedAmt' }) }),
+  partVI: Object.freeze({ row: 'WrkshtAllowanceGrp', name: 'SpecialAllowanceActivityNm', form: 'ReportingFormOrScheduleNm', columns: Object.freeze({ a: 'F8582WrkshtLossesAmt', b: 'LossesPct', c: 'SpecialAllowanceAmt', d: 'NetSpecialAllowanceAmt' }), totals: Object.freeze({ a: 'TotalLossAmt', c: 'TotalSpecialAllowanceAmt', d: 'TotalNetSpecialAllowanceAmt' }) }),
+  partVII: Object.freeze({ row: 'WrkshtLossGrp', name: 'UnallowedLossActivityNm', form: 'ReportingFormOrScheduleNm', columns: Object.freeze({ a: 'F8582WrkshtLossesAmt', b: 'LossesPct', c: 'PriorYearUnallowedLossesAmt' }), totals: Object.freeze({ a: 'TotalAllocationLossAmt', c: 'TotalLossAmt' }) }),
+  partVIII: Object.freeze({ row: 'WrkshtListActivityGrp', name: 'AllowedLossActivityNm', form: 'ReportingFormOrScheduleNm', columns: Object.freeze({ a: 'F8582WrkshtLossesAmt', b: 'PriorYearUnallowedLossesAmt', c: 'F8582WrkshtAllowedLossesAmt' }), totals: Object.freeze({ a: 'TotalLossAmt', b: 'TotalUnallowedLossAmt', c: 'TotalAllowedLossAmt' }) }),
+});
+
+export const FORM_4562_PROPERTY = Object.freeze({ placedInService: 'MonthAndYearPlacedInServiceDt', basis: 'BasisForDepreciationAmt', deduction: 'DepreciationDeductionAmt' });
+
 const spec = (fields) => {
   const { order, ...rest } = fields;
   return Object.freeze({ ...rest, order: Object.freeze((order || []).map(([line]) => line)), lines: Object.freeze(Object.fromEntries(order || [])) });
@@ -159,6 +316,16 @@ const SCHEDULE_DOCUMENTS_2025 = Object.freeze({
   8889: spec({ element: 'IRS8889', repeats: true, person: { name: 'PersonNm', ssn: 'RecipientSSN' }, coverage: { self: 'HDHPSelfOnlyCoverageInd', family: 'HDHPFamilyCoverageInd' }, checkboxes: ['17a'], order: FORM_8889 }),
   8880: spec({ element: 'IRS8880', omit: ['8'], decimals: ['9'], order: FORM_8880 }),
   8962: spec({ element: 'IRS8962', builder: 'form8962', checkboxes: ['A'], booleans: ['9', '10'], decimals: ['7'], codes: ['povertyTable'], ignore: ['method', 'applicable'], order: FORM_8962_2025 }),
+  A: spec({ element: 'IRS1040ScheduleA', builder: 'scheduleA', checkboxes: ['salesTax'], ignore: ['section68Reduction', 'afterSection68', 'limited'], order: SCHEDULE_A_2025 }),
+  2441: spec({ element: 'IRS2441', builder: 'form2441', checkboxes: ['A', 'B'], booleans: ['q22'], decimals: ['8'], ignore: ['creditAllowed', 'providers', 'persons'], order: FORM_2441 }),
+  8863: spec({ element: 'IRS8863', builder: 'form8863', checkboxes: ['line7Under24'], ratios: ['6', '17'], ignore: ['students', 'phaseOutFraction'], order: FORM_8863 }),
+  E: spec({ element: 'IRS1040ScheduleE', builder: 'scheduleE', booleans: ['q1099', 'qFiled'], ignore: ['properties', 'depreciation', 'unallowedLossCarryforward', 'magiForPassiveLoss'], order: SCHEDULE_E }),
+  8582: spec({ element: 'IRS8582', builder: 'form8582', ignore: ['partIV', 'partV', 'partVI', 'partVII', 'partVIII', 'magi', 'mfsLivedWithSpouse', 'specialAllowanceExceptionMet'], order: FORM_8582 }),
+  4562: spec({ element: 'IRS4562', builder: 'form4562', repeats: true, order: FORM_4562 }),
+  5329: spec({ element: 'IRS5329', builder: 'form5329', repeats: true, person: { name: 'PersonNm', ssn: 'SSN' }, codes: ['2c'], order: FORM_5329 }),
+  8606: spec({ element: 'IRS8606', repeats: true, person: { name: 'Form8606IRANamelineTxt', ssn: 'NondedIRATxpyrWithIRASSN' }, decimals: ['10'], ignore: ['basisCarryforward'], order: FORM_8606 }),
+  8959: spec({ element: 'IRS8959', codes: ['5'], ignore: ['20'], order: FORM_8959_2025 }),
+  8960: spec({ element: 'IRS8960', order: FORM_8960 }),
 });
 
 const SCHEDULE_DOCUMENTS_2026 = Object.freeze({
@@ -169,6 +336,8 @@ const SCHEDULE_DOCUMENTS_2026 = Object.freeze({
   EIC: null,
   8995: spec({ ...SCHEDULE_DOCUMENTS_2025[8995], order: FORM_8995_2026 }),
   8962: spec({ ...SCHEDULE_DOCUMENTS_2025[8962], booleans: ['6', '9', '10'], order: FORM_8962_2026 }),
+  A: spec({ ...SCHEDULE_DOCUMENTS_2025.A, booleans: ['limited'], ignore: ['section68Reduction', 'afterSection68'], order: SCHEDULE_A_2026 }),
+  8959: spec({ ...SCHEDULE_DOCUMENTS_2025[8959], ignore: ['14', '20'], order: FORM_8959_2026 }),
 });
 
 export const SCHEDULE_D_GROUPS = Object.freeze({ A: 'TotalSTCGL1099BShowsBasisGrp', B: 'TotalSTCGL1099BNotShowBasisGrp', D: 'TotalLTCGL1099BShowsBasisGrp', E: 'TotalLTCGL1099BNotShowBasisGrp' });

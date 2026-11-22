@@ -21,11 +21,14 @@ export function careExpenseLimit(qualifyingPersons, credit) {
   return fromCents(qualifyingPersons >= 2 ? credit.twoOrMoreExpenseCents : credit.onePersonExpenseCents);
 }
 
-export function deemedEarnedIncome(actual, months, qualifyingPersons, credit) {
+export function deemedEarnedIncome(actual, months, qualifyingPersons, credit, otherMonthsPay = 0) {
   const count = Math.max(0, Math.min(12, Math.floor(Number(months) || 0)));
   const monthly = fromCents(qualifyingPersons >= 2 ? credit.deemedMonthlyCents.twoOrMore : credit.deemedMonthlyCents.one);
   const deemed = count * monthly;
-  return { earned: Math.max(whole(actual), deemed), deemed, used: deemed > whole(actual) };
+  const total = Math.max(0, whole(actual));
+  const outside = count >= 12 ? 0 : Math.min(total, Math.max(0, whole(otherMonthsPay)));
+  const inside = total - outside;
+  return { earned: outside + Math.max(inside, deemed), deemed, outside, inside, used: deemed > inside };
 }
 
 export function dependentCareBenefits({ received, carriedIn = 0, forfeited = 0, qualifiedExpenses, earnedTaxpayer, earnedOther, mfsWithSpouseIncome, exclusion }) {
@@ -115,7 +118,7 @@ export function careQualifyingPersons({ dependents = [], spouse = null, spouseAl
       excluded += amount;
       problems.push({ level: 'warning', code: 'CARE_PERSON_NOT_QUALIFYING', message: `${person.firstName || 'That person'} is not a qualifying person for Form 2441 (a dependent under 13 when cared for, or a dependent or spouse unable to care for themself who lived with you more than half the year), so the ${amount} paid to ${provider.name || 'that provider'} is left out.` });
     } else person.expenses += amount;
-    return { name: provider.name, tin: provider.tin, address: provider.address, householdEmployee: provider.householdEmployee, amount, qualifyingPerson: person ? person.key : '', counted };
+    return { name: provider.name, tin: provider.tin, ...(provider.ssn ? { ssn: provider.ssn } : {}), address: provider.address, ...(provider.city ? { city: provider.city, state: provider.state || '', zip: provider.zip || '' } : {}), householdEmployee: provider.householdEmployee, amount, qualifyingPerson: person ? person.key : '', counted };
   });
   const persons = candidates.filter((item) => item.qualifies && (item.kind === 'dependent' || item.referenced)).map((item) => ({ key: item.key, kind: item.kind, firstName: item.firstName, lastName: item.lastName, disabledOver12: item.disabledOver12, expenses: item.expenses }));
   const qualifiedExpenses = persons.reduce((total, item) => total + item.expenses, 0) + unassigned;

@@ -5,6 +5,8 @@ const DEFAULT_CLASS = Object.freeze({ 1: 'residential', 2: 'residential', 3: 're
 const ROYALTY = 6;
 const RECHARACTERIZED = new Set([5, 7]);
 const NOT_DEPRECIABLE = new Set([5, 6]);
+const DIRECT_RENTAL = new Set(['advertising', 'commissions', 'managementFees']);
+const INTEREST_AND_TAXES = new Set(['mortgageInterest', 'taxes']);
 
 const dollars = (value) => {
   const number = Number(value);
@@ -127,7 +129,6 @@ function buildProperty(entry, slot, ctx) {
         checks.push(...local, ['warning', 'RENTAL_UNDER_15_DAYS', `${name}: used as a home and rented fewer than ${personalUse.minimalRentalDays} days, so the rent is not reported and no rental expenses are deducted (section 280A(g)).`, 'If you itemize, the mortgage interest and taxes go on Schedule A.']);
         return null;
       }
-      if (usedAsHome) needs.push({ form: 'Pub 527', code: 'VACATION_HOME_LIMIT', message: `${name}: personal use (${personalUseDays} days) is more than the greater of ${personalUse.personalUseDays} days or ${personalUse.personalUseBasisPoints / 100}% of the fair rental days, so rental expenses are limited to the rental income (Pub. 527 worksheet), which MyCA does not apply; the expenses are only split by days.`, fix: 'Have your CPA apply the vacation home limit.' });
       rentalShare = { fairRentalDays, totalDays: fairRentalDays + personalUseDays };
     }
   }
@@ -135,12 +136,20 @@ function buildProperty(entry, slot, ctx) {
   const depreciation = depreciationFor(name, type, fields, taxYear, table, local);
   const lines = { 3: line3, 4: line4 };
   let personalInterestAndTaxes = 0;
+  const rentalPortions = [];
   for (const [key, line] of EXPENSE_LINES) {
     const full = key === 'depreciation' ? depreciation.amount : positive(fields[key]);
-    const rental = share(full);
+    const rental = usedAsHome && DIRECT_RENTAL.has(key) ? full : share(full);
     if (full) lines[line] = rental;
-    if (key === 'mortgageInterest' || key === 'taxes') personalInterestAndTaxes += full - rental;
+    if (full) rentalPortions.push({ key, line, rental });
+    if (INTEREST_AND_TAXES.has(key)) personalInterestAndTaxes += full - rental;
   }
+  const vacationHome = usedAsHome ? dwellingUnitLimit({ name, rents: line3, portions: rentalPortions, priorOperating: positive(fields.priorOperatingCarryover), priorDepreciation: positive(fields.priorDepreciationCarryover), itemizing: Boolean(ctx.itemizing), rentalShare: rentalShare.fairRentalDays / rentalShare.totalDays }) : null;
+  if (vacationHome) {
+    for (const [, line] of EXPENSE_LINES) delete lines[line];
+    Object.assign(lines, vacationHome.scheduleLines);
+    if (vacationHome.carryover.operating + vacationHome.carryover.depreciation > 0) local.push(['warning', 'VACATION_HOME_LIMIT', `${name}: used as a home (${personalUseDays} personal days, more than the greater of ${personalUse.personalUseDays} days or ${personalUse.personalUseBasisPoints / 100}% of the ${fairRentalDays} rental days), so the rental expenses cannot make a loss (IRC 280A(c)(5), Pub. 527 Worksheet 5-1). ${vacationHome.carryover.operating} of operating expenses and ${vacationHome.carryover.depreciation} of depreciation are not allowed this year and carry over to next year for this property.`, 'Keep the amounts; enter them as the operating expense and depreciation carryovers on next year\'s rental property.']);
+  } else if (!usedAsHome && (positive(fields.priorOperatingCarryover) > 0 || positive(fields.priorDepreciationCarryover) > 0)) local.push(['warning', 'VACATION_HOME_CARRYOVER_UNUSED', `${name}: a Worksheet 5-1 carryover was entered, but the property was not used as a home this year, so MyCA does not deduct it; Pub. 527 says the carryover is still limited to the rental income.`, 'Have your CPA apply the carryover.']);
   if (personalInterestAndTaxes > 0) local.push(['warning', 'RENTAL_PERSONAL_SHARE', `${name}: ${personalInterestAndTaxes} of the mortgage interest and taxes is for personal use and is not on Schedule E.`, 'If you itemize, add it to the Schedule A mortgage interest and property tax.']);
   lines[20] = total(EXPENSE_LINES, ([, line]) => lines[line] || 0);
   lines[21] = line3 + line4 - lines[20];
@@ -150,10 +159,11 @@ function buildProperty(entry, slot, ctx) {
   checks.push(...local);
   const royalty = type === ROYALTY;
   const recharacterized = RECHARACTERIZED.has(type) && lines[21] > 0;
-  const prior = royalty ? 0 : positive(fields.priorYearUnallowedLoss);
+  const prior = royalty || usedAsHome ? 0 : positive(fields.priorYearUnallowedLoss);
   if (royalty && positive(fields.priorYearUnallowedLoss) > 0) checks.push(['warning', 'ROYALTY_NOT_PASSIVE', `${name}: royalties are not a passive activity, so a passive loss carryover is not used here.`, '']);
-  const passiveCurrent = royalty || recharacterized ? 0 : lines[21];
-  const activeKnown = answered(fields.activeParticipation);
+  if (usedAsHome && positive(fields.priorYearUnallowedLoss) > 0) checks.push(['warning', 'VACATION_HOME_NOT_PASSIVE', `${name}: a dwelling unit used as a home is not a passive activity this year (IRC 469(j)(10)), so the Form 8582 carryover is not used here.`, 'Have your CPA confirm how the earlier passive loss is used.']);
+  const passiveCurrent = royalty || recharacterized || usedAsHome ? 0 : lines[21];
+  const activeKnown = usedAsHome || answered(fields.activeParticipation);
   const active = activeKnown && yes(fields.activeParticipation);
   if (!royalty && !activeKnown && (passiveCurrent < 0 || prior > 0)) checks.push(['warning', 'ACTIVE_PARTICIPATION_UNANSWERED', `${name}: active participation was not answered, so the $25,000 special allowance is not applied to this loss.`, 'Answer whether you actively participated (own 10% or more and make the management decisions).']);
   return {
@@ -169,6 +179,7 @@ function buildProperty(entry, slot, ctx) {
     qjv: yes(fields.qjv),
     rentalShare: rentalShare ? Math.round((rentalShare.fairRentalDays / rentalShare.totalDays) * 10000) / 10000 : 1,
     usedAsHome,
+    ...(vacationHome ? { vacationHome: { worksheet: vacationHome.worksheet, carryover: vacationHome.carryover, itemizing: vacationHome.itemizing, limited: vacationHome.limited } } : {}),
     form1099Payers: slot?.payers || [],
     royalty,
     recharacterized,
@@ -242,18 +253,53 @@ function passiveLimit(properties, { status, livedWithSpouse, magi, allowance }) 
   return { required: !exception, allowedLoss, unallowed, form, line3, magi: modified };
 }
 
-export function computeScheduleE({ taxYear, status, livedWithSpouse, entries = [], miscForms = [], magiBeforeScheduleE = 0, qbiSafeHarbor = false, rules: ruleValues }) {
+function dwellingUnitLimit({ rents, portions, priorOperating, priorDepreciation, itemizing, rentalShare }) {
+  const tierOf = (key) => (DIRECT_RENTAL.has(key) || (itemizing && INTEREST_AND_TAXES.has(key)) ? 1 : key === 'depreciation' ? 3 : 2);
+  const items = [...portions.map((item) => ({ ...item, tier: tierOf(item.key) })), ...(priorOperating ? [{ key: 'priorOperatingCarryover', line: '19', rental: priorOperating, tier: 2 }] : []), ...(priorDepreciation ? [{ key: 'priorDepreciationCarryover', line: '18', rental: priorDepreciation, tier: 3 }] : [])];
+  const of = (pick) => total(items.filter(pick), (item) => item.rental);
+  const line1 = rents;
+  const line2a = itemizing ? of((item) => item.key === 'mortgageInterest') : 0;
+  const line2b = itemizing ? of((item) => item.key === 'taxes') : 0;
+  const line2d = of((item) => DIRECT_RENTAL.has(item.key));
+  const line2e = line2a + line2b + line2d;
+  const line3 = Math.max(0, line1 - line2e);
+  const line4a = of((item) => item.tier === 2 && !INTEREST_AND_TAXES.has(item.key) && item.key !== 'priorOperatingCarryover');
+  const line4b = itemizing ? 0 : of((item) => item.key === 'mortgageInterest');
+  const line4c = itemizing ? 0 : of((item) => item.key === 'taxes');
+  const line4d = priorOperating;
+  const line4e = line4a + line4b + line4c + line4d;
+  const line4f = Math.min(line3, line4e);
+  const line5 = Math.max(0, line3 - line4f);
+  const line6b = of((item) => item.key === 'depreciation');
+  const line6c = priorDepreciation;
+  const line6d = line6b + line6c;
+  const line6e = Math.min(line5, line6d);
+  const allowedOf = { 1: line2e, 2: line4f, 3: line6e };
+  const scheduleLines = {};
+  for (const tier of [1, 2, 3]) {
+    const tierItems = items.filter((item) => item.tier === tier);
+    const shares = tier === 1 ? tierItems.map((item) => item.rental) : allocate(tierItems.map((item) => item.rental), allowedOf[tier]);
+    tierItems.forEach((item, index) => {
+      if (shares[index] > 0 || tier === 1) scheduleLines[item.line] = (scheduleLines[item.line] || 0) + shares[index];
+    });
+  }
+  const worksheet = { F: Math.round(rentalShare * 10000) / 10000, 1: line1, '2a': line2a, '2b': line2b, '2c': 0, '2d': line2d, '2e': line2e, 3: line3, '4a': line4a, '4b': line4b, '4c': line4c, '4d': line4d, '4e': line4e, '4f': line4f, 5: line5, '6a': 0, '6b': line6b, '6c': line6c, '6d': line6d, '6e': line6e, '7a': line4e - line4f, '7b': line6d - line6e };
+  return { worksheet, scheduleLines, itemizing, limited: line4e > line4f || line6d > line6e, carryover: { operating: line4e - line4f, depreciation: line6d - line6e } };
+}
+
+export function computeScheduleE({ taxYear, status, livedWithSpouse, itemizing = false, entries = [], miscForms = [], magiBeforeScheduleE = 0, qbiSafeHarbor = false, rules: ruleValues }) {
   const rawChecks = [];
   const needs = [];
   const { matched, created } = entriesWithForms(entries, miscForms, rawChecks);
-  const ctx = { taxYear, personalUse: ruleValues.personalUse, table: ruleValues.macrs, checks: rawChecks, needs };
+  const ctx = { taxYear, personalUse: ruleValues.personalUse, table: ruleValues.macrs, checks: rawChecks, needs, itemizing };
   const properties = [...entries.map((entry) => buildProperty(entry, matched.get(entry.id), ctx)), ...created.map((entry) => buildProperty(entry, null, ctx))].filter(Boolean);
   const checks = rawChecks.map(([level, code, message, fix]) => ({ level, code, message, fix }));
   if (!properties.length) return { has: false, properties: [], checks, needs, line26: 0, qbiRental: 0, magi: magiBeforeScheduleE };
-  const nonpassive = total(properties, (item) => (item.royalty || item.recharacterized ? item.lines[21] : 0));
+  const nonpassive = total(properties, (item) => (item.royalty || item.recharacterized || item.usedAsHome ? item.lines[21] : 0));
   const passiveNet = total(properties, (item) => (item.royalty ? 0 : item.passiveCurrent - item.priorYearUnallowedLoss));
   const magi = magiBeforeScheduleE + nonpassive + Math.max(0, passiveNet);
   const limit = passiveLimit(properties, { status, livedWithSpouse, magi, allowance: ruleValues.allowance });
+  if (status === 'mfs' && livedWithSpouse === undefined && limit.form && limit.line3 < 0 && limit.form.lines['1d'] < 0) checks.push({ level: 'warning', code: 'MFS_LIVED_APART_UNANSWERED', message: `On a separate return the rental loss gets the special allowance of up to ${fromCents(ruleValues.allowance.mfsLivedApartMaxCents)} (Form 8582) only if you lived apart from your spouse for the whole year; that was not answered, so no allowance is given and the loss is carried forward.`, fix: 'Answer whether you lived with your spouse at any time during the year.' });
   for (const item of properties) {
     if (item.royalty || !(item.passiveCurrent < 0 || item.priorYearUnallowedLoss > 0)) continue;
     item.lines[22] = 0 - (limit.allowedLoss.get(item.id) || 0);
@@ -261,7 +307,7 @@ export function computeScheduleE({ taxYear, status, livedWithSpouse, entries = [
   }
   const sumLine = (line) => total(properties, (item) => item.lines[line] || 0);
   const line24 = total(properties, (item) => Math.max(0, item.lines[21]));
-  const line25 = total(properties, (item) => (item.royalty ? Math.min(0, item.lines[21]) : item.lines[22] || 0));
+  const line25 = total(properties, (item) => (item.royalty || item.usedAsHome ? Math.min(0, item.lines[21]) : item.lines[22] || 0));
   const line26 = line24 + line25;
   const lines = { '23a': sumLine(3), '23b': sumLine(4), '23c': sumLine(12), '23d': sumLine(18), '23e': sumLine(20), 24: line24, 25: line25, 26: line26, 41: line26 };
   const carryforward = properties.filter((item) => item.unallowedLossCarryforward > 0).map((item) => ({ id: item.id, name: item.name, unallowedLoss: item.unallowedLossCarryforward }));

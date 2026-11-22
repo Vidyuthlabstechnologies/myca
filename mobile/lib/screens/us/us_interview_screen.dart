@@ -1,11 +1,11 @@
 import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../us/us_text_scaler.dart';
 import '../../api/myca_api.dart';
 import '../../app_state.dart';
 import '../../us/us_return.dart';
+import 'us_answer_input.dart';
 import 'us_fields.dart';
 import 'us_review_screen.dart';
 
@@ -86,25 +86,12 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
       _answer = draft.$2;
     } else {
       _answer = q?.answer;
-      _typed.text = q == null || q.answer == null ? '' : (q.inputKind == 'amount' ? dollarsTyped(q.answer) : '${q.answer}');
+      _typed.text = q == null ? '' : typedFrom(q, q.answer);
     }
     _note = '';
   }
 
-  Object? _value(UsQuestion q) {
-    switch (q.inputKind) {
-      case 'amount':
-        return q.negative ? parseSignedDollars(_typed.text) : parseDollars(_typed.text);
-      case 'count':
-        final n = int.tryParse(_typed.text.trim());
-        return n == null || n < 0 ? null : n;
-      case 'text':
-        final t = _typed.text.trim();
-        return t.isEmpty ? null : t;
-      default:
-        return _answer;
-    }
-  }
+  Object? _value(UsQuestion q) => typedAnswer(q, _typed.text, _answer);
 
   Future<void> _none() async {
     _typed.text = '0';
@@ -116,12 +103,7 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
     if (q == null) return;
     final value = _value(q);
     if (value == null) {
-      return setState(() => _note = switch (q.inputKind) {
-        'amount' => _typed.text.trim().isEmpty ? 'Enter an amount, or tap None if you had none.' : 'Enter dollars and cents, like 1234.56.',
-        'count' => 'Enter a whole number, or tap None.',
-        'text' => 'Type your answer.',
-        _ => 'Choose an answer.',
-      });
+      return setState(() => _note = answerProblem(q, _typed.text));
     }
     setState(() {
       _busy = true;
@@ -152,47 +134,7 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
     });
   }
 
-  Widget _choiceButton(String key, String label, Object value) {
-    final picked = _answer == value;
-    void pick() => setState(() => _answer = value);
-    return picked ? FilledButton(key: Key(key), onPressed: pick, child: Text(label)) : OutlinedButton(key: Key(key), onPressed: pick, child: Text(label));
-  }
-
-  Widget _input(UsQuestion q) {
-    switch (q.inputKind) {
-      case 'amount':
-        return MoneyField(key: const Key('usInterview.amount'), controller: _typed, label: 'Amount', helper: q.negative ? 'Put a minus sign in front of a loss, like -2500' : null, signed: q.negative);
-      case 'count':
-        return TextField(
-          key: const Key('usInterview.count'),
-          controller: _typed,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: const InputDecoration(labelText: 'How many'),
-        );
-      case 'text':
-        return TextField(key: const Key('usInterview.text'), controller: _typed, decoration: const InputDecoration(labelText: 'Your answer'));
-      case 'choice':
-        return RadioGroup<String>(
-          groupValue: _answer == null ? null : '$_answer',
-          onChanged: (v) => setState(() => _answer = v),
-          child: Column(
-            children: [
-              for (final (value, label) in q.options)
-                RadioListTile<String>(key: Key('usInterview.option.$value'), contentPadding: EdgeInsets.zero, value: value, title: Text(label)),
-            ],
-          ),
-        );
-      default:
-        return Row(
-          children: [
-            Expanded(child: _choiceButton('usInterview.yes', 'Yes', true)),
-            const SizedBox(width: 10),
-            Expanded(child: _choiceButton('usInterview.no', 'No', false)),
-          ],
-        );
-    }
-  }
+  Widget _input(UsQuestion q) => UsAnswerInput(question: q, controller: _typed, answer: _answer, onAnswer: (v) => setState(() => _answer = v));
 
   @override
   Widget build(BuildContext context) {

@@ -13,6 +13,7 @@ import '../../theme.dart';
 import '../../us/tin.dart';
 import '../../us/us_filing_fee.dart';
 import '../../us/us_return.dart';
+import '../../us/us_state.dart';
 import '../../widgets.dart';
 import '../plan_screen.dart' show buyInApp;
 import '../../us/us_consents.dart';
@@ -33,13 +34,14 @@ String deviceTypeName() => switch (defaultTargetPlatform) {
 };
 
 class _SignContext {
-  const _SignContext(this.status, this.review, this.efile, this.fee, {this.tins});
+  const _SignContext(this.status, this.review, this.efile, this.fee, {this.tins, this.states});
 
   final UsReturnStatus status;
   final UsReview review;
   final UsEfileStatus efile;
   final UsFilingFee fee;
   final UsConsentForm? tins;
+  final UsStateFilingPackage? states;
 }
 
 class UsSignScreen extends StatefulWidget {
@@ -108,9 +110,10 @@ class _UsSignScreenState extends State<UsSignScreen> {
     final efile = results[2] as UsEfileStatus;
     final consents = _consents;
     final tins = efile.partner && consents != null ? await consentFor(consents, usPartnerTinsConsent) : null;
+    final states = efile.partner ? await loadStateFilingPackage(_api, year) : null;
     final status = results[0] as UsReturnStatus;
     _prefillPriorYear(status);
-    return _SignContext(status, results[1] as UsReview, efile, results[3] as UsFilingFee, tins: tins);
+    return _SignContext(status, results[1] as UsReview, efile, results[3] as UsFilingFee, tins: tins, states: states);
   }
 
   bool _agiImported = false;
@@ -429,6 +432,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
           key: const Key('usSign.partnerIntro'),
           style: text.bodyLarge,
         ),
+        if (ctx.states != null && (ctx.states!.withFederal || ctx.states!.missing.isNotEmpty)) _stateFiling(ctx.states!),
         if (ctx.tins != null && !resuming) ...[
           const SizedBox(height: 12),
           Material(
@@ -474,6 +478,39 @@ class _UsSignScreenState extends State<UsSignScreen> {
           TextButton(key: const Key('usSign.partnerRefresh'), onPressed: _busy ? null : () => setState(() { _context = _load(); }), child: const Text('I have finished. Check again')),
         _noteView(),
       ],
+    );
+  }
+
+  Widget _stateFiling(UsStateFilingPackage states) {
+    final text = Theme.of(context).textTheme;
+    final year = '${widget.taxYear}';
+    return Container(
+      key: const Key('usSign.states'),
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: context.myca.surface, borderRadius: BorderRadius.circular(radiusControl), border: Border.all(color: context.myca.line)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Your state returns', style: text.titleSmall),
+          for (final p in states.packages.where((p) => p.partner)) ...[
+            const SizedBox(height: 6),
+            Text(
+              p.provisional
+                  ? provisionalNote(usStateName(p.state), year)
+                  : p.ready
+                      ? 'Your ${usStateName(p.state)} return${p.form.isEmpty ? '' : ' (${p.form})'} goes to our e-file partner with your federal return.'
+                      : 'Your ${usStateName(p.state)} return${p.form.isEmpty ? '' : ' (${p.form})'} has something to fix before it can go with your federal return. Open it under State returns.',
+              key: Key('usSign.state.${p.state}'),
+              style: text.bodyMedium,
+            ),
+          ],
+          for (final code in states.missing) ...[
+            const SizedBox(height: 6),
+            Text('MyCA can\'t send your ${usStateName(code)} return. File it on ${usStateName(code)}\'s tax website.', key: Key('usSign.stateMissing.$code'), style: text.bodyMedium),
+          ],
+        ],
+      ),
     );
   }
 

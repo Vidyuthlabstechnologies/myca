@@ -498,7 +498,7 @@ const noIncomeTaxStates = {'AK', 'FL', 'NV', 'NH', 'SD', 'TN', 'TX', 'WA', 'WY'}
 
 bool stateHasIncomeTax(String code) => code.isNotEmpty && !noIncomeTaxStates.contains(code.toUpperCase());
 
-const stateReturnNote = "File your state return on your state's website. We'll give you the numbers it needs.";
+const stateReturnNote = 'Your state return is prepared from this federal return. Find it under State returns.';
 
 String unsupportedFormsLine(List<UsUnsupportedForm> forms) {
   final names = [for (final f in forms) f.form];

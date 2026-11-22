@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { htmlEscape } from './text-safe.mjs';
 import { canonicalJson } from './approvals.mjs';
-import { MEF_NAMESPACE, FILING_STATUS_CODES, W2_FIELDS, SCHEDULE_B_ELEMENTS, SCHEDULE_D_GROUPS, CAPITAL_TOTALS, FORM_8949_ELEMENTS, SCHEDULE_EIC_ELEMENTS, FORM_8995_ROW, FORM_8962_MONTHLY, FORM_8962_POVERTY_TABLE, mefRelationshipCode, form1040MefLines, form1040MefOrder, scheduleMefDocuments, repeatedLines } from './us-mef-map.mjs';
+import { MEF_NAMESPACE, FILING_STATUS_CODES, W2_FIELDS, SCHEDULE_B_ELEMENTS, SCHEDULE_D_GROUPS, CAPITAL_TOTALS, FORM_8949_ELEMENTS, SCHEDULE_EIC_ELEMENTS, FORM_8995_ROW, FORM_8962_MONTHLY, FORM_8962_POVERTY_TABLE, FORM_2441_ROWS, FORM_8863_ROWS, SCHEDULE_E_PROPERTY, FORM_8582_WORKSHEETS, FORM_4562_PROPERTY, US_ADDRESS_ELEMENTS, mefRelationshipCode, form1040MefLines, form1040MefOrder, scheduleMefDocuments, repeatedLines } from './us-mef-map.mjs';
 
 export const MEF_SCHEMA_VERSION = '2025v5.7';
 const SSN = /^\d{9}$/;
@@ -135,6 +135,7 @@ function lineValue(spec, line, value, where, problems) {
     return '';
   }
   if (spec.decimals?.includes(line)) return String(value);
+  if (spec.ratios?.includes(line)) return value.toFixed(3);
   if (!wholeDollars(value)) {
     problems.push(problem('NOT_WHOLE_DOLLARS', `${where} line ${line} is ${value}; MeF amounts are whole dollars.`, 'The return engine must round this line before filing.', 'review'));
     return '';
@@ -443,7 +444,195 @@ function form8962Xml(spec, value, ctx, problems) {
   return amountsXml(lines, spec, 'Form 8962', problems, { extras: { monthly } });
 }
 
-const BUILDERS = Object.freeze({ eic: eicXml, scheduleB: scheduleBXml, scheduleD: scheduleDXml, form8949: form8949Xml, form8995: form8995Xml, form8962: form8962Xml });
+function usAddressXml(name, address) {
+  const a = address || {};
+  const zip = String(a.zip || '').replace('-', '');
+  if (!String(a.line1 || '').trim() || !String(a.city || '').trim() || !STATE.test(String(a.state || '')) || !ZIP.test(zip)) return '';
+  const e = US_ADDRESS_ELEMENTS;
+  return group(name, el(e.line1, String(a.line1).trim().slice(0, 35)) + el(e.city, String(a.city).trim().slice(0, 22)) + el(e.state, a.state) + el(e.zip, zip));
+}
+
+function parsedAddress(text) {
+  const m = /^(.+?),\s*([^,]+?),\s*([A-Za-z]{2})\s*,?\s*(\d{5}(?:-?\d{4})?)\s*$/.exec(String(text || '').trim());
+  return m ? { line1: m[1], city: m[2], state: m[3].toUpperCase(), zip: m[4] } : null;
+}
+
+function nameParts(name) {
+  const words = String(name || '').replace(/[^A-Za-z\- ]/g, ' ').trim().split(/\s+/).filter(Boolean);
+  return { first: words.slice(0, -1).join(' ').slice(0, 20), last: (words.length > 1 ? words.at(-1) : '').slice(0, 20) };
+}
+
+const normal = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+function householdPeople(ctx) {
+  const people = [{ key: 'taxpayer', ...(ctx.taxpayer || {}), ssn: ctx.primarySsn }];
+  if (ctx.spouse) people.push({ key: 'spouse', ...ctx.spouse, ssn: ctx.spouseSsn || ctx.ssnOf(ctx.spouse.ssn) });
+  (ctx.dependents || []).forEach((dep, index) => people.push({ key: dep.id || `dependent-${index + 1}`, index, ...dep, ssn: ctx.ssnOf(dep.ssn) }));
+  return people;
+}
+
+function personByKey(key, ctx) {
+  const people = householdPeople(ctx);
+  const m = /^dependent-(\d+)$/.exec(String(key || ''));
+  return people.find((item) => item.key === key) || (m ? people.find((item) => item.index === Number(m[1]) - 1) : null) || null;
+}
+
+function personByName(name, ctx) {
+  const wanted = normal(name);
+  if (!wanted) return null;
+  return householdPeople(ctx).find((item) => [normal(item.firstName), normal(`${item.firstName || ''} ${item.lastName || ''}`)].includes(wanted)) || null;
+}
+
+function personNameXml(groupName, person) {
+  return group(groupName, el('PersonFirstNm', String(person?.firstName || '').trim().slice(0, 20)) + el('PersonLastNm', String(person?.lastName || '').trim().slice(0, 20)));
+}
+
+function amountChecks(where, values, problems) {
+  for (const [field, value] of Object.entries(values)) if (value !== undefined && value !== null && !wholeDollars(value)) problems.push(problem('NOT_WHOLE_DOLLARS', `${where} ${field} is ${value}; MeF amounts are whole dollars.`, 'The return engine must round this line before filing.', 'review'));
+}
+
+function scheduleAXml(spec, value, ctx, problems) {
+  const lines = { ...value };
+  if (Number(ctx.taxYear) >= 2026) lines.limited = Number(value.section68Reduction || 0) > 0;
+  return amountsXml(lines, spec, 'Schedule A', problems);
+}
+
+function form2441Xml(spec, value, ctx, problems) {
+  const r = FORM_2441_ROWS;
+  const providers = (Array.isArray(value.providers) ? value.providers : []).filter((row) => Number(row?.amount) > 0);
+  const providerRows = providers.map((row, index) => {
+    const where = `Form 2441 care provider ${index + 1}${row.name ? ` (${businessName(row.name)})` : ''}`;
+    const ein = String(row.tin || '').replace('-', '');
+    const ssn = String(row.ssn || '').replace(/-/g, '');
+    const individual = !EIN.test(ein) && ssnShapeValid(ssn);
+    if (!EIN.test(ein) && !individual) problems.push(problem('CARE_PROVIDER_TIN_MISSING', `${where} has no EIN or SSN; Form 2441 line 1 needs one to e-file.`, 'Add the provider\'s EIN, or an individual provider\'s SSN, on the care provider form.', 'forms'));
+    const address = usAddressXml(r.address, { line1: row.address, city: row.city, state: row.state, zip: row.zip });
+    if (!address) problems.push(problem('CARE_PROVIDER_ADDRESS_MISSING', `${where} needs a street address, city, state and ZIP code.`, 'Add the provider\'s address on the care provider form.', 'forms'));
+    if (!row.qualifyingPerson) problems.push(problem('CARE_PERSON_NOT_NAMED', `${where}: say which child or dependent was cared for, so Form 2441 line 2 shows each person's expenses.`, 'Name the person cared for on the care provider form.', 'forms'));
+    const person = individual ? nameParts(row.name) : null;
+    if (individual && (!person.first || !person.last)) problems.push(problem('CARE_PROVIDER_NAME_INVALID', `${where} is an individual, so the IRS needs a first and last name.`, 'Enter the provider\'s first and last name on the care provider form.', 'forms'));
+    amountChecks(where, { amount: row.amount }, problems);
+    const nameXml = individual ? personNameXml(r.personName, { firstName: person.first, lastName: person.last }) + el(r.personControl, nameControl(person.last)) : nest([leaf(r.businessName, el('BusinessNameLine1Txt', businessName(row.name)))]) + el(r.businessControl, businessNameControl(row.name));
+    return group('CareProviderGrp', nameXml + address + (individual ? el(r.ssn, ssn) : el(r.ein, EIN.test(ein) ? ein : '')) + el(r.householdEmployee, row.householdEmployee ? 'true' : 'false') + el(r.paid, row.amount));
+  });
+  const personRows = (Array.isArray(value.persons) ? value.persons : []).map((item, index) => {
+    const who = personByKey(item.key, ctx);
+    const where = `Form 2441 qualifying person ${index + 1}${item.firstName ? ` (${item.firstName})` : ''}`;
+    const ssn = who ? String(who.ssn || '') : '';
+    if (!ssnShapeValid(ssn)) problems.push(problem('SSN_INVALID', `${where} has no valid SSN.`, 'Add the SSN on the About you step.', 'profile'));
+    const lastName = item.lastName || who?.lastName || '';
+    if (!nameControl(lastName)) problems.push(problem('NAME_MISSING', `${where} needs a last name.`, 'Add the last name on the About you step.', 'profile'));
+    amountChecks(where, { expenses: item.expenses }, problems);
+    return group('QualifyingPersonGrp', personNameXml(r.qualifyingName, { firstName: item.firstName || who?.firstName, lastName }) + el(r.qualifyingControl, nameControl(lastName)) + el(r.qualifyingSsn, ssn) + (item.disabledOver12 ? el(r.disabled, 'X') : '') + (Number(item.expenses) > 0 ? el(r.expenses, item.expenses) : ''));
+  });
+  const extras = { providers: providerRows.join(''), persons: personRows.join(''), q22: Number(value[12] || 0) > 0 && value.q22 === undefined ? el('Form1040AFiledInd', 'false') : '' };
+  return amountsXml(value, spec, 'Form 2441', problems, { extras });
+}
+
+function form8863Xml(spec, value, ctx, problems) {
+  const r = FORM_8863_ROWS;
+  const rowsXml = (Array.isArray(value.students) ? value.students : []).map((row, index) => {
+    const where = `Form 8863 student ${index + 1}${row.student ? ` (${row.student})` : ''}`;
+    const person = personByName(row.student, ctx);
+    if (!person) problems.push(problem('EDUCATION_STUDENT_UNKNOWN', `${where} is not you, your spouse or a dependent on this return, so Form 8863 Part III has no name and SSN.`, 'On the Form 1098-T, enter the student\'s first name as on the About you step.', 'forms'));
+    const ssn = person ? String(person.ssn || '') : '';
+    if (person && !ssnShapeValid(ssn)) problems.push(problem('SSN_INVALID', `${where} has no valid SSN.`, 'Add the SSN on the About you step.', 'profile'));
+    const inst = row.institution || null;
+    if (!inst) problems.push(problem('EDUCATION_SCHOOL_MISSING', `${where} has no school details for Form 8863 line 22.`, 'Add the student\'s Form 1098-T on the Tax forms step.', 'forms'));
+    const address = inst ? usAddressXml(r.address, inst) : '';
+    if (inst && !address) problems.push(problem('EDUCATION_SCHOOL_ADDRESS_MISSING', `${where}: Form 8863 line 22 needs the school's street address, city, state and ZIP code.`, 'Add the school address on the Form 1098-T.', 'forms'));
+    const ein = String(inst?.ein || '').replace('-', '');
+    if (inst && !EIN.test(ein)) problems.push(problem('EDUCATION_SCHOOL_EIN_MISSING', `${where}: Form 8863 line 22 needs the school's EIN from the Form 1098-T.`, 'Copy the filer\'s EIN from the Form 1098-T.', 'forms'));
+    if (inst && typeof inst.priorYear1098T !== 'boolean') problems.push(problem('EDUCATION_PRIOR_1098T_UNANSWERED', `${where}: Form 8863 line 22 asks whether the student got a Form 1098-T from this school for last year with box 7 checked.`, 'Answer that question on the Form 1098-T.', 'forms'));
+    const institution = inst ? group(r.institution, nest([leaf(r.institutionName, el('BusinessNameLine1Txt', businessName(inst.name)))]) + address + el(r.current1098T, 'true') + (typeof inst.priorYear1098T === 'boolean' ? el(r.prior1098T, String(inst.priorYear1098T)) : '') + el(r.ein, EIN.test(ein) ? ein : '')) : '';
+    const questions = row.credit === 'aotc' ? Object.entries(r.questions).map(([line, name]) => el(name, String(Boolean(row.questions?.[line])))).join('') : '';
+    const lines = row.lines || {};
+    amountChecks(where, lines, problems);
+    const amounts = Object.entries(r.lines).filter(([line]) => lines[line] !== undefined).map(([line, name]) => el(name, lines[line])).join('');
+    return group('StudentAndEducationalInstnGrp', personNameXml(r.studentName, person) + el(r.studentControl, nameControl(person?.lastName)) + el(r.studentSsn, ssn) + institution + questions + amounts);
+  });
+  return amountsXml(value, spec, 'Form 8863', problems, { extras: { students: rowsXml.join('') } });
+}
+
+function scheduleEXml(spec, value, ctx, problems) {
+  const p = SCHEDULE_E_PROPERTY;
+  const answers = ctx.answers || {};
+  const paid = answers.rentalPayments1099;
+  const filed = answers.rentalFiled1099;
+  if (typeof paid !== 'boolean') problems.push(problem('SCHEDULE_E_1099_UNANSWERED', 'Schedule E line A asks whether you made payments that need a Form 1099.', 'Answer the Form 1099 question for your rentals in the interview.', 'interview'));
+  else if (paid && typeof filed !== 'boolean') problems.push(problem('SCHEDULE_E_1099_UNANSWERED', 'Schedule E line B asks whether you filed the Forms 1099 you had to.', 'Answer the Form 1099 filing question for your rentals in the interview.', 'interview'));
+  const properties = (Array.isArray(value.properties) ? value.properties : []).map((row, index) => {
+    const where = `Schedule E property ${index + 1}${row.name ? ` (${row.name})` : ''}`;
+    const royalty = row.royalty === true || Number(row.propertyType) === 6;
+    const address = usAddressXml(p.address, parsedAddress(row.name));
+    if (!royalty && !address) problems.push(problem('SCHEDULE_E_ADDRESS_INVALID', `${where}: Schedule E line 1a needs the street, city, two-letter state and ZIP code.`, 'Enter the property address on the rental property form as street, city, state ZIP, for example 12 Elm St, Austin, TX 78701.', 'forms'));
+    const type = Number(row.propertyType);
+    if (!(type >= 1 && type <= 8)) problems.push(problem('RENTAL_TYPE_INVALID', `${where} has no property type for Schedule E line 1b.`, 'Pick the type of property on the rental property form.', 'forms'));
+    const lines = row.lines || {};
+    amountChecks(where, lines, problems);
+    for (const line of Object.keys(lines)) if (Number(lines[line]) && !p.lines[line] && line !== '19') unmapped(where, line, problems);
+    const days = royalty ? '' : el(p.fairRentalDays, Number(row.fairRentalDays || 0)) + el(p.personalUseDays, Number(row.personalUseDays || 0));
+    const amount = (line) => (Number(lines[line]) ? el(p.lines[line], lines[line]) : '');
+    const before = ['3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18'].map(amount).join('');
+    const other = Number(lines[19]) ? group(p.otherExpense, el(p.otherDesc, 'Other expenses') + el(p.otherAmount, lines[19])) : '';
+    return group('PropertyRealEstAndRoyaltyGroup', address + el(p.type, type >= 1 && type <= 8 ? String(type) : '') + (type === 8 ? el(p.otherType, String(row.description || 'Other').slice(0, 35)) : '') + days + (row.qjv ? el(p.qjv, 'X') : '') + before + other + ['20', '21', '22'].map(amount).join(''));
+  });
+  const lines = { ...(value.lines || {}), ...(typeof paid === 'boolean' ? { q1099: paid } : {}), ...(paid === true && typeof filed === 'boolean' ? { qFiled: filed } : {}) };
+  return amountsXml(lines, spec, 'Schedule E', problems, { extras: { properties: properties.join('') } });
+}
+
+function form8582Xml(spec, value, ctx, problems) {
+  const worksheet = (key) => {
+    const w = FORM_8582_WORKSHEETS[key];
+    const list = Array.isArray(value[key]) ? value[key] : [];
+    if (!list.length) return '';
+    const ratio = (column) => key !== 'partIV' && key !== 'partV' && key !== 'partVIII' && column === 'b';
+    const body = list.map((row, index) => {
+      const cells = Object.entries(w.columns).map(([column, name]) => {
+        const cell = row[column];
+        if (cell === undefined || cell === null || cell === 0) return '';
+        if (ratio(column)) return el(name, String(cell));
+        amountChecks(`Form 8582 ${key} row ${index + 1}`, { [column]: cell }, problems);
+        return el(name, cell);
+      }).join('');
+      return group(w.row, el(w.name, businessName(row.name)) + (w.form ? el(w.form, 'Schedule E') : '') + cells);
+    }).join('');
+    const totals = Object.entries(w.totals).map(([column, name]) => {
+      const sum = list.reduce((total, row) => total + Number(row[column] || 0), 0);
+      return sum ? el(name, sum) : '';
+    }).join('');
+    return body + totals;
+  };
+  const extras = Object.fromEntries(Object.keys(FORM_8582_WORKSHEETS).map((key) => {
+    const inner = worksheet(key);
+    return [key, inner ? group(spec.lines[key], inner) : ''];
+  }));
+  return amountsXml(value.lines || {}, spec, 'Form 8582', problems, { extras });
+}
+
+function form4562Xml(spec, item, ctx, problems) {
+  if (!item.required) return '';
+  const f = FORM_4562_PROPERTY;
+  const lines = item.lines || {};
+  const detail = item.detail || {};
+  const where = `Form 4562 for ${item.property || 'a rental property'}`;
+  for (const line of Object.keys(lines)) if (Number(lines[line]) && !spec.lines[line]) unmapped(where, line, problems);
+  const month = /^\d{4}-\d{2}/.test(String(detail.placedInService || '')) ? String(detail.placedInService).slice(0, 7) : '';
+  if (!month) problems.push(problem('FORM_4562_DATE_MISSING', `${where} has no month placed in service.`, 'Add the date placed in service on the rental property form.', 'forms'));
+  const basis = Number(detail.amount) > 0 && Number(detail.rentalAmount) !== Number(detail.amount) ? Math.round((Number(detail.depreciableBasis || 0) * Number(detail.rentalAmount || 0)) / Number(detail.amount)) : Math.round(Number(detail.depreciableBasis || 0));
+  amountChecks(where, lines, problems);
+  const property = (line) => (Number(lines[line]) ? group(spec.lines[line].split('/')[1], el(f.placedInService, month) + el(f.basis, basis) + el(f.deduction, lines[line])) : '');
+  return el(spec.lines.activity, businessName(item.property)) + (Number(lines[17]) ? el(spec.lines[17], lines[17]) : '') + group('GeneralDepreciationSystem', property('19i') + property('19j')) + (Number(lines[22]) ? el(spec.lines[22], lines[22]) : '');
+}
+
+function form5329Xml(spec, item, ctx, problems) {
+  const lines = { ...(item.lines || {}) };
+  if (item.exceptionNumber && Number(lines[2] || 0) > 0) lines['2c'] = item.exceptionNumber;
+  const amounts = amountsXml(lines, spec, 'Form 5329', problems);
+  return amounts ? personXml(spec, item.owner, ctx, 'Form 5329', problems) + amounts : '';
+}
+
+const BUILDERS = Object.freeze({ eic: eicXml, scheduleB: scheduleBXml, scheduleD: scheduleDXml, form8949: form8949Xml, form8995: form8995Xml, form8962: form8962Xml, scheduleA: scheduleAXml, form2441: form2441Xml, form8863: form8863Xml, scheduleE: scheduleEXml, form8582: form8582Xml, form4562: form4562Xml, form5329: form5329Xml });
 
 function genericXml(spec, item, ctx, problems, key) {
   const lines = item.lines && typeof item.lines === 'object' && !Array.isArray(item.lines) ? item.lines : item;
@@ -528,7 +717,7 @@ export function buildMefSubmission(computed, options = {}) {
   const signature = signatureElements(options.signature, needsSpouse, problems);
   const security = options.device ? group('FilingSecurityInformation', deviceGroup('AtSubmissionCreationGrp', options.device) + deviceGroup('AtSubmissionFilingGrp', options.device)) : '';
   const form1040 = form1040Xml(c, problems, ssnOf);
-  const schedules = schedulesXml(c.schedules, problems, { taxYear, ssnOf, primarySsn, spouseSsn, taxpayer: c.taxpayer, spouse: c.spouse, dependents: c.dependents, lines: c.lines, schedules: c.schedules });
+  const schedules = schedulesXml(c.schedules, problems, { taxYear, ssnOf, primarySsn, spouseSsn, taxpayer: c.taxpayer, spouse: c.spouse, dependents: c.dependents, lines: c.lines, schedules: c.schedules, answers: c.answers || {} });
   const w2s = w2Xml(c.w2s, problems);
   const payment = paymentXml(options.payment, Number(c.lines?.['37'] || 0), problems);
   if (problems.length) return { ok: false, error: 'RETURN_NOT_READY', problems };
