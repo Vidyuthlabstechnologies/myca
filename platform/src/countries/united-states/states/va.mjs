@@ -392,18 +392,97 @@ function compute(ctx, filing, reader) {
   };
 }
 
+const PAYMENT_LABELS = Object.freeze({
+  '19a': 'Your Virginia withholding',
+  '19b': 'Spouse\'s Virginia withholding',
+  20: 'Estimated tax payments',
+  21: 'Prior-year overpayment applied to estimated tax',
+  22: 'Extension payments',
+  23: 'Credit for low-income individuals or earned income credit',
+  24: 'Credit for tax paid to another state (Schedule OSC)',
+  25: 'Credits from Schedule CR',
+  26: 'Total payments and credits',
+  27: 'Tax you owe',
+  28: 'Tax overpayment',
+  33: 'Consumer\'s use tax',
+});
+
+const FRONT_LABELS = Object.freeze({
+  1: 'Federal adjusted gross income',
+  2: 'Additions from Schedule ADJ',
+  3: 'Line 1 plus line 2',
+  '4a': 'Age deduction: you',
+  '4b': 'Age deduction: spouse',
+  5: 'Social Security and Tier 1 Railroad Retirement benefits',
+  6: 'State income tax refund reported on federal return',
+});
+
+const LABELS_760 = Object.freeze({
+  ...FRONT_LABELS,
+  ...PAYMENT_LABELS,
+  7: 'Subtractions from Schedule ADJ',
+  8: 'Add lines 4, 5, 6 and 7',
+  9: 'Virginia adjusted gross income (VAGI)',
+  10: 'Itemized deductions from Virginia Schedule A',
+  11: 'Standard deduction',
+  12: 'Exemptions',
+  13: 'Deductions from Schedule ADJ',
+  14: 'Add lines 10, 11, 12 and 13',
+  15: 'Virginia taxable income',
+  16: 'Tax from tax table or tax rate schedule',
+  17: 'Spouse tax adjustment',
+  18: 'Net amount of tax',
+});
+
+const LABELS_760PY = Object.freeze({
+  ...FRONT_LABELS,
+  ...PAYMENT_LABELS,
+  7: 'Income from your period of residence outside Virginia',
+  8: 'Subtractions from Schedule 760PY ADJ',
+  9: 'Add lines 4a, 4b, 5, 6, 7 and 8',
+  10: 'Virginia adjusted gross income (VAGI)',
+  11: 'Itemized deductions paid while a Virginia resident',
+  12: 'Standard deduction',
+  13: 'Prorated exemption amount',
+  14: 'Deductions from Schedule 760PY ADJ',
+  15: 'Add lines 11, 12, 13 and 14',
+  16: 'Virginia taxable income',
+  17: 'Tax from tax table or tax rate schedule',
+  18: 'Total tax',
+});
+
+const LABELS_763 = Object.freeze({
+  ...FRONT_LABELS,
+  ...PAYMENT_LABELS,
+  7: 'Subtractions from Schedule 763 ADJ',
+  8: 'Add lines 4a, 4b, 5, 6 and 7',
+  9: 'Virginia adjusted gross income (VAGI)',
+  10: 'Itemized deductions from Virginia Schedule A',
+  11: 'Standard deduction',
+  12: 'Exemption amount',
+  13: 'Deductions from Schedule 763 ADJ',
+  14: 'Add lines 10, 11, 12 and 13',
+  15: 'Virginia taxable income computed as a resident',
+  16: 'Nonresident allocation percentage',
+  17: 'Nonresident taxable income',
+  18: 'Income tax from tax table or tax rate schedule',
+});
+
+const LABELS = Object.freeze({ 'full-year': LABELS_760, 'part-year': LABELS_760PY, nonresident: LABELS_763 });
+
 export const STATE = Object.freeze({
   code: 'VA',
   name: 'Virginia',
   built: true,
   forms: Object.freeze({ resident: '760', partYear: '760PY', nonresident: '763' }),
+  labels: (taxYear, residency) => LABELS[residency] || LABELS_760,
   due: (taxYear) => nextBusinessDay(`${Number(taxYear) + 1}-05-01`),
   questions: Object.freeze([
-    Object.freeze({ id: 'vaMunicipalInterest', kind: 'amount', text: 'Tax-exempt interest from Virginia state or local bonds (including Virginia-bond mutual fund dividends)', help: 'Interest from other states\' bonds is added back on Schedule ADJ; Virginia bond interest is not. Enter 0 if none.' }),
+    Object.freeze({ id: 'vaMunicipalInterest', when: { has: ['taxExemptInterest'] }, kind: 'amount', text: 'Tax-exempt interest from Virginia state or local bonds (including Virginia-bond mutual fund dividends)', help: 'Interest from other states\' bonds is added back on Schedule ADJ; Virginia bond interest is not. Enter 0 if none.' }),
     Object.freeze({ id: 'militaryBasicPay', kind: 'amount', text: 'Your military basic pay for active duty of more than 90 days (not Army, Navy, Air Force or Marine reserve or another state\'s National Guard)', help: 'Up to $15,000 is subtracted, reduced $1 for each $1 over $15,000 (subtraction code 38). Enter 0 if none.' }),
-    Object.freeze({ id: 'spouseMilitaryBasicPay', kind: 'amount', text: 'Your spouse\'s military basic pay for active duty of more than 90 days', help: 'Each spouse on a joint return may claim the subtraction separately. Enter 0 if none.' }),
+    Object.freeze({ id: 'spouseMilitaryBasicPay', when: { filingStatus: ['mfj'] }, kind: 'amount', text: 'Your spouse\'s military basic pay for active duty of more than 90 days', help: 'Each spouse on a joint return may claim the subtraction separately. Enter 0 if none.' }),
     Object.freeze({ id: 'commonwealthSaversContributions', kind: 'amount', text: 'Contributions to Commonwealth Savers (formerly Virginia529) accounts in the year', help: 'Deductible up to $4,000 per account, or all of it if you are 70 or older (deduction code 104).' }),
-    Object.freeze({ id: 'commonwealthSaversAccounts', kind: 'count', text: 'Number of Commonwealth Savers accounts you contributed to', help: 'The $4,000 limit applies per account.' }),
+    Object.freeze({ id: 'commonwealthSaversAccounts', when: { answer: { id: 'commonwealthSaversContributions' } }, kind: 'count', text: 'Number of Commonwealth Savers accounts you contributed to', help: 'The $4,000 limit applies per account.' }),
     Object.freeze({ id: 'useTax', kind: 'amount', text: 'Virginia consumer\'s use tax owed on online, mail order or out-of-state purchases', help: 'Purchases with no Virginia sales tax (Line 33). Enter 0 if none.' }),
   ]),
   notCovered: Object.freeze(['Disability income subtraction (in place of the age deduction)', 'Subtractions other than U.S. interest, unemployment and military basic pay (National Guard, federal and state employees, Virginia lottery prizes, retirement previously taxed elsewhere and others)', 'Commonwealth Savers carryforward of contributions above the annual limit', 'Schedule CR credits', 'Filing Status 4 (combined separate return on Form 760PY) and Column B for a spouse', 'Part-year residents\' credit for tax paid to another state', 'Conformity additions and subtractions to federal adjusted gross income', 'Investment interest, casualty and gambling losses as separate items in the limited itemized deduction worksheet', 'Foreign income tax on Schedule A, Line 6', 'Addition to tax for underpaid estimated tax (Form 760C or 760F), penalties and voluntary contributions']),

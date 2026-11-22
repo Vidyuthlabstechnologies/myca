@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 import { tableTax } from '../src/countries/united-states/states/nm.mjs';
 
 const spouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1986-06-01' };
@@ -147,4 +148,22 @@ test('New Mexico 2026: 2025 table, exemptions and credits carried and marked pro
   assert.equal(nm.lines['18'], 1182);
   assert.equal(nm.refund, 318);
   assert.equal(nm.provisional, true);
+});
+
+const questionIds = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'NM' })).data.states[0].questions.map((item) => item.id);
+
+test('New Mexico labels every line of a resident return', async () => {
+  const state = await household({ state: 'NM', forms: [w2(50000, { state: 'NM', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'NM', residency: 'full-year' }]);
+  const nm = await stateReturn(state, '2025', 'NM');
+  for (const key of Object.keys(nm.lines)) assert.ok(typeof nm.labels[key] === 'string' && nm.labels[key].length > 0, key);
+});
+
+test('New Mexico asks the rebate questions for persons 65 or older only of older filers', async () => {
+  const young = await household({ state: 'NM', forms: [w2(50000, { state: 'NM', stateWithheld: 1500 })] });
+  const asked = await questionIds(young);
+  assert.ok(!asked.includes('rentPaid'));
+  assert.ok(!asked.includes('spouseArmedForcesRetirement'));
+  const older = await household({ state: 'NM', dateOfBirth: '1955-01-10', forms: [w2(10000, { state: 'NM', stateWithheld: 100 })] });
+  assert.ok((await questionIds(older)).includes('rentPaid'));
 });

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 import { STATE, ohioNonbusinessTax } from '../src/countries/united-states/states/oh.mjs';
 
 const spouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1984-01-01' };
@@ -165,4 +166,23 @@ test('Ohio asks for the school district number and lists SD 100 and city taxes a
   assert.ok(STATE.questions.some((item) => item.id === 'contributions529'));
   assert.ok(STATE.notCovered.some((item) => /SD 100/.test(item)));
   assert.ok(STATE.notCovered.some((item) => /municipal|city/i.test(item)));
+});
+
+const ohQuestionIds = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'OH' })).data.states[0].questions.map((item) => item.id);
+
+test('Ohio labels every line of a resident IT 1040', async () => {
+  const state = await household({ state: 'OH', forms: [w2(50000, { state: 'OH', stateWithheld: 1200 })] });
+  await residency(state, '2025', [{ state: 'OH', residency: 'full-year', answers: { schoolDistrictNumber: '2502' } }]);
+  const oh = await stateReturn(state, '2025', 'OH');
+  for (const key of Object.keys(oh.lines)) assert.ok(typeof oh.labels[key] === 'string' && oh.labels[key].length > 0, key);
+});
+
+test('Ohio asks follow-up and spouse questions only when they can apply', async () => {
+  const state = await household({ state: 'OH', forms: [w2(50000, { state: 'OH', stateWithheld: 1200 })] });
+  const asked = await ohQuestionIds(state);
+  assert.ok(!asked.includes('homeSchoolStudents'));
+  assert.ok(!asked.includes('scholarshipDonationSpouse'));
+  assert.ok(!asked.includes('reciprocityWages'));
+  await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'OH', answers: { homeSchoolExpenses: 400 } });
+  assert.ok((await ohQuestionIds(state)).includes('homeSchoolStudents'));
 });

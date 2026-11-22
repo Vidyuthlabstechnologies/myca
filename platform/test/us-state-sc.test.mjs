@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 import { scTax } from '../src/countries/united-states/states/sc.mjs';
 import { stateRuleReader } from '../src/countries/united-states/state-kit.mjs';
 
@@ -168,4 +169,25 @@ test('South Carolina 2025 retiree over 65: retirement deduction, age 65 deductio
   assert.equal(sc.lines['q-1'], 5000);
   assert.equal(sc.lines.o, sc.sourcedIncome.socialSecurityTaxable);
   assert.ok(!sc.checks.some((item) => item.level === 'error'));
+});
+
+const scQuestionIds = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'SC' })).data.states[0].questions.map((item) => item.id);
+
+test('South Carolina labels every line of a resident SC1040 in 2025 and 2026', async () => {
+  for (const taxYear of ['2025', '2026']) {
+    const state = await household({ taxYear, state: 'SC', forms: [w2(50000, { state: 'SC', stateWithheld: 1500 })] });
+    await residency(state, taxYear, [{ state: 'SC', residency: 'full-year', answers: { useTax: 0 } }]);
+    const sc = await stateReturn(state, taxYear, 'SC');
+    for (const key of Object.keys(sc.lines)) assert.ok(typeof sc.labels[key] === 'string' && sc.labels[key].length > 0, `${taxYear} ${key}`);
+  }
+});
+
+test('South Carolina asks the two wage earner IRA split only on a joint return', async () => {
+  const single = await household({ state: 'SC', forms: [w2(50000, { state: 'SC', stateWithheld: 1500 })] });
+  const asked = await scQuestionIds(single);
+  assert.ok(!asked.includes('spouseIraDeduction'));
+  assert.ok(!asked.includes('spouseMilitaryRetirement'));
+  assert.ok(!asked.includes('militaryRetirement'));
+  const joint = await household({ state: 'SC', filingStatus: 'mfj', spouse: { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1985-09-09' }, forms: [w2(50000, { state: 'SC', stateWithheld: 1500 })] });
+  assert.ok((await scQuestionIds(joint)).includes('spouseIraDeduction'));
 });

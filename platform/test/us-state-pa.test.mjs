@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 import { STATE } from '../src/countries/united-states/states/pa.mjs';
 
 const spouse = { firstName: 'Sam', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1986-01-05' };
@@ -161,4 +162,25 @@ test('Pennsylvania 2026 uses the same 3.07% rate and is not provisional', async 
   assert.equal(pa.lines['12'], 1535);
   assert.equal(pa.provisional, false);
   assert.ok(pa.rulesUsed.includes('us.state-return.pa.income-tax@2026-01-01'));
+});
+
+const paQuestionIds = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'PA' })).data.states[0].questions.map((item) => item.id);
+
+test('Pennsylvania labels every line of a resident PA-40', async () => {
+  const state = await household({ state: 'PA', forms: [w2(50000, { state: 'PA', stateWithheld: 1535 })] });
+  await residency(state, '2025', [{ state: 'PA', residency: 'full-year', answers: { paUseTax: 0 } }]);
+  const pa = await stateReturn(state, '2025', 'PA');
+  for (const key of Object.keys(pa.lines)) assert.ok(typeof pa.labels[key] === 'string' && pa.labels[key].length > 0, key);
+});
+
+test('Pennsylvania asks the married and spouse questions only of married filers', async () => {
+  const single = await household({ state: 'PA', forms: [w2(50000, { state: 'PA', stateWithheld: 1535 })] });
+  const asked = await paQuestionIds(single);
+  assert.ok(!asked.includes('paSeparatedForSp'));
+  assert.ok(!asked.includes('paSpouseTuitionContributions'));
+  assert.ok(!asked.includes('paSpouseEligibilityIncome'));
+  const joint = await household({ state: 'PA', filingStatus: 'mfj', spouse: { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1985-09-09' }, forms: [w2(50000, { state: 'PA', stateWithheld: 1535 })] });
+  const jointAsked = await paQuestionIds(joint);
+  assert.ok(jointAsked.includes('paSeparatedForSp'));
+  assert.ok(jointAsked.includes('paSpouseTuitionContributions'));
 });

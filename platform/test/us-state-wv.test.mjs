@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const SPOUSE = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1986-06-01' };
 const KID = { firstName: 'Leo', lastName: 'Diaz', ssn: '400-12-9876', relationship: 'son', dateOfBirth: '2018-02-02', months: 12 };
@@ -94,4 +95,23 @@ test('West Virginia resident with North Carolina wages: Schedule E credit is the
   assert.equal(wv.lines['8'], 1966);
   assert.equal(wv.lines['9'], 655);
   assert.equal(wv.lines['14'], 1311);
+});
+
+const wvQuestionIds = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'WV' })).data.states[0].questions.map((item) => item.id);
+
+test('West Virginia labels every line of a resident IT-140', async () => {
+  const state = await household({ state: 'WV', forms: [w2(50000, { state: 'WV', stateWithheld: 2000 })] });
+  await residency(state, '2025', [{ state: 'WV', residency: 'full-year', answers: { useTax: 0 } }]);
+  const wv = await stateReturn(state, '2025', 'WV');
+  for (const key of Object.keys(wv.lines)) assert.ok(typeof wv.labels[key] === 'string' && wv.labels[key].length > 0, key);
+});
+
+test('West Virginia asks the Schedule HEPTC-1 household questions only after property tax is given', async () => {
+  const state = await household({ state: 'WV', forms: [w2(50000, { state: 'WV', stateWithheld: 2000 })] });
+  const asked = await wvQuestionIds(state);
+  assert.ok(!asked.includes('householdSize'));
+  assert.ok(!asked.includes('spouseJointIncomePercent'));
+  assert.ok(!asked.includes('publicRetirement'));
+  await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'WV', answers: { homesteadPropertyTax: 1800 } });
+  assert.ok((await wvQuestionIds(state)).includes('householdSize'));
 });

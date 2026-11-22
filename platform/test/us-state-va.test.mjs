@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const spouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1986-06-01' };
 const child = (firstName, ssn, dateOfBirth, relationship = 'son') => ({ firstName, lastName: 'Diaz', ssn, relationship, dateOfBirth, months: 12 });
@@ -166,4 +167,22 @@ test('Virginia 2026: the due date moves to the next business day and the unpubli
   assert.equal(va.lines['11'], 0);
   assert.equal(va.provisional, true);
   assert.ok(va.rulesUsed.includes('us.state-return.va.itemized-limitation@2026-01-01'));
+});
+
+const vaQuestionIds = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'VA' })).data.states[0].questions.map((item) => item.id);
+
+test('Virginia labels every line of a resident Form 760', async () => {
+  const state = await household({ state: 'VA', forms: [w2(50000, { state: 'VA', stateWithheld: 2000 })] });
+  await residency(state, '2025', [{ state: 'VA', residency: 'full-year', answers: { useTax: 0 } }]);
+  const va = await stateReturn(state, '2025', 'VA');
+  for (const key of Object.keys(va.lines)) assert.ok(typeof va.labels[key] === 'string' && va.labels[key].length > 0, key);
+});
+
+test('Virginia asks the number of Commonwealth Savers accounts only after a contribution is given', async () => {
+  const state = await household({ state: 'VA', forms: [w2(50000, { state: 'VA', stateWithheld: 2000 })] });
+  const asked = await vaQuestionIds(state);
+  assert.ok(!asked.includes('commonwealthSaversAccounts'));
+  assert.ok(!asked.includes('spouseMilitaryBasicPay'));
+  await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'VA', answers: { commonwealthSaversContributions: 6000 } });
+  assert.ok((await vaQuestionIds(state)).includes('commonwealthSaversAccounts'));
 });

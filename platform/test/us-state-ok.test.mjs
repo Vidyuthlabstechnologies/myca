@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const SPOUSE = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1986-06-01' };
 const KID = { firstName: 'Leo', lastName: 'Diaz', ssn: '400-12-9876', relationship: 'son', dateOfBirth: '2018-02-02', months: 12 };
@@ -84,4 +85,23 @@ test('Oklahoma resident with Georgia wages: Form 511-TX limits the credit to the
   assert.equal(tx.lines['6'], 830);
   assert.equal(ok.lines['16'], 771);
   assert.equal(ok.lines['18'], 1543);
+});
+
+const okQuestionIds = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'OK' })).data.states[0].questions.map((item) => item.id);
+
+test('Oklahoma labels every line of a resident Form 511', async () => {
+  const state = await household({ state: 'OK', forms: [w2(50000, { state: 'OK', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'OK', residency: 'full-year' }]);
+  const ok = await stateReturn(state, '2025', 'OK');
+  for (const key of Object.keys(ok.lines)) assert.ok(typeof ok.labels[key] === 'string' && ok.labels[key].length > 0, key);
+});
+
+test('Oklahoma asks the retirement exclusion questions only when there is retirement income', async () => {
+  const worker = await household({ state: 'OK', forms: [w2(50000, { state: 'OK', stateWithheld: 1500 })] });
+  const asked = await okQuestionIds(worker);
+  assert.ok(!asked.includes('governmentRetirement'));
+  assert.ok(!asked.includes('spouseMilitaryRetirement'));
+  assert.ok(asked.includes('disabled'));
+  const retiree = await household({ state: 'OK', forms: [{ kind: '1099-R', fields: { grossDistribution: 20000, taxableAmount: 20000, distributionCode: '7' } }] });
+  assert.ok((await okQuestionIds(retiree)).includes('governmentRetirement'));
 });

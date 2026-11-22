@@ -451,6 +451,95 @@ function compute(ctx, filing, reader) {
   return result;
 }
 
+const FORM1_FRONT_LABELS = Object.freeze({
+  1: 'Federal adjusted gross income',
+  2: 'Adjustments to federal AGI (Schedule I)',
+  3: 'Federal adjusted gross income for Wisconsin purposes',
+  4: 'Total additions to income (Schedule AD)',
+  5: 'Line 3 plus line 4',
+  6: 'Total subtractions from income (Schedule SB)',
+  7: 'Wisconsin income',
+  8: 'Standard deduction',
+  9: 'Line 7 minus line 8',
+  '10a': 'Exemptions for yourself, spouse and dependents',
+  '10b': 'Exemptions for age 65 or older',
+  '10c': 'Total exemptions',
+  11: 'Taxable income',
+  12: 'Tax',
+  13: 'Itemized deduction credit',
+});
+
+const form1Labels = (lines) => Object.freeze({
+  ...FORM1_FRONT_LABELS,
+  [lines.schoolRent]: 'Renter\'s school property tax credit',
+  [lines.schoolOwner]: 'Homeowner\'s school property tax credit',
+  [lines.married]: 'Married couple credit',
+  [lines.otherState]: 'Net income tax paid to another state (Schedule OS)',
+  [lines.creditsTotal]: 'Total nonrefundable credits',
+  [lines.netTax]: 'Net tax',
+  [lines.useTax]: 'Sales and use tax due on out-of-state purchases',
+  [lines.donations]: 'Donations (Schedule 3)',
+  [lines.total]: 'Total tax, use tax, donations and penalties',
+  [lines.withheld]: 'Wisconsin tax withheld',
+  [lines.estimated]: 'Estimated tax payments and amount applied from prior year',
+  [lines.eitc]: 'Earned income credit',
+});
+
+const FORM1_LABELS = Object.freeze({
+  2025: form1Labels({ schoolRent: '16a', schoolOwner: '16b', married: '18', otherState: '20', creditsTotal: '21', netTax: '22', useTax: '23', donations: '24', total: '27', withheld: '28', estimated: '29', eitc: '30' }),
+  2026: form1Labels({ schoolRent: '17a', schoolOwner: '17b', married: '19', otherState: '21', creditsTotal: '22', netTax: '23', useTax: '24', donations: '25', total: '28', withheld: '29', estimated: '30', eitc: '31' }),
+});
+
+const NPR_COLUMN_LABELS = Object.freeze({
+  1: 'Wages, salaries, tips, etc.',
+  2: 'Taxable interest',
+  3: 'Ordinary dividends',
+  4: 'Taxable refunds of state and local income taxes',
+  6: 'Business income or loss',
+  7: 'Capital gain or loss',
+  9: 'IRA distributions',
+  10: 'Pensions and annuities',
+  13: 'Unemployment compensation',
+  14: 'Social Security benefits',
+  15: 'Other income',
+  16: 'Combine lines 1 through 15',
+  29: 'Total adjustments to income',
+});
+
+const FORM1NPR_LABELS = Object.freeze({
+  ...Object.fromEntries(Object.entries(NPR_COLUMN_LABELS).flatMap(([key, text]) => [[`A${key}`, `${text} (federal)`], [`B${key}`, `${text} (Wisconsin)`]])),
+  30: 'Wisconsin income',
+  31: 'Federal income',
+  32: 'Ratio of Wisconsin income to federal income',
+  33: 'Larger of Wisconsin income or federal income',
+  '34c': 'Standard deduction',
+  35: 'Line 33 minus line 34c',
+  '36a': 'Exemptions for yourself, spouse and dependents',
+  '36b': 'Exemptions for age 65 or older',
+  '36c': 'Total exemptions',
+  37: 'Line 35 minus line 36c',
+  38: 'Tax',
+  39: 'Prorated tax',
+  40: 'Itemized deduction credit',
+  '43a': 'Renter\'s school property tax credit',
+  '43b': 'Homeowner\'s school property tax credit',
+  '43c': 'Prorated school property tax credit',
+  44: 'Add credits on lines 40 through 43c',
+  45: 'Line 39 minus line 44',
+  46: 'Amount from line 45',
+  47: 'Working families tax credit',
+  48: 'Married couple credit',
+  50: 'Net income tax paid to another state (Schedule OS)',
+  51: 'Add lines 47 through 50',
+  52: 'Net tax',
+  53: 'Sales and use tax due on out-of-state purchases',
+  54: 'Donations (Schedule 3)',
+  57: 'Add lines 52 through 56',
+  58: 'Wisconsin income tax withheld',
+  59: 'Estimated tax paid and amount applied from prior year',
+  60: 'Earned income credit',
+});
+
 const Q = (id, kind, text, help, extra = {}) => Object.freeze({ id, kind, text, help, ...extra });
 
 export const STATE = Object.freeze({
@@ -458,16 +547,17 @@ export const STATE = Object.freeze({
   name: 'Wisconsin',
   built: true,
   forms: Object.freeze({ resident: '1', partYear: '1NPR', nonresident: '1NPR' }),
+  labels: (taxYear, residency) => (residency === 'full-year' ? FORM1_LABELS[taxYear] || FORM1_LABELS[2026] : FORM1NPR_LABELS),
   questions: Object.freeze([
-    Q('wisconsinBondInterest', 'amount', 'Of your federally tax-exempt interest, how much is also exempt from Wisconsin tax (certain Wisconsin housing, utility and public bonds)?', 'Wisconsin adds back other tax-exempt interest on Schedule AD line 1. Enter 0 if none is exempt for Wisconsin.'),
-    Q('militaryRetirement', 'amount', 'U.S. military and uniformed services retirement pay included in your federal income', 'Subtracted on Schedule SB line 12.'),
-    Q('retirementSubtraction', 'choice', 'If you (or your spouse) are 67 or older: claim the retirement income subtraction, which removes all Wisconsin credits?', 'Schedule SB line 16 subtracts up to $24,000 per person of retirement income but no credits on Form 1 lines 13 to 20 or 30 to 35 are then allowed. "best" lets MyCA pick the lower tax.', { options: Object.freeze(['best', 'claim', 'credits']) }),
-    Q('rentHeatIncluded', 'amount', 'Rent paid for your Wisconsin home where heat was included', 'Renter\'s school property tax credit (Form 1 line 16a). Leave out rent for tax-exempt housing.'),
-    Q('rentHeatNotIncluded', 'amount', 'Rent paid for your Wisconsin home where heat was not included', 'Renter\'s school property tax credit (Form 1 line 16a).'),
-    Q('propertyTaxesPaid', 'amount', 'Property taxes paid on your Wisconsin home', 'Homeowner\'s school property tax credit (Form 1 line 16b). If left empty, MyCA uses the real estate taxes on your federal return.'),
-    Q('hohMarried', 'yesno', 'Are you filing as head of household while still married?', 'Married head of household filers are limited to a $150 school property tax credit.'),
-    Q('mfsLivedApart', 'yesno', 'Married filing separately: did you live apart from your spouse all year?', 'Sets the base for the unemployment compensation subtraction (Schedule SB line 3).'),
-    Q('spouseIraSepDeduction', 'amount', 'Part of the IRA and self-employed retirement deductions that belongs to your spouse', 'Married couple credit, Schedule 2 line 4.'),
+    Q('wisconsinBondInterest', 'amount', 'Of your federally tax-exempt interest, how much is also exempt from Wisconsin tax (certain Wisconsin housing, utility and public bonds)?', 'Wisconsin adds back other tax-exempt interest on Schedule AD line 1. Enter 0 if none is exempt for Wisconsin.', { when: { has: ['taxExemptInterest'] } }),
+    Q('militaryRetirement', 'amount', 'U.S. military and uniformed services retirement pay included in your federal income', 'Subtracted on Schedule SB line 12.', { when: { residency: ['full-year'], has: ['retirementIncome'] } }),
+    Q('retirementSubtraction', 'choice', 'If you (or your spouse) are 67 or older: claim the retirement income subtraction, which removes all Wisconsin credits?', 'Schedule SB line 16 subtracts up to $24,000 per person of retirement income but no credits on Form 1 lines 13 to 20 or 30 to 35 are then allowed. "best" lets MyCA pick the lower tax.', { options: Object.freeze(['best', 'claim', 'credits']) , when: { residency: ['full-year'], has: ['senior'] } }),
+    Q('rentHeatIncluded', 'amount', 'Rent paid for your Wisconsin home where heat was included', 'Renter\'s school property tax credit (Form 1 line 16a). Leave out rent for tax-exempt housing.', { when: { residency: ['full-year', 'part-year'] } }),
+    Q('rentHeatNotIncluded', 'amount', 'Rent paid for your Wisconsin home where heat was not included', 'Renter\'s school property tax credit (Form 1 line 16a).', { when: { residency: ['full-year', 'part-year'] } }),
+    Q('propertyTaxesPaid', 'amount', 'Property taxes paid on your Wisconsin home', 'Homeowner\'s school property tax credit (Form 1 line 16b). If left empty, MyCA uses the real estate taxes on your federal return.', { when: { residency: ['full-year', 'part-year'] } }),
+    Q('hohMarried', 'yesno', 'Are you filing as head of household while still married?', 'Married head of household filers are limited to a $150 school property tax credit.', { when: { residency: ['full-year', 'part-year'], filingStatus: ['hoh'] } }),
+    Q('mfsLivedApart', 'yesno', 'Married filing separately: did you live apart from your spouse all year?', 'Sets the base for the unemployment compensation subtraction (Schedule SB line 3).', { when: { filingStatus: ['mfs'] } }),
+    Q('spouseIraSepDeduction', 'amount', 'Part of the IRA and self-employed retirement deductions that belongs to your spouse', 'Married couple credit, Schedule 2 line 4.', { when: { filingStatus: ['mfj'] } }),
     Q('useTax', 'amount', 'Wisconsin sales and use tax due on out-of-state and online purchases where no tax was charged', 'Form 1 line 23.'),
     Q('donations', 'amount', 'Donations to Wisconsin funds on Schedule 3 (endangered resources, cancer research, veterans and others)', 'They increase the amount you owe or reduce your refund.'),
   ]),

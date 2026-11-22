@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { household, residency, stateReturn, w2 } from './us-states/helpers.mjs';
+import { runTool } from '../src/tools.mjs';
 
 const spouse = { firstName: 'Ben', lastName: 'Diaz', ssn: '400-12-3457', dateOfBirth: '1986-06-01' };
 const kids = [
@@ -136,4 +137,23 @@ test('Vermont 2026 carries the 2025 indexed amounts as provisional', async () =>
   assert.equal(vt.lines['7'], 47050);
   assert.equal(vt.lines['8'], 1576);
   assert.equal(vt.provisional, true);
+});
+
+const vtQuestionIds = async (state) => (await runTool(state, 'us_state_questions', { taxYear: '2025', state: 'VT' })).data.states[0].questions.map((item) => item.id);
+
+test('Vermont labels every line of a resident IN-111', async () => {
+  const state = await household({ state: 'VT', forms: [w2(50000, { state: 'VT', stateWithheld: 1500 })] });
+  await residency(state, '2025', [{ state: 'VT', residency: 'full-year' }]);
+  const vt = await stateReturn(state, '2025', 'VT');
+  for (const key of Object.keys(vt.lines)) assert.ok(typeof vt.labels[key] === 'string' && vt.labels[key].length > 0, key);
+});
+
+test('Vermont asks for the civil service pension only when that exemption is elected', async () => {
+  const state = await household({ state: 'VT', forms: [w2(50000, { state: 'VT', stateWithheld: 1500 })] });
+  const asked = await vtQuestionIds(state);
+  assert.ok(!asked.includes('civilServicePension'));
+  assert.ok(!asked.includes('vheipBeneficiaries'));
+  assert.ok(!asked.includes('nonAllowableMedical'));
+  await runTool(state, 'set_us_state_answers', { taxYear: '2025', state: 'VT', answers: { retirementExemption: 'civil-service-pension' } });
+  assert.ok((await vtQuestionIds(state)).includes('civilServicePension'));
 });
