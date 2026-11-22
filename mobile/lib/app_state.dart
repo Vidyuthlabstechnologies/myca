@@ -18,6 +18,9 @@ import 'crash_reports.dart';
 import 'growth.dart';
 import 'lock/app_lock.dart';
 import 'notifications.dart';
+import 'offline/offline_billing.dart';
+import 'offline/offline_first_api.dart';
+import 'offline/offline_sync.dart';
 
 Future<bool> _cannotSave(String name, String content) async => false;
 
@@ -71,9 +74,21 @@ class AppState extends ChangeNotifier {
     this.languages = const NoLanguageStore(),
     ValueNotifier<String>? languageChoice,
     this.sendAnswerReport,
-  })  : api = api ?? cloud!.api,
+    OfflineBilling? offline,
+    bool offlineTimers = true,
+  })  : offline = normalEdition(edition) == 'IN' ? offline : null,
+        api = _offlineFirst(api ?? cloud!.api, normalEdition(edition) == 'IN' ? offline : null, cloud),
         languageChoice = languageChoice ?? ValueNotifier<String>(''),
-        edition = normalEdition(edition);
+        edition = normalEdition(edition) {
+    final books = this.offline;
+    offlineSync = books == null ? null : OfflineSync(books, this.api, now: now, timers: offlineTimers);
+  }
+
+  static MycaApi _offlineFirst(MycaApi base, OfflineBilling? offline, CloudSession? cloud) =>
+      offline == null ? base : OfflineFirstApi(base, offline, business: () => cloud == null ? 'local' : (cloud.businessId ?? ''));
+
+  final OfflineBilling? offline;
+  late final OfflineSync? offlineSync;
 
   final String edition;
   final LanguageStore languages;
@@ -218,6 +233,7 @@ class AppState extends ChangeNotifier {
       await _skipMigrationForKeptBooks();
       _sendCrashReports();
       _reachFunnel();
+      unawaited(offlineSync?.kick());
     } on SignedOutException {
       snapshot = null;
       recoveryNote = '';
@@ -285,6 +301,7 @@ class AppState extends ChangeNotifier {
   void leftApp() => _leftAt = now();
 
   void returnedToApp() {
+    unawaited(offlineSync?.kick());
     final left = _leftAt;
     _leftAt = null;
     if (left == null || locked || !_guards) return;

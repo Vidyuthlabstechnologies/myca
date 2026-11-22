@@ -6,6 +6,7 @@ import '../api/models.dart';
 import '../notifications.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import 'offline_banner.dart';
 import '../india/india_language_picker.dart';
 import '../india/india_strings.dart';
 import '../attention.dart';
@@ -19,7 +20,9 @@ import '../widgets.dart';
 import 'ask_screen.dart';
 import 'bank_screen.dart';
 import 'books_check_screen.dart';
+import 'loyalty_screen.dart';
 import 'marketplace_screen.dart';
+import 'online_store_screen.dart';
 import 'recurring_screen.dart';
 import 'reports_screen.dart';
 import 'statements_screen.dart';
@@ -183,6 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
           children: [
+            if (state.offline != null) OfflineBanner(offline: state.offline!),
             Padding(
               padding: const EdgeInsets.fromLTRB(2, 0, 2, 18),
               child: Column(
@@ -399,6 +403,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: inText(context, 'Payouts, TCS and TDS, margins by SKU, stock, GST registrations'),
                   trailing: const Chevron(),
                   onTap: () => _open(const MarketplaceScreen()),
+                ),
+                if (state.edition == 'IN' &&
+                    company.country == 'IN' &&
+                    snapshot.activeUser?.role != 'staff' &&
+                    snapshot.activeUser?.role != 'accountant')
+                RowCard(
+                  key: const Key('home-online-store'),
+                  leading: const TintTile(tint: Tint.sales, mark: Mark.sales),
+                  title: inText(context, 'Online store'),
+                  subtitle: inText(context, 'Publish items on a link buyers can order from on WhatsApp'),
+                  trailing: const Chevron(),
+                  onTap: () => _open(const OnlineStoreScreen()),
+                ),
+                if (state.edition == 'IN' && company.country == 'IN')
+                RowCard(
+                  leading: const TintTile(tint: Tint.sales, mark: Mark.bringIn),
+                  title: inText(context, 'Loyalty points'),
+                  subtitle: inText(context, 'Points customers earn and use, and what the shop owes in points'),
+                  trailing: const Chevron(),
+                  onTap: () => _open(const LoyaltyScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.switchBooks),

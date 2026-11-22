@@ -40,6 +40,12 @@ export { TOOL_ARG_SCHEMAS } from './tool-schemas.mjs';
 export { assistantTools, modelTools, validateAssistantToolCall } from './assistant-tools.mjs';
 
 const PERIOD_TOOLS = new Set(['gst_payable', 'export_tally', 'export_gstr1_json', 'prepare_gstr1', 'filing_pack', 'prepare_gstr3b']);
+const YEAR_TOOLS = new Set(['contractor_1099_file', 'schedule_se', 'cpa_pack']);
+
+function saidTaxYear(text) {
+  const found = String(text).match(/(?<![\d$₹.,])\b(20[0-9]{2})\b(?![\d.,])/);
+  return found ? found[1] : '';
+}
 
 export function pendingFileContent(state) {
   const pending = state.pendingFile;
@@ -414,7 +420,7 @@ export function planLocalToolCall(state, message) {
     if (/\bgst/i.test(text)) return otherEditionReply();
   }
 
-  const cancelMatch = text.match(/\bcancel\s+(?:invoice\s+)?(INV-\d{4,})\b(?:\s*(?:because|reason|:|-)?\s*(.+))?$/i);
+  const cancelMatch = text.match(/\bcancel\s+(?:invoice\s+)?(INV-(?:[A-Z]{2}\d{4}-)?\d{4,})\b(?:\s*(?:because|reason|:|-)?\s*(.+))?$/i);
   if (cancelMatch && !isQuestion(text) && !/\b(?:do\s*not|don'?t|never)\b/i.test(text) && !/\b(?:irn|e-?invoice)\b/i.test(text)) {
     const reason = String(cancelMatch[2] || '').trim();
     return { kind: 'tool', name: 'cancel_invoice', args: { invoiceId: cancelMatch[1].toUpperCase(), date: receiptDate(text, localToday()), ...(reason ? { reason: reason.slice(0, 200) } : {}) } };
@@ -439,7 +445,7 @@ export function planLocalToolCall(state, message) {
     if (!reason.trim()) return { kind: 'reply', reply: `Say why, for example "debit note for ${supplierNote[1].toUpperCase()} 1000 - goods returned". I have recorded nothing.`, tools: [] };
     return { kind: 'tool', name: 'create_purchase_note', args: { billId: supplierNote[1].toUpperCase(), amount, date: receiptDate(text, localToday()), reason: reason.trim().slice(0, 200) } };
   }
-  const debitMatch = text.match(/\bdebit\s+note\b.*?\b(INV-\d{4,})\b/i);
+  const debitMatch = text.match(/\bdebit\s+note\b.*?\b(INV-(?:[A-Z]{2}\d{4}-)?\d{4,})\b/i);
   if (debitMatch && !isQuestion(text) && !isNegated(text)) {
     const amount = receiptAmount(text);
     const afterInvoice = text.slice(text.toUpperCase().indexOf(debitMatch[1].toUpperCase()) + debitMatch[1].length);
@@ -448,7 +454,7 @@ export function planLocalToolCall(state, message) {
     if (!reason.trim()) return { kind: 'reply', reply: `Say why, for example "debit note for ${debitMatch[1].toUpperCase()} 2000 - price revised". I have recorded nothing.`, tools: [] };
     return { kind: 'tool', name: 'create_debit_note', args: { invoiceId: debitMatch[1].toUpperCase(), amount, date: receiptDate(text, localToday()), reason: reason.trim().slice(0, 200) } };
   }
-  const creditMatch = text.match(/\bcredit\s+note\b.*?\b(INV-\d{4,})\b/i);
+  const creditMatch = text.match(/\bcredit\s+note\b.*?\b(INV-(?:[A-Z]{2}\d{4}-)?\d{4,})\b/i);
   if (creditMatch && !isQuestion(text) && !isNegated(text)) {
     const amount = receiptAmount(text);
     if (amount == null && saidNonPositiveAmount(text)) return { kind: 'reply', reply: `A credit note has to be a positive amount, for example "credit note for ${creditMatch[1].toUpperCase()} 2000 - goods returned". I have recorded nothing.`, tools: [] };
@@ -477,17 +483,17 @@ export function planLocalToolCall(state, message) {
     };
   }
 
-  const printId = text.match(/\b(INV-\d+|BILL-\d+)\b/i);
+  const printId = text.match(/\b(INV-(?:[A-Z]{2}\d{4}-)?\d+|BILL-\d+)\b/i);
   if (printId && /print|show/i.test(text) && !/irn|einvoice|e-invoice/i.test(text)) {
     return { kind: 'tool', name: 'print_invoice', args: { id: printId[1].toUpperCase() } };
   }
 
-  const mockIrnId = text.match(/\b((?:INV|CN|DN)-\d+)\b/i);
+  const mockIrnId = text.match(/\b((?:INV-(?:[A-Z]{2}\d{4}-)?|CN-|DN-)\d+)\b/i);
   if (mockIrnId && /\bmock\s*(irn|einvoice|e-invoice)\b/i.test(text)) {
     return { kind: 'tool', name: 'govt_nic_mock', args: { invoiceId: mockIrnId[1].toUpperCase() } };
   }
 
-  const irnId = text.match(/\b((?:INV|CN|DN)-\d+)\b/i);
+  const irnId = text.match(/\b((?:INV-(?:[A-Z]{2}\d{4}-)?|CN-|DN-)\d+)\b/i);
   if (irnId && /\birn\b|e-?invoice/i.test(text)) {
     const invoiceId = irnId[1].toUpperCase();
     if (/\bcancel/i.test(text)) return { kind: 'tool', name: 'govt_nic_cancel_irn', args: { invoiceId } };
@@ -499,7 +505,7 @@ export function planLocalToolCall(state, message) {
     return { kind: 'tool', name: 'govt_generate_irn', args: { invoiceId } };
   }
 
-  const paidId = text.match(/\b(INV-\d+)\b/i);
+  const paidId = text.match(/\b(INV-(?:[A-Z]{2}\d{4}-)?\d+)\b/i);
   if (paidId && /\b(paid|receipt|received)\b/i.test(text)) {
     const invoiceId = paidId[1].toUpperCase();
     if (isQuestion(text) || isNegated(text)) {
@@ -570,6 +576,10 @@ export function planLocalToolCall(state, message) {
   {
     const cost = /^(?:cost\s+of\s+|set\s+cost\s+(?:of\s+)?)([A-Za-z0-9][A-Za-z0-9_./-]{0,63})\s+(?:is|=|:|to|at)?\s*(?:₹|rs\.?\s*)?([\d,]+(?:\.\d+)?)(?:\s+(?:at|gst)\s+(\d{1,2})%)?\s*$/i.exec(text.trim());
     if (cost && !isNegated(text)) return { kind: 'tool', name: 'set_sku_cost', args: { sku: cost[1].toUpperCase(), cost: Number(cost[2].replace(/,/g, '')), ...(cost[3] ? { gstRate: Number(cost[3]) } : {}) } };
+    const costing = /\b(?:cost|value)\s+(?:the\s+)?(?:inventory|stock)\s+(?:by|on|at|using)\s+(fifo|weighted\s+average|average|lifo)\b|\b(?:use|switch\s+to|choose)\s+(fifo|weighted\s+average|lifo)\b/i.exec(text);
+    if (costing && !isNegated(text) && !isQuestion(text)) return { kind: 'tool', name: 'set_costing_method', args: { method: (costing[1] || costing[2]).toLowerCase().replace(/\s+/g, '') } };
+    if (/\b(?:expiring|expired)\s+(?:soon|stock|items?|batch(?:es)?|medicines?|products?|goods)\b|\bwhat\s+(?:is|'s)\s+expiring\b|\blow\s+stock\b|\bbelow\s+(?:the\s+)?reorder\b|\bstock\s+alerts?\b/i.test(text)) return { kind: 'tool', name: 'stock_alerts', args: {} };
+    if (/\b(?:costing\s+method|inventory\s+costing|stock\s+lots?|cost\s+of\s+goods\s+(?:sold|out))\b/i.test(text)) return { kind: 'tool', name: 'inventory_costing', args: {} };
     const stock = /^stock\s+(in|out)\s+([A-Za-z0-9][A-Za-z0-9_./-]{0,63})\s+([\d.]+)(?:\s+(?:at|to|from|in)\s+([A-Za-z0-9][A-Za-z0-9 _-]{0,39}))?\s*$/i.exec(text.trim());
     if (stock && !isNegated(text)) return { kind: 'tool', name: 'record_stock', args: { sku: stock[2].toUpperCase(), qty: stock[1].toLowerCase() === 'in' ? Number(stock[3]) : -Number(stock[3]), ...(stock[4] ? { location: stock[4].trim().toLowerCase() } : {}) } };
     if (/\bimport\s+(?:sku\s+)?costs?\b|\bsku\s+costs?\s+(?:file|csv|sheet)\b/i.test(text) && !isQuestion(text)) {
@@ -676,6 +686,10 @@ export function planLocalToolCall(state, message) {
 
   for (const route of ROUTES) {
     if (!route.re.test(text)) continue;
+    if (YEAR_TOOLS.has(route.tool)) {
+      const year = saidTaxYear(text);
+      return { kind: 'tool', name: route.tool, args: year ? { year } : {} };
+    }
     const period = PERIOD_TOOLS.has(route.tool) ? saidPeriod(text) : '';
     return { kind: 'tool', name: route.tool, args: period ? { period } : {} };
   }

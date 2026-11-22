@@ -1,3 +1,4 @@
+import { irnTurnoverProblems, irnWarnings } from './nic-config.mjs';
 import { planAdvanceTaxPayment } from './advance-tax.mjs';
 import { checkAnswer, stepText } from './gst-review.mjs';
 import { keyTooLongErrors, parse2bFile, twobFor } from './gstr2b-check.mjs';
@@ -349,10 +350,13 @@ export function billTdsPreview(state, args) {
 export function irnPreview(state, args, cancel) {
   const inv = (state.invoices || []).find((i) => i.id === args.invoiceId);
   const what = cancel ? 'Cancel the IRN for' : 'Send';
+  const turnover = inv && !cancel ? irnTurnoverProblems(state, inv).map((problem) => problem.words) : [];
+  const warnings = inv && !cancel ? irnWarnings(state, inv) : [];
   return {
-    blockers: inv ? [] : [`${args.invoiceId} is not in these books.`],
+    blockers: inv ? turnover : [`${args.invoiceId} is not in these books.`],
     summary: `${what} ${args.invoiceId}${inv ? ` (${inv.partyName}, ${money(inv.total)})` : ''} to the e-invoice portal.`,
     effects: [
+      ...warnings,
       'Nothing leaves this machine unless live calls are switched on.',
       'A live call still needs a CA approval bound to this exact payload, made by someone other than the requester.',
     ],

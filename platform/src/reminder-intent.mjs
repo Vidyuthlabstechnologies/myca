@@ -70,7 +70,7 @@ export function parseReminder(text, today = localToday()) {
     rest = rest.replace(found[0], ' ');
     break;
   }
-  const invoice = rest.match(/\b(INV-\d{4,})\b/i);
+  const invoice = rest.match(/\b(INV-(?:[A-Z]{2}\d{4}-)?\d{4,})\b/i);
   const bill = rest.match(/\b(BILL-\d{4,})\b/i);
   const text2 = rest.replace(/\s+/g, ' ').replace(/^\s*(?:to|about|that|for)\s+/i, '').replace(/[\s,.]+$/, '').trim();
   const ref = invoice ? invoice[1].toUpperCase() : bill ? bill[1].toUpperCase() : '';

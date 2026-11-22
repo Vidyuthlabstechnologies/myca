@@ -1,3 +1,4 @@
+import { booksAatoOpts } from './aato.mjs';
 import { runSandboxOperation } from './sandbox-adapter.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
 import { regArg, companyAs, forRegistration, scopeKey } from './registrations.mjs';
@@ -73,6 +74,7 @@ function gstr1Payload(state, period, gstin) {
     creditNotes: forRegistration(state, state.creditNotes || [], gstin),
     debitNotes: forRegistration(state, state.debitNotes || [], gstin),
     channels: state.channels,
+    ...booksAatoOpts(state, fpOf(period)),
   });
   if (json.error) return fail(json.error, { hint: json.hint });
   const { hash, held, warnings, ...body } = json;

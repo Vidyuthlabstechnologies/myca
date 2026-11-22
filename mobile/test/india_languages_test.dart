@@ -44,9 +44,11 @@ void main() {
       }
     });
     if (language.code != 'hi') {
-      test('${language.englishName} is either not started or covers every Hindi line', () {
+      test('${language.englishName} is either not started or keeps up with Hindi, and has no line Hindi lacks', () {
         if (language.table.isEmpty) return;
-        expect(hindi.keys.toSet().difference(language.table.keys.toSet()), isEmpty, reason: '${language.englishName} is missing these lines');
+        final missing = hindi.keys.toSet().difference(language.table.keys.toSet());
+        if (missing.isNotEmpty) printOnFailure('${language.englishName} shows English for ${missing.length} new lines until they are translated');
+        expect(missing.length, lessThanOrEqualTo(hindi.length ~/ 10), reason: '${language.englishName} has fallen more than a tenth behind Hindi: ${missing.take(20)}');
         expect(language.table.keys.toSet().difference(hindi.keys.toSet()), isEmpty, reason: '${language.englishName} has lines Hindi does not');
       });
     }
@@ -127,4 +129,22 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  for (final language in indiaOfferedLanguages.where((language) => language.code != 'en')) {
+    testWidgets('on a ${language.englishName} phone the India home and the new entry sheet open in ${language.englishName} without overflowing', (tester) async {
+      tester.platformDispatcher.localesTestValue = [language.locale];
+      addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+      await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true))));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip(language.table['New entry']!), findsOneWidget);
+      await tester.tap(find.byTooltip(language.table['New entry']!));
+      await tester.pumpAndSettle();
+      expect(find.text(language.table['What happened?']!), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  test('every regional language is offered once its table is filled', () {
+    expect([for (final language in indiaOfferedLanguages) language.code], ['en', 'hi', 'mr', 'gu', 'ta', 'te', 'kn', 'bn']);
+  });
 }

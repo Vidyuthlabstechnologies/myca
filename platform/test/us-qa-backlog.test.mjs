@@ -112,7 +112,7 @@ test('interview asks the itemized, investment, Form 2555 and spouse questions th
   assert.equal(answerUsInterview(state, { taxYear: '2025', id: 'spouseHasNoIncome', answer: 'yes' }).data.answer, true);
   addUsTaxForm(state, { taxYear: '2025', kind: 'W-2', payer: 'Acme Inc', fields: { wages: 40000 } });
   const out = computeForm1040(engineInput(state, state.usReturns['2025']), '2025');
-  assert.equal(out.data.lines['12'], 15750 + 2 * 1600, 'separate return: basic $15,750 plus $1,600 each for you and a 65+ spouse with no income');
+  assert.equal(out.data.lines['12e'], 15750 + 2 * 1600, 'separate return: basic $15,750 plus $1,600 each for you and a 65+ spouse with no income');
 
   setUsTaxpayer(state, { taxYear: '2025', filingStatus: 'single', taxpayer: person('Jo', '2004-06-01'), address });
   assert.ok(!ids().includes('spouseHasNoIncome'));

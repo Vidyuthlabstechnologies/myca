@@ -1,3 +1,4 @@
+import { form1040Amount } from './us-line-map.mjs';
 import { computeForm1040, SUPPORTED_YEARS } from './us-1040.mjs';
 import { engineInput, usReturnRecord } from './us-return.mjs';
 import { openTin, sealTin } from './us-identity.mjs';
@@ -140,7 +141,7 @@ export function planUsPriorYearImport(state, args = {}) {
       const d = result.data;
       figures.agi = d.summary.agi;
       figures.totalTax = d.summary.totalTax;
-      const applied = Number(d.lines['36'] || 0);
+      const applied = form1040Amount(d, 'appliedToNextYear');
       if (applied > 0) figures.overpaymentApplied = applied;
       const carry = d.capitalLossCarryover || { shortTerm: 0, longTerm: 0 };
       if (carry.shortTerm > 0) figures.shortTermLossCarryover = carry.shortTerm;

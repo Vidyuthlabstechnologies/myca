@@ -2,7 +2,9 @@ import { ENGINE_TOOL_RISK } from './countries/manifests.mjs';
 import { noArgs } from './tool-schema-parts.mjs';
 import { TOOL_ARG_SCHEMAS } from './tool-schemas.mjs';
 
-const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'set_channel_connector', 'govt_set_public_key', 'govt_nic_cancel_irn', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client', 'save_document', 'get_document', 'lock_period', 'unlock_period', 'send_notification', 'test_notification']);
+export const APP_ONLY_TOOLS = new Set(['offline_kit', 'register_offline_device', 'post_offline_sales']);
+
+const ASSISTANT_BLOCKED_TOOLS = new Set([...APP_ONLY_TOOLS, 'govt_save_credentials', 'set_channel_connector', 'govt_set_public_key', 'govt_nic_cancel_irn', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client', 'save_document', 'get_document', 'lock_period', 'unlock_period', 'send_notification', 'test_notification']);
 
 const TOOL_RISK = {
   create_invoice: 'writes_books',
@@ -124,9 +126,23 @@ const TOOL_RISK = {
   tds_credit_check: 'read_only',
   marketplace_credits: 'read_only',
   set_sku_cost: 'writes_books',
+  offline_kit: 'read_only',
+  register_offline_device: 'internal_workflow',
+  post_offline_sales: 'writes_books',
   find_item: 'read_only',
+  catalogue_settings: 'writes_books',
+  catalogue_items: 'writes_books',
+  catalogue_view: 'read_only',
+  store_orders: 'read_only',
+  store_order_action: 'writes_books',
+  loyalty_settings: 'writes_books',
+  loyalty_balance: 'read_only',
+  loyalty_adjust: 'writes_books',
   import_sku_costs: 'writes_books',
   record_stock: 'writes_books',
+  set_costing_method: 'writes_books',
+  inventory_costing: 'read_only',
+  stock_alerts: 'read_only',
   stock_position: 'read_only',
   stock_moves: 'read_only',
   value_inventory: 'writes_books',
@@ -252,8 +268,19 @@ function valueType(value) {
   return typeof value;
 }
 
+function typeMatches(type, value) {
+  if (type === 'integer') return Number.isInteger(value);
+  if (type === 'null') return value === null;
+  return valueType(value) === type;
+}
+
 function checkScalar(schema, value, path) {
   if (!schema) return null;
+  if (Array.isArray(schema.type)) {
+    const type = schema.type.find((item) => typeMatches(item, value));
+    if (!type) return `${path} must be ${schema.type.join(',')}`;
+    return checkScalar({ ...schema, type }, value, path);
+  }
   if (schema.type === 'integer') {
     if (!Number.isInteger(value)) return `${path} must be integer`;
   } else if (schema.type && valueType(value) !== schema.type) return `${path} must be ${schema.type}`;
@@ -311,5 +338,11 @@ export function validateAssistantToolCall(name, args = {}) {
   const schema = TOOL_ARG_SCHEMAS[name];
   if (!schema) return { ok: false, error: `unknown assistant tool ${name}` };
   const error = validateObject(schema, args || {});
+  return error ? { ok: false, error } : { ok: true, name, args: args || {} };
+}
+
+export function validateAppToolCall(name, args = {}) {
+  if (!APP_ONLY_TOOLS.has(name)) return validateAssistantToolCall(name, args);
+  const error = validateObject(TOOL_ARG_SCHEMAS[name], args || {});
   return error ? { ok: false, error } : { ok: true, name, args: args || {} };
 }

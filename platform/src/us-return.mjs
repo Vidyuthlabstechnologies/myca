@@ -6,6 +6,7 @@ import { ENERGY_CATEGORIES, CLEAN_ENERGY_CATEGORIES, isQmid } from './us-form-56
 import { SAVERS_DEFERRAL_CODES } from './us-form-8880.mjs';
 import { sealTin, openTin, maskTin, tinShapeError, isSealedTin } from './us-identity.mjs';
 import { localToday } from './dates.mjs';
+import { lineLabels } from './us-line-map.mjs';
 import { appendAuditEvent } from './ca-api.mjs';
 import { figuresOf1040, form1040X } from './us-1040x.mjs';
 
@@ -75,7 +76,7 @@ const QUESTIONS = Object.freeze([
   { id: 'businessExpenses', text: 'Self-employment: total business expenses', help: 'Supplies, software, advertising, travel, the business part of your phone, and the like.', kind: 'amount', when: (ctx) => !ctx.usesBooks && ctx.manualBusiness },
   { id: 'estimatedTaxPayments', text: 'Federal estimated tax paid for the year (Form 1040-ES)', help: 'All four instalments together, including one paid in January.', kind: 'amount' },
   { id: 'priorYearTax', text: 'Last year\'s total federal tax (Form 1040 line 24)', help: 'Used to check whether an estimated tax penalty can apply. Leave empty if you did not file last year.', kind: 'amount' },
-  { id: 'priorYearAgi', text: 'Last year\'s adjusted gross income (Form 1040 line 11)', help: 'Above $150,000 ($75,000 separate) the safe harbor is 110% of last year\'s tax.', kind: 'amount', negative: true, when: (ctx) => ctx.answers?.priorYearTax !== undefined },
+  { id: 'priorYearAgi', text: 'Last year\'s adjusted gross income (Form 1040 line 11, or line 11b from 2025)', help: 'Above $150,000 ($75,000 separate) the safe harbor is 110% of last year\'s tax.', kind: 'amount', negative: true, when: (ctx) => ctx.answers?.priorYearTax !== undefined },
   { id: 'priorYearOverpaymentApplied', text: 'Last year\'s refund applied to this year', help: 'Only if you chose to apply it rather than receive it.', kind: 'amount' },
   { id: 'stateRefundTaxable', text: 'How much of the state refund on your 1099-G is taxable?', help: 'Zero if you took the standard deduction last year. If you itemized, the part that lowered your federal tax.', kind: 'amount', when: (ctx) => ctx.hasStateRefund },
   { id: 'qbiMaterialParticipation', text: 'Did you work in your business regularly, continuously and substantially this year?', help: 'This is material participation (IRC 469(h)), for example more than 500 hours, or most of the work in the business; on a joint return your spouse\'s work in it counts too. From 2026 it can give you a minimum business income deduction of $400 (IRC 199A(i)). It covers your one business; a business added with its own answer uses that answer.', kind: 'yesno', when: (ctx) => ctx.hasBusiness && (ctx.taxpayerBusiness || !ctx.spouseBusiness) && Number(ctx.taxYear) >= 2026 },
@@ -182,13 +183,16 @@ const QUESTIONS = Object.freeze([
   { id: 'studentLoanInterest', text: 'Student loan interest not on a 1098-E', help: '', kind: 'amount' },
   { id: 'shortTermLossCarryover', text: 'Short-term capital loss carried over from last year', help: 'From last year\'s capital loss carryover worksheet.', kind: 'amount' },
   { id: 'longTermLossCarryover', text: 'Long-term capital loss carried over from last year', help: '', kind: 'amount' },
+  { id: 'qofDisposition', text: 'During the year, did you sell, exchange or otherwise dispose of any investment in a qualified opportunity fund?', help: 'The yes or no question at the top of Schedule D. Most people answer no; a yes needs Form 8997, which MyCA does not prepare.', kind: 'yesno', when: (ctx) => ctx.hasCapitalSales },
+  { id: 'foreignAccounts', text: 'At any time during the year, did you have a financial interest in or signature authority over a financial account in a foreign country?', help: 'Schedule B line 7a, asked when you file Schedule B. A bank, securities or other financial account located outside the United States counts; a US account holding foreign shares does not.', kind: 'yesno', when: (ctx) => ctx.hasInterestOrDividends },
+  { id: 'foreignTrust', text: 'During the year, did you receive a distribution from, or were you the grantor of or transferor to, a foreign trust?', help: 'Schedule B line 8, asked when you file Schedule B.', kind: 'yesno', when: (ctx) => ctx.hasInterestOrDividends },
   { id: 'itemize', text: 'Itemize deductions?', help: 'Auto picks whichever is larger: the standard deduction or your itemized deductions.', kind: 'choice', options: ['auto', 'yes', 'no'] },
   { id: 'stateEstimatedPayments', text: 'State and local income tax estimated payments made during the year', help: 'Payments made during the year toward this year\'s state or local income tax. W-2 withholding is already counted.', kind: 'amount', when: (ctx) => ctx.mayItemize },
   { id: 'priorYearStateTaxPaid', text: 'State or local income tax paid this year for an earlier year', help: 'For example the balance due on last year\'s state return, or last year\'s fourth-quarter estimate paid in January.', kind: 'amount', when: (ctx) => ctx.mayItemize },
   { id: 'useSalesTax', text: 'Deduct state and local general sales taxes instead of income taxes?', help: 'Usually better only in a state without an income tax (Schedule A line 5a).', kind: 'yesno', when: (ctx) => ctx.mayItemize },
   { id: 'generalSalesTax', text: 'State and local general sales taxes paid', help: 'Actual receipts or the IRS sales tax calculator amount, plus sales tax on a car or boat.', kind: 'amount', when: (ctx) => ctx.mayItemize && ctx.answers.useSalesTax === true },
   { id: 'otherMortgageInterest', text: 'Home mortgage interest not reported on a Form 1098', help: 'For example interest paid to a private lender or the seller (Schedule A line 8b).', kind: 'amount', when: (ctx) => ctx.mayItemize },
-  { id: 'otherItemizedDeductions', text: 'Other itemized deductions (Schedule A line 16)', help: 'Only the kinds listed in the Schedule A instructions for line 16, such as gambling losses up to your gambling winnings.', kind: 'amount', when: (ctx) => ctx.mayItemize },
+  { id: 'otherItemizedDeductions', text: 'Other itemized deductions (Schedule A line 16, line 17 from 2026)', help: 'Only the kinds listed in the Schedule A instructions for line 16, such as gambling losses up to your gambling winnings.', kind: 'amount', when: (ctx) => ctx.mayItemize },
   { id: 'medicalExpenses', text: 'Medical and dental expenses you paid', help: 'Only the part above 7.5% of your AGI counts, and only if you itemize.', kind: 'amount' },
   { id: 'realEstateTaxes', text: 'Property tax paid on your home (not through escrow)', help: '', kind: 'amount' },
   { id: 'personalPropertyTaxes', text: 'Personal property tax (for example on a car)', help: 'The part based on value.', kind: 'amount' },
@@ -203,14 +207,9 @@ const QUESTIONS = Object.freeze([
 ]);
 
 const LINE_LABELS = Object.freeze({
-  '1040': { '1a': 'Wages (W-2 box 1)', '1e': 'Taxable dependent care benefits (Form 2441)', '1z': 'Total wages', '2a': 'Tax-exempt interest', '2b': 'Taxable interest', '3a': 'Qualified dividends', '3b': 'Ordinary dividends', '4a': 'IRA distributions', '4b': 'IRA distributions, taxable', '5a': 'Pensions and annuities', '5b': 'Pensions and annuities, taxable', '6a': 'Social security benefits', '6b': 'Social security benefits, taxable', 7: 'Capital gain or loss', 8: 'Additional income (Schedule 1)', 9: 'Total income', 10: 'Adjustments to income (Schedule 1)', 11: 'Adjusted gross income', 12: 'Standard or itemized deduction', '13a': 'Qualified business income deduction', '13b': 'Additional deductions (Schedule 1-A)', 14: 'Total deductions', 15: 'Taxable income', 16: 'Tax', 17: 'Schedule 2, line 3', 18: 'Tax before credits', 19: 'Child tax credit and credit for other dependents', 20: 'Other credits (Schedule 3)', 21: 'Total credits', 22: 'Tax after credits', 23: 'Other taxes (Schedule 2)', 24: 'Total tax', '25a': 'Federal tax withheld, W-2', '25b': 'Federal tax withheld, 1099', '25c': 'Federal tax withheld, other', '25d': 'Total withholding', 26: 'Estimated tax payments', 27: 'Earned income credit', 28: 'Additional child tax credit', 29: 'American opportunity credit, refundable', 31: 'Other payments (Schedule 3)', 32: 'Total other payments and refundable credits', 33: 'Total payments', 34: 'Overpaid', '35a': 'Refund', 36: 'Applied to next year\'s estimated tax', 37: 'Amount you owe' },
   'Schedule 1': { 1: 'Taxable state and local refunds', 3: 'Business income (Schedule C)', 5: 'Rental real estate and royalties (Schedule E)', 7: 'Unemployment compensation', '8f': 'Income from Form 8889 (taxable HSA distributions)', '8z': 'Other income', 9: 'Total other income', 10: 'Total additional income', 11: 'Educator expenses', 13: 'HSA deduction', 15: 'Deductible part of self-employment tax', 16: 'SEP, SIMPLE and qualified plans', 17: 'Self-employed health insurance', 18: 'Penalty on early withdrawal of savings', 20: 'IRA deduction', 21: 'Student loan interest deduction', 26: 'Total adjustments' },
-  'Schedule 1-A': { 13: 'No tax on tips', 21: 'No tax on overtime', 30: 'Car loan interest', 37: 'Enhanced deduction for seniors', charity: 'Charitable gifts (non-itemizer)', 38: 'Total additional deductions' },
-  'Schedule 2': { '1a': 'Excess advance premium tax credit repayment (Form 8962)', 3: 'Total additions to tax (to Form 1040 line 17)', 4: 'Self-employment tax', 8: 'Additional tax on IRAs and other tax-favored accounts (Form 5329)', 11: 'Additional Medicare tax', 12: 'Net investment income tax', '17c': 'Additional 20% tax on HSA distributions (Form 8889)', '17d': 'Additional 10% tax for not remaining HSA-eligible (Form 8889)', 18: 'Total additional taxes', 21: 'Total other taxes' },
-  'Schedule 3': { 1: 'Foreign tax credit', 2: 'Child and dependent care credit (Form 2441)', 3: 'Education credits', 4: 'Retirement savings contributions credit (Form 8880)', '5a': 'Residential clean energy credit (Form 5695)', '5b': 'Energy efficient home improvement credit (Form 5695)', 8: 'Total nonrefundable credits', 9: 'Net premium tax credit (Form 8962)', 11: 'Excess social security tax withheld', 15: 'Total other payments' },
   'Form 8880': { 7: 'Contributions counted, up to $2,000 a person', 10: 'Credit before the tax limit', 11: 'Tax left after earlier credits', 12: 'Retirement savings contributions credit' },
   'Form 5695': { '6b': 'Clean energy property, 30% of cost', 11: 'Fuel cell credit', 12: 'Credit carried forward from last year', 13: 'Residential clean energy credit before the tax limit', 14: 'Tax left for the residential clean energy credit', 15: 'Residential clean energy credit', 16: 'Carried forward to next year', 28: 'Improvements, windows, doors and audits (at most $1,200)', '29h': 'Heat pumps and biomass (at most $2,000)', 30: 'Home improvement credit before the tax limit', 31: 'Tax left for the home improvement credit', 32: 'Energy efficient home improvement credit' },
-  'Schedule A': { 4: 'Medical and dental above 7.5% of AGI', '5d': 'State and local taxes before the cap', '5e': 'State and local taxes after the cap', '8a': 'Mortgage interest and points on Form 1098', '8b': 'Mortgage interest not on Form 1098', '8d': 'Mortgage insurance premiums', 10: 'Home mortgage interest', 14: 'Gifts to charity', 16: 'Other itemized deductions', 17: 'Total itemized deductions' },
   'Form 2441': { 3: 'Care expenses within the dollar limit', 4: 'Your earned income', 5: 'Spouse\'s earned income', 6: 'Smallest of expenses and earned incomes', '9a': 'Credit before the tax limit', 10: 'Tax liability limit', 11: 'Child and dependent care credit', 12: 'Dependent care benefits received', 25: 'Excluded dependent care benefits', 26: 'Taxable dependent care benefits' },
   'Schedule E': { '23a': 'Total rents received', '23b': 'Total royalties received', '23c': 'Total mortgage interest', '23d': 'Total depreciation and depletion', '23e': 'Total expenses', 24: 'Income', 25: 'Losses allowed', 26: 'Total rental real estate and royalty income or loss' },
   'Schedule D': { 7: 'Net short-term gain or loss', 13: 'Capital gain distributions', 15: 'Net long-term gain or loss', 16: 'Net gain or loss', 21: 'Loss allowed this year' },
@@ -339,7 +338,7 @@ export function coerceFields(kind, fields, problems) {
     if (item.type === 'money') {
       const number = Number(value);
       if (!Number.isFinite(number) || Math.abs(number) > MAX_AMOUNT) problems.push(`${item.label} must be an amount.`);
-      else if (number < 0 && !item.negative && kind !== '1099-B') problems.push(`${item.label} cannot be negative.`);
+      else if (number < 0 && !item.negative && !(kind === '1099-B' && item.key === 'proceeds')) problems.push(`${item.label} cannot be negative.`);
       else out[item.key] = Math.round(number * 100) / 100;
     } else if (item.type === 'yesno') out[item.key] = value === true || ['yes', 'y', 'true', '1'].includes(String(value).trim().toLowerCase());
     else if (item.type === 'days') {
@@ -495,17 +494,20 @@ export function planUsTaxForm(state, args = {}) {
   if (kind === '5695-ITEM') problems.push(...energyItemProblems(fields));
   if (problems.length) return fail('US_TAX_FORM_INVALID', { problems });
   const source = ['upload', 'payroll'].includes(args.source) ? args.source : 'manual';
-  return { ok: true, taxYear, form: { kind, owner, payer, payerTin: payerTin.replace(/^(\d{2})-?(\d{7})$/, '$1-$2'), fields, source, documentId: text(args.documentId, 80) } };
+  return { ok: true, taxYear, form: { kind, owner, payer, payerTin: payerTin.replace(/^(\d{2})-?(\d{7})$/, '$1-$2'), fields, source, documentId: text(args.documentId || args.documentSha256, 80) } };
 }
 
 export function addUsTaxForm(state, args = {}) {
   const plan = planUsTaxForm(state, args);
   if (!plan.ok) return plan;
   const ret = returnOf(state, plan.taxYear, true);
-  const form = { id: `usf-${plan.taxYear}-${ret.nextFormNumber++}`, ...plan.form, addedOn: localToday() };
-  ret.forms.push(form);
+  const index = args.id ? ret.forms.findIndex((item) => item.id === String(args.id)) : -1;
+  if (args.id && index < 0) return fail('US_TAX_FORM_NOT_FOUND', { id: args.id, taxYear: plan.taxYear });
+  const form = index >= 0 ? { id: ret.forms[index].id, ...plan.form, addedOn: ret.forms[index].addedOn, updatedOn: localToday() } : { id: `usf-${plan.taxYear}-${ret.nextFormNumber++}`, ...plan.form, addedOn: localToday() };
+  if (index >= 0) ret.forms[index] = form;
+  else ret.forms.push(form);
   ret.updatedAt = new Date().toISOString();
-  audit(state, 'us_tax_form_added', { taxYear: plan.taxYear, id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, source: form.source });
+  audit(state, index >= 0 ? 'us_tax_form_updated' : 'us_tax_form_added', { taxYear: plan.taxYear, id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, source: form.source });
   return { ok: true, data: formView(form) };
 }
 
@@ -573,7 +575,7 @@ function context(state, ret) {
   const hsaPaid = (owner) => forms.some((form) => form.kind === '1099-SA' && ownerOf(form) === owner);
   const hsaActive = (owner) => hsaPaid(owner) || forms.some((form) => ownerOf(form) === owner && (form.kind === '5498-SA' || (form.kind === 'W-2' && employerHsa(form))));
   const taxpayerAge = ret ? ageAtYearEnd(ret.taxpayer?.dateOfBirth, ret.taxYear, { dayBefore: true }) : null;
-  return { taxYear: ret?.taxYear || '', status: ret?.filingStatus || '', hsa: { taxpayer: hsaActive('taxpayer'), spouse: hsaActive('spouse') }, hsaDistributions: { taxpayer: hsaPaid('taxpayer'), spouse: hsaPaid('spouse') }, taxpayerAge, aotcUnder24: forms.some((form) => form.kind === '1098-T') && ret?.filingStatus !== 'mfj' && (taxpayerAge === null || taxpayerAge < 24), hasInvestmentForms: forms.some((form) => ['1099-INT', '1099-DIV', '1099-B', '1099-MISC'].includes(form.kind)), mayItemize: answers.itemize !== 'no' || (ret?.filingStatus === 'mfs' && answers.spouseItemizes === true), hasMarketplace: (ret?.forms || []).some((form) => form.kind === '1095-A') || answers.marketplaceCoverage === true, answers: ret?.answers || {}, hasDependents: (ret?.dependents || []).length > 0, joint: ret?.filingStatus === 'mfj', booksHaveIncome: Boolean(books), usesBooks, books, manualBusiness, hasBusiness: usesBooks || manualBusiness || (ret?.forms || []).some((form) => form.kind === '1099-NEC'), hasStateRefund: (ret?.forms || []).some((form) => form.kind === '1099-G' && Number(form.fields.stateRefund || 0) > 0), ...retirementContext(ret), hasCareBenefits: (ret?.forms || []).some((form) => form.kind === 'W-2' && Number(form.fields.dependentCareBenefits || 0) > 0), hasCare: (ret?.forms || []).some((form) => form.kind === '2441-PROVIDER' || (form.kind === 'W-2' && Number(form.fields.dependentCareBenefits || 0) > 0)), hasRental: (ret?.forms || []).some((form) => form.kind === RENTAL_ENTRY_KIND || (form.kind === '1099-MISC' && Number(form.fields.rents || 0) + Number(form.fields.royalties || 0) > 0)) || answers.rentalIncome === true, taxpayerBusiness: usesBooks || manualBusiness || (ret?.forms || []).some((form) => form.kind === '1099-NEC' && form.owner !== 'spouse'), spouseBusiness: ret?.filingStatus === 'mfj' && (ret?.forms || []).some((form) => form.kind === '1099-NEC' && form.owner === 'spouse'), hasDividends: (ret?.forms || []).some((form) => form.kind === '1099-DIV'), hasEnergyItems: (ret?.forms || []).some((form) => form.kind === '5695-ITEM' && !['solar-electric', 'solar-water', 'small-wind', 'geothermal', 'battery'].includes(form.fields.category)), saverContributions: answers.retirementSavings === true || (ret?.forms || []).some((form) => form.kind === 'W-2' && (form.fields.box12 || []).some((row) => SAVERS_DEFERRAL_CODES.includes(row.code) && Number(row.amount) > 0)) };
+  return { taxYear: ret?.taxYear || '', status: ret?.filingStatus || '', hsa: { taxpayer: hsaActive('taxpayer'), spouse: hsaActive('spouse') }, hsaDistributions: { taxpayer: hsaPaid('taxpayer'), spouse: hsaPaid('spouse') }, taxpayerAge, aotcUnder24: forms.some((form) => form.kind === '1098-T') && ret?.filingStatus !== 'mfj' && (taxpayerAge === null || taxpayerAge < 24), hasInvestmentForms: forms.some((form) => ['1099-INT', '1099-DIV', '1099-B', '1099-MISC'].includes(form.kind)), hasInterestOrDividends: forms.some((form) => ['1099-INT', '1099-DIV'].includes(form.kind)), hasCapitalSales: forms.some((form) => form.kind === '1099-B' || (form.kind === '1099-DIV' && Number(form.fields?.capitalGainDistributions || 0) > 0)) || Number(answers.shortTermLossCarryover || 0) > 0 || Number(answers.longTermLossCarryover || 0) > 0, mayItemize: answers.itemize !== 'no' || (ret?.filingStatus === 'mfs' && answers.spouseItemizes === true), hasMarketplace: (ret?.forms || []).some((form) => form.kind === '1095-A') || answers.marketplaceCoverage === true, answers: ret?.answers || {}, hasDependents: (ret?.dependents || []).length > 0, joint: ret?.filingStatus === 'mfj', booksHaveIncome: Boolean(books), usesBooks, books, manualBusiness, hasBusiness: usesBooks || manualBusiness || (ret?.forms || []).some((form) => form.kind === '1099-NEC'), hasStateRefund: (ret?.forms || []).some((form) => form.kind === '1099-G' && Number(form.fields.stateRefund || 0) > 0), ...retirementContext(ret), hasCareBenefits: (ret?.forms || []).some((form) => form.kind === 'W-2' && Number(form.fields.dependentCareBenefits || 0) > 0), hasCare: (ret?.forms || []).some((form) => form.kind === '2441-PROVIDER' || (form.kind === 'W-2' && Number(form.fields.dependentCareBenefits || 0) > 0)), hasRental: (ret?.forms || []).some((form) => form.kind === RENTAL_ENTRY_KIND || (form.kind === '1099-MISC' && Number(form.fields.rents || 0) + Number(form.fields.royalties || 0) > 0)) || answers.rentalIncome === true, taxpayerBusiness: usesBooks || manualBusiness || (ret?.forms || []).some((form) => form.kind === '1099-NEC' && form.owner !== 'spouse'), spouseBusiness: ret?.filingStatus === 'mfj' && (ret?.forms || []).some((form) => form.kind === '1099-NEC' && form.owner === 'spouse'), hasDividends: (ret?.forms || []).some((form) => form.kind === '1099-DIV'), hasEnergyItems: (ret?.forms || []).some((form) => form.kind === '5695-ITEM' && !['solar-electric', 'solar-water', 'small-wind', 'geothermal', 'battery'].includes(form.fields.category)), saverContributions: answers.retirementSavings === true || (ret?.forms || []).some((form) => form.kind === 'W-2' && (form.fields.box12 || []).some((row) => SAVERS_DEFERRAL_CODES.includes(row.code) && Number(row.amount) > 0)) };
 }
 
 function visibleQuestions(state, ret) {
@@ -673,9 +675,10 @@ function computedFor(state, taxYear, options = {}) {
 
 function reviewLines(data) {
   const rows = [];
+  const yearLabels = lineLabels(data.taxYear);
   const push = (form, values, sourceFor = () => 'computed') => {
-    const labels = LINE_LABELS[form] || {};
-    for (const [line, label] of Object.entries(labels)) {
+    const labels = yearLabels[form] || Object.entries(LINE_LABELS[form] || {});
+    for (const [line, label] of labels) {
       if (!Object.hasOwn(values, line)) continue;
       const amount = values[line];
       if (form !== '1040' && !amount) continue;
@@ -737,8 +740,9 @@ function efileShape(ret, data, input) {
     taxpayer: person(input.taxpayer),
     spouse: person(input.spouse),
     address: ret.address,
-    dependents: input.dependents.map((item, index) => ({ firstName: item.firstName, lastName: item.lastName, ssn: item.ssn, relationship: item.relationship, ctcEligible: data.dependents[index]?.ctcEligible || false, odcEligible: data.dependents[index]?.odcEligible || false, months: item.months })),
+    dependents: input.dependents.map((item, index) => ({ firstName: item.firstName, lastName: item.lastName, ssn: item.ssn, relationship: item.relationship, ctcEligible: data.dependents[index]?.ctcEligible || false, odcEligible: data.dependents[index]?.odcEligible || false, eitcChild: data.dependents[index]?.eitcChild || false, dob: item.dateOfBirth, student: Boolean(item.student), disabled: Boolean(item.disabled), bornOrDiedInYear: Boolean(item.bornOrDiedInYear), months: item.months })),
     digitalAssets: ret.answers.digitalAssets === true,
+    answers: { ...ret.answers },
     lines: data.lines,
     schedules: data.schedules.C ? { ...data.schedules, C: data.schedules.C.map((item) => ({ ...item, businessName: item.name, activityCode: ret.answers.businessActivityCode || '' })) } : data.schedules,
     forms: ret.forms.map((form) => ({ id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, payerTin: form.payerTin, fields: form.fields })),
@@ -818,7 +822,7 @@ export function usTaxFormPreview(state, args) {
   const f = plan.form;
   const main = FORM_SPECS[f.kind].fields.find((item) => item.required && item.type === 'money');
   const amount = main && f.fields[main.key] !== undefined ? ` ${main.label.toLowerCase()} $${Number(f.fields[main.key]).toLocaleString('en-US')}` : '';
-  return { blockers: [], summary: `${f.kind} from ${f.payer || 'the payer'}${f.owner === 'spouse' ? ' (spouse)' : ''}:${amount}${f.fields.federalWithheld ? `, federal tax withheld $${Number(f.fields.federalWithheld).toLocaleString('en-US')}` : ''}.`, effects: [`Added to the ${plan.taxYear} return.`], figures: { taxYear: plan.taxYear, kind: f.kind } };
+  return { blockers: [], summary: `${f.kind} from ${f.payer || 'the payer'}${f.owner === 'spouse' ? ' (spouse)' : ''}:${amount}${f.fields.federalWithheld ? `, federal tax withheld $${Number(f.fields.federalWithheld).toLocaleString('en-US')}` : ''}.`, effects: [args.id ? `Replaces ${args.id} on the ${plan.taxYear} return.` : `Added to the ${plan.taxYear} return.`], figures: { taxYear: plan.taxYear, kind: f.kind } };
 }
 
 export function removeUsTaxFormPreview(state, args) {

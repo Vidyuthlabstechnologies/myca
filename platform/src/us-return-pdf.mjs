@@ -71,13 +71,18 @@ export function usReturnPdf(state, args = {}) {
   const checks = review.checks.length ? [{ text: 'To check', bold: true, size: 11, gap: 6 }, ...review.checks.map((item) => ({ text: `${item.level === 'error' ? 'Error' : 'Warning'}: ${item.message}`.slice(0, 110), x: 60, size: 8, gap: 4 }))] : [];
   const all = [...rows, ...checks, ...(d.unreviewed ? [{ text: 'The rates and limits come from dated rules a US CPA has not reviewed yet.', size: 8 }] : [])];
   const pages = [];
+  const height = (line) => (line.size || 10) + (line.gap ?? 5);
+  const room = 760 - 50;
   let page = [...head];
+  let used = head.reduce((total, line) => total + height(line), 0);
   for (const line of all) {
-    if (page.length >= 58) {
+    if (used + height(line) > room) {
       pages.push(page);
       page = [{ text: `Form 1040 draft, tax year ${taxYear} (continued)`, bold: true, size: 11, gap: 8 }];
+      used = height(page[0]);
     }
     page.push(line);
+    used += height(line);
   }
   pages.push(page);
   const bytes = simplePdf(pages);

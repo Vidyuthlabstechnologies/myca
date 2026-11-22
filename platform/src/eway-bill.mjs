@@ -1,6 +1,7 @@
 import { rules } from './sprint-load.mjs';
 import { partyStateOf } from './chart.mjs';
 import { localToday } from './dates.mjs';
+import { uqcOf } from './gstr1-tables.mjs';
 import { invoiceToNicPayload, nicPartyFor } from './nic-config.mjs';
 
 const THRESHOLD = 'gst.ewaybill.threshold';
@@ -171,7 +172,7 @@ export function ewayBillPartA(state, invoice) {
       productDesc: clean(line.description || '', 100),
       hsnCode: Number(String(line.hsn || '').replace(/\D/g, '')) || undefined,
       quantity: Number(line.qty || 1),
-      qtyUnit: String(line.unit || 'NOS').toUpperCase().slice(0, 3),
+      qtyUnit: String(line.unit ?? '').trim() ? uqcOf(line.unit) : 'NOS',
       taxableAmount: round2(line.taxable),
       igstRate: inter ? rate : 0,
       cgstRate: inter ? 0 : rate / 2,

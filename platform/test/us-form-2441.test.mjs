@@ -118,7 +118,7 @@ test('benefits above the expenses are taxable on line 1e: $5,000 limit in 2025 a
   const y2026 = run('single', forms, { dependents: [child('Mia', '2021-03-01')] }, '2026');
   assert.deepEqual([17, 21, 25, 26].map((line) => y2026.schedules['2441'][String(line)]), [6000, 7500, 6000, 1500]);
   assert.equal(y2026.lines['1e'], 1500);
-  assert.equal(y2026.lines['11'], 51500);
+  assert.equal(y2026.lines['11b'], 51500);
 });
 
 test('2026 enhanced percentage: AGI 40,000 is 37% (1,110 on 3,000); joint AGI 160,000 is 32% (1,920 on 6,000) against 20% in 2025', () => {
@@ -129,7 +129,7 @@ test('2026 enhanced percentage: AGI 40,000 is 37% (1,110 on 3,000); joint AGI 16
   assert.equal(low.schedules['3']['2'], 1110);
   const family = (year) => run('mfj', [w2(100000), w2(60000, {}, 'spouse'), provider('Little Steps', 5000, 'Mia'), provider('After School Club', 3000, 'Leo')], { dependents: [child('Mia', '2022-05-01'), child('Leo', '2016-02-01')] }, year);
   const y2026 = family('2026');
-  assert.equal(y2026.lines['11'], 160000);
+  assert.equal(y2026.lines['11b'], 160000);
   assert.equal(y2026.schedules['2441']['3'], 6000);
   assert.equal(y2026.schedules['2441']['8'], 0.32);
   assert.equal(y2026.schedules['2441']['11'], 1920);

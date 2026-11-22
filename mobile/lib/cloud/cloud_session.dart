@@ -806,6 +806,7 @@ class CloudSession {
     } on Exception {
       throw const MycaApiException(
         'Cannot reach MyCA. Check your connection and try again.',
+        code: 'UNREACHABLE',
       );
     }
     Object? decoded;
@@ -829,7 +830,7 @@ class CloudSession {
         final (status, body) = await _send('POST', '/v1/auth/refresh', {
           'refreshToken': refresh,
         }, authed: false);
-        if (status >= 500 || status == 429) throw MycaApiException(cloudMessage('SERVER_BUSY'));
+        if (status >= 500 || status == 429) throw MycaApiException(cloudMessage('SERVER_BUSY'), code: 'SERVER_BUSY');
         if (status != 200 || body['ok'] == false) return false;
         await _keep(body);
         return true;

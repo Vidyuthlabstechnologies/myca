@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto';
 import { invoiceAsFiled, amendmentsInPeriod } from './invoice-amendments.mjs';
 import { rules, gstin as gstinLib } from './sprint-load.mjs';
 import { hsnSummary, documentsIssued, isVoided } from './gstr1-tables.mjs';
+import { fyLabelOf, previousFyLabel } from './aato.mjs';
 import { cessLineNotInForce, carriesCessAmount } from './compensation-cess.mjs';
 
 const FP_RE = /^(0[1-9]|1[0-2])\d{4}$/;
@@ -229,7 +230,8 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
   if (b2csaMap.size) body.b2csa = [...b2csaMap.values()];
   if (cdnrMap.size) body.cdnr = [...cdnrMap.entries()].map(([ctin, nt]) => ({ ctin, nt }));
   if (cdnur.length) body.cdnur = cdnur;
-  const aato = turnover(opts.aato ?? company.aato ?? gt);
+  const enteredAato = company.aatoByFy && /^\d{6}$/.test(String(fp)) ? company.aatoByFy[previousFyLabel(fyLabelOf(`${String(fp).slice(2)}-${String(fp).slice(0, 2)}-01`))] : undefined;
+  const aato = turnover(opts.aato ?? enteredAato ?? company.aato ?? gt);
   const hsnEntries = [
     ...inPeriod.filter((inv) => !isVoided(inv) && !holdReason(inv)).map((inv) => ({ doc: inv, sign: 1, original: inv })),
     ...notesInPeriod.filter((note) => !noteHoldReason(note)).map((note) => ({ doc: note, sign: note.sign, original: allInvoices.get(note.invoiceId) || note })),
@@ -246,6 +248,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
   const warnings = [];
   if (gt == null || curGt == null) warnings.push('GT_NOT_PROVIDED: enter last FY and current FY aggregate turnover before upload if the offline tool asks for them.');
   if (held.length) warnings.push(`${held.length} invoice(s) held back for review; see held.`);
+  if (aato != null && opts.aatoEstimated) warnings.push(`HSN_AATO_ESTIMATED: last FY aggregate turnover is not entered, so table 12 HSN digits were checked against ₹${aato.toLocaleString('en-IN')} estimated from the sales in these books; every GSTIN on the PAN counts, so enter the figure in the business profile.`);
   if (aato == null) warnings.push('HSN_AATO_UNKNOWN: last FY aggregate turnover is not set, so table 12 HSN codes were checked for 4 digits only; above Rs 5 crore 6 digits are required.');
   if (hsn.problems.length) warnings.push(`HSN_CODE_PROBLEM: ${hsn.problems.length === 1 ? '1 line is' : `${hsn.problems.length} lines are`} left out of table 12 because the HSN/SAC code is missing or shorter than ${hsn.need} digits; correct the code on the document. See hsnProblems.`);
   for (const gap of issued.gaps) warnings.push(`DOC_SERIES_GAP: series ${gap.from} to ${gap.to} has ${gap.missing === 1 ? '1 number' : `${gap.missing} numbers`} missing in this period; check whether they were issued in another period or deleted before table 13 is filed.`);

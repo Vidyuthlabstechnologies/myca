@@ -7,6 +7,8 @@ import { invoiceTemplateOf, bankWords } from './invoice-template.mjs';
 import { isTdsReceipt, tdsReceiptLabel, tdsWithheldOn } from './tds-credits.mjs';
 import { COMPOSITION_DECLARATION, documentTitleOf, einvoiceProofOf, exportEndorsementOf, hsnShownOn, reverseChargeLineOf } from './invoice-compliance.mjs';
 
+export const LOYALTY_DISCOUNT_LABEL = 'Loyalty points redeemed';
+
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const text = (value) => String(value ?? '').trim();
 
@@ -53,6 +55,7 @@ function common(state, doc) {
       qty: line.qty,
       rate: round2(line.rate),
       gstRate: line.gstRate,
+      ...(Number(line.loyaltyDiscount) > 0 ? { grossTaxable: round2(line.grossTaxable), loyaltyDiscount: round2(line.loyaltyDiscount) } : {}),
       taxable: round2(line.taxable),
       cgst: round2(line.cgst),
       sgst: round2(line.sgst),
@@ -60,6 +63,7 @@ function common(state, doc) {
       amount: round2(line.amount),
       ...(us ? { taxRate: Number(line.taxRate || 0), salesTax: round2(line.salesTax || 0) } : {}),
     })),
+    ...(doc.loyaltyRedeemed ? { grossTaxable: round2(Number(doc.taxable) + Number(doc.loyaltyRedeemed.value)), discounts: [{ label: LOYALTY_DISCOUNT_LABEL, points: doc.loyaltyRedeemed.points, amount: round2(doc.loyaltyRedeemed.value), beforeGst: true }] } : {}),
     taxable: round2(doc.taxable),
     cgst: round2(doc.cgst),
     sgst: round2(doc.sgst),
