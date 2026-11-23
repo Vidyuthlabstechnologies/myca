@@ -205,3 +205,15 @@ test('the launch price applies through the last day of the offer, then the list 
   assert.deepEqual({ price: afterOffer.priceUsd, offer: afterOffer.launchOffer }, { price: 129, offer: null });
   assert.equal(afterOffer.priceLine, '$129 to file your federal return. One price, no upgrade fees.');
 });
+
+test('two households sending the same Plus purchase at once: one gets it, the other is told it is taken', async () => {
+  const one = await household('+919400000071', 'Race One');
+  const two = await household('+919400000072', 'Race Two');
+  const expiry = new Date(api.clock.now + 365 * 86400000).toISOString();
+  plusSubs.set('plus-race-token', { subscriptionState: 'SUBSCRIPTION_STATE_ACTIVE', acknowledgementState: 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED', lineItems: [{ productId: PLUS, expiryTime: expiry }], testPurchase: {} });
+  const answers = await Promise.all([one, two].map((who) => post(who, 'us-plus-purchase', { productId: PLUS, purchaseToken: 'plus-race-token' })));
+  assert.ok(answers.every((a) => a.status < 500), answers.map((a) => a.text).join('\n'));
+  assert.deepEqual(answers.map((a) => (a.body.subscribed ? 'subscribed' : a.body.error)).sort(), ['PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', 'subscribed']);
+  const rows = await api.db.query("select business_id from us_plus_subscriptions where subscription_id = 'plus-race-token'");
+  assert.equal(rows.rowCount, 1);
+});
