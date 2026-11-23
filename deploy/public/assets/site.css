@@ -126,7 +126,8 @@ section.block + section.block { border-top: 1px solid var(--line); }
 .faq details p { margin-top: 8px; color: var(--muted); }
 h2.more { margin: 44px 0 16px; font-size: 21px; font-weight: 600; letter-spacing: -.35px; }
 .tile-list li p { color: var(--muted); font-size: 14.5px; margin-top: 4px; }
-.tile-list a { text-decoration: none; }
+.tile-list a { text-decoration: none; display: inline-block; min-height: 24px; }
+.legal-line { display: inline-block; font-size: 12.5px; line-height: 1.5; }
 .chips { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
 .chips li { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 14px; }
 .invite .code { margin-top: 24px; font-size: 34px; font-weight: 600; letter-spacing: .18em; font-variant-numeric: tabular-nums; }

@@ -170,7 +170,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with ProposalFlow
                 final data = snap.data;
                 if (data == null) {
                   if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-                  return Center(child: FilledButton(onPressed: _reload, child: Text(inText(context, 'Try again'))));
+                  return LoadFailed(onRetry: _reload);
                 }
                 final registrations = _maps(data.registrations['registrations']);
                 final settlementRows = _maps(data.settlements['settlements']);

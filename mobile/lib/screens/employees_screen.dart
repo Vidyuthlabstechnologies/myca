@@ -59,6 +59,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         builder: (context, snap) {
           final list = snap.data;
           if (list == null) {
+            if (snap.hasError) return LoadFailed(onRetry: () => setState(() => _list = _load()));
             return const Center(child: CircularProgressIndicator());
           }
           if (list.error.isNotEmpty) return EmptyNote(text: list.error);
