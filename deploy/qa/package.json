@@ -1,0 +1,20 @@
+{
+  "name": "myca-site-qa",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser checks for the MyCA website: links, headers, phone layout, accessibility and Lighthouse scores.",
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "check": "node check-site.mjs",
+    "lighthouse": "node lighthouse.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "chrome-launcher": "1.2.3",
+    "lighthouse": "13.6.0",
+    "playwright": "1.63.0"
+  }
+}

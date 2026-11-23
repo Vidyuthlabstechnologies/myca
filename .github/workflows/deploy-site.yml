@@ -66,11 +66,17 @@ jobs:
           gcloud run deploy myca-site --project "$PROJECT" --region "$REGION" --image "$IMAGE_PINNED" \
             --update-env-vars "^@^MYCA_EARLY_ACCESS_URL=${EARLY_ACCESS_URL}" --quiet
 
-      - name: Check the privacy policy answers
+      - name: Check the live pages, headers and 404 page
         shell: bash
         run: |
           set -euo pipefail
           url="$(gcloud run services describe myca-site --project "$PROJECT" --region "$REGION" --format='value(status.url)')"
           curl -fsS -o /dev/null "$url/privacy"
           curl -fsS -o /dev/null "$url/delete-account"
+          headers="$(curl -fsS -D - -o /dev/null "$url/")"
+          for name in content-security-policy strict-transport-security x-content-type-options permissions-policy; do
+            grep -qi "^$name:" <<<"$headers" || { echo "::error::the live site does not send $name"; exit 1; }
+          done
+          status="$(curl -sS -o /tmp/missing.html -w '%{http_code}' "$url/this-page-does-not-exist")"
+          [[ "$status" == "404" ]] && grep -q 'This page is not in our books' /tmp/missing.html || { echo "::error::the live site has no MyCA 404 page (got $status)"; exit 1; }
           echo "### Site deployed to $url" >> "$GITHUB_STEP_SUMMARY"

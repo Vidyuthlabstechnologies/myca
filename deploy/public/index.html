@@ -1,125 +1,40 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-IN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MyCA: your books, kept as easily as a conversation</title>
+<title>MyCA: GST billing, accounting and GST returns app for India</title>
 <link rel="canonical" href="https://__SITE_ORIGIN__/">
-<meta name="description" content="MyCA keeps a small business's books in double entry, from your phone. Type a sentence, see the entry, say yes. GST returns, TDS, payroll and an export for your accountant, with every figure traced to the rule behind it.">
+<meta name="description" content="GST billing and accounting app for small businesses in India. Type a sentence, see the GST worked out, say yes. GSTR-1, GSTR-3B, TDS, payroll and a CA export.">
 <meta name="theme-color" content="#FAFAF7">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="MyCA">
+<meta property="og:locale" content="en_IN">
 <meta property="og:url" content="https://__SITE_ORIGIN__/">
-<meta property="og:title" content="MyCA: your books, kept as easily as a conversation">
+<meta property="og:title" content="MyCA: GST billing, accounting and GST returns app for India">
 <meta property="og:description" content="Type a sentence, see the entry, say yes. Nothing reaches your books until you do.">
 <meta property="og:image" content="https://__SITE_ORIGIN__/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="MyCA: your books, kept as easily as a conversation, with Bahi the ledger mascot">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MyCA: GST billing, accounting and GST returns app for India">
+<meta name="twitter:description" content="Type a sentence, see the entry, say yes. Nothing reaches your books until you do.">
+<meta name="twitter:image" content="https://__SITE_ORIGIN__/assets/og-image.png">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="preload" href="/assets/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/Inter-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/site.css">
-<style>
-  .hero { padding: 64px 0 72px; display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; }
-  .hero .lede { margin-top: 20px; max-width: 500px; }
-  .hero .cta { margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap; }
-  .hero .fine { margin-top: 14px; font-size: 13.5px; color: var(--muted); }
-  .promises { list-style: none; margin-top: 34px; max-width: 460px; border-top: 1px solid var(--line); }
-  .promises li { display: flex; gap: 14px; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 15.5px; }
-  .promises svg { width: 20px; height: 20px; flex: none; color: var(--ink); }
-
-  .stage { position: relative; display: flex; justify-content: flex-end; }
-  .phone { position: relative; width: 100%; max-width: 360px; background: var(--canvas); border: 1px solid var(--line); border-radius: 34px; padding: 10px; box-shadow: 0 2px 4px rgba(21,24,27,.04), 0 30px 60px rgba(21,24,27,.12); }
-  .screen { background: var(--canvas); border-radius: 26px; overflow: hidden; border: 1px solid var(--line); }
-  .bar { display: flex; align-items: center; gap: 12px; padding: 16px 16px 12px; background: var(--canvas); }
-  .bar svg { width: 20px; height: 20px; flex: none; }
-  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--sunken); display: inline-flex; align-items: center; justify-content: center; font-size: 14px; color: var(--muted); flex: none; }
-  .bar .who b { display: block; font-size: 16.5px; letter-spacing: -.2px; line-height: 1.2; }
-  .bar .who span { font-size: 12px; color: var(--muted); letter-spacing: .02em; }
-  .thread { padding: 6px 14px 14px; display: flex; flex-direction: column; gap: 10px; min-height: 360px; }
-  .msg-me { align-self: flex-end; background: var(--ink); color: #fff; border-radius: 12px; padding: 10px 14px; font-size: 14.5px; font-weight: 500; max-width: 88%; }
-  .entry { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 14.5px; max-width: 92%; }
-  .entry.pending { border-color: #E9C58E; }
-  .entry .eyebrow { font-size: 12px; }
-  .entry.pending .eyebrow { color: var(--warn); }
-  .entry.posted .eyebrow { color: var(--accent); }
-  .entry p { margin-top: 4px; line-height: 1.4; }
-  .entry .meta { color: var(--muted); font-size: 13px; margin-top: 6px; }
-  .entry .meta div + div { margin-top: 2px; }
-  .actions { display: flex; gap: 10px; padding: 12px 14px 16px; border-top: 1px solid var(--line); background: var(--canvas); }
-  .actions span { flex: 1; text-align: center; border-radius: var(--radius-control); padding: 11px 0; font-weight: 600; font-size: 14.5px; border: 1px solid var(--line); background: var(--surface); }
-  .actions span.go { flex: 1.8; background: var(--ink); border-color: var(--ink); color: #fff; }
-  .stage .bahi { position: absolute; width: 190px; left: -30px; bottom: -36px; filter: drop-shadow(0 12px 18px rgba(21,24,27,.14)); animation: bob 3.2s ease-in-out infinite; }
-  .stage .say { position: absolute; left: -4px; bottom: 156px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px 12px 12px 4px; padding: 7px 11px; font-size: 13px; font-weight: 500; box-shadow: var(--shadow); white-space: nowrap; }
-  @keyframes bob { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-8px) rotate(2deg); } }
-
-  .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
-  .head img { width: 120px; height: 120px; flex: none; margin-bottom: -10px; }
-  .steps { margin-top: 32px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .step .n { display: inline-flex; width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: #fff; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; margin-bottom: 14px; }
-  .step h3 { margin-bottom: 6px; }
-  .step p { color: var(--muted); }
-
-  .grid { margin-top: 32px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .feature .ico { margin-bottom: 14px; }
-  .feature h3 { margin-bottom: 8px; }
-  .feature ul { list-style: none; }
-  .feature li { padding: 7px 0; color: var(--muted); font-size: 14.5px; border-top: 1px solid var(--line); }
-  .feature li:first-child { border-top: 0; padding-top: 0; }
-
-  .plans { margin-top: 32px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: stretch; }
-  .plan { display: flex; flex-direction: column; position: relative; }
-  .plan.featured { border: 1.5px solid var(--ink); box-shadow: var(--shadow); }
-  .plan .badge { position: absolute; top: -12px; left: 20px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; }
-  .plan .price { font-size: 34px; font-weight: 500; letter-spacing: -.9px; margin-top: 12px; line-height: 1.1; }
-  .plan .per { color: var(--muted); font-size: 14px; margin: 4px 0 16px; }
-  .plan ul { list-style: none; flex: 1; }
-  .plan li { display: flex; gap: 10px; padding: 8px 0; font-size: 14.5px; border-top: 1px solid var(--line); }
-  .plan li svg { width: 16px; height: 16px; flex: none; margin-top: 3px; color: var(--accent); }
-  .plan .btn { margin-top: 18px; }
-  .offer { margin-top: 18px; display: flex; gap: 16px; align-items: center; background: var(--accent-soft); border-radius: var(--radius-card); padding: 16px 20px; color: #1E3D2E; }
-  .offer img { width: 64px; height: 64px; flex: none; }
-
-  .trust { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 32px; }
-  .trust .card { display: flex; gap: 14px; }
-  .trust h3 { margin-bottom: 4px; }
-  .trust p { color: var(--muted); font-size: 14.5px; }
-
-  .get { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 32px; }
-  .get .card p { color: var(--muted); margin-top: 6px; }
-  .get .card .btn, .get .card .soon { margin-top: 18px; }
-  .soon { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); background: var(--sunken); border-radius: 999px; padding: 6px 12px; }
-  .closing { margin-top: 56px; display: flex; align-items: center; gap: 24px; background: var(--ink); color: #fff; border-radius: 20px; padding: 28px 32px; }
-  .closing img { width: 112px; height: 112px; flex: none; }
-  .closing h2 { color: #fff; }
-  .closing p { color: rgba(255,255,255,.72); margin-top: 6px; }
-  .closing .btn { margin-left: auto; background: #fff; color: var(--ink); border-color: #fff; flex: none; }
-
-  @media (max-width: 1100px) {
-    .plans { grid-template-columns: 1fr 1fr; }
-  }
-  @media (max-width: 900px) {
-    .hero { grid-template-columns: 1fr; padding-top: 40px; gap: 56px; }
-    .stage { justify-content: center; }
-    .stage .bahi { left: 0; }
-    .stage .say { left: 16px; }
-    .steps, .grid { grid-template-columns: 1fr 1fr; }
-    .plans { grid-template-columns: 1fr; max-width: 460px; }
-    .trust, .get { grid-template-columns: 1fr; }
-  }
-  @media (max-width: 620px) {
-    .steps, .grid { grid-template-columns: 1fr; }
-    .head img { width: 84px; height: 84px; }
-    .stage { padding-top: 90px; }
-    .stage .bahi { width: 116px; left: auto; right: -6px; top: 0; bottom: auto; z-index: 2; }
-    .stage .say { left: auto; right: 104px; top: 26px; bottom: auto; }
-    .closing { flex-direction: column; align-items: flex-start; padding: 24px; }
-    .closing .btn { margin-left: 0; }
-    .closing img { width: 84px; height: 84px; }
-  }
-</style>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://__SITE_ORIGIN__/#organization","name":"ML Dynamic Solutions Private Limited","brand":{"@type":"Brand","name":"MyCA"},"url":"https://__SITE_ORIGIN__/","logo":"https://__SITE_ORIGIN__/assets/apple-touch-icon.png"},{"@type":"WebSite","@id":"https://__SITE_ORIGIN__/#website","name":"MyCA","url":"https://__SITE_ORIGIN__/","inLanguage":"en-IN","publisher":{"@id":"https://__SITE_ORIGIN__/#organization"}},{"@type":"SoftwareApplication","name":"MyCA","applicationCategory":"FinanceApplication","operatingSystem":"Android, Windows","url":"https://__SITE_ORIGIN__/","description":"Books, GST returns, TDS and payroll for small businesses in India, kept from your phone by typing a sentence and confirming the entry.","publisher":{"@id":"https://__SITE_ORIGIN__/#organization"},"offers":[{"@type":"Offer","name":"Essentials","price":"999","priceCurrency":"INR","priceSpecification":{"@type":"UnitPriceSpecification","price":"999","priceCurrency":"INR","unitCode":"MON","valueAddedTaxIncluded":false}},{"@type":"Offer","name":"Pro","price":"1999","priceCurrency":"INR","priceSpecification":{"@type":"UnitPriceSpecification","price":"1999","priceCurrency":"INR","unitCode":"MON","valueAddedTaxIncluded":false}},{"@type":"Offer","name":"MyCA Assured","price":"4999","priceCurrency":"INR","priceSpecification":{"@type":"UnitPriceSpecification","price":"4999","priceCurrency":"INR","unitCode":"MON","valueAddedTaxIncluded":false}},{"@type":"Offer","name":"CA firm","price":"5999","priceCurrency":"INR","priceSpecification":{"@type":"UnitPriceSpecification","price":"5999","priceCurrency":"INR","unitCode":"MON","valueAddedTaxIncluded":false}}]}]}</script>
+<link rel="stylesheet" href="/assets/home.css">
+<link rel="stylesheet" href="/assets/bahi.css">
+<script src="/assets/bahi.js" defer></script>
+<script src="/assets/home.js" defer></script>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<a class="skip" href="#content">Skip to content</a>
+<svg class="sprite" aria-hidden="true">
   <symbol id="i-receipt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></symbol>
   <symbol id="i-percent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 15l6-6"/><circle cx="9.5" cy="9.5" r=".8" fill="currentColor"/><circle cx="14.5" cy="14.5" r=".8" fill="currentColor"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M8 12.5l2.7 2.5L16 9.5"/></symbol>
@@ -137,6 +52,7 @@
   <symbol id="i-exit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v10M8 10l4 4 4-4"/><path d="M5 15v3.5A2 2 0 007 20.5h10a2 2 0 002-2V15"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z"/><path d="M10 20.5h4"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l16-8-6 16-2.5-6.5z"/><path d="M11.5 13.5L20 4"/></symbol>
   <symbol id="i-windows" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="12.5" rx="2.5"/><path d="M8.5 20.5h7M12 17v3.5"/></symbol>
 </svg>
 
@@ -146,20 +62,22 @@
       <a class="brand" href="/" aria-label="MyCA home"><img src="/assets/logo.svg" alt="" width="26" height="26"><span>My<span class="ca">CA</span></span></a>
       <ul>
         <li class="hide-sm"><a href="#how">How it works</a></li>
-        <li class="hide-sm"><a href="#inside">What is in it</a></li>
+        <li class="hide-sm"><a href="#inside">Features</a></li>
         <li><a href="#pricing">Pricing</a></li>
-        <li class="hide-sm"><a href="#trust">Security</a></li>
+        <li class="hide-sm"><a href="/guides">Guides</a></li>
         <li><a class="btn primary small" href="#get">Get MyCA</a></li>
       </ul>
     </nav>
   </div>
 </header>
 
-<main id="top">
+<main id="content">
+  <div class="hero-bg">
   <div class="wrap">
     <div class="hero">
-      <div>
-        <h1 class="display">Your books, kept as easily as a conversation.</h1>
+      <div class="hero-copy">
+        <p class="kicker"><span class="pulse" aria-hidden="true"></span>GST billing, books and returns for Indian businesses</p>
+        <h1 class="display">Your books, kept as easily as a <span class="hl">conversation</span>.</h1>
         <p class="lede">Type a sentence. MyCA shows you the entry it is about to make, in rupees, with the GST worked out. Say yes, and it is in your books and in your return.</p>
         <div class="cta">
           <a class="btn primary" href="#get">Get started</a>
@@ -173,22 +91,22 @@
         </ul>
       </div>
 
-      <div class="stage">
+      <div class="stage" data-bahi-section="wave" data-say="Namaste! I'm Bahi. Watch me keep the books.">
         <div class="phone" role="img" aria-label="The MyCA app: a sale to Sharma Traders is typed as a sentence, previewed with GST, and waits for the owner to post it.">
           <div class="screen" aria-hidden="true">
             <div class="bar">
               <svg><use href="#i-back"/></svg>
               <span class="avatar">S</span>
               <span class="who"><b>Sharma Traders</b><span>27AAKFS4321M1Z8</span></span>
-              <svg style="margin-left:auto"><use href="#i-bell"/></svg>
+              <svg class="push"><use href="#i-bell"/></svg>
             </div>
-            <div class="thread">
-              <div class="entry">
-                <div class="eyebrow">2026-10-02 · <span style="color:var(--accent)">Paid</span></div>
+            <div class="thread" id="demo-thread">
+              <div class="entry posted">
+                <div class="eyebrow">2026-10-02 · <span class="paid">Paid</span></div>
                 <p>Invoice INV-0041</p>
-                <p class="money" style="font-size:22px;font-weight:500;letter-spacing:-.4px">₹8,260.00</p>
+                <p class="money big">₹8,260.00</p>
               </div>
-              <div class="msg-me money">Sale: ₹12,000.00 + GST at 18%</div>
+              <div class="msg-me money">Sold to Sharma Traders ₹12,000 + 18% GST</div>
               <div class="entry pending">
                 <div class="eyebrow">Not posted yet</div>
                 <p class="money">Invoice to Sharma Traders: total ₹14,160.00.</p>
@@ -199,34 +117,144 @@
                 </div>
               </div>
             </div>
-            <div class="actions"><span>Discard</span><span class="go">Post it</span></div>
+            <div class="composer"><span class="typed" id="demo-typed">Ask or tell MyCA anything</span><span class="send"><svg><use href="#i-send"/></svg></span></div>
+            <div class="actions"><span>Discard</span><span class="go" id="demo-go">Post it</span></div>
           </div>
         </div>
-        <img class="bahi" src="/assets/bahi/wave.png" alt="Bahi, the MyCA ledger, waving" width="312" height="312">
-        <div class="say" aria-hidden="true">Namaste! I'm Bahi.</div>
+        <div class="buddy">
+          <div class="say" id="bahi-say" aria-hidden="true">Namaste! I'm Bahi.</div>
+          <button class="bahi-btn" type="button" id="bahi-hero" aria-label="Say hello to Bahi, the MyCA mascot">
+<!-- bahi:hero -->
+<svg class="bahi" data-mood="wave" viewBox="30 40 340 325" width="340" height="325" aria-hidden="true" focusable="false">
+<defs>
+<radialGradient id="bahi-hero-sclera" cx="45%" cy="35%" r="70%"><stop offset="0" stop-color="#fff"/><stop offset=".7" stop-color="#F7F4EE"/><stop offset="1" stop-color="#DCD6CC"/></radialGradient>
+<radialGradient id="bahi-hero-iris" cx="50%" cy="65%" r="60%"><stop offset="0" stop-color="#2E3B55"/><stop offset="1" stop-color="#19202E"/></radialGradient>
+<radialGradient id="bahi-hero-cover" cx="28%" cy="18%" r="95%"><stop offset="0" stop-color="#E85A4F"/><stop offset=".5" stop-color="#C62828"/><stop offset="1" stop-color="#7E1515"/></radialGradient>
+<linearGradient id="bahi-hero-pages" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF8E6"/><stop offset="1" stop-color="#EADCB8"/></linearGradient>
+<linearGradient id="bahi-hero-spine" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6E1010"/><stop offset="1" stop-color="#A51F1F"/></linearGradient>
+<linearGradient id="bahi-hero-string" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F5D06A"/><stop offset="1" stop-color="#C9952C"/></linearGradient>
+<radialGradient id="bahi-hero-cheek"><stop offset="0" stop-color="#FF7A8A" stop-opacity=".6"/><stop offset="1" stop-color="#FF7A8A" stop-opacity="0"/></radialGradient>
+<clipPath id="bahi-hero-clip"><ellipse rx="18.6" ry="20"/></clipPath>
+<clipPath id="bahi-hero-m-smile"><path d="M-22 -4C-21.24 -4.7 -7.33 -1 0 -1C7.33 -1 21.24 -4.7 22 -4C22.76 -3.3 16.67 7.67 13 11C9.33 14.33 4.33 16 0 16C-4.33 16 -9.33 14.33 -13 11C-16.67 7.67 -22.76 -3.3 -22 -4Z"/></clipPath><clipPath id="bahi-hero-m-grin"><path d="M-27 -7C-25.89 -8.05 -9 -3 0 -3C9 -3 25.89 -8.05 27 -7C28.11 -5.95 23.5 9.67 19 15C14.5 20.33 6.33 25 0 25C-6.33 25 -14.5 20.33 -19 15C-23.5 9.67 -28.11 -5.95 -27 -7Z"/></clipPath><clipPath id="bahi-hero-m-hmm"><path d="M-3 3C-2.42 2.71 4.33 1 8 0C11.67 -1 18.42 -2.94 19 -3C19.58 -3.06 19.83 -1.92 18 -1C16.17 -0.08 11.33 1.5 8 2.5C4.67 3.5 -0.17 4.92 -2 5C-3.83 5.08 -3.58 3.29 -3 3Z"/></clipPath><clipPath id="bahi-hero-m-worry"><path d="M-14 7C-13.3 6.42 -4.67 -1 0 -1C4.67 -1 13.3 6.42 14 7C14.7 7.58 14.33 9.83 12 9C9.67 8.17 4 2 0 2C-4 2 -9.67 8.17 -12 9C-14.33 9.83 -14.7 7.58 -14 7Z"/></clipPath><clipPath id="bahi-hero-m-open"><path d="M-24 -5C-23.13 -5.88 -8 -2 0 -2C8 -2 23.13 -5.88 24 -5C24.88 -4.13 19 9 15 13C11 17 5 19 0 19C-5 19 -11 17 -15 13C-19 9 -24.88 -4.13 -24 -5Z"/></clipPath>
+</defs>
+<ellipse class="shadow" cx="200" cy="354" rx="74" ry="8"/>
+<g class="party"><path class="spark spark-0" d="M62 77L65.99 88.01L77 92L65.99 95.99L62 107L58.01 95.99L47 92L58.01 88.01Z"/><path class="spark spark-1" d="M340 68L343.19 76.81L352 80L343.19 83.19L340 92L336.81 83.19L328 80L336.81 76.81Z"/><path class="spark spark-2" d="M352 197L354.39 203.61L361 206L354.39 208.39L352 215L349.61 208.39L343 206L349.61 203.61Z"/><path class="spark spark-3" d="M48 210L50.13 215.87L56 218L50.13 220.13L48 226L45.87 220.13L40 218L45.87 215.87Z"/><rect class="confetti c1 conf-0" x="106" y="54" width="8" height="16" rx="2"/><rect class="confetti c2 conf-1" x="288" y="48" width="8" height="16" rx="2"/><rect class="confetti c3 conf-2" x="358" y="128" width="8" height="16" rx="2"/><rect class="confetti c4 conf-3" x="36" y="142" width="8" height="16" rx="2"/><rect class="confetti c5 conf-4" x="244" y="38" width="8" height="16" rx="2"/></g>
+<g class="rig">
+<g class="legs"><rect class="leg" x="161" y="318" width="10" height="26" rx="5"/><rect class="leg" x="229" y="318" width="10" height="26" rx="5"/><rect class="foot" x="151" y="338" width="30" height="13" rx="6.5"/><rect class="foot" x="219" y="338" width="30" height="13" rx="6.5"/></g>
+<rect class="outline" x="116" y="119" width="176" height="214" rx="16"/>
+<rect fill="url(#bahi-hero-pages)" x="123" y="126" width="166" height="204" rx="14"/>
+<rect class="edge" x="280" y="133" width="4" height="190" rx="1"/><rect class="edge" x="277.5" y="136" width="4" height="184" rx="1"/><rect class="edge" x="275" y="139" width="4" height="178" rx="1"/><rect class="edge" x="272.5" y="142" width="4" height="172" rx="1"/>
+<rect fill="url(#bahi-hero-cover)" x="116" y="120" width="164" height="200" rx="14"/>
+<rect class="weave" x="123" y="135" width="150" height="1.5"/><rect class="weave" x="123" y="149" width="150" height="1.5"/><rect class="weave" x="123" y="163" width="150" height="1.5"/><rect class="weave" x="123" y="177" width="150" height="1.5"/><rect class="weave" x="123" y="191" width="150" height="1.5"/><rect class="weave" x="123" y="205" width="150" height="1.5"/><rect class="weave" x="123" y="219" width="150" height="1.5"/><rect class="weave" x="123" y="233" width="150" height="1.5"/><rect class="weave" x="123" y="247" width="150" height="1.5"/><rect class="weave" x="123" y="261" width="150" height="1.5"/><rect class="weave" x="123" y="275" width="150" height="1.5"/><rect class="weave" x="123" y="289" width="150" height="1.5"/><rect class="weave" x="123" y="303" width="150" height="1.5"/>
+<rect fill="url(#bahi-hero-spine)" x="116" y="120" width="26" height="200" rx="10"/>
+<rect class="band" x="116" y="147" width="26" height="6"/><rect class="band" x="116" y="287" width="26" height="6"/>
+<rect class="gold-line" x="152" y="135" width="116" height="170" rx="10"/>
+<rect class="gold-line thin" x="156" y="139" width="108" height="162" rx="8"/>
+<path class="gold" d="M156 139L157.6 143.4L162 145L157.6 146.6L156 151L154.4 146.6L150 145L154.4 143.4Z"/><path class="gold" d="M272 139L273.6 143.4L278 145L273.6 146.6L272 151L270.4 146.6L266 145L270.4 143.4Z"/><path class="gold" d="M156 289L157.6 293.4L162 295L157.6 296.6L156 301L154.4 296.6L150 295L154.4 293.4Z"/><path class="gold" d="M272 289L273.6 293.4L278 295L273.6 296.6L272 301L270.4 296.6L266 295L270.4 293.4Z"/>
+<rect fill="url(#bahi-hero-string)" x="110" y="288.5" width="184" height="7" rx="3"/>
+<g class="bow" transform="translate(210 292)"><path class="gold bow-line" d="M0 0C-8 -6 -16 -12 -20 2C-14 4 -6 2 0 0Z"/><path class="gold bow-line" d="M0 0C8 -6 16 -12 20 2C14 4 6 2 0 0Z"/><path class="tail" d="M0 0Q-3 11 -12 20M0 0Q3 11 12 20"/><ellipse class="knot" rx="5" ry="4.5"/></g>
+<ellipse class="gloss" cx="170" cy="140" rx="40" ry="13" transform="rotate(-17 170 140)"/>
+<g class="body-arms"><g class="pose pose-happy"><g class="arm arm-L"><path class="sleeve" d="M120 210Q99.2 235.1 98 238T96 268"/><circle class="hand" cx="96" cy="268" r="12.5"/></g><g class="arm arm-R"><path class="sleeve" d="M280 210Q300.8 235.1 302 238T304 268"/><circle class="hand" cx="304" cy="268" r="12.5"/></g></g><g class="pose pose-thinking"><g class="arm arm-L"><path class="sleeve" d="M120 210Q99.2 235.1 98 238T96 268"/><circle class="hand" cx="96" cy="268" r="12.5"/></g><g class="arm arm-R"><path class="sleeve" d="M280 210Q315.3 259.6 314 262T254 258"/><circle class="hand" cx="254" cy="258" r="12.5"/></g></g><g class="pose pose-celebrate"><g class="arm arm-L"><path class="sleeve" d="M120 210Q97.7 181.9 96 178T86 132"/><circle class="hand" cx="86" cy="132" r="12.5"/></g><g class="arm arm-R"><path class="sleeve" d="M280 210Q302.3 181.9 304 178T314 132"/><circle class="hand" cx="314" cy="132" r="12.5"/></g></g><g class="pose pose-worried"><g class="arm arm-L"><path class="sleeve" d="M120 210Q99.3 247 102 250T174 270"/><circle class="hand" cx="174" cy="270" r="12.5"/></g><g class="arm arm-R"><path class="sleeve" d="M280 210Q300.3 247 298 250T234 270"/><circle class="hand" cx="234" cy="270" r="12.5"/></g></g><g class="pose pose-wave"><g class="arm arm-L"><path class="sleeve" d="M120 210Q99.2 235.1 98 238T96 268"/><circle class="hand" cx="96" cy="268" r="12.5"/></g><g class="arm arm-R"><path class="sleeve" d="M280 210Q307.9 176.1 310 172T322 128"/><circle class="hand" cx="322" cy="128" r="12.5"/></g></g></g>
+<g class="face" transform="translate(210 192)"><g class="face-shift">
+<ellipse class="cheek" cx="-44" cy="32" rx="16" ry="10" fill="url(#bahi-hero-cheek)"/><ellipse class="cheek" cx="44" cy="32" rx="16" ry="10" fill="url(#bahi-hero-cheek)"/>
+<g class="eye eye-L" transform="translate(-32 0)">
+<g class="open"><ellipse class="ink" rx="20" ry="21.5"/><ellipse fill="url(#bahi-hero-sclera)" rx="18.6" ry="20"/>
+<g class="look"><ellipse fill="url(#bahi-hero-iris)" rx="11.8" ry="13"/><ellipse class="pupil" rx="6.2" ry="7"/><circle class="spec" cx="5.2" cy="-6" r="4.2"/><circle class="spec2" cx="-4.8" cy="6" r="1.8"/></g>
+<g clip-path="url(#bahi-hero-clip)"><g class="lid"><path class="lid-skin" d="M-24 -2.4C-10 2.8 10 2.8 24 -2.4L24 -68L-24 -68Z"/><path class="lid-line" d="M-24 -2.4Q0 5.6 24 -2.4"/></g></g></g>
+<path class="closed" d="M-14 2Q0 -12 14 2"/></g><g class="eye eye-R" transform="translate(32 0)">
+<g class="open"><ellipse class="ink" rx="20" ry="21.5"/><ellipse fill="url(#bahi-hero-sclera)" rx="18.6" ry="20"/>
+<g class="look"><ellipse fill="url(#bahi-hero-iris)" rx="11.8" ry="13"/><ellipse class="pupil" rx="6.2" ry="7"/><circle class="spec" cx="5.2" cy="-6" r="4.2"/><circle class="spec2" cx="-4.8" cy="6" r="1.8"/></g>
+<g clip-path="url(#bahi-hero-clip)"><g class="lid"><path class="lid-skin" d="M-24 -2.4C-10 2.8 10 2.8 24 -2.4L24 -68L-24 -68Z"/><path class="lid-line" d="M-24 -2.4Q0 5.6 24 -2.4"/></g></g></g>
+<path class="closed" d="M-14 2Q0 -12 14 2"/></g>
+<path class="brow brow-L" d="M-46 -28Q-32 -42 -18 -28"/><path class="brow brow-R" d="M18 -28Q32 -42 46 -28"/>
+<g class="mouth-box" transform="translate(0 46)"><g class="talk"><g class="mouth m-smile"><path class="lips" d="M-22 -4C-21.24 -4.7 -7.33 -1 0 -1C7.33 -1 21.24 -4.7 22 -4C22.76 -3.3 16.67 7.67 13 11C9.33 14.33 4.33 16 0 16C-4.33 16 -9.33 14.33 -13 11C-16.67 7.67 -22.76 -3.3 -22 -4Z"/><ellipse class="tongue" cy="12" rx="12" ry="6.5" clip-path="url(#bahi-hero-m-smile)"/></g><g class="mouth m-grin"><path class="lips" d="M-27 -7C-25.89 -8.05 -9 -3 0 -3C9 -3 25.89 -8.05 27 -7C28.11 -5.95 23.5 9.67 19 15C14.5 20.33 6.33 25 0 25C-6.33 25 -14.5 20.33 -19 15C-23.5 9.67 -28.11 -5.95 -27 -7Z"/><ellipse class="tongue" cy="19" rx="12" ry="6.5" clip-path="url(#bahi-hero-m-grin)"/></g><g class="mouth m-hmm"><path class="lips" d="M-3 3C-2.42 2.71 4.33 1 8 0C11.67 -1 18.42 -2.94 19 -3C19.58 -3.06 19.83 -1.92 18 -1C16.17 -0.08 11.33 1.5 8 2.5C4.67 3.5 -0.17 4.92 -2 5C-3.83 5.08 -3.58 3.29 -3 3Z"/><ellipse class="tongue" cy="12" rx="12" ry="6.5" clip-path="url(#bahi-hero-m-hmm)"/></g><g class="mouth m-worry"><path class="lips" d="M-14 7C-13.3 6.42 -4.67 -1 0 -1C4.67 -1 13.3 6.42 14 7C14.7 7.58 14.33 9.83 12 9C9.67 8.17 4 2 0 2C-4 2 -9.67 8.17 -12 9C-14.33 9.83 -14.7 7.58 -14 7Z"/><ellipse class="tongue" cy="9" rx="12" ry="6.5" clip-path="url(#bahi-hero-m-worry)"/></g><g class="mouth m-open"><path class="lips" d="M-24 -5C-23.13 -5.88 -8 -2 0 -2C8 -2 23.13 -5.88 24 -5C24.88 -4.13 19 9 15 13C11 17 5 19 0 19C-5 19 -11 17 -15 13C-19 9 -24.88 -4.13 -24 -5Z"/><ellipse class="tongue" cy="14" rx="12" ry="6.5" clip-path="url(#bahi-hero-m-open)"/></g></g></g>
+<g class="sweat" transform="translate(70 -34)"><path d="M0 -10C0 -10 7 -2 7 4C7 9 5 11 0 11C-5 11 -7 9 -7 4C-7 -2 0 -10 0 -10Z"/><ellipse class="spec" cx="-2" cy="3" rx="1.5" ry="2.5"/></g>
+</g></g>
+</g>
+</svg>
+<!-- /bahi -->
+          </button>
+        </div>
+        <button class="still-toggle" type="button" id="still-toggle" aria-pressed="false"><span class="on">Pause animations</span><span class="off">Play animations</span></button>
       </div>
     </div>
   </div>
+  </div>
 
-  <section class="block" id="how">
+  <div class="ticker" aria-label="Things you can say to MyCA">
+    <ul class="ticker-row">
+      <li>“paid 8,000 rent”</li><li>“received 5,000 from Kiran Stores”</li><li>“who owes me?”</li><li>“bill from Gupta Steel, 23,600 with GST”</li><li>“salary for October”</li><li>“can I afford 4 lakh in November?”</li><li>“what is due this week?”</li><li>“quote for Mehta &amp; Sons, 40 chairs”</li>
+    </ul>
+    <ul class="ticker-row" aria-hidden="true">
+      <li>“paid 8,000 rent”</li><li>“received 5,000 from Kiran Stores”</li><li>“who owes me?”</li><li>“bill from Gupta Steel, 23,600 with GST”</li><li>“salary for October”</li><li>“can I afford 4 lakh in November?”</li><li>“what is due this week?”</li><li>“quote for Mehta &amp; Sons, 40 chairs”</li>
+    </ul>
+  </div>
+
+  <section class="block" id="how" data-bahi-section="thinking" data-say="Say it, see it, say yes. That is the whole trick.">
     <div class="wrap">
       <div class="head">
         <div>
+          <p class="eyebrow">How it works</p>
           <h2>Three steps, every time</h2>
           <p class="sub">Sales, bills, expenses, receipts, payroll and returns all work the same way, so there is nothing to learn twice.</p>
         </div>
-        <img src="/assets/bahi/thinking.png" alt="" width="312" height="312" loading="lazy">
       </div>
-      <div class="steps">
-        <div class="card step"><span class="n">1</span><h3>Say it</h3><p>In your words, in English or Hindi: "paid 8,000 rent", "received 5,000 from Kiran Stores", "who owes me?". Or fill a short form, or photograph a bill.</p></div>
-        <div class="card step"><span class="n">2</span><h3>See it</h3><p>MyCA shows exactly what it will record: the amounts, the GST split, the due date, what changes in your books and in your returns. If something is missing, it asks instead of guessing.</p></div>
-        <div class="card step"><span class="n">3</span><h3>Say yes</h3><p>Only then is it posted. Every figure is traced to the invoice behind it and the rule it used, so your CA can check it in a minute.</p></div>
+      <div class="explain">
+        <ol class="steps" id="steps">
+          <li><button type="button" class="step" aria-pressed="true" data-step="0"><span class="n">1</span><span><b>Say it</b><span class="t">In your words, in English or Hindi: "paid 8,000 rent", "received 5,000 from Kiran Stores", "who owes me?". Or fill a short form, or photograph a bill.</span></span><span class="bar-fill" aria-hidden="true"></span></button></li>
+          <li><button type="button" class="step" aria-pressed="false" data-step="1"><span class="n">2</span><span><b>See it</b><span class="t">MyCA shows exactly what it will record: the amounts, the GST split, the due date, what changes in your books and in your returns. If something is missing, it asks instead of guessing.</span></span><span class="bar-fill" aria-hidden="true"></span></button></li>
+          <li><button type="button" class="step" aria-pressed="false" data-step="2"><span class="n">3</span><span><b>Say yes</b><span class="t">Only then is it posted. Every figure is traced to the invoice behind it and the rule it used, so your CA can check it in a minute.</span></span><span class="bar-fill" aria-hidden="true"></span></button></li>
+        </ol>
+        <div class="viz" id="viz" data-step="0" aria-hidden="true">
+          <div class="pane pane-0">
+            <div class="say-box"><span class="caret-text" id="say-text">received 5,000 from Kiran Stores</span><span class="caret"></span></div>
+            <div class="ways"><span><svg><use href="#i-receipt"/></svg>Type a sentence</span><span><svg><use href="#i-check"/></svg>Fill a short form</span><span><svg><use href="#i-phone"/></svg>Photograph a bill</span></div>
+          </div>
+          <div class="pane pane-1">
+            <div class="preview">
+              <div class="eyebrow">Not posted yet</div>
+              <p class="p-title">Invoice to Sharma Traders</p>
+              <div class="rows money">
+                <div class="row"><span>Taxable value</span><b>₹12,000.00</b></div>
+                <div class="row"><span>CGST 9%</span><b>₹1,080.00</b></div>
+                <div class="row"><span>SGST 9%</span><b>₹1,080.00</b></div>
+                <div class="row total"><span>Total</span><b>₹14,160.00</b></div>
+                <div class="row note"><span>Due</span><b>15 days, 17 October 2026</b></div>
+                <div class="row note"><span>Return</span><b>GSTR-1, October 2026</b></div>
+              </div>
+            </div>
+          </div>
+          <div class="pane pane-2">
+            <div class="confirm"><span class="tap">Post it</span></div>
+            <ul class="lands money">
+              <li><svg><use href="#i-tick"/></svg><span>Books</span><b>Sales +₹12,000.00</b></li>
+              <li><svg><use href="#i-tick"/></svg><span>GST payable</span><b>+₹2,160.00</b></li>
+              <li><svg><use href="#i-tick"/></svg><span>GSTR-1</span><b>B2B invoice added</b></li>
+              <li><svg><use href="#i-link"/></svg><span>Traced to</span><b>INV-0042 and the 18% rate it used</b></li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <section class="block" id="inside">
+  <section class="block flow-block" id="flow" data-bahi-section="happy" data-say="One invoice feeds your books and your returns. No typing twice.">
     <div class="wrap">
+      <p class="eyebrow">One sale, all the way through</p>
+      <h2>From one invoice to a filed return</h2>
+      <p class="sub">The tax invoice is the source of truth. Your ledger, your GST returns and your CA's export are all worked out from it, so they always agree.</p>
+      <ol class="flow">
+        <li><span class="node"><svg aria-hidden="true"><use href="#i-receipt"/></svg></span><h3>Invoice</h3><p>Shared on WhatsApp as a PDF, with the e-invoice IRN when you connect NIC.</p></li>
+        <li><span class="node"><svg aria-hidden="true"><use href="#i-book"/></svg></span><h3>Books</h3><p>Sales, GST payable and the customer's balance update together.</p></li>
+        <li><span class="node"><svg aria-hidden="true"><use href="#i-percent"/></svg></span><h3>Returns</h3><p>GSTR-1 and GSTR-3B are drafted from the invoices, reviewed step by step.</p></li>
+        <li><span class="node"><svg aria-hidden="true"><use href="#i-check"/></svg></span><h3>Filed</h3><p>Through a licensed GST Suvidha Provider, after your CA approves.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="block" id="inside" data-bahi-section="happy" data-say="Only what works today. No promises on this page.">
+    <div class="wrap">
+      <p class="eyebrow">Features</p>
       <h2>What is in it</h2>
       <p class="sub">Only what works today. Grouped the way an owner thinks, not the way an accountant does.</p>
       <div class="grid">
@@ -240,9 +268,40 @@
     </div>
   </section>
 
-  <section class="block" id="pricing">
+  <section class="block" id="dates" data-bahi-section="worried" data-say="GSTR-3B is due on the 20th. I'll remind you before, not after.">
+    <div class="wrap dates-wrap">
+      <div>
+        <p class="eyebrow">Due dates</p>
+        <h2>The dates remember themselves</h2>
+        <p class="sub">MyCA knows the monthly calendar and reminds you before each date, with the draft already worked out from your books.</p>
+        <ul class="due-list">
+          <li><span class="day">7</span><span><b>TDS deposit</b> for the month before</span></li>
+          <li><span class="day">11</span><span><b>GSTR-1</b>, your sales for the month</span></li>
+          <li><span class="day">15</span><span><b>PF and ESI</b> for your staff</span></li>
+          <li><span class="day">20</span><span><b>GSTR-3B</b>, the tax you pay</span></li>
+        </ul>
+        <p class="fine">Dates for monthly GST filers. Quarterly (QRMP) filers see their own dates, and any extension the government announces is applied.</p>
+      </div>
+      <div class="month" aria-hidden="true">
+        <div class="month-head"><b>November 2026</b><span class="bell"><svg><use href="#i-bell"/></svg></span></div>
+        <div class="days">
+          <span class="dow">M</span><span class="dow">T</span><span class="dow">W</span><span class="dow">T</span><span class="dow">F</span><span class="dow">S</span><span class="dow">S</span>
+          <span class="blank"></span><span class="blank"></span><span class="blank"></span><span class="blank"></span><span class="blank"></span><span class="blank"></span><span>1</span>
+          <span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span class="due d1">7</span><span>8</span>
+          <span>9</span><span>10</span><span class="due d2">11</span><span>12</span><span>13</span><span>14</span><span class="due d3">15</span>
+          <span>16</span><span>17</span><span>18</span><span>19</span><span class="due d4">20</span><span>21</span><span>22</span>
+          <span>23</span><span>24</span><span>25</span><span>26</span><span>27</span><span>28</span><span>29</span>
+          <span>30</span>
+        </div>
+        <div class="toast"><svg><use href="#i-bell"/></svg><span><b>GSTR-3B for October</b> is due on 20 November. The draft is ready to review.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="pricing" data-bahi-section="happy" data-say="Every plan starts with 14 days of Pro.">
     <div class="wrap">
-      <h2>Pricing</h2>
+      <p class="eyebrow">Pricing</p>
+      <h2>Simple pricing, nothing per invoice</h2>
       <p class="sub">One flat amount a month, cheaper by the year. Nothing is counted per invoice. Every plan starts with 14 days of Pro, and exporting your data never costs anything.</p>
       <div class="plans">
         <div class="card plan">
@@ -274,8 +333,8 @@
           <div class="price money">₹4,999</div><div class="per">a month + GST, or ₹49,999 a year + GST</div>
           <ul>
             <li><svg><use href="#i-tick"/></svg>Everything in Pro</li>
-            <li><svg><use href="#i-tick"/></svg>An independent GST practitioner or chartered accountant, named with their membership number before you subscribe, reviews and files your GST and TDS returns every month. That professional, not MyCA, is responsible for their work</li>
-            <li><svg><use href="#i-tick"/></svg>Correction promise: if a return filed through MyCA is wrong because of an error in MyCA, we prepare the correction at no charge. Interest, late fees and penalties are not covered. <a href="/terms#correction-promise">Terms</a></li>
+            <li><svg><use href="#i-tick"/></svg><span>An independent GST practitioner or chartered accountant, named with their membership number before you subscribe, reviews and files your GST and TDS returns every month. That professional, not MyCA, is responsible for their work</span></li>
+            <li><svg><use href="#i-tick"/></svg><span>Correction promise: if a return filed through MyCA is wrong because of an error in MyCA, we prepare the correction at no charge. Interest, late fees and penalties are not covered. <a href="/terms#correction-promise">Terms</a></span></li>
             <li><svg><use href="#i-tick"/></svg>Priority support</li>
           </ul>
           <a class="btn" href="#get">Start with Pro</a>
@@ -293,14 +352,15 @@
         </div>
       </div>
       <div class="offer">
-        <img src="/assets/bahi/happy.png" alt="" width="312" height="312" loading="lazy">
+        <span class="ico green"><svg aria-hidden="true"><use href="#i-lock"/></svg></span>
         <p><b>After the trial.</b> If you do not pick a plan, nothing is deleted: your books stay readable and exportable, and posting starts again the day you subscribe.</p>
       </div>
     </div>
   </section>
 
-  <section class="block" id="trust">
+  <section class="block" id="trust" data-bahi-section="happy" data-say="Nothing reaches your books until you say yes.">
     <div class="wrap">
+      <p class="eyebrow">Security</p>
       <h2>Security and privacy, in plain words</h2>
       <div class="trust">
         <div class="card"><span class="ico green"><svg><use href="#i-lock"/></svg></span><div><h3>Your books are yours</h3><p>On the phone they live in our service in Mumbai, one business to one record, and nobody who is not a member of your business can see them. On Windows they never leave your computer.</p></div></div>
@@ -313,21 +373,56 @@
     </div>
   </section>
 
-  <section class="block" id="get">
+  <section class="block" id="guides" data-bahi-section="thinking" data-say="New to GST returns? Start with a guide.">
     <div class="wrap">
+      <p class="eyebrow">Guides</p>
+      <h2>Learn GST billing and returns, one guide at a time</h2>
+      <div class="guide-cards">
+        <a class="card guide-card" href="/gst-billing-software"><b>GST billing software for small businesses</b><span>Invoices with the GST split worked out, shared on WhatsApp.</span></a>
+        <a class="card guide-card" href="/gst-return-filing"><b>File GSTR-1 and GSTR-3B from your books</b><span>Returns drafted from your invoices, reviewed step by step.</span></a>
+        <a class="card guide-card" href="/e-invoice-software"><b>E-invoices with IRN and QR code</b><span>Generate e-invoices and e-way bills when you connect NIC.</span></a>
+        <a class="card guide-card" href="/tally-alternative"><b>A Tally alternative on your phone</b><span>Bring your Tally books in, and send your CA a Tally file back.</span></a>
+        <a class="card guide-card" href="/accounting-app-for-ca-firms"><b>Accounting app for CA firms</b><span>Approve filings for every client from one place.</span></a>
+        <a class="card guide-card" href="/guides"><b>All guides</b><span>GST, books and US federal taxes.</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="faq" data-bahi-section="thinking" data-say="Good questions. Here are straight answers.">
+    <div class="wrap">
+      <p class="eyebrow">Questions</p>
+      <h2>Questions owners ask</h2>
+      <div class="faq">
+<!-- faq:home -->
+        <details><summary>Is MyCA GST billing software?</summary><p>Yes. MyCA makes GST tax invoices and quotes as PDFs you can share on WhatsApp, with the CGST, SGST or IGST split worked out from the place of supply, and keeps your books from the same invoices.</p></details>
+        <details><summary>Can MyCA file GSTR-1 and GSTR-3B?</summary><p>MyCA works out GSTR-1 and GSTR-3B from your invoices and bills on every plan. On Pro it also files them on the GST portal through a licensed GST Suvidha Provider, after you or your CA approve.</p></details>
+        <details><summary>Do I need to know accounting to use it?</summary><p>No. You say what happened in your own words. MyCA shows the entry it is about to make, asks when something is missing, and posts nothing until you say yes.</p></details>
+        <details><summary>Can I move from Tally or Zoho Books?</summary><p>Yes. MyCA reads a Tally export, a Zoho Books file or a bank statement, or you can start fresh. Your CA can still get a Tally file from MyCA whenever they want one.</p></details>
+        <details><summary>Where are my books kept?</summary><p>With the phone app, in our service in Mumbai, one business to one record. With the Windows app, on your own computer, with a daily backup.</p></details>
+        <details><summary>Is there a free trial?</summary><p>Every plan starts with 14 days of Pro. If you do not pick a plan after that, nothing is deleted: your books stay readable and exportable.</p></details>
+        <details><summary>Does MyCA replace my CA?</summary><p>No. MyCA is software, not a firm of chartered accountants, and it does not give tax or legal advice. Your CA can work in the same books and approve returns before they are filed.</p></details>
+        <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is MyCA GST billing software?","acceptedAnswer":{"@type":"Answer","text":"Yes. MyCA makes GST tax invoices and quotes as PDFs you can share on WhatsApp, with the CGST, SGST or IGST split worked out from the place of supply, and keeps your books from the same invoices."}},{"@type":"Question","name":"Can MyCA file GSTR-1 and GSTR-3B?","acceptedAnswer":{"@type":"Answer","text":"MyCA works out GSTR-1 and GSTR-3B from your invoices and bills on every plan. On Pro it also files them on the GST portal through a licensed GST Suvidha Provider, after you or your CA approve."}},{"@type":"Question","name":"Do I need to know accounting to use it?","acceptedAnswer":{"@type":"Answer","text":"No. You say what happened in your own words. MyCA shows the entry it is about to make, asks when something is missing, and posts nothing until you say yes."}},{"@type":"Question","name":"Can I move from Tally or Zoho Books?","acceptedAnswer":{"@type":"Answer","text":"Yes. MyCA reads a Tally export, a Zoho Books file or a bank statement, or you can start fresh. Your CA can still get a Tally file from MyCA whenever they want one."}},{"@type":"Question","name":"Where are my books kept?","acceptedAnswer":{"@type":"Answer","text":"With the phone app, in our service in Mumbai, one business to one record. With the Windows app, on your own computer, with a daily backup."}},{"@type":"Question","name":"Is there a free trial?","acceptedAnswer":{"@type":"Answer","text":"Every plan starts with 14 days of Pro. If you do not pick a plan after that, nothing is deleted: your books stay readable and exportable."}},{"@type":"Question","name":"Does MyCA replace my CA?","acceptedAnswer":{"@type":"Answer","text":"No. MyCA is software, not a firm of chartered accountants, and it does not give tax or legal advice. Your CA can work in the same books and approve returns before they are filed."}}]}</script>
+<!-- /faq -->
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="get" data-bahi-section="celebrate" data-say="Your first invoice takes a few minutes!">
+    <div class="wrap">
+      <p class="eyebrow">Download</p>
       <h2>Get MyCA</h2>
       <div class="get">
-        <div class="card"><span class="ico"><svg><use href="#i-phone"/></svg></span><h3 style="margin-top:14px">Android</h3><p>For the owner. Sign in with Google, give your GSTIN, bring in your books from Tally, Zoho or a bank statement, or start fresh. First invoice in a few minutes.</p><span class="soon">Play Store listing opens with the pilot</span></div>
-        <div class="card"><span class="ico"><svg><use href="#i-windows"/></svg></span><h3 style="margin-top:14px">Windows</h3><p>For the owner at a desk, or the CA firm. Everything stays on your PC, with a daily backup and the nightly checks already running.</p><a class="btn primary" href="https://github.com/Vidyuthlabstechnologies/myca/releases">Download the installer</a></div>
+        <div class="card"><span class="ico"><svg><use href="#i-phone"/></svg></span><h3 class="app-name">Android</h3><p>For the owner. Sign in with Google, give your GSTIN, bring in your books from Tally, Zoho or a bank statement, or start fresh. First invoice in a few minutes.</p><span class="soon">Play Store listing opens with the pilot</span></div>
+        <div class="card"><span class="ico"><svg><use href="#i-windows"/></svg></span><h3 class="app-name">Windows</h3><p>For the owner at a desk, or the CA firm. Everything stays on your PC, with a daily backup and the nightly checks already running.</p><a class="btn primary" href="https://github.com/Vidyuthlabstechnologies/myca/releases/latest">Download the installer</a></div>
       </div>
       <div class="closing">
-        <img src="/assets/bahi/celebrate.png" alt="Bahi celebrating" width="312" height="312" loading="lazy">
         <div><h2>Bahi keeps the books. You run the business.</h2><p>Your first invoice takes a few minutes.</p></div>
-        <a class="btn" href="https://github.com/Vidyuthlabstechnologies/myca/releases">Get started</a>
+        <a class="btn" href="https://github.com/Vidyuthlabstechnologies/myca/releases/latest">Download for Windows</a>
       </div>
     </div>
   </section>
 </main>
+<div class="pal" id="bahi-pal" aria-hidden="true" hidden><div class="pal-say" id="pal-say"></div><div class="pal-body" id="pal-body"></div></div>
 
 <footer class="site-footer">
   <div class="wrap row">

@@ -2,6 +2,8 @@ export const ORIGIN = 'https://__SITE_ORIGIN__';
 
 export const PLAY_ID = 'com.mldynamic.myca';
 
+export const PLAY_LISTED = false;
+
 export const EARLY_ACCESS_ACTION = '__EARLY_ACCESS_URL__';
 
 export const INDIA_PRICES = Object.freeze({ essentials: '₹999', pro: '₹1,999', assured: '₹4,999', firm: '₹5,999' });
@@ -21,6 +23,7 @@ export const PAGES = [
     eyebrow: 'GST billing',
     h1: 'GST billing that keeps your books while you bill.',
     lede: 'Type "sold 20 shirts to Kiran Stores for 8,000 plus GST". MyCA shows the invoice it is about to make, with the right tax split for the buyer\'s state. Say yes and it is in your books and your GSTR-1.',
+    demo: { say: 'sold 20 shirts to Kiran Stores for 8,000 plus GST', title: 'Invoice to Kiran Stores', rows: [['Taxable value', '₹8,000.00'], ['CGST 2.5%', '₹200.00'], ['SGST 2.5%', '₹200.00'], ['Total', '₹8,400.00']], note: 'Goes into your GSTR-1 for November 2026' },
     cta: INDIA_CTA,
     points: [
       ['The tax split is worked out for you', 'CGST and SGST inside your state, IGST across states, from the place of supply on the invoice. Rates come from dated rules you can read.'],
@@ -43,6 +46,7 @@ export const PAGES = [
     eyebrow: 'GST returns',
     h1: 'GSTR-1 and GSTR-3B, already worked out.',
     lede: 'Your return is a view of your books, not a spreadsheet you fill in. Open the month, check the figures, and see the invoice and the rule behind each one.',
+    demo: { say: 'show my GSTR-3B for October', title: 'GSTR-3B, October 2026', rows: [['Tax on sales', '₹1,84,500.00'], ['Input tax credit', '−₹1,12,300.00'], ['To pay in cash', '₹72,200.00']], note: 'Due 20 November 2026. Waiting for your approval.' },
     cta: INDIA_CTA,
     points: [
       ['Built from what you recorded', 'Sales go to GSTR-1 tables, bills and expenses give input tax credit for GSTR-3B. Nothing is typed twice.'],
@@ -65,6 +69,7 @@ export const PAGES = [
     eyebrow: 'E-invoicing',
     h1: 'E-invoices without the JSON.',
     lede: 'If your turnover needs e-invoicing, MyCA prepares it from the sale you just recorded, gets the IRN when you confirm, and prints the signed QR code on the invoice.',
+    demo: { say: 'make the e-invoice for INV-0042', title: 'E-invoice for INV-0042', rows: [['GSTINs and HSN codes', 'Checked'], ['IRN', 'Received'], ['Signed QR code', 'On the invoice'], ['Cancel window', '24 hours']], note: 'E-way bill ready to generate from the same invoice' },
     cta: INDIA_CTA,
     points: [
       ['From the sale you already made', 'No separate upload. The invoice in your books is the e-invoice.'],
@@ -86,6 +91,7 @@ export const PAGES = [
     eyebrow: 'Moving from Tally',
     h1: 'Keep your Tally history. Lose the desk.',
     lede: 'MyCA reads your Tally export so your parties, balances and invoices come with you. Your CA still gets a Tally file whenever they want one, free on every plan.',
+    demo: { say: 'bring in my Tally export', title: 'Tally export read', rows: [['Parties', '214'], ['Invoices', '1,862'], ['Opening balances', 'Matched'], ['Differences', 'None']], note: 'Nothing is posted until you confirm.' },
     cta: INDIA_CTA,
     points: [
       ['Bring your books in', 'Parties, opening balances and past invoices come in from a Tally export.'],
@@ -107,6 +113,7 @@ export const PAGES = [
     eyebrow: 'For CA firms',
     h1: 'Your clients keep the books. You approve.',
     lede: 'Clients record sales and bills as they happen. You see the same books, fix what needs fixing, and approve returns before they are filed.',
+    demo: { say: 'which clients are waiting for me?', title: 'Waiting for your approval', rows: [['Kiran Stores', 'GSTR-3B ready'], ['Sharma Traders', 'GSTR-1 ready'], ['Mehta & Sons', '2 bills not in 2B']], note: 'Filing waits until you approve.' },
     cta: { label: 'Set up your firm', note: `CA firm plan: ${INDIA_PRICES.firm} a month, 25 people.` },
     points: [
       ['One login, every client', 'Switch between client businesses from one account.'],
@@ -128,6 +135,7 @@ export const PAGES = [
     eyebrow: 'MyCA US',
     h1: 'Your federal return, with every line explained.',
     lede: 'Photograph your W-2s and 1099s. MyCA fills in Form 1040 and its schedules, shows which rule produced each number, and tells you plainly what it cannot handle before you pay.',
+    demo: { say: 'Photo of a W-2', title: 'W-2 from Acme Corp', rows: [['Box 1 wages', '$68,400.00'], ['Box 2 federal tax withheld', '$7,912.00'], ['Goes to', 'Form 1040, line 1a']], note: 'Tap any line to see the rule behind it.' },
     cta: US_CTA,
     points: [
       ['Every number has a reason', 'Tap any line to see the form, the rule and the IRS instruction behind it.'],
@@ -152,6 +160,7 @@ export const PAGES = [
     eyebrow: 'Self-employed',
     h1: 'Freelance income, without the guesswork.',
     lede: 'Add your 1099-NEC and 1099-MISC forms and your business expenses. MyCA prepares Schedule C, works out self-employment tax on Schedule SE and applies the qualified business income deduction.',
+    demo: { say: '1099-NEC and my business expenses', title: 'Schedule C and Schedule SE', rows: [['Gross receipts', '$42,000'], ['Expenses', '−$6,300'], ['Net profit', '$35,700'], ['Self-employment tax', '$5,044']], note: 'Half of the SE tax is deducted on Schedule 1.' },
     cta: US_CTA,
     points: [
       ['Schedule C from your records', 'Income from 1099-NEC and 1099-MISC, and your expenses on the right Schedule C lines, each with the IRS instruction behind it.'],
@@ -173,3 +182,13 @@ export const GUIDE_INDEX = {
   description: 'Plain-language guides to GST billing, GST returns, e-invoicing, moving from Tally, CA firm workflows and US federal returns, from the makers of MyCA.',
   h1: 'Guides',
 };
+
+export const HOME_FAQ = Object.freeze([
+  ['Is MyCA GST billing software?', 'Yes. MyCA makes GST tax invoices and quotes as PDFs you can share on WhatsApp, with the CGST, SGST or IGST split worked out from the place of supply, and keeps your books from the same invoices.'],
+  ['Can MyCA file GSTR-1 and GSTR-3B?', 'MyCA works out GSTR-1 and GSTR-3B from your invoices and bills on every plan. On Pro it also files them on the GST portal through a licensed GST Suvidha Provider, after you or your CA approve.'],
+  ['Do I need to know accounting to use it?', 'No. You say what happened in your own words. MyCA shows the entry it is about to make, asks when something is missing, and posts nothing until you say yes.'],
+  ['Can I move from Tally or Zoho Books?', 'Yes. MyCA reads a Tally export, a Zoho Books file or a bank statement, or you can start fresh. Your CA can still get a Tally file from MyCA whenever they want one.'],
+  ['Where are my books kept?', 'With the phone app, in our service in Mumbai, one business to one record. With the Windows app, on your own computer, with a daily backup.'],
+  ['Is there a free trial?', 'Every plan starts with 14 days of Pro. If you do not pick a plan after that, nothing is deleted: your books stay readable and exportable.'],
+  ['Does MyCA replace my CA?', 'No. MyCA is software, not a firm of chartered accountants, and it does not give tax or legal advice. Your CA can work in the same books and approve returns before they are filed.'],
+]);
