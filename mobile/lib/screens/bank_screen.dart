@@ -44,6 +44,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
   bool _older = false;
   String _note = '';
   bool _saving = false;
+  String _loadError = '';
 
   @override
   MycaApi get api => AppScope.of(context).api;
@@ -62,8 +63,11 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
   Future<BankReconciliation?> _load() async {
     final args = <String, Object?>{'account': _account, if (_older) 'from': _twoYearsBack()};
     try {
-      return BankReconciliation.fromTool(await api.query('bank_reconciliation', args));
-    } on MycaApiException {
+      final recon = BankReconciliation.fromTool(await api.query('bank_reconciliation', args));
+      _loadError = '';
+      return recon;
+    } on MycaApiException catch (err) {
+      _loadError = err.message;
       return null;
     }
   }
@@ -296,6 +300,8 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
                     ],
                     if (loading)
                       const Center(child: CircularProgressIndicator())
+                    else if (recon == null && _loadError.isNotEmpty)
+                      LoadFailed(message: _loadError, onRetry: () => setState(() => _recon = _load()))
                     else if (recon == null || recon.empty)
                       Text(s.bankEmptyNote, style: text.bodyMedium)
                     else ...[

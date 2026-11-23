@@ -6,6 +6,7 @@ import '../app_state.dart';
 import '../format.dart';
 import '../india/india_strings.dart';
 import '../india/loyalty_points.dart';
+import '../widgets.dart';
 
 String _plain(num value) => value == value.roundToDouble() ? value.toInt().toString() : value.toString();
 
@@ -50,6 +51,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
   bool _enabled = false;
   String _earnOn = 'taxable';
   bool _loading = true;
+  String _loadError = '';
   bool _busy = false;
   String _message = '';
   ChatPreview? _preview;
@@ -83,6 +85,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
       final rules = LoyaltyRules.fromJson(data['settings']);
       final rows = data['customers'];
       setState(() {
+        _loadError = '';
         _enabled = rules.enabled;
         _earnOn = rules.earnOn;
         _earnPoints.text = _plain(rules.earnPoints);
@@ -97,7 +100,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
         _soon = (data['expiringSoonPoints'] is num ? data['expiringSoonPoints'] as num : 0).toInt();
       });
     } on MycaApiException catch (err) {
-      if (mounted) setState(() => _message = err.message);
+      if (mounted) setState(() => _loadError = err.message);
     } finally {
       _busy = false;
       if (mounted) setState(() => _loading = false);
@@ -179,6 +182,14 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
       appBar: AppBar(title: Text(inText(context, 'Loyalty points'))),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
+          : _loadError.isNotEmpty
+          ? LoadFailed(
+              message: _loadError,
+              onRetry: () {
+                setState(() => _loading = true);
+                _load();
+              },
+            )
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [
@@ -246,8 +257,18 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(row.partyName),
-                    subtitle: row.expiringSoon.isEmpty ? null : Text('${row.expiringSoon.first.points} ${inText(context, 'expire on')} ${row.expiringSoon.first.on}'),
-                    trailing: Text('${row.balance} · ${rupees(row.value)}'),
+                    subtitle: row.expiringSoon.isEmpty ? null : Text('${row.expiringSoon.first.points} ${inText(context, 'expire on')} ${longDate(row.expiringSoon.first.on)}'),
+                    trailing: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.4),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Amount('${row.balance} ${inText(context, 'points')}', style: text.bodyMedium, alignment: Alignment.centerRight),
+                          Amount(rupees(row.value), style: text.bodySmall, alignment: Alignment.centerRight),
+                        ],
+                      ),
+                    ),
                     onTap: () => _openCustomer(row),
                   ),
               ],
@@ -359,7 +380,7 @@ class _CustomerSheetState extends State<_CustomerSheet> {
             Text(widget.partyName, style: text.titleLarge),
             if (customer != null) ...[
               Text('${customer.balance} ${inText(context, 'points')} · ${rupees(customer.value)}', key: const Key('loyalty-customer-balance'), style: text.titleMedium),
-              for (final soon in customer.expiringSoon) Text('${soon.points} ${inText(context, 'expire on')} ${soon.on}'),
+              for (final soon in customer.expiringSoon) Text('${soon.points} ${inText(context, 'expire on')} ${longDate(soon.on)}'),
               const SizedBox(height: 8),
               Text(customer.whatsapp, key: const Key('loyalty-whatsapp'), style: text.bodyMedium),
               OutlinedButton.icon(

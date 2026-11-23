@@ -250,6 +250,7 @@ class _CaScreenState extends State<CaScreen> {
           if (state.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
+          if (state.hasError) return LoadFailed(onRetry: _reload);
           final requests = state.data ?? const <CaRequest>[];
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),

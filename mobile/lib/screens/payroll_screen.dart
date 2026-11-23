@@ -187,6 +187,7 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
             return const Center(child: CircularProgressIndicator());
           }
           final run = snap.data;
+          if (snap.hasError) return LoadFailed(onRetry: () => setState(() => _run = _load()));
           if (run == null) {
             return EmptyNote(text: inText(context, 'Payroll could not be prepared. Only the owner can run it.'));
           }
