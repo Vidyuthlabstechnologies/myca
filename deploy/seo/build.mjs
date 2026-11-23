@@ -262,7 +262,7 @@ export function renderInvite() {
     <h1 class="display">Someone you know keeps their books in MyCA.</h1>
     <p class="lede">Get the app and enter this invite code after you sign in: open Your business, then Invite a business owner.</p>
     <p class="code" id="code" aria-live="polite">&nbsp;</p>
-    <div class="cta"><a class="btn primary" id="play" href="${escape(PLAY_LISTED ? playUrl('referral') : '/#get')}"${PLAY_LISTED ? ` data-play="${escape(`https://play.google.com/store/apps/details?id=${PLAY_ID}&referrer=`)}"` : ''}>Get MyCA for Android</a><a class="btn" href="/">What is MyCA?</a></div>
+    <div class="cta"><a class="btn primary" id="play" href="${escape(PLAY_LISTED ? playUrl('referral') : '/#get')}"${PLAY_LISTED ? ' data-play="listed"' : ''}>Get MyCA for Android</a><a class="btn" href="/">What is MyCA?</a></div>
     <p class="fine">Invite codes work in the first 30 days after you join.</p>
   </div>
   <script src="/assets/invite.js" defer></script>`;

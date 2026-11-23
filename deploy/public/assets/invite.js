@@ -3,6 +3,6 @@
   if (raw.length !== 8) return;
   document.getElementById('code').textContent = raw;
   var play = document.getElementById('play');
-  var base = play.getAttribute('data-play');
-  if (base) play.href = base + encodeURIComponent('utm_source=referral&utm_medium=invite&utm_campaign=referral&utm_content=' + raw);
+  if (play.getAttribute('data-play') !== 'listed') return;
+  play.href = 'https://play.google.com/store/apps/details?id=com.mldynamic.myca&referrer=' + encodeURIComponent('utm_source=referral&utm_medium=invite&utm_campaign=referral&utm_content=' + raw);
 })();

@@ -45,13 +45,14 @@ test('every public page has a language, a viewport, a title, a description, one 
 test('no public page runs inline script or inline styles, so the strict content security policy holds', () => {
   for (const name of publicPages()) {
     const html = read(name);
-    const scripts = [...html.matchAll(/<script\b([^>]*)>/g)].map((match) => match[1]);
+    const scripts = [...html.matchAll(/<script\b([^>]*)>/gi)].map((match) => match[1]);
     for (const attrs of scripts) assert.ok(/type="application\/ld\+json"/.test(attrs) || /src="\/assets\/[a-z-]+\.js"/.test(attrs), `${name} has an inline script`);
-    assert.doesNotMatch(html, /<style\b/, `${name} has a style block`);
-    assert.doesNotMatch(html, /\sstyle="/, `${name} has a style attribute`);
-    assert.doesNotMatch(html, /\son[a-z]+="/, `${name} has an inline event handler`);
+    assert.doesNotMatch(html, /<style\b/i, `${name} has a style block`);
+    assert.doesNotMatch(html, /\sstyle\s*=/i, `${name} has a style attribute`);
+    assert.doesNotMatch(html, /\son[a-z]+\s*=/i, `${name} has an inline event handler`);
   }
   for (const name of ['early-access.js', 'invite.js']) readFileSync(join(PUBLIC_DIR, 'assets', name), 'utf8');
+  assert.ok(readFileSync(join(PUBLIC_DIR, 'assets', 'invite.js'), 'utf8').includes(`details?id=${PLAY_ID}&referrer=`), 'invite.js names the Play app');
 });
 
 test('the server sends the security headers on every answer, and keeps internal pages out of search', () => {
