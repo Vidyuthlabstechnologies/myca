@@ -4,6 +4,7 @@ import 'api/models.dart';
 import 'india/india_strings.dart';
 import 'marks.dart';
 import 'theme.dart';
+import 'uae/uae_edition.dart';
 import 'uae/uae_strings.dart';
 
 class RulesStatusNote extends StatelessWidget {
@@ -542,6 +543,38 @@ Bubble previewBubble(ChatPreview preview) => Bubble(
   label: 'Not posted yet',
   footnotes: preview.effects,
 );
+
+/// Shown when a screen's data could not be fetched: says so plainly and offers
+/// a retry, instead of leaving a spinner turning forever.
+class LoadFailed extends StatelessWidget {
+  const LoadFailed({super.key, required this.onRetry, this.message});
+
+  final VoidCallback onRetry;
+  final String? message;
+
+  @override
+  Widget build(BuildContext context) {
+    final ae = uaeEdition(context) ? UaeStrings.of(context) : null;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message ?? ae?.couldNotLoad ?? inText(context, 'Could not load.'),
+              key: const Key('load-failed'),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 12),
+            FilledButton(onPressed: onRetry, child: Text(ae?.tryAgain ?? inText(context, 'Try again'))),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class EmptyNote extends StatelessWidget {
   const EmptyNote({super.key, required this.text});

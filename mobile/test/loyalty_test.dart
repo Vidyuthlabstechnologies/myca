@@ -227,7 +227,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pumpAndSettle();
-    expect(find.text('Asha Verma: 120 points (₹120.00). 20 expire on 2026-11-01.'), findsOneWidget);
+    expect(find.text('Asha Verma: 120 points (₹120.00). 20 expire on 1 November 2026.'), findsOneWidget);
     await tester.ensureVisible(find.byKey(const Key('loyalty-use')));
     await tester.tap(find.byKey(const Key('loyalty-use')));
     await tester.pumpAndSettle();
