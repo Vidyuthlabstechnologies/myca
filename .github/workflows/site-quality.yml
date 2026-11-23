@@ -6,6 +6,7 @@ on:
       - "deploy/**"
       - "cloud/src/billing.mjs"
       - "cloud/src/consent.mjs"
+      - ".github/workflows/deploy-pages.yml"
       - ".github/workflows/site-quality.yml"
   push:
     branches: [main, develop]
@@ -38,7 +39,7 @@ jobs:
           node-version: "22"
 
       - name: Check the generated pages, sitemap, legal pages and server config
-        run: node --test deploy/seo/*.test.mjs
+        run: node --test deploy/seo/*.test.mjs deploy/pages/*.test.mjs
 
       - name: Install the checkers
         working-directory: deploy/qa
@@ -70,6 +71,21 @@ jobs:
       - name: Check Lighthouse scores
         working-directory: deploy/qa
         run: node lighthouse.mjs http://localhost:8080
+
+      - name: Check the Cloudflare Pages build the same way
+        shell: bash
+        run: |
+          set -euo pipefail
+          node deploy/pages/build.mjs http://127.0.0.1:8788
+          cd deploy
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx wrangler pages dev --port 8788 --ip 127.0.0.1 > ../pages-dev.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            curl -fsS -o /dev/null http://127.0.0.1:8788/ && break
+            sleep 1
+          done
+          cd qa
+          node check-site.mjs http://127.0.0.1:8788 --no-browser
 
       - name: Keep the reports
         if: always()

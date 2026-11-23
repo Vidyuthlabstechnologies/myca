@@ -661,6 +661,38 @@ cd bootstrap && terraform destroy -var="project_id=YOUR_PROJECT_ID" -var="github
 
 ---
 
+## Website on Cloudflare Pages (2026-11-23)
+
+The public website (`deploy/public`) also publishes to Cloudflare Pages, at the free
+`*.pages.dev` address, from `.github/workflows/deploy-pages.yml` on every push to `main` that
+touches the site (or by hand: Actions, Deploy site (Cloudflare Pages), Run workflow). Cloud Run
+(`deploy-site.yml`) keeps running alongside it until the owner switches the address people use.
+
+`deploy/pages/build.mjs` turns the site into static files: it writes the real address into
+canonical links, the sitemap and robots, puts the invite page under `/r/`, and writes
+`_headers` (the same content security policy and security headers as
+`deploy/site/default.conf.template`, read from it so the two cannot drift) and `_redirects`.
+Pages serves `404.html` for missing pages and drops `.html` from addresses itself.
+
+| Name | Kind | What it is |
+|---|---|---|
+| `CLOUDFLARE_ACCOUNT_ID` | secret | The Cloudflare account that owns the Pages project |
+| `CLOUDFLARE_API_TOKEN` | secret | An API token with Account, Cloudflare Pages, Edit only |
+| `MYCA_PAGES_PROJECT` | variable, optional | Pages project name, default `myca-site`; created on first run |
+| `MYCA_SITE_ORIGIN` | variable, optional | The address to put in canonical links once a custom domain is attached, such as `https://www.example.com`; default is the project's `pages.dev` address |
+| `MYCA_EARLY_ACCESS_URL` | variable, optional | The US early-access form address, shared with the Cloud Run site |
+
+Without the two secrets the workflow skips with a notice. Try it on a computer:
+
+```bash
+cd deploy && npm ci --ignore-scripts
+node pages/build.mjs http://127.0.0.1:8788
+npx wrangler pages dev --port 8788
+node qa/check-site.mjs http://127.0.0.1:8788
+```
+
+---
+
 ## Out of scope (next milestones)
 
 - **Firm backend** (PRD REQ-CA-001…015): Cloud Run + Cloud SQL + GCS document vault. The
@@ -668,4 +700,3 @@ cd bootstrap && terraform destroy -var="project_id=YOUR_PROJECT_ID" -var="github
   longer holds `run.admin`, `secretmanager.admin` or `iam.serviceAccountUser`; grant narrowly
   scoped roles when that work starts.
 - **Local-first secrets vault** (Windows DPAPI) for GSP/NIC credentials.
-- The Cloudflare config in `deploy/wrangler.jsonc` is retained but unused; GCS + CDN replaces it.
