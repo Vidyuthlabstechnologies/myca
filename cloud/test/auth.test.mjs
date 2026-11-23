@@ -157,13 +157,16 @@ test('an access token stops working after fifteen minutes and refresh issues a n
   assert.equal((await api.call('GET', '/v1/me', { token: refreshed.body.accessToken })).status, 200);
 });
 
-test('reusing a rotated refresh token revokes the device, including its live access token', async () => {
+test('reusing a rotated refresh token after its successor was used revokes the device, including its live access token', async () => {
   const session = await api.signIn(freshPhone());
-  const rotated = await api.call('POST', '/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+  const first = await api.call('POST', '/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+  assert.equal(first.status, 200);
+  const rotated = await api.call('POST', '/v1/auth/refresh', { body: { refreshToken: first.body.refreshToken } });
   assert.equal(rotated.status, 200);
   const stolen = await api.call('POST', '/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
   assert.equal(stolen.body.error, 'REFRESH_TOKEN_REUSED');
   const afterTheft = await api.call('POST', '/v1/auth/refresh', { body: { refreshToken: rotated.body.refreshToken } });
+  assert.equal((await api.call('POST', '/v1/auth/refresh', { body: { refreshToken: first.body.refreshToken } })).body.error, 'DEVICE_REVOKED');
   assert.equal(afterTheft.body.error, 'DEVICE_REVOKED');
   const access = await api.call('GET', '/v1/me', { token: rotated.body.accessToken });
   assert.equal(access.status, 401);
@@ -221,4 +224,25 @@ test('every protected route needs a token', async () => {
   assert.equal(health.status, 200);
   assert.equal(health.body.providerMode, 'off');
   assert.equal((await api.call('GET', '/nope')).status, 404);
+});
+
+test('a refresh whose answer was lost can be retried for a few minutes; the lost pair stops working', async () => {
+  const session = await api.signIn(freshPhone());
+  const lost = await api.call('POST', '/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+  assert.equal(lost.status, 200);
+  api.clock.advance(60 * 1000);
+  const retried = await api.call('POST', '/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+  assert.equal(retried.status, 200, retried.text);
+  assert.equal((await api.call('GET', '/v1/me', { token: retried.body.accessToken })).status, 200);
+  assert.equal((await api.call('POST', '/v1/auth/refresh', { body: { refreshToken: lost.body.refreshToken } })).body.error, 'INVALID_REFRESH_TOKEN', 'the answer that never arrived is void');
+  const next = await api.call('POST', '/v1/auth/refresh', { body: { refreshToken: retried.body.refreshToken } });
+  assert.equal(next.status, 200, 'the retried pair carries on');
+});
+
+test('a rotated refresh token sent again after the grace period revokes the device', async () => {
+  const session = await api.signIn(freshPhone());
+  const rotated = await api.call('POST', '/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+  api.clock.advance(6 * 60 * 1000);
+  assert.equal((await api.call('POST', '/v1/auth/refresh', { body: { refreshToken: session.refreshToken } })).body.error, 'REFRESH_TOKEN_REUSED');
+  assert.equal((await api.call('POST', '/v1/auth/refresh', { body: { refreshToken: rotated.body.refreshToken } })).body.error, 'DEVICE_REVOKED');
 });

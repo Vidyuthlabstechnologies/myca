@@ -173,6 +173,14 @@ test('open invitations hold seats, so a plan cannot be stretched past its member
   assert.equal(resend.status, 200, 'sending the same person a new invitation is not a new seat');
 });
 
+test('two invitations sent at the same moment cannot take a plan past its member limit', async () => {
+  const owner = await api.ownerWithBusiness('+919811000025', { name: 'Race Seat Co', state: '29' });
+  await subscribe(owner.businessId, 'essentials');
+  const sent = await Promise.all(['+919811000026', '+919811000027', '+919811000028'].map((phone) => post(owner, 'invitations', { phone, role: 'staff' })));
+  assert.equal(sent.filter((one) => one.status === 200 && one.body.ok !== false).length, 1, sent.map((one) => one.text).join('\n'));
+  assert.equal(sent.filter((one) => one.body.error === 'PLAN_LIMIT_REACHED').length, 2);
+});
+
 test('an applied firm credit still keeps the firm plan after Google reports the subscription expired', async () => {
   const firm = await api.ownerWithBusiness('+919811000030', { name: 'Credit Keeps Co', state: '29' });
   const client = await api.ownerWithBusiness('+919811000031', { name: 'Paying Client', state: '29' });
