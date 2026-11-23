@@ -2,7 +2,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PRIVACY_NOTICE_MY, PRIVACY_NOTICE_MY_MS, PRIVACY_NOTICE_US } from '../../cloud/src/consent.mjs';
-import { EARLY_ACCESS_ACTION, GUIDE_INDEX, ORIGIN, PAGES, PLAY_ID, PLAY_LISTED, US_FORMS, US_PRICES } from './pages.mjs';
+import { bahiSvg } from './bahi.mjs';
+import { EARLY_ACCESS_ACTION, GUIDE_INDEX, HOME_FAQ, ORIGIN, PAGES, PLAY_ID, PLAY_LISTED, US_FORMS, US_PRICES } from './pages.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = join(here, '..', 'public');
@@ -40,8 +41,9 @@ export function playUrl(campaign, content = '') {
 
 const bySlug = Object.fromEntries(PAGES.map((page) => [page.slug, page]));
 
-function shell({ path, title, description, body, ld, edition = 'india', noindex = false }) {
+function shell({ path, title, description, body, ld, edition = 'india', noindex = false, bahi = false, image = '' }) {
   const url = path ? `${ORIGIN}/${path}` : `${ORIGIN}/`;
+  const og = image || (edition === 'us' ? 'og-image-us.png' : 'og-image.png');
   return `<!DOCTYPE html>
 <html lang="${edition === 'us' ? 'en-US' : 'en-IN'}">
 <head>
@@ -57,13 +59,19 @@ ${noindex ? '<meta name="robots" content="noindex">\n' : ''}<link rel="canonical
 <meta property="og:url" content="${url}">
 <meta property="og:title" content="${escape(title)}">
 <meta property="og:description" content="${escape(description)}">
-<meta property="og:image" content="${ORIGIN}/assets/${edition === 'us' ? 'og-image-us.png' : 'og-image.png'}">
+<meta property="og:image" content="${ORIGIN}/assets/${og}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${escape(title)}">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${escape(title)}">
+<meta name="twitter:description" content="${escape(description)}">
+<meta name="twitter:image" content="${ORIGIN}/assets/${og}">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="preload" href="/assets/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/site.css">
-${ld.map((item) => `<script type="application/ld+json">${jsonLd(item)}</script>`).join('\n')}
+${bahi ? '<link rel="stylesheet" href="/assets/bahi.css">\n<script src="/assets/bahi.js" defer></script>\n' : ''}${ld.map((item) => `<script type="application/ld+json">${jsonLd(item)}</script>`).join('\n')}
 </head>
 <body>
 <a class="skip" href="#content">Skip to content</a>
@@ -136,6 +144,31 @@ export function earlyAccess(slug) {
   </section>`;
 }
 
+export const ogName = (slug) => slug.replace(/\//g, '-');
+
+function demoCard(demo, withBahi) {
+  if (!demo) return '';
+  return `    <div class="demo" aria-hidden="true">
+      <div class="demo-say">${escape(demo.say)}</div>
+      <div class="demo-card">
+        <div class="eyebrow">MyCA</div>
+        <p class="demo-title">${escape(demo.title)}</p>
+        <div class="rows money">
+${demo.rows.map(([label, value]) => `          <div class="row"><span>${escape(label)}</span><b>${escape(value)}</b></div>`).join('\n')}
+        </div>
+        <p class="demo-note">${escape(demo.note)}</p>
+      </div>
+${withBahi ? `      <div class="demo-bahi">${bahiSvg({ mood: 'happy', id: 'bahi-guide' })}</div>\n` : ''}    </div>`;
+}
+
+export function renderHome(source) {
+  const faq = `${HOME_FAQ.map(([q, a]) => `        <details><summary>${escape(q)}</summary><p>${escape(a)}</p></details>`).join('\n')}
+        <script type="application/ld+json">${jsonLd({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: HOME_FAQ.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) })}</script>`;
+  return source
+    .replace(/<!-- bahi:hero -->[\s\S]*?<!-- \/bahi -->/, `<!-- bahi:hero -->\n${bahiSvg({ mood: 'wave', id: 'bahi-hero' })}\n<!-- /bahi -->`)
+    .replace(/<!-- faq:home -->[\s\S]*?<!-- \/faq -->/, `<!-- faq:home -->\n${faq}\n<!-- /faq -->`);
+}
+
 export function renderPage(page) {
   const path = page.slug;
   const product = page.edition === 'us' ? 'MyCA US' : 'MyCA';
@@ -164,12 +197,16 @@ export function renderPage(page) {
   </section>`
     : '';
   const early = page.edition === 'us' ? earlyAccess(page.slug) : '';
-  const body = `  <div class="wrap guide-hero">
-    <p class="eyebrow">${escape(page.eyebrow)}</p>
-    <h1 class="display">${escape(page.h1)}</h1>
-    <p class="lede">${escape(page.lede)}</p>
-    <div class="cta"><a class="btn primary" href="${escape(ctaHref(page))}">${escape(page.cta.label)}</a></div>
-    <p class="fine">${escape(page.cta.note)}</p>
+  const india = page.edition !== 'us';
+  const body = `  <div class="wrap guide-hero split">
+    <div>
+      <p class="eyebrow">${escape(page.eyebrow)}</p>
+      <h1 class="display">${escape(page.h1)}</h1>
+      <p class="lede">${escape(page.lede)}</p>
+      <div class="cta"><a class="btn primary" href="${escape(ctaHref(page))}">${escape(page.cta.label)}</a></div>
+      <p class="fine">${escape(page.cta.note)}</p>
+    </div>
+${demoCard(page.demo, india)}
   </div>
   <section class="block">
     <div class="wrap">
@@ -211,12 +248,13 @@ ${page.related.map((slug) => `        <li><a href="/${slug}">${escape(bySlug[slu
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Guides', item: `${ORIGIN}/guides` },
-        { '@type': 'ListItem', position: 2, name: page.eyebrow, item: `${ORIGIN}/${path}` },
+        { '@type': 'ListItem', position: 1, name: page.edition === 'us' ? 'MyCA US' : 'MyCA', item: page.edition === 'us' ? `${ORIGIN}/us` : `${ORIGIN}/` },
+        { '@type': 'ListItem', position: 2, name: 'Guides', item: `${ORIGIN}/guides` },
+        { '@type': 'ListItem', position: 3, name: page.eyebrow, item: `${ORIGIN}/${path}` },
       ],
     },
   ];
-  return shell({ path, title: page.title, description: page.description, body, ld, edition: page.edition });
+  return shell({ path, title: page.title, description: page.description, body, ld, edition: page.edition, bahi: india, image: `og/${ogName(page.slug)}.png` });
 }
 
 export function renderGuides() {
@@ -283,6 +321,7 @@ ${notice.sections.map((section) => `      <h2>${escape(section.heading)}</h2>\n$
 
 export function renderNotFound() {
   const body = `  <div class="wrap guide-hero">
+    <div class="lost-bahi">${bahiSvg({ mood: 'thinking', id: 'bahi-lost' })}</div>
     <p class="eyebrow">Page not found</p>
     <h1 class="display">This page is not in our books.</h1>
     <p class="lede">The address may be mistyped, or the page has moved. These are the places most people are looking for.</p>
@@ -294,7 +333,7 @@ export function renderNotFound() {
       <li><a href="/delete-account">Delete your account</a></li>
     </ul>
   </div>`;
-  return shell({ path: '404', title: 'Page not found | MyCA', description: 'This page is not on the MyCA website. Go to the home page, the guides, pricing, or the privacy and account pages.', body, ld: [], noindex: true }).replace(/<link rel="canonical"[^>]*>\n/, '').replace(/<meta property="og:url"[^>]*>\n/, '');
+  return shell({ path: '404', title: 'Page not found | MyCA', description: 'This page is not on the MyCA website. Go to the home page, the guides, pricing, or the privacy and account pages.', body, ld: [], noindex: true, bahi: true }).replace(/<link rel="canonical"[^>]*>\n/, '').replace(/<meta property="og:url"[^>]*>\n/, '');
 }
 
 function noticeBlock(notice, lang) {
@@ -329,6 +368,7 @@ export function outputs() {
     'robots.txt': renderRobots(),
     'us/privacy.html': renderUsPrivacy(),
     'my/privacy.html': renderMyPrivacy(),
+    'index.html': renderHome(readFileSync(join(PUBLIC_DIR, 'index.html'), 'utf8')),
   };
   for (const page of PAGES) files[`${page.slug}.html`] = renderPage(page);
   return files;

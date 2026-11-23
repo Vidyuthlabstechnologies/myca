@@ -118,3 +118,19 @@ test('the 404 page is the MyCA page, kept out of search, with a way home', () =>
   assert.match(html, /<a class="btn primary" href="\/">/);
   assert.doesNotMatch(html, /rel="canonical"/);
 });
+
+test('every page in search shares a real 1200 by 630 preview image, and the home page answers its questions in structured data', () => {
+  for (const name of publicPages()) {
+    const html = read(name);
+    const image = (html.match(/<meta property="og:image" content="https:\/\/__SITE_ORIGIN__\/([^"]+)">/) || [])[1];
+    if (noindex(html) && !image) continue;
+    assert.ok(image, `${name} has no og:image`);
+    const png = readFileSync(join(PUBLIC_DIR, image));
+    assert.equal(png.readUInt32BE(16), 1200, `${name} ${image} width`);
+    assert.equal(png.readUInt32BE(20), 630, `${name} ${image} height`);
+  }
+  const home = read('index.html');
+  assert.match(home, /"@type":"FAQPage"/);
+  assert.match(home, /<button class="bahi-btn" type="button" id="bahi-hero" aria-label="[^"]+">/);
+  assert.match(home, /<button class="still-toggle" type="button" id="still-toggle" aria-pressed="false">/);
+});
