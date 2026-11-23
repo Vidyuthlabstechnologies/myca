@@ -183,7 +183,7 @@ class _MyEinvoiceDetailScreenState extends State<MyEinvoiceDetailScreen> {
     final canAct = record.valid && record.uuid.isNotEmpty;
     final open = canAct && left > Duration.zero;
     final totals = record.totals;
-    final money = totals == null || totals.currency == 'MYR' ? ringgit : (num value) => '${totals.currency} ${value.toStringAsFixed(2)}';
+    String money(num value) => currencyAmount(totals?.currency ?? 'MYR', value);
     final simulated = record.simulated;
     final (body, tone) = switch (record.status) {
       'valid' when simulated => (t.statusValidSandboxBody, MyTone.good),

@@ -282,7 +282,7 @@ class _MySelfBilledScreenState extends State<MySelfBilledScreen> {
     }
   }
 
-  String Function(num) get _money => _currency == 'MYR' ? ringgit : (num value) => '$_currency ${value.toStringAsFixed(2)}';
+  String Function(num) get _money => (num value) => currencyAmount(_currency, value);
 
   Future<bool?> _confirmSheet(MyStrings t, MyCheck check) {
     final totals = check.totals;

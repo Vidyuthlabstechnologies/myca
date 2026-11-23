@@ -42,3 +42,11 @@ test('the daily job runs the checks for every business once, is idempotent, and 
   const audited = await api.db.query("select count(*)::int as n from audit_log where business_id = $1 and action = 'tool.run_automation'", [owner.businessId]);
   assert.equal(audited.rows[0].n, 2, 'each run is audited');
 });
+
+test('the weekly brief is keyed to the Monday of the week', async () => {
+  const { mondayOf } = await import('../src/jobs.mjs');
+  assert.equal(mondayOf('2026-11-23'), '2026-11-23');
+  assert.equal(mondayOf('2026-11-29'), '2026-11-23');
+  assert.equal(mondayOf('2026-11-30'), '2026-11-30');
+  assert.equal(mondayOf('2027-01-01'), '2026-12-28');
+});

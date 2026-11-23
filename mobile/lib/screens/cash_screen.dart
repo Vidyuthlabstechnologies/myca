@@ -219,7 +219,7 @@ class _CashScreenState extends State<CashScreen> {
                   ),
                 ],
               ),
-              if (moneyCountry != 'AE') ...[
+              if (moneyCountry != 'AE' && moneyCountry != 'US') ...[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,

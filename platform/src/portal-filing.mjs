@@ -1,4 +1,5 @@
 import { booksAatoOpts } from './aato.mjs';
+import { statementCode } from './it-act-forms.mjs';
 import { runSandboxOperation } from './sandbox-adapter.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
 import { regArg, companyAs, forRegistration, scopeKey } from './registrations.mjs';
@@ -38,7 +39,7 @@ export function filingApprovalSubject(state, operationId, args = {}) {
   if (op === 'tds_fvu_generate') {
     const quarter = parseQuarter(args.quarter);
     if (!quarter) return fail('INVALID_QUARTER', { hint: 'Say the quarter as Q2 2026-27.' });
-    const form = String(args.form || '26Q').trim().toUpperCase();
+    const form = statementCode(args.form || '26Q') || String(args.form).trim().toUpperCase();
     const tan = String(args.tan || state.company?.tan || '').trim().toUpperCase();
     if (!tan) return fail('TAN_REQUIRED');
     return { ok: true, subject: filingSubject(op, { quarter: quarter.label, form, tan }) };
@@ -270,8 +271,8 @@ export async function fileGstr1OnPortal(state, args = {}, actor) {
 export async function generateTdsFvu(state, args = {}, actor) {
   const quarter = parseQuarter(args.quarter);
   if (!quarter) return fail('INVALID_QUARTER', { hint: 'Say the quarter as Q2 2026-27.' });
-  const form = String(args.form || '26Q').trim().toUpperCase();
-  if (!FORMS[form]) return fail('BAD_FORM', { hint: '24Q for salary, 26Q for other payments, 27Q for non-residents.' });
+  const form = statementCode(args.form || '26Q') || String(args.form).trim().toUpperCase();
+  if (!FORMS[form]) return fail('BAD_FORM', { hint: '24Q (Form 138 from 2026-27) for salary, 26Q (Form 140) for other payments, 27Q (Form 144) for non-residents.' });
   const tan = String(args.tan || state.company?.tan || '').trim().toUpperCase();
   if (!tan) return fail('TAN_REQUIRED', { hint: 'Set the deductor TAN first (set_tds_deductor).' });
   const fy = (quarter.label.match(/(\d{4}-\d{2})/) || [])[1] || '';

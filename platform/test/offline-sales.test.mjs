@@ -319,7 +319,7 @@ test('a new item is saved, an item the server has differently is kept and return
     items: [
       { ref: REF(700), sku: 'soap', name: 'Soap 100g', price: 45, gstRate: 18 },
       { ref: REF(701), sku: 'TEA', name: 'Tea 250g', price: 120, gstRate: 5, hsn: '0902', barcode: '8900000000001' },
-      { ref: REF(702), sku: 'GUTKA', name: 'Pan masala', price: 10, gstRate: 40 },
+      { ref: REF(702), sku: 'GUTKA', name: 'Pan masala', price: 10, gstRate: 41 },
     ],
   });
   assert.equal(out.results[0].status, 'conflict');

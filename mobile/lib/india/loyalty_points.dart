@@ -185,7 +185,7 @@ class _LoyaltyPointsFieldState extends State<LoyaltyPointsField> {
     if (!loyaltyEdition(context) || rules == null || !rules.enabled || customer == null) return const SizedBox.shrink();
     final text = Theme.of(context).textTheme;
     final usable = usablePoints(balance: customer.balance, rules: rules, billBeforeGst: widget.billBeforeGst);
-    final soon = customer.expiringSoon.isEmpty ? '' : ' ${customer.expiringSoon.first.points} ${inText(context, 'expire on')} ${customer.expiringSoon.first.on}.';
+    final soon = customer.expiringSoon.isEmpty ? '' : ' ${customer.expiringSoon.first.points} ${inText(context, 'expire on')} ${longDate(customer.expiringSoon.first.on)}.';
     return Card(
       key: const Key('loyalty-card'),
       child: Padding(

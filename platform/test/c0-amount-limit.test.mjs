@@ -23,7 +23,7 @@ test('a number no schema bounds is refused once it is too large to keep exactly'
   }
   assert.match(validateAssistantToolCall('post_expense', { amount: MAX_EXACT_AMOUNT * 2, narration: 'Rent' }).error, /is too large$/);
   assert.match(validateAssistantToolCall('create_purchase', { ...sale([line(3, MAX_EXACT_AMOUNT)]), supplierInvoiceNo: 'B-1' }).error, /is too large$/);
-  assert.match(validateAssistantToolCall('create_invoice', sale([{ ...line(1, 100), gstRate: 99 }])).error, /must be <= 28/);
+  assert.match(validateAssistantToolCall('create_invoice', sale([{ ...line(1, 100), gstRate: 99 }])).error, /must be <= 40/);
 });
 
 test('a document at the limit posts with the figures its preview showed, and one over it posts nothing', async () => {

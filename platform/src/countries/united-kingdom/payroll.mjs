@@ -1,7 +1,7 @@
 import { taxYearOn, gbRule, toPence, toPounds, isIsoDate, daysBetween } from './rules.mjs';
 
 const UNIT = 10000;
-const CODE = /^(S|C)?(?:(K)(\d{1,6})|(\d{1,6})([LMNT])|(BR|D0|D1|D2|NT))$/;
+const CODE = /^(S|C)?(?:(K)(\d{1,6})|(\d{1,6})([LMNT])|(BR|D0|D1|D2|D3|NT))$/;
 const PLANS = Object.freeze(['plan1', 'plan2', 'plan4', 'plan5']);
 const PENSION_BASES = Object.freeze(['net-pay', 'relief-at-source']);
 

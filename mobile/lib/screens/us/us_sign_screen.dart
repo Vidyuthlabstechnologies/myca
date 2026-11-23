@@ -421,7 +421,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
       children: [
         Text(wholeWords(resuming ? 'Finish e-filing' : 'Ready to e-file'), style: text.headlineMedium),
         const SizedBox(height: 8),
-        Text(owed ? 'You owe ${dollars(ctx.review.owed)}.' : 'Your refund is ${dollars(ctx.review.refund)}.', style: text.titleMedium),
+        Text(owed ? 'You owe ${dollars(ctx.review.owed)}.' : ctx.review.refund > 0 ? 'Your refund is ${dollars(ctx.review.refund)}.' : 'You break even with the IRS.', style: text.titleMedium),
         const SizedBox(height: 12),
         Text(
           ctx.tins?.signed == true
@@ -615,7 +615,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                   const SizedBox(height: 8),
                   if (_signedSummary.isNotEmpty) Text(_signedSummary, style: text.bodyMedium),
                   const SizedBox(height: 8),
-                  Text(owed ? 'You owe ${dollars(ctx.review.owed)}.' : 'Your refund is ${dollars(ctx.review.refund)}.', style: text.titleMedium),
+                  Text(owed ? 'You owe ${dollars(ctx.review.owed)}.' : ctx.review.refund > 0 ? 'Your refund is ${dollars(ctx.review.refund)}.' : 'You break even with the IRS.', style: text.titleMedium),
                   if (ctx.states?.worthShowing ?? false) _stateFiling(ctx.states!),
                   if (ctx.efile.sandbox) ...[
                     const SizedBox(height: 12),

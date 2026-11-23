@@ -41,6 +41,7 @@ import { inWords } from '../../platform/src/words.mjs';
 import { createInbound, INBOUND_HEADER, relayTokenMatches } from './inbound.mjs';
 import { createWhatsApp } from './whatsapp.mjs';
 import { chatText, withChatLanguage } from './chat-text.mjs';
+import { parseRequestJson } from './request-json.mjs';
 import { htmlEscape } from '../../platform/src/text-safe.mjs';
 import { DEMO_BLOCKED_ACTIONS, seedDemo } from './demo.mjs';
 import { createRateLimits, LIMITS } from './rate-limits.mjs';
@@ -94,7 +95,7 @@ const OWNER_ONLY_POSTS = new Map([
 
 const WRITES = new Set(['replace', 'uploads', 'propose', 'confirm', 'connector-sync', 'plaid-exchange', 'gusto-connect']);
 
-export const PROPOSABLE = new Set(['sign_us_return', 'file_us_return', 'import_payroll_tax_forms', 'import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'ims_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'set_business_address', 'set_party_address', 'set_sku_cost', 'register_offline_device', 'post_offline_sales', 'catalogue_settings', 'loyalty_settings', 'catalogue_items', 'store_order_action', 'loyalty_adjust', 'import_sku_costs', 'record_stock', 'set_costing_method', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note', 'record_collection_reminder', 'record_payment_run', 'attach_document', 'approve_payroll', 'record_salary_payment', 'tds_review_answer', 'record_gst_payment', 'close_year', 'set_transport', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_suta_rate', 'add_recurring', 'stop_recurring', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer', 'set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'import_us_prior_year', 'start_us_amended_return', 'set_us_amended_return']);
+export const PROPOSABLE = new Set(['sign_us_return', 'file_us_return', 'import_payroll_tax_forms', 'import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'save_report', 'delete_report', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'ims_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'set_business_address', 'set_party_address', 'set_sku_cost', 'register_offline_device', 'post_offline_sales', 'catalogue_settings', 'loyalty_settings', 'catalogue_items', 'store_order_action', 'loyalty_adjust', 'import_sku_costs', 'record_stock', 'set_costing_method', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note', 'record_collection_reminder', 'record_payment_run', 'attach_document', 'approve_payroll', 'record_salary_payment', 'tds_review_answer', 'record_gst_payment', 'close_year', 'set_transport', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_suta_rate', 'add_recurring', 'stop_recurring', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer', 'set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'import_us_prior_year', 'start_us_amended_return', 'set_us_amended_return']);
 
 const NOT_A_PLACE_OF_BUSINESS = new Set(['97', '99']);
 
@@ -244,7 +245,7 @@ function createBodyReaders(budget) {
     if (!body.length) return {};
     let parsed;
     try {
-      parsed = JSON.parse(body.toString('utf8'));
+      parsed = parseRequestJson(body.toString('utf8'));
     } catch {
       throw httpError(400, 'INVALID_JSON');
     }
@@ -252,6 +253,14 @@ function createBodyReaders(budget) {
   }
 
   return { readRaw, readJson, release };
+}
+
+function decodedSegment(segment) {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return '';
+  }
 }
 
 function bearer(req) {
@@ -391,6 +400,27 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     const paid = await billing.usFilingAllowed(businessId, pending.args?.taxYear);
     return paid.ok ? null : paid;
   }
+  async function chatInBooks(session, { businessId, userId, actor, asker = actor, message, address = '', canPost = { ok: true } }) {
+    if (!canPost.ok) return readOnlyChat(session, message, asker);
+    if (await unpaidFiling(businessId, session)) await session.discard(actor);
+    const unprotected = await secondStepMissing(userId, session.state.pendingChatAction?.name);
+    if (unprotected && confirmationIntent(message) && confirmationIntent(message) !== 'cancel') {
+      await session.discard(actor);
+      return { reply: unprotected.hint, tools: [], error: unprotected.error };
+    }
+    await withServerFactors(userId, session.state.pendingChatAction, address);
+    // A "yes" in chat can confirm a pending US filing, which must reach the partner the same way.
+    const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, userId, () => session.chat(message, asker)) : await session.chat(message, asker);
+    const unpaid = await unpaidFiling(businessId, session);
+    if (!unpaid) return out;
+    await session.discard(actor);
+    return { reply: unpaid.hint, tools: [], error: unpaid.error };
+  }
+
+  async function whatsAppChat(session, { businessId, userId, actor, message }) {
+    const canPost = await billing.allows(businessId, 'post');
+    return chatInBooks(session, { businessId, userId, actor, message, canPost });
+  }
   const billing = billingGiven || createBilling({ db, now, log });
   const govt = createGovtActions({ connectors, withBooks: (...args) => runner.withBooks(...args), fetchFn: gspFetch });
   const gstPortal = createGstPortal({ db, connectors, withBooks: (...args) => runner.withBooks(...args), billing, key: connectorKey, fetchFn: gspFetch, now });
@@ -406,7 +436,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const growth = createGrowth({ db, now, siteUrl: growthConfig.siteUrl ?? process.env.MYCA_SITE_URL ?? '', reward: growthConfig.reward ?? process.env.MYCA_REFERRAL_REWARD ?? '' });
   const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain }, storedBytes: (businessId) => businesses.storedBytes(businessId), limitBytes: MAX_BUSINESS_BYTES });
   const rateLimits = createRateLimits({ db, now, limits: limitsGiven });
-  const whatsApp = createWhatsApp({ db, withBooks, billing, withSharedBooks: runner.withSharedBooks, syncOf, rateLimits, config: whatsapp, sender: whatsappSender, now, log });
+  const whatsApp = createWhatsApp({ db, withBooks, billing, withSharedBooks: runner.withSharedBooks, syncOf, rateLimits, config: whatsapp, sender: whatsappSender, now, log, chat: (session, how) => whatsAppChat(session, how), consented: (userId) => consent.accepted(userId) });
   const consent = createConsent({ db, now, notices: noticesFor(hostedCountries()) });
   const usConsents = createUsConsents({ db, now, environment });
   const privacyRequests = createPrivacyRequests({ db, now });
@@ -552,7 +582,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     }
 
     if (parts[1] === 'auth' && method === 'POST') {
-      if (parts[2] !== 'otp' && parts[2] !== 'logout') await throttle('signIn', clientAddress(req));
+      if (parts[2] !== 'otp' && parts[2] !== 'logout' && parts[2] !== 'refresh') await throttle('signIn', clientAddress(req));
       const body = await readJson(req);
       if (parts[2] === 'otp') return auth.requestOtp(body.phone, clientAddress(req));
       if (parts[2] === 'verify') return withConsent(await auth.verifyOtp(body));
@@ -649,7 +679,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     if (parts[1] === 'me' && parts[2] === 'us-consents') {
       if (parts.length === 3 && method === 'GET') return usConsents.list(user.userId);
       if (parts.length === 3 && method === 'POST') return usConsents.sign(user.userId, user.deviceId, await readJson(req));
-      if (parts.length === 4 && method === 'DELETE') return usConsents.revoke(user.userId, decodeURIComponent(parts[3]));
+      if (parts.length === 4 && method === 'DELETE') return usConsents.revoke(user.userId, decodedSegment(parts[3]));
       throw httpError(404, 'NOT_FOUND');
     }
 
@@ -990,9 +1020,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (action === 'invitations') {
         const team = await billing.allows(businessId, 'team');
         if (!team.ok) return team;
-        const seats = await billing.withinLimit(businessId, 'members', (await businesses.members(businessId)).length + (await members.seatsHeld(businessId, body.phone)));
-        if (!seats.ok) return seats;
-        return members.invite(businessId, context, body);
+        return members.invite(businessId, context, body, { seatsAllowed: (used) => billing.withinLimit(businessId, 'members', used) });
       }
       if (action === 'inbound') return inbound.create(businessId, context, body);
       if (action === 'connectors') {
@@ -1083,22 +1111,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
         const asker = withChatLanguage(actor, body.lang);
         const canPost = await billing.allows(businessId, 'post');
-        return withBooks(businessId, context, async (session) => {
-          if (!canPost.ok) return readOnlyChat(session, message, asker);
-          if (await unpaidFiling(businessId, session)) await session.discard(actor);
-          const unprotected = await secondStepMissing(user.userId, session.state.pendingChatAction?.name);
-          if (unprotected && confirmationIntent(message) && confirmationIntent(message) !== 'cancel') {
-            await session.discard(actor);
-            return { reply: unprotected.hint, tools: [], error: unprotected.error };
-          }
-          await withServerFactors(user.userId, session.state.pendingChatAction, clientAddress(req));
-          // A "yes" in chat can confirm a pending US filing, which must reach the partner the same way.
-          const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, user.userId, () => session.chat(message, asker)) : await session.chat(message, asker);
-          const unpaid = await unpaidFiling(businessId, session);
-          if (!unpaid) return out;
-          await session.discard(actor);
-          return { reply: unpaid.hint, tools: [], error: unpaid.error };
-        });
+        return withBooks(businessId, context, (session) => chatInBooks(session, { businessId, userId: user.userId, actor, asker, message, address: clientAddress(req), canPost }));
       }
       if (action === 'company') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');

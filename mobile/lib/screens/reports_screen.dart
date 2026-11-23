@@ -182,7 +182,9 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    if (reports.isEmpty)
+                    if (snap.hasError)
+                      LoadFailed(onRetry: () => setState(() => _reports = _load()))
+                    else if (reports.isEmpty)
                       EmptyNote(text: s.noSavedReports)
                     else ...[
                       SectionLabel(s.yourReports),

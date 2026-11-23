@@ -95,6 +95,7 @@ class UaeStrings {
   String get checkBeforeFiling => _('Check before you file', 'راجع قبل التقديم');
   String get couldNotWorkOut => _('Could not work this out.', 'تعذّر الاحتساب.');
   String get tryAgain => _('Try again', 'حاول مرة أخرى');
+  String get couldNotLoad => _('Could not load.', 'تعذّر التحميل.');
   String get noLines => _('No sales or bills in this period yet.', 'لا توجد مبيعات أو فواتير مشتريات في هذه الفترة بعد.');
   String get unreviewed => _('From dated rules a UAE tax adviser has not reviewed yet.', 'من قواعد مؤرّخة لم يراجعها مستشار ضريبي في الإمارات بعد.');
 

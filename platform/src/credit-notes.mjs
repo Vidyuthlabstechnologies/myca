@@ -100,6 +100,7 @@ function scaledLines(invoice, fraction, company) {
       ...(line.unit ? { unit: line.unit } : {}),
       rate: line.rate,
       gstRate: line.gstRate,
+      ...(Number(line.gstRate || 0) === 0 && line.supply ? { supply: line.supply } : {}),
       taxable,
       cgst: split.cgst,
       sgst: split.sgst,

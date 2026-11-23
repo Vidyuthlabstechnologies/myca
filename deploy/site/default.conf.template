@@ -34,6 +34,10 @@ server {
     return 404;
   }
 
+  location = /us/ {
+    return 301 /us;
+  }
+
   location / {
     try_files $uri $uri.html $uri/ =404;
   }

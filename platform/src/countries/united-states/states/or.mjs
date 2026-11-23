@@ -1,4 +1,4 @@
-import { whole, positive, rateOf, ratio, check, lineTable, byStatus, sum } from '../state-kit.mjs';
+import { whole, positive, rateOf, ratio, check, lineTable, byStatus, sum, homeStateCreditCheck } from '../state-kit.mjs';
 
 const JOINT_RATES = new Set(['mfj', 'hoh', 'qss']);
 
@@ -504,7 +504,7 @@ function compute(ctx, filing, reader) {
   const deductions = reader.read('deductions');
   const credits = reader.read('credits');
   if (!rule || !fedRule || !deductions || !credits) return { ok: false, error: 'STATE_RULE_MISSING', why: `MyCA has no Oregon figures for ${ctx.taxYear}.` };
-  const checks = [];
+  const checks = [...homeStateCreditCheck(filing, credits.otherStateExcluded)];
   commonChecks(ctx, filing, checks);
   if (filing.residency === 'full-year') return residentReturn(ctx, filing, rule, fedRule, deductions, credits, checks);
   return npReturn(ctx, filing, rule, fedRule, deductions, credits, checks);

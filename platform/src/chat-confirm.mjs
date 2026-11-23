@@ -19,13 +19,14 @@ import { enginePreview, engineBooks } from './countries/engines.mjs';
 import { salesTaxRatePreview, contractorPreview, nexusPreview, salesTaxReviewAnswerPreview, salesTaxPaymentPreview, salesTaxFilingPreview, sutaRatePreview, withholdingPreview, payrollImportPreview, usImportPreview } from './confirm-us.mjs';
 import { gstPaymentPreview, advanceTaxPreview, creditOpeningPreview, deductorPreview, tdsDepositPreview, filingPreview, reviewAnswerPreview, tdsReviewAnswerPreview, gstr2bPreview, imsPreview, registrationPreview, retireRegistrationPreview, tcsStatementPreview, credits26asPreview, tdsWithheldPreview, billTdsPreview, irnPreview } from './confirm-tax.mjs';
 import { amendmentPreview, documentPreview, receiptPreview, paymentPreview, paymentRunPreview, supplierBankPreview, purchaseOrderPreview, collectionReminderPreview, supplierReminderPreview, expensePreview, creditNotePreview, debitNotePreview, purchaseNotePreview, supplierNotePreview, reminderPreview, completeReminderPreview, invoiceTemplatePreview, invoiceNumberingPreview, transportPreview, businessAddressPreview, addressPreview, termsPreview, supplierTermsPreview, recurringPreview, stopRecurringPreview, quotePreview, markQuotePreview, convertPreview } from './confirm-sales-purchases.mjs';
-import { payrollApprovalPreview, salaryPaymentPreview, employeePreview, salaryChangePreview, leavingPreview } from './confirm-payroll.mjs';
+import { payrollApprovalPreview, salaryPaymentPreview, employeePreview, salaryChangePreview, leavingPreview, employeeBankPreview } from './confirm-payroll.mjs';
 import { yearClosePreview, tallyPushPreview, attachDocumentPreview, skuSupplyPreview, monthClosePreview, cashReadingPreview, askPreview, replyPreview, closePreview, tallyPreview, matchPreview, unmatchPreview, chargesPreview, addRulePreview, removeRulePreview, runRulesPreview, setAccountPreview, transferPreview, bankPreview, zohoPreview, inventoryValuationPreview, skuCostPreview, skuCostsImportPreview, catalogueSettingsPreview, catalogueItemsPreview, storeOrderActionPreview, channelIdentityPreview, stockTransferPreview, stockPreview, ordersPreview, settlementPreview, posImportPreview, xmlPreview, exceptionPreview, loyaltySettingsPreview, loyaltyAdjustPreview, costingMethodPreview } from './confirm-books.mjs';
 
 import { documentStockPlan, withItemUnits } from './document-stock.mjs';
 import { checkConvert, invoiceArgsFromQuote } from './quotes.mjs';
 
 import { offlineDevicePreview, offlineSalesPreview } from './offline-sales.mjs';
+import { saveReportPreview, deleteReportPreview } from './reports.mjs';
 
 export { TDS_REASONS, rowsCounted } from './confirm-tax.mjs';
 
@@ -68,6 +69,9 @@ function countSkips(skipped = []) {
 }
 
 const PREVIEWERS = {
+  save_report: saveReportPreview,
+  delete_report: deleteReportPreview,
+  set_employee_bank: employeeBankPreview,
   sign_us_return: signPreview,
   file_us_return: filePreview,
   import_payroll_tax_forms: importPayrollTaxFormsPreview,
@@ -193,7 +197,7 @@ export function persistablePending(pending) {
 
 export function restoredPending(raw) {
   if (!raw || typeof raw !== 'object' || typeof raw.token !== 'string' || typeof raw.name !== 'string') return null;
-  if (!CONFIRM_TOOLS.has(raw.name)) return null;
+  if (!proposable(raw.name)) return null;
   return raw;
 }
 
@@ -204,6 +208,12 @@ export function restoredConfirmation(raw) {
 
 export function needsConfirmation(name) {
   return CONFIRM_TOOLS.has(name);
+}
+
+export const FORM_PREVIEW_TOOLS = new Set(['save_report', 'delete_report', 'set_employee_bank']);
+
+export function proposable(name) {
+  return CONFIRM_TOOLS.has(name) || FORM_PREVIEW_TOOLS.has(name);
 }
 
 export function previewOf(state, name, args = {}) {
@@ -219,9 +229,21 @@ export function previewOf(state, name, args = {}) {
   }
 }
 
+function proposerOf(state) {
+  return String(state?.__actor?.userId || '');
+}
+
+export function pendingFor(state) {
+  const pending = state?.pendingChatAction;
+  if (!pending) return null;
+  const by = String(pending.proposedBy || '');
+  return !by || by === proposerOf(state) ? pending : null;
+}
+
 export function openPending(state, plan, preview, now = Date.now()) {
   const pending = {
     token: randomBytes(6).toString('hex'),
+    proposedBy: proposerOf(state),
     name: plan.name,
     args: preview.pinned || plan.args,
     clearsPendingFile: Boolean(plan.clearsPendingFile),
@@ -248,7 +270,7 @@ export function confirmationIntent(text) {
 
 // A pending action is single use and expires, so a stray "yes" much later posts nothing.
 export function takePending(state, intent, now = Date.now()) {
-  const pending = state.pendingChatAction;
+  const pending = pendingFor(state);
   if (!pending) return { ok: false, error: 'NOTHING_PENDING' };
   clearPending(state);
   if (Date.parse(pending.expiresAt) <= now) return { ok: false, error: 'EXPIRED', pending };

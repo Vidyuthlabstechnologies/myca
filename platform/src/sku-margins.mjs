@@ -74,7 +74,7 @@ export function planSkuCost(state, args = {}) {
   const name = args.name != null ? String(args.name).trim().slice(0, 120) : before?.name || '';
   const hsn = args.hsn != null ? String(args.hsn).trim().slice(0, 8) : before?.hsn || '';
   const gstRate = args.gstRate == null || args.gstRate === '' ? before?.gstRate ?? null : Number(args.gstRate);
-  if (gstRate != null && !(Number.isFinite(gstRate) && gstRate >= 0 && gstRate <= 28)) return { ok: false, error: 'BAD_RATE' };
+  if (gstRate != null && !(Number.isFinite(gstRate) && gstRate >= 0 && gstRate <= 40)) return { ok: false, error: 'BAD_RATE' };
   const barcode = args.barcode != null ? String(args.barcode).replace(/\s/g, '').slice(0, 32) : before?.barcode || '';
   if (barcode && !/^[0-9A-Za-z-]{4,32}$/.test(barcode)) return { ok: false, error: 'BAD_BARCODE' };
   const price = args.price == null || args.price === '' ? before?.price ?? null : round2(args.price);

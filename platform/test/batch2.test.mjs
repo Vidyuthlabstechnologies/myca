@@ -69,9 +69,9 @@ test('Form 16A and Form 16 drafts come from the statement and the payroll months
   assert.equal(c.tdsDeducted, 6000);
   assert.equal(c.challans[0].challan, 'BSR1234567');
   assert.equal(c.challans[0].covers, 6000);
-  assert.match(d.csv.split(/\r?\n/)[1], /^16A\/Q3-2026-27\/001,Rao & Co,AAAFR1234K,194J,Q3 2026-27,2026-10-05,60000,10,6000$/);
+  assert.match(d.csv.split(/\r?\n/)[1], /^131\/Q3-2026-27\/001,Rao & Co,AAAFR1234K,194J,Q3 2026-27,2026-10-05,60000,10,6000$/);
   const reply = await chat(state, 'form 16a');
-  assert.match(reply.reply, /Form 16A drafts for Q3 2026-27: 1 deductee, TDS ₹6,000\.00 deducted, ₹6,000\.00 deposited/);
+  assert.match(reply.reply, /Form 131 \(was Form 16A\) drafts for Q3 2026-27: 1 deductee, TDS ₹6,000\.00 deducted, ₹6,000\.00 deposited/);
 
   await runTool(state, 'add_employee', { name: 'Arjun Rao', joinedOn: '2026-04-01', components: [{ name: 'Basic', amount: 100000 }, { name: 'HRA', amount: 50000 }], ptState: '27', sex: 'male', taxRegime: 'new', pan: 'ABCPR1234L' });
   for (const period of ['2026-04', '2026-05', '2026-06', '2026-07']) assert.equal((await runTool(state, 'approve_payroll', { period })).ok, true, period);
@@ -85,7 +85,7 @@ test('Form 16A and Form 16 drafts come from the statement and the payroll months
   assert.ok(e.partA.length >= 1);
   assert.equal(e.partA[0].quarter, 'Q1 2026-27');
   assert.ok(e.partA[0].tdsDeducted > 0);
-  assert.equal(f16.data.fileName, 'Form16_MUMA12345B_2026-27.csv');
+  assert.equal(f16.data.fileName, 'Form130_MUMA12345B_2026-27.csv');
 });
 
 test('the ESI contribution due date appears once a payroll month has ESI, from a dated rule', async () => {

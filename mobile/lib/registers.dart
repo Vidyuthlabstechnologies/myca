@@ -181,12 +181,12 @@ bool hasPartyNamed(List<Party> parties, String name) =>
 num? parseAmount(String text) {
   final cleaned = text.replaceAll(',', '').replaceAll('₹', '').trim();
   final value = num.tryParse(cleaned);
-  return value == null || value <= 0 ? null : value;
+  return value == null || !value.isFinite || value <= 0 ? null : value;
 }
 
 num? parseRate(String text) {
   final value = num.tryParse(text.replaceAll('%', '').trim());
-  return value == null || value < 0 ? null : value;
+  return value == null || !value.isFinite || value < 0 ? null : value;
 }
 
 class HeadThread {

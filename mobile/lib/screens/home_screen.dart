@@ -395,7 +395,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   trailing: const Chevron(),
                   onTap: () => _open(const CashScreen()),
                 ),
-                if (company.country != 'AE')
+                if (company.country != 'AE' && company.country != 'US')
                 if (!uk)
                 RowCard(
                   leading: const TintTile(tint: Tint.sales, mark: Mark.otherApp),
@@ -454,7 +454,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.people),
-                  title: company.country == 'AE' ? s.yourAccountant : uk ? 'Your accountant' : inText(context, 'Your CA'),
+                  title: company.country == 'AE' ? s.yourAccountant : uk || company.country == 'US' ? 'Your accountant' : inText(context, 'Your CA'),
                   subtitle: s.yourAccountantSubtitle,
                   trailing: const Chevron(),
                   onTap: () => _open(const CaScreen()),

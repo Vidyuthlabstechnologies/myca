@@ -80,6 +80,7 @@ const EXACT = new Map(Object.entries({
   'Give the tax period as periodStart and periodEnd dates (YYYY-MM-DD), usually the financial year.': 'أدخل الفترة الضريبية بتاريخي البداية والنهاية (YYYY-MM-DD)، وهي عادةً السنة المالية.',
   'A tax period is twelve months; only a first or changed period may run to eighteen.': 'الفترة الضريبية اثنا عشر شهرًا؛ ويجوز أن تمتد الفترة الأولى أو المعدّلة إلى ثمانية عشر شهرًا.',
   'UAE Corporate Tax applies to tax periods starting on or after 1 June 2023.': 'تطبَّق ضريبة الشركات في الإمارات على الفترات الضريبية التي تبدأ في 1 يونيو 2023 أو بعده.',
+  'A Corporate Tax return is still filed on EmaraTax by the due date, with the relief elected.': 'يظل تقديم إقرار ضريبة الشركات عبر EmaraTax واجبًا في موعده، مع اختيار الإعفاء فيه.',
   'A loss made in a Small Business Relief period cannot be carried forward. Not electing keeps the loss for later years.': 'لا تُرحَّل الخسارة المتكبدة في فترة إعفاء الأعمال الصغيرة. عدم اختيار الإعفاء يحفظ الخسارة للسنوات اللاحقة.',
   'This business qualifies for Small Business Relief, which would make the tax AED 0. Elect it on the return if it suits (losses of relief years are not carried forward).': 'هذه المنشأة مؤهلة لإعفاء الأعمال الصغيرة، فتصبح الضريبة 0 درهم. اختره في الإقرار إن كان مناسبًا (خسائر سنوات الإعفاء لا تُرحَّل).',
   'Qualifying income is larger than the adjusted profit; it was capped at the adjusted profit.': 'الدخل المؤهل أكبر من الربح المعدّل، فتم حصره في حدود الربح المعدّل.',

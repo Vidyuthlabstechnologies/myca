@@ -439,7 +439,7 @@ Future<void> pumpUk(WidgetTester tester, GbFakeApi api, Widget screen, {List<Uri
   await tester.pumpWidget(
     AppScope(
       state: gbState(api, opened: opened),
-      child: MaterialApp(theme: MycaDesign.forFlavor('uk').light, home: screen),
+      child: MaterialApp(theme: MycaDesign.forFlavor('uk').light, darkTheme: MycaDesign.forFlavor('uk').dark, home: screen),
     ),
   );
   await tester.pumpAndSettle();

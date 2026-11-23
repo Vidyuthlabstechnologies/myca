@@ -280,7 +280,7 @@ export function gbSelfAssessment(args = {}) {
   let paymentsOnAccount = 0;
   let poaReason = '';
   if (relevant < poaRule.minimumBalancePence) poaReason = 'The tax not deducted at source is under £1,000, so no payments on account are due for next year.';
-  else if (liabilityForPoa && share(liabilityForPoa, poaRule.atSourceShareBasisPoints) <= atSource) poaReason = 'More than 80% of the tax was deducted at source, so no payments on account are due for next year.';
+  else if (liabilityForPoa && atSource * 10000 > liabilityForPoa * poaRule.atSourceShareBasisPoints) poaReason = 'More than 80% of the tax was deducted at source, so no payments on account are due for next year.';
   else paymentsOnAccount = share(relevant, poaRule.shareBasisPoints);
   const poaMade = positivePence(args.paymentsOnAccountMade);
   const totalDue = incomeTaxAndHicbc + class4 + class2 + loanDue + cgt.taxPence;

@@ -124,13 +124,13 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
   }
 
   Future<void> _creditNote(InvoiceDocument doc) async {
-    final result = await showModalBottomSheet<(num?, String)>(
+    final result = await showModalBottomSheet<(num?, String, bool)>(
       context: context,
       isScrollControlled: true,
       builder: (sheet) => _CreditNoteSheet(doc: doc),
     );
     if (result == null || !mounted) return;
-    final (amount, reason) = result;
+    final (amount, reason, restock) = result;
     await propose(
       amount == null
           ? inFormat(context, 'Credit note for the whole of {id}: {reason}', {'id': doc.id, 'reason': reason})
@@ -141,6 +141,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
         'date': isoDate(AppScope.of(context).now()),
         'reason': reason,
         'amount': ?amount,
+        if (restock) 'restock': true,
       },
     );
   }
@@ -217,13 +218,13 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
   }
 
   Future<void> _debitNote(InvoiceDocument doc) async {
-    final result = await showModalBottomSheet<(num?, String)>(
+    final result = await showModalBottomSheet<(num?, String, bool)>(
       context: context,
       isScrollControlled: true,
       builder: (sheet) => _CreditNoteSheet(doc: doc, debit: true),
     );
     if (result == null || !mounted) return;
-    final (amount, reason) = result;
+    final (amount, reason, _) = result;
     await propose(
       inFormat(context, 'Debit note of {amount} against {id}: {reason}', {'amount': rupees(amount ?? 0), 'id': doc.id, 'reason': reason}),
       'create_debit_note',
@@ -861,7 +862,7 @@ class _InvoiceBody extends StatelessWidget {
                 ),
               if (onAskCa != null)
                 ActionChip(
-                  label: Text(inText(context, 'Ask my CA')),
+                  label: Text(plainAccountant(context) ? 'Ask my accountant' : inText(context, 'Ask my CA')),
                   onPressed: busy ? null : onAskCa,
                 ),
               if (onCreditNote != null)
@@ -1111,6 +1112,7 @@ class _CreditNoteSheetState extends State<_CreditNoteSheet> {
   final _amount = TextEditingController();
   final _reason = TextEditingController();
   String _error = '';
+  bool _restock = false;
 
   @override
   void dispose() {
@@ -1140,7 +1142,10 @@ class _CreditNoteSheetState extends State<_CreditNoteSheet> {
         );
       }
     }
-    Navigator.of(context).pop((amount, reason));
+    if (_restock && amount != null) {
+      return setState(() => _error = inText(context, 'Only a credit note for the whole invoice puts goods back in stock. Leave the amount blank, or record a part return with Stock in.'));
+    }
+    Navigator.of(context).pop((amount, reason, _restock && !widget.debit));
   }
 
   @override
@@ -1188,6 +1193,14 @@ class _CreditNoteSheetState extends State<_CreditNoteSheet> {
             textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(labelText: inText(context, 'Reason')),
           ),
+          if (!widget.debit && widget.doc.country == 'IN')
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _restock,
+              onChanged: (value) => setState(() => _restock = value),
+              title: Text(inText(context, 'Goods came back into stock')),
+              subtitle: Text(inText(context, 'For the whole invoice only: the stock items sold on it go back into stock.')),
+            ),
           if (_error.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(

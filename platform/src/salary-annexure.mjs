@@ -1,4 +1,5 @@
 import { incomeTax } from './sprint-load.mjs';
+import { formLabel, formNumber } from './it-act-forms.mjs';
 import { csvRows } from './text-safe.mjs';
 import { localToday } from './dates.mjs';
 import { salaryPrivate } from './employees.mjs';
@@ -75,13 +76,14 @@ export function salaryAnnexureII(state, args = {}) {
     data: {
       fy,
       form: '24Q Annexure II',
+      formName: `${formLabel('salaryStatement', fy)} Annexure II`,
       employees: rows.length,
       rows,
       totals: { grossSalary: sum('grossSalary'), professionalTax: sum('professionalTax'), taxOnTotalIncome: sum('taxOnTotalIncome'), tdsDeducted: sum('tdsDeducted'), shortfall: sum('shortfall'), excess: sum('excess') },
       months: runs.map((run) => run.period),
       unreviewed: runs.some((run) => run.unreviewed),
       notes: [...notes, ...(runs.some((run) => run.unreviewed) ? ['The slabs and limits come from MyCA\'s dated rules, which your CA has not reviewed yet.'] : [])],
-      fileName: `24Q_AnnexureII_${tan || 'books'}_${fy}.csv`,
+      fileName: `${formNumber('salaryStatement', fy)}_AnnexureII_${tan || 'books'}_${fy}.csv`,
       csv: csvRows([
         ['employee_id', 'name', 'pan', 'regime', 'months_paid', 'gross_salary', 'professional_tax_16iii', 'standard_deduction_16ia', 'provident_fund_80c', 'total_income', 'tax_on_total_income', 'tds_deducted', 'shortfall', 'excess'],
         ...rows.map((row) => [row.employeeId, row.name, row.pan, row.regime, row.monthsPaid, row.grossSalary, row.professionalTax, row.standardDeduction, row.providentFund80C, row.totalIncome, row.taxOnTotalIncome, row.tdsDeducted, row.shortfall, row.excess]),
@@ -92,7 +94,7 @@ export function salaryAnnexureII(state, args = {}) {
 
 export function annexureWords(data, money) {
   if (!data.rows.length) return `No salary month of ${data.fy} is approved in MyCA yet, so Annexure II has no rows.`;
-  const lines = [`24Q Annexure II for ${data.fy} (${data.employees === 1 ? '1 employee' : `${data.employees} employees`}, ${data.months.length === 1 ? '1 month' : `${data.months.length} months`} run):`];
+  const lines = [`${data.formName || '24Q Annexure II'} for ${data.fy} (${data.employees === 1 ? '1 employee' : `${data.employees} employees`}, ${data.months.length === 1 ? '1 month' : `${data.months.length} months`} run):`];
   for (const row of data.rows) lines.push(`· ${row.name}${row.pan ? ` (${row.pan})` : ' (no PAN)'}, ${row.regime} regime: salary ${money(row.grossSalary)}, tax ${money(row.taxOnTotalIncome)}, TDS ${money(row.tdsDeducted)}${row.shortfall > 0 ? `, short ${money(row.shortfall)}` : row.excess > 0 ? `, excess ${money(row.excess)}` : ''}`);
   lines.push(`Totals: tax ${money(data.totals.taxOnTotalIncome)}, TDS ${money(data.totals.tdsDeducted)}. Saved as ${data.fileName} from the payroll screen.`);
   if (data.notes.length) lines.push(data.notes.join(' '));

@@ -96,3 +96,8 @@ export function form1098PropertyTax(ctx) {
 export function answered(answers, id) {
   return answers?.[id] !== undefined && answers?.[id] !== null && answers?.[id] !== '';
 }
+
+export function homeStateCreditCheck(filing, homeStates) {
+  if (filing.residency !== 'nonresident' || !filing.homeState || !homeStates.includes(filing.homeState)) return [];
+  return [check('error', 'HOME_STATE_CREDIT_NOT_COMPUTED', `${filing.homeState} gives its residents no credit for tax paid to ${filing.stateName}; ${filing.stateName} gives a credit for the ${filing.homeState} tax on this nonresident return instead, which MyCA does not work out, so the ${filing.stateName} tax shown is too high.`, `Have your CPA work out the ${filing.stateName} credit for tax paid to ${filing.homeState}.`)];
+}

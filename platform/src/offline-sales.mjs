@@ -18,6 +18,7 @@ const SERIES_COUNT = (SERIES_LETTERS.length - FIRST_SERIES_LETTER) * SERIES_LETT
 const DEVICE_ID = new RegExp(OFFLINE_DEVICE_ID_PATTERN);
 const FIGURE_KEYS = ['taxable', 'cgst', 'sgst', 'igst', 'total'];
 const NOT_OFFLINE_STATES = new Set(['96']);
+const OTHER_MEMBER_HINT = 'This phone\'s offline invoice series was set up by another member of the business. Only that member can sync its bills; sign in as them, or bill online.';
 const UNREGISTERED_HINT = 'This phone is not registered for offline billing. Open the app online once so it gets its own invoice series, then sync again.';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
@@ -49,6 +50,20 @@ function nextSeriesCode(state) {
     if (!taken.has(code)) return code;
   }
   return '';
+}
+
+function memberOf(state) {
+  return String(state?.__actor?.userId || '');
+}
+
+function heldByOther(state, series) {
+  const member = memberOf(state);
+  return Boolean(series?.memberId && member && series.memberId !== member);
+}
+
+function claim(state, series) {
+  const member = memberOf(state);
+  if (member && !series.memberId) series.memberId = member;
 }
 
 function seriesOfDevice(state, deviceId) {
@@ -122,7 +137,7 @@ export function offlineKit(state, args = {}) {
       items,
       parties,
       openInvoices,
-      series: seriesView(seriesOfDevice(state, deviceId)),
+      series: heldByOther(state, seriesOfDevice(state, deviceId)) ? null : seriesView(seriesOfDevice(state, deviceId)),
     },
   };
 }
@@ -131,16 +146,20 @@ export function planOfflineDevice(state, args = {}) {
   const deviceId = cleanDeviceId(args.deviceId);
   if (!deviceId) return { ok: false, error: 'BAD_DEVICE_ID', hint: 'The phone sends its own device id, 8 to 64 letters, digits, - or _.' };
   const existing = seriesOfDevice(state, deviceId);
+  if (existing && heldByOther(state, existing)) return { ok: false, error: 'SERIES_OF_ANOTHER_MEMBER', hint: OTHER_MEMBER_HINT };
   if (existing) return { ok: true, existing, series: existing };
   const code = nextSeriesCode(state);
   if (!code) return { ok: false, error: 'SERIES_EXHAUSTED', hint: `All ${SERIES_COUNT} offline series are in use.` };
-  return { ok: true, existing: null, series: { code, deviceId, deviceName: cleanDeviceName(args.deviceName), registeredAt: '', lastNumberByFy: {} } };
+  return { ok: true, existing: null, series: { code, deviceId, deviceName: cleanDeviceName(args.deviceName), registeredAt: '', lastNumberByFy: {}, ...(memberOf(state) ? { memberId: memberOf(state) } : {}) } };
 }
 
 export function registerOfflineDevice(state, args = {}) {
   const planned = planOfflineDevice(state, args);
   if (!planned.ok) return planned;
-  if (planned.existing) return { ok: true, series: seriesView(planned.existing), created: false };
+  if (planned.existing) {
+    claim(state, planned.existing);
+    return { ok: true, series: seriesView(planned.existing), created: false };
+  }
   const series = { ...planned.series, registeredAt: new Date().toISOString() };
   state.offlineSeries = [...seriesList(state), series];
   return { ok: true, series: seriesView(series), created: true };
@@ -155,6 +174,7 @@ function batchProblem(state, args) {
   if (!deviceId) return { ok: false, error: 'BAD_DEVICE_ID', hint: 'The phone sends its own device id, 8 to 64 letters, digits, - or _.' };
   const series = seriesOfDevice(state, deviceId);
   if (!series) return { ok: false, error: 'UNKNOWN_DEVICE', deviceId, hint: UNREGISTERED_HINT };
+  if (heldByOther(state, series)) return { ok: false, error: 'SERIES_OF_ANOTHER_MEMBER', deviceId, hint: OTHER_MEMBER_HINT };
   const count = entryCount(args);
   if (!count) return { ok: false, error: 'NOTHING_TO_SYNC' };
   if (count > MAX_OFFLINE_ENTRIES) return { ok: false, error: 'TOO_MANY_ENTRIES', count, max: MAX_OFFLINE_ENTRIES, hint: `Send at most ${MAX_OFFLINE_ENTRIES} bills, receipts and items in one sync.` };
@@ -195,7 +215,7 @@ const REJECT_HINTS = {
   INVOICE_CANCELLED: 'That bill is cancelled, so nothing can be received against it.',
   BEFORE_INVOICE: 'A receipt cannot be dated before its bill.',
   BAD_AMOUNT: 'The amount must be more than zero.',
-  BAD_RATE: 'MyCA keeps an item\'s GST rate between 0 and 28.',
+  BAD_RATE: 'MyCA keeps an item\'s GST rate between 0 and 40.',
   BAD_BARCODE: 'A barcode is 4 to 32 letters, digits or -.',
   BARCODE_IN_USE: 'Another item already has this barcode.',
   CREDIT_NOTE_TIME_BARRED: 'The time to cancel this bill by a credit note has passed. Ask your CA.',
@@ -362,6 +382,7 @@ export function postOfflineSales(state, args = {}) {
   const checked = batchProblem(state, args);
   if (!checked.ok) return checked;
   const { series } = checked;
+  claim(state, series);
   const syncedAt = new Date().toISOString();
   const held = onHandBySku(state);
   const results = [];

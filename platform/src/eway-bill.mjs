@@ -192,6 +192,7 @@ export function ewayBillPartA(state, invoice) {
   const other = round2(total - taxable - cgst - sgst - igst - cessAdval - cessNonAdval);
   const fromState = stateCode(seller.Stcd);
   const toState = exported ? EXPORT_STATE : stateCode(buyer.Stcd);
+  const actToState = exported ? EXPORT_STATE : stateCode(buyer.Pos) || toState;
   const partA = {
     supplyType: 'O',
     subSupplyType: exported ? '3' : '1',
@@ -213,7 +214,7 @@ export function ewayBillPartA(state, invoice) {
     toAddr2: '',
     toPlace: clean(buyer.Loc, 50),
     toPincode: exported ? 999999 : Number(buyer.Pin),
-    actToStateCode: toState,
+    actToStateCode: actToState,
     toStateCode: toState,
     transactionType: 1,
     totalValue: taxable,

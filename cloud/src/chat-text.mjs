@@ -4,7 +4,7 @@ const LONG_RUN = /\s{4,}/g;
 export function chatText(value) {
   let text = '';
   try {
-    text = String(value ?? '');
+    text = value !== null && typeof value === 'object' ? '' : String(value ?? '');
   } catch {
     text = '';
   }

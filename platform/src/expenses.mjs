@@ -135,7 +135,7 @@ export function planExpense(state, args = {}) {
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'BAD_AMOUNT' };
   const us = countryOf(state) === 'US';
   const gstRate = us || args.gstRate == null || args.gstRate === '' ? 0 : Number(args.gstRate);
-  if (!Number.isFinite(gstRate) || gstRate < 0 || gstRate > 28) return { ok: false, error: 'BAD_RATE' };
+  if (!Number.isFinite(gstRate) || gstRate < 0 || gstRate > 40) return { ok: false, error: 'BAD_RATE' };
   const mode = args.mode == null || args.mode === '' ? 'bank' : String(args.mode).toLowerCase();
   if (mode !== 'bank' && mode !== 'cash') return { ok: false, error: 'BAD_MODE' };
   const description = String(args.narration ?? args.description ?? '').trim();

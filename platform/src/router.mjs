@@ -21,7 +21,7 @@ import { planLocalToolCall, validateAssistantToolCall } from './assistant-contra
 import { validateAppToolCall } from './assistant-tools.mjs';
 import { OFFLINE_TOOLS, offlineWords } from './offline-sales.mjs';
 import { imsWords, imsDecidedWords } from './ims.mjs';
-import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply, rowsCounted } from './chat-confirm.mjs';
+import { needsConfirmation, proposable, previewOf, openPending, takePending, clearPending, pendingFor, previewReply, blockedReply, rowsCounted } from './chat-confirm.mjs';
 import { referenceImportContent, resolveImportContent } from './import-documents.mjs';
 import { openPendingArgs } from './us-efile.mjs';
 import { spoken } from './words.mjs';
@@ -829,6 +829,7 @@ function fmtToolResultCore(name, result, args) {
   if ((name === 'dsc_certificates' || name === 'dsc_sign') && dscWords(name, result)) return dscWords(name, result);
   if (name === 'suggest_expense_head' && result.headName) return `${result.why} Say "record the expense" with the amount to post it.`;
   if (name === 'attach_document' && result.id) return `The document is kept with ${result.kind} ${result.id}${result.replaced ? ', replacing the earlier one' : ''}. Nothing was posted.`;
+  if (name === 'set_employee_bank' && result.employee) return `${result.employee.name} is paid into account ${result.employee.bankAccount}, ${result.employee.ifsc}, on the salary payout file.`;
   if (name === 'save_report' && result.report) return `Saved "${result.report.name}"${result.replaced ? ' (replacing the earlier one)' : ''}. Say "run report ${result.report.name}" any time.\n${reportWords('', result.result, money)}`;
   if (name === 'run_report' && result.result) return reportWords(result.name, result.result, money);
   if (name === 'list_reports' && result.reports) return result.reports.length ? `Saved reports:\n${result.reports.map((r) => `· ${r.name}: ${r.metric}${r.groupBy !== 'none' ? ` by ${r.groupBy}` : ''}, ${r.period}${r.compare ? ', compared with the period before' : ''}`).join('\n')}\nSay "run report <name>".` : 'No saved reports yet. Say "save report Top customers: sales by customer this month vs last month".';
@@ -1100,7 +1101,7 @@ function holdForConfirmation(state, plan, validate = validateAssistantToolCall) 
   if (!schemaCheck.ok) return { reply: notAccepted(schemaCheck.error), tools: [], blocked: true };
   const preview = previewOf(state, plan.name, resolved.args);
   if (preview.blockers.length) {
-    clearPending(state);
+    if (pendingFor(state)) clearPending(state);
     return { reply: blockedReply(preview), tools: [], posted: false, blocked: true, preview };
   }
   const pending = openPending(state, { ...plan, args: referenceImportContent(state, plan.name, plan.args) }, preview);
@@ -1116,7 +1117,7 @@ function holdForConfirmation(state, plan, validate = validateAssistantToolCall) 
 // A form on the phone already knows the tool and its arguments, so it skips the
 // text parser but not the preview: the same token must come back before anything posts.
 function proposeCore(state, name, args = {}) {
-  if (!needsConfirmation(name)) {
+  if (!proposable(name)) {
     return { reply: `${String(name)} is not an action that is previewed.`, tools: [], posted: false, blocked: true, error: 'NOT_PROPOSABLE' };
   }
   return holdForConfirmation(state, { name, args: args && typeof args === 'object' ? args : {} }, validateAppToolCall);
@@ -1155,14 +1156,14 @@ async function confirmCore(state, token) {
     return { reply: 'A confirmation needs the code from its preview.', tools: [], posted: false, error: 'TOKEN_REQUIRED' };
   }
   const last = state.lastConfirmation;
-  if (last && last.token === code && state.pendingChatAction?.token !== code) {
+  if (last && last.token === code && pendingFor(state)?.token !== code) {
     return { reply: last.reply, tools: [], posted: last.posted, confirmed: true, replayed: true };
   }
   return runConfirmation(state, { token: code });
 }
 
 function discardCore(state) {
-  const pending = state.pendingChatAction;
+  const pending = pendingFor(state);
   if (!pending) return { reply: NOTHING_PENDING, tools: [], posted: false };
   clearPending(state);
   return { reply: `Not posted: ${pending.summary || 'nothing was waiting'}`, tools: [], posted: false };

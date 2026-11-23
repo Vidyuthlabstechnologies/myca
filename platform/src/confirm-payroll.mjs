@@ -1,4 +1,4 @@
-import { planEmployee, planSalaryChange, planLeaving } from './employees.mjs';
+import { planEmployee, planSalaryChange, planLeaving, planEmployeeBank } from './employees.mjs';
 import { planApproval, planSalaryPayment, payrollWords } from './payroll.mjs';
 import { money } from './confirm-words.mjs';
 
@@ -21,6 +21,9 @@ const EMPLOYEE_REASONS = {
   BEFORE_JOINING: (p) => `That is before they joined on ${p.joinedOn}.`,
   AFTER_LEAVING: (p) => `That is after they left on ${p.leftOn}.`,
   ALREADY_LEFT: (p) => `They are already recorded as having left on ${p.leftOn}.`,
+  BAD_BANK_ACCOUNT: () => 'An account number is 9 to 18 digits.',
+  BAD_IFSC: () => 'An IFSC is 11 characters, like HDFC0001234, or a US routing number is 9 digits.',
+  BANK_DETAILS_REQUIRED: () => 'Give both the account number and the IFSC.',
 };
 
 function employeeBlocked(plan) {
@@ -111,5 +114,16 @@ export function leavingPreview(state, args) {
     summary: `${plan.employee.name} left; last day ${plan.leftOn}.`,
     effects: ['Their record and salary history are kept.', 'No final settlement is worked out.'],
     figures: { leftOn: plan.leftOn },
+  };
+}
+
+export function employeeBankPreview(state, args) {
+  const planned = planEmployeeBank(state, args);
+  if (!planned.ok) return employeeBlocked(planned);
+  return {
+    blockers: [],
+    summary: `Pay ${planned.employee.name} (${planned.employee.id}) into account ending ${planned.bankAccount.slice(-4)}, ${planned.ifsc}.`,
+    effects: ['Used only for the salary payout file. Nothing is posted to the books.'],
+    figures: {},
   };
 }

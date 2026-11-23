@@ -374,7 +374,8 @@ export function invoiceToNicPayload(company, inv, party = null) {
   const ownPin = sellerPin(company);
   const loc = String(company.city || '').trim() || String(company.address || '').split(',').map((part) => part.trim()).filter(Boolean).pop() || '';
   const buyerAddress = String(party?.address || '').trim();
-  const buyerState = exported ? '96' : inv.partyState || inv.registrationState || company.state;
+  const buyerGstinState = /^[0-9]{2}/.test(String(inv.partyGstin || '')) ? String(inv.partyGstin).slice(0, 2) : '';
+  const buyerState = exported ? '96' : buyerGstinState || inv.partyState || inv.registrationState || company.state;
   const items = (inv.lines || []).map((l, i) => ({
     SlNo: String(i + 1),
     IsServc: hsnOf(l).startsWith('99') ? 'Y' : 'N',

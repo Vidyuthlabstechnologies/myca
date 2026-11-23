@@ -63,7 +63,7 @@ test('advance tax annualises the year to date, applies the regime and credits, s
   assert.equal(after.paid, 50000);
   assert.equal(after.instalments[0].dueNow, Math.max(0, Math.round((after.net * 0.15 - 50000) * 100) / 100));
   assert.equal(trialBalance(state.ledger).balanced, true);
-  assert.ok(trialBalance(state.ledger).rows.some((r) => r.code === '1300' && r.debitsPosted === 50000));
+  assert.ok(trialBalance(state.ledger).rows.some((r) => r.code === '1170' && r.name === 'Advance tax paid' && r.debitsPosted === 50000));
   const back = deserialize(JSON.parse(JSON.stringify(serialize(state))));
   assert.equal(back.advanceTaxPayments.length, 1);
 });

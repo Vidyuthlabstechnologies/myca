@@ -284,36 +284,37 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     if (!out.ok) log({ billing: 'acknowledge_failed', status: out.status });
   }
 
-  async function applyFirmCredits(businessId, before, found) {
+  async function applyFirmCredits(q, businessId, before, found) {
     if (found.plan !== 'firm' || !LIVE_STATUSES.has(found.status) || !before?.currentEnd || !found.currentEnd) return 0;
     if (new Date(found.currentEnd).getTime() <= new Date(before.currentEnd).getTime()) return 0;
-    return db.tx(async (q) => {
-      const taken = await q(
-        "update referral_credits set status = 'applied', applied_at = $2 where firm_business_id = $1 and status = 'earned' returning months",
-        [businessId, new Date(now())],
-      );
-      const months = taken.rows.reduce((sum, item) => sum + item.months, 0);
-      if (months) {
-        await q('update subscriptions set credit_months = credit_months + $2 where business_id = $1', [businessId, months]);
-        log({ billing: 'firm_credits_applied', businessId, months });
-      }
-      return months;
-    });
+    const taken = await q(
+      "update referral_credits set status = 'applied', applied_at = $2 where firm_business_id = $1 and status = 'earned' returning months",
+      [businessId, new Date(now())],
+    );
+    const months = taken.rows.reduce((sum, item) => sum + item.months, 0);
+    if (months) {
+      await q('update subscriptions set credit_months = credit_months + $2 where business_id = $1', [businessId, months]);
+      log({ billing: 'firm_credits_applied', businessId, months });
+    }
+    return months;
   }
 
   async function save(businessId, userId, purchaseToken, found) {
-    const before = await row(businessId);
-    if (!replaces(before, purchaseToken, found)) {
-      log({ billing: 'superseded_purchase_ignored', businessId, status: found.status });
-      return false;
-    }
-    await saveRow(businessId, userId, purchaseToken, found);
-    await applyFirmCredits(businessId, before, found);
-    return true;
+    return db.tx(async (q) => {
+      await q("select pg_advisory_xact_lock(hashtext('subscription:' || $1))", [businessId]);
+      const before = await row(businessId, q);
+      if (!replaces(before, purchaseToken, found)) {
+        log({ billing: 'superseded_purchase_ignored', businessId, status: found.status });
+        return false;
+      }
+      await saveRow(q, businessId, userId, purchaseToken, found);
+      await applyFirmCredits(q, businessId, before, found);
+      return true;
+    });
   }
 
-  async function saveRow(businessId, userId, purchaseToken, found) {
-    await db.query(
+  async function saveRow(q, businessId, userId, purchaseToken, found) {
+    await q(
       `insert into subscriptions (business_id, provider, provider_subscription_id, product_id, plan, status, current_end, test_purchase, created_by, updated_at)
        values ($1, 'play', $2, $3, $4, $5, $6, $7, $8, now())
        on conflict (business_id) do update set provider = excluded.provider, provider_subscription_id = excluded.provider_subscription_id, product_id = excluded.product_id, plan = excluded.plan, status = excluded.status, current_end = excluded.current_end, test_purchase = excluded.test_purchase, created_by = coalesce(excluded.created_by, subscriptions.created_by), updated_at = now()`,
@@ -321,8 +322,8 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     );
   }
 
-  async function row(businessId) {
-    const found = await db.query('select provider, provider_subscription_id as "token", product_id as "productId", plan, status, current_end as "currentEnd", test_purchase as "testPurchase", credit_months as "creditMonths" from subscriptions where business_id = $1', [businessId]);
+  async function row(businessId, q = (text, params) => db.query(text, params)) {
+    const found = await q('select provider, provider_subscription_id as "token", product_id as "productId", plan, status, current_end as "currentEnd", test_purchase as "testPurchase", credit_months as "creditMonths" from subscriptions where business_id = $1', [businessId]);
     return found.rows[0] || null;
   }
 
@@ -592,13 +593,19 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     if (found.productId !== cfg.usPlus.productId) return fail('PURCHASE_PRODUCT_MISMATCH');
     if (found.accountId && found.accountId !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription was bought for another return.' });
     if (!LIVE_STATUSES.has(found.status)) return fail('PURCHASE_NOT_COMPLETE', { hint: 'Google Play has not finished this payment yet.' });
-    const saved = await db.query(
-      `insert into us_plus_subscriptions (business_id, provider, subscription_id, status, current_end, cancel_at_period_end, price_usd, created_by)
-       values ($1, 'play', $2, $3, $4, $5, $6, $7)
-       on conflict (business_id) do update set provider = excluded.provider, subscription_id = excluded.subscription_id, status = excluded.status, current_end = excluded.current_end, cancel_at_period_end = excluded.cancel_at_period_end, updated_at = now()
-       returning (xmax = 0) as inserted`,
-      [businessId, token, found.status, found.currentEnd, found.canceled, cfg.usPlus.priceUsd, userId],
-    );
+    let saved;
+    try {
+      saved = await db.query(
+        `insert into us_plus_subscriptions (business_id, provider, subscription_id, status, current_end, cancel_at_period_end, price_usd, created_by)
+         values ($1, 'play', $2, $3, $4, $5, $6, $7)
+         on conflict (business_id) do update set provider = excluded.provider, subscription_id = excluded.subscription_id, status = excluded.status, current_end = excluded.current_end, cancel_at_period_end = excluded.cancel_at_period_end, updated_at = now()
+         returning (xmax = 0) as inserted`,
+        [businessId, token, found.status, found.currentEnd, found.canceled, cfg.usPlus.priceUsd, userId],
+      );
+    } catch (error) {
+      if (error?.code !== '23505') throw error;
+      return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription already pays for another return.' });
+    }
     if (found.needsAck) {
       const ack = await play('POST', `subscriptions/${encodeURIComponent(found.productId)}/tokens/${encodeURIComponent(token)}:acknowledge`, usPackage);
       if (!ack.ok) log({ billing: 'acknowledge_failed', status: ack.status });
@@ -815,11 +822,17 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     }
     if (event.type === 'charge.refunded' || event.type === 'charge.dispute.created') return chargeEvent(event.type, object);
     if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
-      const end = Number(object.current_period_end || object.items?.data?.[0]?.current_period_end || 0);
-      const status = event.type === 'customer.subscription.deleted' ? 'canceled_final' : String(object.status || '');
+      const subscriptionId = String(object.id || '');
+      const held = await db.query('select 1 from us_plus_subscriptions where subscription_id = $1', [subscriptionId]);
+      if (!held.rowCount) return { ok: true, received: event.type, recorded: false };
+      const current = await stripe.getSubscription(subscriptionId).catch(() => ({ ok: false, status: 0 }));
+      if (!current.ok) return { ok: false, statusCode: 503, error: 'PROVIDER_UNAVAILABLE' };
+      const sub = current.data || {};
+      const end = Number(sub.current_period_end || sub.items?.data?.[0]?.current_period_end || 0);
+      const status = sub.status === 'canceled' ? 'canceled_final' : String(sub.status || '');
       const changed = await db.query(
         'update us_plus_subscriptions set status = $2, current_end = coalesce($3, current_end), cancel_at_period_end = $4, updated_at = now() where subscription_id = $1 returning business_id as "businessId"',
-        [String(object.id || ''), status, end ? new Date(end * 1000) : null, object.cancel_at_period_end === true],
+        [subscriptionId, status, end ? new Date(end * 1000) : null, sub.cancel_at_period_end === true],
       );
       if (changed.rows[0]) await audit(changed.rows[0].businessId, null, 'billing.us_plus_changed', { provider: 'stripe', status });
       return { ok: true, received: event.type, recorded: Boolean(changed.rows[0]) };
@@ -891,7 +904,14 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       if (!found.ok) return fail('PURCHASE_NOT_FOUND', { status: found.status, hint: 'Google Play does not know this purchase.' });
       if (!found.plan || found.productId !== productId) return fail('PURCHASE_PRODUCT_MISMATCH');
       if (found.accountId && found.accountId !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription was bought for another business.' });
-      if (!(await save(businessId, userId, token, found))) return fail('PURCHASE_SUPERSEDED', { hint: 'This Google Play purchase was replaced by a newer subscription for this business.', entitlement: await entitlement(businessId) });
+      let saved;
+      try {
+        saved = await save(businessId, userId, token, found);
+      } catch (error) {
+        if (error?.code !== '23505') throw error;
+        return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription already pays for another business.' });
+      }
+      if (!saved) return fail('PURCHASE_SUPERSEDED', { hint: 'This Google Play purchase was replaced by a newer subscription for this business.', entitlement: await entitlement(businessId) });
       await acknowledge(found, token);
       await audit(businessId, userId, 'billing.subscribe', { provider: 'play', plan: found.plan, ...(country ? { country: country.country } : {}), status: found.status, testPurchase: found.testPurchase });
       return { ok: true, plan: found.plan, status: found.status, testPurchase: found.testPurchase, entitlement: await entitlement(businessId) };

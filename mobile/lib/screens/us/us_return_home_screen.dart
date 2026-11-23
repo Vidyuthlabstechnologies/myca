@@ -387,18 +387,17 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
     final coverage = hub.state.isEmpty ? null : hub.coverage.message(hub.state);
     final totals = states == null
         ? ''
-        : states.refund > 0
-            ? 'State refunds ${dollars(states.refund)}'
-            : states.owed > 0
-                ? 'State tax due ${dollars(states.owed)}'
-                : '';
+        : [
+            if (states.refund > 0) 'State refunds ${dollars(states.refund)}',
+            if (states.owed > 0) 'State tax due ${dollars(states.owed)}',
+          ].join(' · ');
     return [
       const SizedBox(height: 18),
       Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           const Expanded(child: SectionLabel('State returns')),
-          if (totals.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(totals, key: const Key('usHub.stateTotals'), style: text.bodySmall)),
+          if (totals.isNotEmpty) Flexible(child: Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(totals, key: const Key('usHub.stateTotals'), textAlign: TextAlign.end, style: text.bodySmall))),
         ],
       ),
       if (states == null && coverage != null)

@@ -4,6 +4,7 @@ import { engineRole } from './businesses.mjs';
 import { READ_ONLY_REPLY } from './billing.mjs';
 import { chatText } from './chat-text.mjs';
 import { wahaConfigFromEnv, wahaPhone, wahaSignatureMatches, withoutNumbers } from './waha.mjs';
+import { parseRequestJson } from './request-json.mjs';
 
 const GRAPH_VERSION = 'v21.0';
 const MAX_TEXT = 2000;
@@ -72,7 +73,9 @@ export function messageKey(messageId) {
   return createHash('sha256').update(String(messageId)).digest('hex');
 }
 
-export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks = null, syncOf = null, rateLimits = null, config = {}, sender = null, now = () => Date.now(), log = () => {} }) {
+export const CONSENT_REPLY = 'MyCA has an updated privacy notice. Open the MyCA app and accept it, then message again. Nothing was read or changed.';
+
+export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks = null, syncOf = null, rateLimits = null, config = {}, sender = null, now = () => Date.now(), log = () => {}, chat = null, consented = null }) {
   const metaEnabled = config.provider !== 'waha' && Boolean(config.verifyToken) && Boolean(config.appSecret) && Boolean(sender);
   const wahaEnabled = config.provider === 'waha' && Boolean(config.waha?.webhookSecret) && Boolean(sender);
   const enabled = metaEnabled || wahaEnabled;
@@ -146,6 +149,11 @@ export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks 
       if (allowed) await reply(phone, answer.text);
       return allowed ? { ok: true, replied: true } : { ok: true, replied: false, rateLimited: true };
     }
+    if (consented && !(await consented(answer.user.userId))) {
+      const told = rateLimits ? (await rateLimits.take('whatsappMenu', phone)).ok : true;
+      if (told) await reply(phone, CONSENT_REPLY);
+      return { ok: true, replied: told, consentRequired: true };
+    }
     const taken = rateLimits ? await rateLimits.take('ask', answer.user.userId) : { ok: true };
     if (!taken.ok) {
       const told = (await rateLimits.take('askPaused', answer.user.userId)).ok;
@@ -167,7 +175,7 @@ export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks 
       await reply(phone, lapsed ? READ_ONLY_REPLY : 'Chat on WhatsApp comes with the Pro, MyCA Assured and CA firm plans. The owner can upgrade under Plan and billing in the app.');
       return { ok: true, replied: true, planRequired: true };
     }
-    const out = await (run || withBooks(answer.businessId, { requestId, userId: answer.user.userId, deviceId: null }, (session) => session.chat(asked, actor)));
+    const out = await (run || withBooks(answer.businessId, { requestId, userId: answer.user.userId, deviceId: null }, (session) => (chat ? chat(session, { businessId: answer.businessId, userId: answer.user.userId, actor, message: asked }) : session.chat(asked, actor))));
     const spoken = String(out?.reply || 'I could not read that.').slice(0, REPLY_LIMIT);
     await reply(phone, spoken);
     return { ok: true, replied: true, posted: Boolean(out?.posted), awaitingConfirmation: Boolean(out?.awaitingConfirmation) };
@@ -177,7 +185,7 @@ export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks 
     if (!metaEnabled) return { ok: false, statusCode: 404, error: 'WHATSAPP_NOT_CONFIGURED' };
     if (!signatureMatches(config.appSecret, rawBody, signatureHeader)) return { ok: false, statusCode: 401, error: 'BAD_SIGNATURE' };
     let body;
-    try { body = JSON.parse(rawBody.toString('utf8')); } catch { return { ok: false, statusCode: 400, error: 'BAD_JSON' }; }
+    try { body = parseRequestJson(rawBody.toString('utf8')); } catch { return { ok: false, statusCode: 400, error: 'BAD_JSON' }; }
     const handled = [];
     for (const entry of Array.isArray(body?.entry) ? body.entry : []) {
       for (const change of Array.isArray(entry?.changes) ? entry.changes : []) {
@@ -210,7 +218,7 @@ export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks 
     if (!wahaEnabled) return { ok: false, statusCode: 404, error: 'WHATSAPP_NOT_CONFIGURED' };
     if (!wahaSignatureMatches(config.waha.webhookSecret, rawBody, headers['x-webhook-hmac'], headers['x-webhook-hmac-algorithm'])) return { ok: false, statusCode: 401, error: 'BAD_SIGNATURE' };
     let body;
-    try { body = JSON.parse(rawBody.toString('utf8')); } catch { return { ok: false, statusCode: 400, error: 'BAD_JSON' }; }
+    try { body = parseRequestJson(rawBody.toString('utf8')); } catch { return { ok: false, statusCode: 400, error: 'BAD_JSON' }; }
     const events = Array.isArray(body) ? body : [body];
     const handled = [];
     for (const event of events) {

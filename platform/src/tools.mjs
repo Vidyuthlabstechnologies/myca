@@ -49,14 +49,14 @@ const { validateGstin } = gstin;
 const { filingPrep } = filing;
 const { auditRun } = audit;
 import { listAccounts, journal, trialBalance, verifyChain, createTransfers, paise } from './ledger.mjs';
-import { createInvoice, recordReceipt, recordPayment, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice, addBillTds } from './invoice.mjs';
+import { createInvoice, recordReceipt, recordPayment, invoicesToSalesCsv, createPurchase, printInvoice, addBillTds } from './invoice.mjs';
 import { invoiceDocument, quoteDocument } from './invoice-document.mjs';
 import { createQuote, markQuote, convertQuote, listQuotes, invoiceArgsFromQuote, checkConvert } from './quotes.mjs';
 import { addRecurring, stopRecurring, listRecurring, runRecurring } from './recurring.mjs';
 import { postExpense, retagExpense, listExpenses, expenseHeads } from './expenses.mjs';
 import { businessSummary } from './business-summary.mjs';
 import { gstr3bFor, periodSummary } from './period-summary.mjs';
-import { createCreditNote, cancelInvoice, creditNotesForPeriod } from './credit-notes.mjs';
+import { createCreditNote, cancelInvoice, creditNotesForPeriod, planCreditNote } from './credit-notes.mjs';
 import { createDebitNote, createPurchaseNote, debitNotesForPeriod, purchaseNotesForPeriod } from './debit-notes.mjs';
 import { reviewOf, answerReview } from './gst-review.mjs';
 import { exportEntries } from './entries-export.mjs';
@@ -676,7 +676,21 @@ export const TOOLS = [
     title: 'Credit note',
     description: 'Reduce a posted sales invoice by a credit note (goods returned, price reduced, or the whole invoice) with reversing entries. Never edits the invoice.',
     args: ['invoiceId', 'amount', 'date', 'reason'],
-    run: (state, args) => (engineBooks(countryOf(state), 'create_credit_note')?.(state, args) ?? loyaltyAfterCreditNote(state, createCreditNote(state, args))),
+    run: (state, args) => {
+      const own = engineBooks(countryOf(state), 'create_credit_note')?.(state, args);
+      if (own != null) return own;
+      const restock = args?.restock === true && countryOf(state) === 'IN';
+      if (restock) {
+        const planned = planCreditNote(state, args);
+        if (planned.ok && !planned.plan.full) return { ok: false, error: 'RESTOCK_NEEDS_WHOLE_INVOICE', invoiceId: planned.plan.invoice.id };
+      }
+      const result = loyaltyAfterCreditNote(state, createCreditNote(state, args));
+      if (!result.ok || !restock) return result;
+      const note = result.creditNote;
+      const back = returnDocumentStock(state, note.invoiceId, note.date, note.id);
+      if (back.length) result.stockReturned = back.length;
+      return result;
+    },
   },
   {
     name: 'cancel_invoice',
@@ -1730,8 +1744,7 @@ export const TOOLS = [
       const docs = documentsForPeriod(state, args.period, '', regd.gstin);
       if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
       const salesText = invoicesToSalesCsv(docs.invoices);
-      const inwardText = purchasesToInwardCsv(docs.purchases);
-      const filed = filingPrep({ salesText, inwardText, supplierState: regd.registration.state });
+      const filed = filingPrep({ salesText, supplierState: regd.registration.state });
       const payment = paymentFor(state, docs.period, { gstin: regd.gstin });
       if (!payment.ok) return fail(payment.error, payment);
       return ok({
@@ -1739,7 +1752,7 @@ export const TOOLS = [
         period: docs.period,
         periods: docs.periods,
         gstr1: filed.gstr1,
-        gstr3b: filed.gstr3b,
+        gstr3b: gstr3bFor(state, docs),
         payable: payment.data.toPay,
         payment: payment.data,
         payableBasis: 'this return period, after input credit and credit brought forward are set off head by head',
@@ -2554,7 +2567,7 @@ export const TOOLS = [
   {
     name: 'generate_tds_fvu',
     title: 'Generate the TDS FVU through the provider',
-    description: 'Submit the quarter\'s TDS statement (24Q salary, 26Q others, 27Q non-residents) to the provider\'s FVU job behind the action gate, and keep the job id and file links. The signed TXT and CSI uploads still happen on the provider\'s links.',
+    description: 'Submit the quarter\'s TDS statement (24Q salary, 26Q others, 27Q non-residents; from the tax year 2026-27 these are Forms 138, 140 and 144 under the Income-tax Rules 2026, and either name is accepted) to the provider\'s FVU job behind the action gate, and keep the job id and file links. The signed TXT and CSI uploads still happen on the provider\'s links.',
     args: ['quarter', 'form', 'tan', 'filingType', 'caApprovalId'],
     run: async (state, args = {}) => {
       const out = await generateTdsFvu(state, args, resolveToolActor(args));
@@ -3038,7 +3051,7 @@ export const TOOLS = [
   {
     name: 'tds_certificates',
     title: 'TDS certificate drafts',
-    description: 'Drafts of Form 16A for a quarter (payments other than salary, one per deductee with the payments, TDS and the quarter\'s challans) or Form 16 for a financial year (form "salary": Part A by quarter and Part B from the approved payroll months), as rows and a CSV. The issued certificates come from TRACES after the statement is processed; MyCA files nothing. Read-only.',
+    description: 'Drafts of Form 16A (Form 131 from the tax year 2026-27) for a quarter (payments other than salary, one per deductee with the payments, TDS and the quarter\'s challans) or Form 16 (Form 130 from 2026-27) for a financial year (form "salary": Part A by quarter and Part B from the approved payroll months), as rows and a CSV. The issued certificates come from TRACES after the statement is processed; MyCA files nothing. Read-only.',
     args: ['quarter', 'form', 'fy'],
     run: (state, args = {}) => tdsCertificates(state, args),
   },
@@ -3424,7 +3437,7 @@ export const TOOLS = [
   {
     name: 'record_filing',
     title: 'Record a filed return',
-    description: 'Record that a return was filed outside MyCA (on the portal or by the CA), with its acknowledgement (ARN) and date. The return must be one MyCA lists for this business; for a TDS statement say the form, 24Q (salary) or 26Q (other payments). Files nothing.',
+    description: 'Record that a return was filed outside MyCA (on the portal or by the CA), with its acknowledgement (ARN) and date. The return must be one MyCA lists for this business; for a TDS statement say the form, 24Q or Form 138 (salary) or 26Q or Form 140 (other payments). Files nothing.',
     args: ['returnType', 'period', 'arn', 'filedOn', 'filedBy', 'form'],
     run: (state, args = {}) => recordFiling(state, args, filingRows(state, args.filedOn)),
   },

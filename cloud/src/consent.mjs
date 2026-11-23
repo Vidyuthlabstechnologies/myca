@@ -15,7 +15,7 @@ export const LEGAL_INDIA = Object.freeze({
 
 export const PRIVACY_NOTICE = {
   document: 'privacy',
-  version: 'india-2026-11-22',
+  version: 'india-2026-11-23',
   region: 'IN',
   requiresAdult: true,
   title: 'How MyCA uses your information',
@@ -33,7 +33,7 @@ export const PRIVACY_NOTICE = {
     },
     {
       heading: 'Who we share it with',
-      body: 'Only what a feature needs, and only when you use it. Members you invite to a business see what their role allows. Google checks a Google sign-in and a Play subscription. The SMS provider receives your number and the code, for phone sign-in. The GST Suvidha Provider (Quicko) receives the return, your GSTIN and the OTP step, when you file a GST return or make an e-way bill. The NIC e-invoice and e-way bill systems receive the invoice, when you make an IRN or e-way bill. The language model provider receives the text of a chat message that matches no built-in action and the bill you ask MyCA to read, only when the service has a model switched on; it never works out a figure. The WhatsApp gateway and the email relay receive the message and the recipient, when you send one. Services you connect yourself receive what that connection syncs. Google Cloud hosts everything on our behalf. Nobody else, unless the law requires it.',
+      body: 'Only what a feature needs, and only when you use it. Members you invite to a business see what their role allows. Google checks a Google sign-in and a Play subscription. The SMS provider receives your number and the code, for phone sign-in. The GST Suvidha Provider (Quicko) receives the return, your GSTIN and the OTP step, when you file a GST return or make an e-way bill. The NIC e-invoice and e-way bill systems receive the invoice, when you make an IRN or e-way bill. The language model provider (Anthropic) receives the text of a chat message that matches no built-in action and the bill you ask MyCA to read, only when the service has a model switched on; Aadhaar numbers are removed before anything is sent to it, it may not train on what it receives, and it never works out a figure. The WhatsApp gateway and the email relay receive the message and the recipient, when you send one. Services you connect yourself receive what that connection syncs. Google Cloud hosts everything on our behalf. Nobody else, unless the law requires it.',
     },
     {
       heading: 'Where it is kept',
@@ -45,11 +45,11 @@ export const PRIVACY_NOTICE = {
     },
     {
       heading: 'Your rights and how to use them',
-      body: `Under the Digital Personal Data Protection Act, 2023 you can ask what we hold and who we shared it with, have it corrected, completed or erased, withdraw this consent, nominate someone to act for you if you die or cannot act, and complain. In the app: Settings, then Your privacy rights, where every request gets a reference number. You can also write to the Grievance Officer below. We acknowledge within ${LEGAL_INDIA.acknowledgeWithinHours} hours and reply within ${LEGAL_INDIA.replyWithinDays} days. You withdraw consent by deleting your account in Settings, as easily as you gave it; withdrawing does not affect what was done before. If you are not satisfied with our answer, you can complain to the Data Protection Board of India.`,
+      body: `Under the Digital Personal Data Protection Act, 2023 you can ask what we hold and who we shared it with, have it corrected, completed or erased, withdraw this consent, nominate someone to act for you if you die or cannot act, and complain. In the app: Settings, then Your privacy rights, where every request gets a reference number. You can also write to the Grievance Officer below. We acknowledge within ${LEGAL_INDIA.acknowledgeWithinHours} hours and reply within ${LEGAL_INDIA.replyWithinDays} days. You withdraw consent by deleting your account in Settings, as easily as you gave it; withdrawing does not affect what was done before. If you are not satisfied with our answer, you can complain to the Data Protection Board of India. You may also give, review or withdraw consent through a consent manager registered with the Board. You can ask for this notice in English or in any language listed in the Eighth Schedule to the Constitution, and we will send it to you.`,
     },
     {
       heading: 'Age',
-      body: 'MyCA is for people aged 18 or over who keep books for a business. Please do not use it if you are under 18.',
+      body: 'MyCA is for people aged 18 or over who keep books for a business and act for themselves. Please do not use it if you are under 18. If you are the lawful guardian of a person with a disability, open the account in your own name; we do not knowingly process the personal data of a child, or of a person with a disability who has a lawful guardian, without that parent\'s or guardian\'s verifiable consent.',
     },
     {
       heading: 'If something goes wrong',

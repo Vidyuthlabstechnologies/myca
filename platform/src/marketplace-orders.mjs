@@ -137,7 +137,7 @@ export function parseOrdersCsv(text, { channel } = {}) {
     if (!orderId) { held.push({ row: rowNo, reason: 'ORDER_ID_REQUIRED' }); continue; }
     if (!date) { held.push({ row: rowNo, reason: 'INVALID_DATE', orderId }); continue; }
     if (!state) { held.push({ row: rowNo, reason: 'STATE_UNKNOWN', orderId, value: String(cells[idx.state] || '').trim() }); continue; }
-    if (gstRate == null || gstRate < 0 || gstRate > 28) { held.push({ row: rowNo, reason: 'RATE_REQUIRED', orderId }); continue; }
+    if (gstRate == null || gstRate < 0 || gstRate > 40) { held.push({ row: rowNo, reason: 'RATE_REQUIRED', orderId }); continue; }
     if (taxable == null) { held.push({ row: rowNo, reason: 'BAD_AMOUNT', orderId }); continue; }
     if (taxable === 0) continue;
     const qty = idx.qty == null ? 1 : Math.abs(Number(cells[idx.qty]) || 1);

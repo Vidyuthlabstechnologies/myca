@@ -139,7 +139,7 @@ class _AskSheetState extends State<_AskSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(ae ? s.askYourAccountant : inText(context, 'Ask your CA'), style: text.headlineSmall),
+          Text(ae ? s.askYourAccountant : plainAccountant(context) ? 'Ask your accountant' : inText(context, 'Ask your CA'), style: text.headlineSmall),
           const SizedBox(height: 4),
           Text(
             s.askAbout(widget.about),
@@ -207,10 +207,10 @@ class _AskSheetState extends State<_AskSheet> {
   }
 }
 
-String caStatusWords(CaRequest request, [UaeStrings? ae, String lang = 'en']) => ae != null ? ae.accountantStatus(request.status) : switch (request.status) {
+String caStatusWords(CaRequest request, [UaeStrings? ae, String lang = 'en', bool plain = false]) => ae != null ? ae.accountantStatus(request.status) : switch (request.status) {
   'answered' => inLine(lang, 'Answered'),
   'closed' => inLine(lang, 'Closed'),
-  _ => inLine(lang, 'Waiting for your CA'),
+  _ => plain ? 'Waiting for your accountant' : inLine(lang, 'Waiting for your CA'),
 };
 
 class CaScreen extends StatefulWidget {
@@ -243,13 +243,14 @@ class _CaScreenState extends State<CaScreen> {
   Widget build(BuildContext context) {
     final ae = uaeEdition(context) ? UaeStrings.of(context) : null;
     return Scaffold(
-      appBar: AppBar(title: Text(ae != null ? ae.yourAccountant : AppScope.of(context).edition == 'GB' ? 'Your accountant' : inText(context, 'Your CA'))),
+      appBar: AppBar(title: Text(ae != null ? ae.yourAccountant : plainAccountant(context) ? 'Your accountant' : inText(context, 'Your CA'))),
       body: FutureBuilder<List<CaRequest>>(
         future: _requests,
         builder: (context, state) {
           if (state.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
+          if (state.hasError) return LoadFailed(onRetry: _reload);
           final requests = state.data ?? const <CaRequest>[];
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
@@ -257,7 +258,7 @@ class _CaScreenState extends State<CaScreen> {
               if (requests.isEmpty)
                 EmptyNote(
                   text:
-                      ae != null ? ae.noOpenQuestions : AppScope.of(context).edition == 'GB' ? 'No open questions. Ask your accountant from an invoice or a flagged item; MyCA attaches the details.' : inText(context, 'No open questions. Use "Ask my CA" on an invoice, a flagged item or a month\'s review; MyCA attaches the details.'),
+                      ae != null ? ae.noOpenQuestions : plainAccountant(context) ? 'No open questions. Ask your accountant from an invoice or a flagged item; MyCA attaches the details.' : inText(context, 'No open questions. Use "Ask my CA" on an invoice, a flagged item or a month\'s review; MyCA attaches the details.'),
                 )
               else
                 Panel(
@@ -274,7 +275,7 @@ class _CaScreenState extends State<CaScreen> {
                         ),
                         title: request.title,
                         subtitle:
-                            '${caStatusWords(request, ae, indiaLang(context))} · ${ae != null ? ae.longDate(request.lastOn) : longDate(request.lastOn)}',
+                            '${caStatusWords(request, ae, indiaLang(context), plainAccountant(context))} · ${ae != null ? ae.longDate(request.lastOn) : longDate(request.lastOn)}',
                         trailing: const Chevron(),
                         onTap: () async {
                           await Navigator.of(context).push(
@@ -289,7 +290,7 @@ class _CaScreenState extends State<CaScreen> {
                 ),
               const SizedBox(height: 14),
               Text(
-                ae != null ? ae.accountantSees : AppScope.of(context).edition == 'GB' ? 'Your accountant sees these in MyCA once you have invited them from People.' : inText(context, 'Your CA sees these in MyCA once you have invited them from People.'),
+                ae != null ? ae.accountantSees : plainAccountant(context) ? 'Your accountant sees these in MyCA once you have invited them from People.' : inText(context, 'Your CA sees these in MyCA once you have invited them from People.'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -382,7 +383,7 @@ class _CaThreadScreenState extends State<CaThreadScreen> {
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
               children: [
                 Text(
-                  caStatusWords(_request, ae, indiaLang(context)).toUpperCase(),
+                  caStatusWords(_request, ae, indiaLang(context), plainAccountant(context)).toUpperCase(),
                   style: text.labelSmall,
                 ),
                 const SizedBox(height: 4),
@@ -469,4 +470,9 @@ class _CaThreadScreenState extends State<CaThreadScreen> {
       ),
     );
   }
+}
+
+bool plainAccountant(BuildContext context) {
+  final state = AppScope.of(context);
+  return state.edition == 'GB' || state.edition == 'US' || state.snapshot?.company.country == 'US' || state.snapshot?.company.country == 'GB';
 }
