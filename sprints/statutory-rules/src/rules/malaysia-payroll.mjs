@@ -127,6 +127,16 @@ const EIS_ROWS = [
 
 export const RULES = [
   record(
+    'my.payroll.minimum-wage', { monthlySen: 1500 * RINGGIT, smallEmployersMonthlySen: 1500 * RINGGIT, smallEmployerBelowHeadcount: 5 }, 'national_minimum_monthly_wage',
+    '2022-05-01', '2025-01-31', 'National Wages Consultative Council Act 2011', 'Minimum Wages Order 2022 (P.U.(A) 140/2022)',
+    'Minimum Wages Order 2022: RM1,500 a month from 1 May 2022 for employers with five or more employees, extended to all employers from 1 July 2023 (Ministry of Human Resources; Second Talent payroll guide 2026, https://www.secondtalent.com/resources/malaysia-payroll-benefits-tax/)'
+  ),
+  record(
+    'my.payroll.minimum-wage', { monthlySen: 1700 * RINGGIT, smallEmployersMonthlySen: 1500 * RINGGIT, smallEmployerBelowHeadcount: 5, smallEmployersFrom: '2025-08-01' }, 'national_minimum_monthly_wage',
+    '2025-02-01', null, 'National Wages Consultative Council Act 2011', 'Minimum Wages Order 2024',
+    'Minimum Wages Order 2024: RM1,700 a month from 1 February 2025, and from 1 August 2025 for employers with fewer than five employees; a RM2,000 minimum announced in Budget 2027 for June 2027 is not yet in force (Second Talent payroll guide, 20 August 2026, https://www.secondtalent.com/resources/malaysia-payroll-benefits-tax/; HR Stacks Malaysia guide, figures checked 22 October 2026, https://www.hrstacks.com/malaysia/; read on 2026-11-23). It applies to full-time monthly pay; part-time and hourly workers are paid pro rata'
+  ),
+  record(
     'my.payroll.epf', { employeeBasisPoints: 1100, employerUpToCeilingBasisPoints: 1300, employerAboveCeilingBasisPoints: 1200, employerCeilingSen: 5000 * RINGGIT, smallBandSen: 20 * RINGGIT, largeBandSen: 100 * RINGGIT, exactAboveSen: 20000 * RINGGIT, noContributionUpToSen: 10 * RINGGIT, roundUpToSen: RINGGIT, over60: { employeeBasisPoints: 0, employerBasisPoints: 400 }, nonCitizen: { employeeBasisPoints: 200, employerBasisPoints: 200, from: '2025-10-01' } }, 'third_schedule_rates_bands_and_rounding_for_monthly_wages',
     '2024-01-01', null, 'Employees Provident Fund Act 1991', 'Third Schedule',
     'KWSP Third Schedule as summarised by payroll providers: employee 11%, employer 13% when monthly wages are RM5,000 or less and 12% above; up to RM5,000 the rate is applied to the top of each RM20 wage band and from RM5,000 to RM20,000 to the top of each RM100 band; above RM20,000 the exact percentage; every amount rounded up to the next ringgit; Malaysians aged 60 and over 0% employee and 4% employer; non-Malaysian workers 2% each from October 2025 wages (https://worksy.freshdesk.com/support/solutions/articles/63000277020)'

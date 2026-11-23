@@ -223,6 +223,7 @@ function registration(pastSen, aheadSen, thresholdSen, record) {
       ruleId: record.id,
       effectiveFrom: record.effectiveFrom,
       source: record.source,
+      ...(Array.isArray(record.value.notes) && record.value.notes.length ? { notes: [...record.value.notes] } : {}),
       unreviewed: !reviewed(record),
     },
   };

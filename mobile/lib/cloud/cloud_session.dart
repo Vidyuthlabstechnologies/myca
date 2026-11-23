@@ -621,6 +621,8 @@ class PrivacyNotice {
     required this.status,
     required this.sections,
     this.requiresAdult = false,
+    this.requiresSensitive = false,
+    this.language = '',
     this.grievance = '',
     this.links = const {},
   });
@@ -644,6 +646,8 @@ class PrivacyNotice {
       title: '${map['title'] ?? ''}',
       status: '${map['status'] ?? ''}',
       requiresAdult: map['requiresAdult'] == true,
+      requiresSensitive: map['sensitiveConsent'] is Map,
+      language: '${map['language'] ?? ''}',
       grievance: _grievanceLine(map['contact']),
       links: map['links'] is Map ? {for (final e in (map['links'] as Map).entries) '${e.key}': '${e.value}'} : const {},
       sections: [
@@ -654,6 +658,8 @@ class PrivacyNotice {
   }
 
   final bool requiresAdult;
+  final bool requiresSensitive;
+  final String language;
   final String document;
   final String version;
   final String title;
@@ -1218,8 +1224,10 @@ class CloudSession {
     }
   }
 
-  Future<PrivacyNotice> privacyNotice({String region = ''}) async {
-    final (status, body) = await _send('GET', region == 'US' || region == 'MY' || region == 'AE' ? '/v1/privacy-notice?region=$region' : '/v1/privacy-notice', null, authed: false);
+  Future<PrivacyNotice> privacyNotice({String region = '', String lang = ''}) async {
+    final own = region == 'US' || region == 'MY' || region == 'AE';
+    final language = own && RegExp(r'^[a-z]{2}$').hasMatch(lang) ? '&lang=$lang' : '';
+    final (status, body) = await _send('GET', own ? '/v1/privacy-notice?region=$region$language' : '/v1/privacy-notice', null, authed: false);
     if (status != 200 || body['notice'] is! Map) {
       throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));
     }
@@ -1241,8 +1249,8 @@ class CloudSession {
     return (PrivacyRequest.fromJson(body['request']), '${body['selfService'] ?? ''}');
   }
 
-  Future<void> acceptNotice(PrivacyNotice notice, {bool adult = false}) async {
-    await call('POST', '/v1/me/consent', {'document': notice.document, 'version': notice.version, if (notice.requiresAdult) 'adult': adult});
+  Future<void> acceptNotice(PrivacyNotice notice, {bool adult = false, bool sensitive = false}) async {
+    await call('POST', '/v1/me/consent', {'document': notice.document, 'version': notice.version, if (notice.requiresAdult) 'adult': adult, if (notice.requiresSensitive) 'sensitive': sensitive});
     needsConsent = false;
     if (_businessId == null) {
       final mine = await businesses();

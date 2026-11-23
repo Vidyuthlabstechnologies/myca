@@ -145,6 +145,7 @@ export function einvoiceRequired({ annualTurnover, date, relatedCompanyTurnover 
   const exempt = turnoverSen < value.exemptBelowSen && !relatedBlocks;
   const phase = [...value.phases].sort((a, b) => b.turnoverAboveSen - a.turnoverAboveSen).find((entry) => turnoverSen > entry.turnoverAboveSen) || value.phases.at(-1);
   const required = !exempt && date >= phase.from;
+  const relax = value.relaxation && !exempt && phase.from === value.relaxation.phaseFrom && date <= value.relaxation.until ? value.relaxation : null;
   return {
     ok: true,
     data: {
@@ -153,6 +154,8 @@ export function einvoiceRequired({ annualTurnover, date, relatedCompanyTurnover 
       exemptBelow: value.exemptBelowSen / 100,
       startsFrom: exempt ? null : phase.from,
       ...(relatedBlocks ? { why: 'A related, holding or shareholder company has turnover of RM3 million or more, so the small-business exemption does not apply.' } : exempt ? { why: `Annual turnover below RM${(value.exemptBelowSen / 100).toLocaleString('en-MY')} is exempt from e-invoicing.` } : { why: `E-invoicing applies from ${phase.from} for this turnover.` }),
+      ...(relax ? { relaxation: { until: relax.until, penaltiesFrom: relax.penaltiesFrom, note: `LHDN's relaxation for this phase runs to ${relax.until}: no prosecution before ${relax.penaltiesFrom}, and consolidated e-invoices are accepted more widely. MyCA still applies the RM10,000 limit on a consolidated sale, the stricter reading.` } } : {}),
+      ...(value.voluntaryDisclosureUntil && !exempt && date <= value.voluntaryDisclosureUntil ? { voluntaryDisclosure: `Missed or wrong e-invoices can be disclosed under LHDN's e-invoice voluntary disclosure programme (PKPS e-Invois) until ${value.voluntaryDisclosureUntil}, without penalty when made in good faith.` } : {}),
       ruleId: found.record.id,
       effectiveFrom: found.record.effectiveFrom,
       source: found.record.source,

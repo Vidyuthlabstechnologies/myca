@@ -62,6 +62,13 @@ const RELIEFS_YA2025 = {
   disabledChildHigherEducation: { perChildSen: 8000 * RINGGIT },
 };
 
+const RELIEFS_YA2026 = {
+  ...RELIEFS_YA2025,
+  domesticTourism: { capSen: 1000 * RINGGIT },
+};
+
+const CHECKED_23 = 'read on 2026-11-23 for the MyCA Malaysia compliance recheck; secondary sources (LHDN and Customs pages refused automated reads), not the gazetted text; needs attestation by a Malaysian chartered accountant or licensed tax agent before any filing relies on it';
+
 const SERVICE_TAX_2018 = {
   standardBasisPoints: 600,
   reducedBasisPoints: 600,
@@ -113,6 +120,18 @@ export const RULES = [
     'RinggitPlus YA 2025 guide: e-Filing of Form BE by 15 May 2026; Form B later (the 30 June statutory date plus the usual 15-day e-Filing grace, to be confirmed against the LHDN 2026 return form programme) (https://ringgitplus.com/en/blog/tax/malaysia-personal-income-tax-guide-2026-ya-2025.html)'
   ),
   record(
+    'my.income-tax.reliefs', RELIEFS_YA2026, 'relief_caps_in_sen_for_the_year_of_assessment_a_cap_marked_within_also_counts_toward_its_parent',
+    '2026-01-01', '2026-12-31', 'ITA-1967', '46, 46A, 47, 48, 49, 50',
+    `PwC Malaysian Tax Booklet 2026/2027, personal reliefs table for YA 2026 (https://www.pwc.com/my/en/publications/mtb/personal-income-tax.html, last modified 2026-11-11): the YA 2026 caps are the same as YA 2025 (individual 9,000; disabled individual 7,000; spouse 4,000; disabled spouse 6,000; children 2,000 / 2,000 / 8,000; disabled child 8,000 plus 8,000 in higher education; EPF 4,000 and life insurance 3,000; PRS 3,000; education and medical insurance 4,000; SOCSO 350; medical 10,000; parents 8,000; education 7,000; disability equipment 6,000; lifestyle 2,500; sports 1,000; breastfeeding 1,000; childcare 3,000; SSPN 8,000; EV charging and composting 2,500; first home loan interest 7,000 or 5,000), plus entrance fees to tourist attractions and arts and culture up to RM1,000 for YA 2026 only (Budget 2026). The Budget 2027 changes (individual relief RM12,000, 18% and 24% bands) are proposals for YA 2027 and are not recorded; ${YA_LOOKUP}`,
+    CHECKED_23
+  ),
+  record(
+    'my.income-tax.filing-due', { formBE: '05-15', formB: '07-15', note: 'e-Filing grace dates for the year after the year of assessment' }, 'month_day_after_the_year_of_assessment',
+    '2026-01-01', '2026-12-31', 'ITA-1967', '77',
+    'Same statutory dates as every year: Form BE by 30 April and Form B by 30 June of the following year, with LHDN\'s usual e-Filing grace to 15 May and 15 July; for YA 2026 that is 15 May 2027 and 15 July 2027, to be confirmed against the LHDN 2027 return form programme when it is published (PwC Malaysian Tax Booklet 2026/2027, https://www.pwc.com/my/en/publications/mtb/personal-income-tax.html)',
+    CHECKED_23
+  ),
+  record(
     'my.sst.service-tax', SERVICE_TAX_2018, 'rate_by_category_as_basis_points_of_the_value_of_taxable_service',
     '2018-09-01', '2024-02-29', 'STA-2018', '9; Service Tax (Rate of Tax) Order 2018',
     'Service tax was charged at 6% from 1 September 2018 until it rose to 8% on 1 March 2024 (Budget 2024), with a flat RM25 a year on each credit or charge card; PwC Malaysian Tax Booklet, service tax (https://www.pwc.com/my/en/publications/mtb/service-tax.html)',
@@ -131,7 +150,7 @@ export const RULES = [
   record(
     'my.sst.service-tax', { ...SERVICE_TAX_EXPANSION, reducedCategories: [...SERVICE_TAX_EXPANSION.reducedCategories, 'rental-or-leasing'] }, 'rate_by_category_as_basis_points_of_the_value_of_taxable_service',
     '2026-01-01', null, 'STA-2018', '9; Service Tax (Rate of Tax) Order as amended',
-    'PwC Malaysian Tax Booklet 2026/2027, service tax: rental or leasing services at 6% from 1 January 2026 (8% from 1 July to 31 December 2025); 8% for every other taxable and digital service (https://www.pwc.com/my/en/publications/mtb/service-tax.html). BDO (5 January 2026) describes the 6% as for industrial-use rental and says the rate order was not yet gazetted (https://www.bdo.global/en-gb/insights/tax/indirect-tax/malaysia-changes-made-to-sales-and-service-tax)'
+    'PwC Malaysian Tax Booklet 2026/2027, service tax: rental or leasing services at 6% from 1 January 2026 (8% from 1 July to 31 December 2025); 8% for every other taxable and digital service (https://www.pwc.com/my/en/publications/mtb/service-tax.html). BDO (5 January 2026) describes the 6% as for industrial-use rental and says the rate order was not yet gazetted (https://www.bdo.global/en-gb/insights/tax/indirect-tax/malaysia-changes-made-to-sales-and-service-tax). Since gazetted: Service Tax (Rate of Tax) (Amendment) Order 2026, P.U.(A) 125/2026, deemed in operation from 1 January 2026 (KPMG Malaysia, March 2026, https://kpmg.com/my/en/insights/2026/03/6-percent-service-tax-rate-for-rental-or-leasing-services.html, read on 2026-11-23)'
   ),
   record(
     'my.sst.sales-tax', { rateBasisPoints: [500, 1000], defaultBasisPoints: 1000, exemptEssentials: true }, 'rate_as_basis_points_of_the_sale_value_of_taxable_goods',
@@ -162,8 +181,23 @@ export const RULES = [
       windowMonths: 12,
       test: 'exceeds',
     }, 'value_of_taxable_services_in_twelve_months_exceeding',
-    '2025-07-01', null, 'STA-2018', '12; First Schedule, Service Tax Regulations 2018',
+    '2025-07-01', '2025-12-31', 'STA-2018', '12; First Schedule, Service Tax Regulations 2018',
     'PwC Malaysian Tax Booklet, service tax registration thresholds: RM500,000 for most taxable services, RM1,000,000 for rental or leasing and insurance or takaful, RM1,500,000 for food and beverage, construction and private healthcare, nil for credit and charge cards (https://www.pwc.com/my/en/publications/mtb/service-tax.html); registration is due when the twelve-month value exceeds the threshold (paragraph 12(2), https://ccs-co.com/post/part-4-comprehensive-guide-to-service-tax-in-malaysia-definitions-thresholds-and-statutory-obligations-under-the-service-tax-act-2018/). PwC lists wellness centres and private education at RM1,500,000 ambiguously; those stay at the default until a gazetted schedule is read'
+  ),
+  record(
+    'my.sst.service-tax.registration', {
+      defaultThresholdSen: 500000 * RINGGIT,
+      byCategory: { 'rental-or-leasing': 1500000 * RINGGIT, insurance: 1000000 * RINGGIT, 'food-and-beverage': 1500000 * RINGGIT, construction: 1500000 * RINGGIT, healthcare: 1500000 * RINGGIT, 'credit-card': 0 },
+      windowMonths: 12,
+      test: 'exceeds',
+      notes: [
+        'A rental or leasing provider with taxable value of RM1,500,000 or less is exempt from 1 January 2026 (raised from RM1,000,000), and a newly registered micro, small or medium business renting out property is exempt for its first year.',
+        'Construction contracts signed before 1 July 2025 that cannot be revised stay exempt until 30 June 2027.',
+      ],
+    }, 'value_of_taxable_services_in_twelve_months_exceeding',
+    '2026-01-01', null, 'STA-2018', '12; First Schedule, Service Tax Regulations 2018; Service Tax Policy 2/2025 as amended',
+    'Thresholds as from 1 July 2025 (PwC Malaysian Tax Booklet, https://www.pwc.com/my/en/publications/mtb/service-tax.html), except rental or leasing: the exemption threshold rose from RM1 million to RM1.5 million from 1 January 2026, and new MSME lessors are exempt for one year from registration (BDO Malaysia, SST key updates January 2026, https://www.bdo.my/en-gb/insights/tax/sales-and-service-tax-sst/sales-tax-and-service-tax-sst-jan-2026; KPMG, 26 January 2026, https://kpmg.com/us/en/taxnewsflash/news/2026/01/tnf-malaysia-updated-and-expanded-service-tax-exemptions-for-rental-and-leasing-services.html); construction exemption for non-reviewable contracts signed before 1 July 2025 extended to 30 June 2027 (BDO, same page)',
+    CHECKED_23
   ),
   record(
     'my.sst.sales-tax.registration', { thresholdSen: 500000 * RINGGIT, windowMonths: 12, test: 'exceeds' }, 'sale_value_of_taxable_goods_manufactured_in_twelve_months_exceeding',
@@ -205,9 +239,11 @@ export const RULES = [
       exemptBelowSen: 3000000 * RINGGIT,
       exemptionLostWhenRelatedCompanyAtOrAboveSen: 3000000 * RINGGIT,
       consolidationLimitSen: 10000 * RINGGIT,
+      relaxation: { phaseFrom: '2026-01-01', until: '2027-12-31', penaltiesFrom: '2028-01-01' },
+      voluntaryDisclosureUntil: '2027-12-31',
     }, 'annual_turnover_phase_dates_exemption_and_largest_consolidable_transaction',
     '2026-09-01', null, 'ITA-1967', '82C; e-Invoice Guideline version 4.8 (30 August 2026) section 1.6.1(e)',
-    'LHDN raised the e-invoice exemption from annual turnover below RM1 million to below RM3 million from 1 September 2026 (The Star, 30 August 2026, quoting LHDN: https://thestar.com.my/news/nation/2026/08/30/over-11-million-businesses-to-benefit-from-higher-e-invoicing-threshold-says-lhdn; beancount.io summary, https://beancount.io/blog/2026/09/16/malaysia-e-invoicing-phase-4-rm3m-exemption-rm10000-rule-guide). e-Invoice Guideline version 4.8 section 1.6.1(e), as read by the MyCA compliance engineer: the exemption does not apply when a related company, holding company or shareholder company has annual turnover of RM3 million or more. The RM10,000 limit on a consolidated transaction stays',
+    'LHDN raised the e-invoice exemption from annual turnover below RM1 million to below RM3 million from 1 September 2026 (The Star, 30 August 2026, quoting LHDN: https://thestar.com.my/news/nation/2026/08/30/over-11-million-businesses-to-benefit-from-higher-e-invoicing-threshold-says-lhdn; beancount.io summary, https://beancount.io/blog/2026/09/16/malaysia-e-invoicing-phase-4-rm3m-exemption-rm10000-rule-guide). e-Invoice Guideline version 4.8 section 1.6.1(e), as read by the MyCA compliance engineer: the exemption does not apply when a related company, holding company or shareholder company has annual turnover of RM3 million or more. The RM10,000 limit on a consolidated transaction stays. Relaxation for the 1 January 2026 phase extended to 31 December 2027 (e-Invoice Guideline version 4.7, 20 April 2026; LHDN FAQ updated 4 September 2026), with no prosecution under section 120 before 1 January 2028; the e-invoice voluntary disclosure programme (PKPS e-Invois, announced 7 July 2026) runs to 31 December 2027 (Jom e-Invoice, 4 November 2026, https://jomeinvoice.my/article/e-invoice-phase-4-extension-malaysia-2028/; Vivos Group, 4 November 2026, https://vivosgroup.com/my/insights/malaysia-e-invoicing-lhdn-myinvois-phase-4-2026/, both read on 2026-11-23). MyCA keeps the RM10,000 consolidation limit during the relaxation because sources disagree on whether the relaxation lifts it; the stricter reading is never wrong',
     CHECKED_14
   ),
   record(
