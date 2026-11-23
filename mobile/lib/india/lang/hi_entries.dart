@@ -115,6 +115,9 @@ const hiEntries = <String, String>{
   'Enter the amount, or leave it blank for the whole invoice.': 'रकम डालें, या पूरे इनवॉइस के लिए खाली छोड़ दें।',
   'Amount to add, with GST': 'जोड़ने की रकम, GST सहित',
   'Amount, with GST (optional)': 'रकम, GST सहित (ज़रूरी नहीं)',
+  'Goods came back into stock': 'माल वापस स्टॉक में आया',
+  'For the whole invoice only: the stock items sold on it go back into stock.': 'सिर्फ़ पूरे बिल के लिए: उस पर बिका स्टॉक का माल वापस स्टॉक में जुड़ जाता है।',
+  'Only a credit note for the whole invoice puts goods back in stock. Leave the amount blank, or record a part return with Stock in.': 'सिर्फ़ पूरे बिल का क्रेडिट नोट ही माल वापस स्टॉक में जोड़ता है। रकम खाली छोड़ें, या थोड़ा माल लौटा हो तो उसे स्टॉक आया में दर्ज करें।',
   '{name} has paid {amount}; that becomes due back to them.': '{name} {amount} दे चुके हैं; यह रकम उन्हें लौटानी होगी।',
   'A credit note for the full {amount} will be posted. You will see it before anything changes.': 'पूरे {amount} का क्रेडिट नोट दर्ज होगा। कुछ भी बदलने से पहले आप इसे देखेंगे।',
 

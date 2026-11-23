@@ -562,7 +562,7 @@ class LoadFailed extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              message ?? ae?.couldNotLoad ?? inText(context, 'Could not load.'),
+              (message ?? '').isNotEmpty ? message! : ae?.couldNotLoad ?? inText(context, 'Could not load.'),
               key: const Key('load-failed'),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,

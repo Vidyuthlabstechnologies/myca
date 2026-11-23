@@ -10,6 +10,23 @@ class MycaApiException implements Exception {
   String toString() => message;
 }
 
+/// The data of a tool reply that a screen needs in order to show anything.
+/// A refusal from the server ({ok: false}) is raised as a [MycaApiException]
+/// with an empty message, so the screen shows its failed-load state instead of
+/// treating the missing data as an empty list.
+Map<String, dynamic> loadedData(Object? json) {
+  if (json is Map && json['ok'] == false) {
+    throw MycaApiException('', code: '${json['error'] ?? 'SERVER_ERROR'}');
+  }
+  return toolData(json);
+}
+
+/// Throws like [loadedData] when the server refused, else returns [json].
+Object? loaded(Object? json) {
+  loadedData(json);
+  return json;
+}
+
 abstract class MycaApi {
   Future<Snapshot> snapshot();
   Future<SignInResult> signIn(String userId, String pin);
@@ -56,9 +73,9 @@ Future<Today> loadToday(MycaApi api, {String? period, String? gstin}) async {
     api.query('list_reminders'),
   ]);
   return Today(
-    gst: periodGstFrom(results[0]),
-    deadlines: deadlinesFrom(results[1]),
-    exceptions: exceptionsFrom(results[2]),
+    gst: periodGstFrom(loaded(results[0])),
+    deadlines: deadlinesFrom(loaded(results[1])),
+    exceptions: exceptionsFrom(loaded(results[2])),
     summary: businessSummaryFrom(results[3]),
     reminders: remindersFrom(results[4]),
   );

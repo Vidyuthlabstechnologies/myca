@@ -230,7 +230,7 @@ class _CaScreenState extends State<CaScreen> {
   }
 
   Future<List<CaRequest>> _load() async =>
-      caRequestsFrom(await AppScope.of(context).api.query('list_ca_requests'));
+      caRequestsFrom(loaded(await AppScope.of(context).api.query('list_ca_requests')));
 
   void _reload() {
     final next = _load();

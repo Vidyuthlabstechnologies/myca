@@ -47,11 +47,11 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with ProposalFlow
       api.query('stock_position'),
     ]);
     return _MarketplaceData(
-      registrations: toolData(results[0]),
-      settlements: toolData(results[1]),
-      credits: toolData(results[2]),
-      margins: toolData(results[3]),
-      stock: toolData(results[4]),
+      registrations: loadedData(results[0]),
+      settlements: loadedData(results[1]),
+      credits: loadedData(results[2]),
+      margins: loadedData(results[3]),
+      stock: loadedData(results[4]),
     );
   }
 

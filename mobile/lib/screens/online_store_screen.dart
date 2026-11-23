@@ -6,6 +6,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
 import '../india/india_strings.dart';
+import '../widgets.dart';
 
 String storeLinkOf(Map<String, dynamic> view) {
   final link = view['link'];
@@ -61,8 +62,8 @@ class _OnlineStoreScreenState extends State<OnlineStoreScreen> {
 
   Future<void> _load() async {
     try {
-      final view = toolData(await api.query('catalogue_view'));
-      final orders = toolData(await api.query('store_orders'));
+      final view = loadedData(await api.query('catalogue_view'));
+      final orders = loadedData(await api.query('store_orders'));
       if (!mounted) return;
       final settings = view['settings'] is Map ? Map<String, dynamic>.from(view['settings'] as Map) : <String, dynamic>{};
       setState(() {
@@ -86,7 +87,7 @@ class _OnlineStoreScreenState extends State<OnlineStoreScreen> {
     } on MycaApiException catch (err) {
       if (mounted) {
         setState(() {
-          _message = err.message;
+          _message = err.message.isEmpty ? inText(context, 'Could not load.') : err.message;
           _loading = false;
         });
       }
@@ -321,6 +322,17 @@ class _OnlineStoreScreenState extends State<OnlineStoreScreen> {
         ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
+            : _view.isEmpty && _message.isNotEmpty
+            ? LoadFailed(
+                message: _message,
+                onRetry: () {
+                  setState(() {
+                    _message = '';
+                    _loading = true;
+                  });
+                  _load();
+                },
+              )
             : Column(
                 children: [
                   if (_preview != null) Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 0), child: _previewCard(text)),
