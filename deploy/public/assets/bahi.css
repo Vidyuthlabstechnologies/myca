@@ -1,0 +1,109 @@
+.bahi { display: block; width: 100%; height: auto; overflow: visible; --lx: 0; --ly: 0; }
+.bahi .ink { fill: #1E1A1D; }
+.bahi .pupil { fill: #0D0B0C; }
+.bahi .spec { fill: #fff; opacity: .95; }
+.bahi .spec2 { fill: #fff; opacity: .8; }
+.bahi .lid-skin { fill: #C62828; }
+.bahi .lid-line { fill: none; stroke: #1E1A1D; stroke-width: 3.6; stroke-linecap: round; }
+.bahi .closed { fill: none; stroke: #1E1A1D; stroke-width: 6.4; stroke-linecap: round; opacity: 0; }
+.bahi .brow { fill: none; stroke: #3A0E0E; stroke-width: 7; stroke-linecap: round; transform-box: fill-box; transform-origin: center; transition: transform .35s cubic-bezier(.3,1.4,.5,1); }
+.bahi .lips { fill: #5A1A22; stroke: #1E1A1D; stroke-width: 3; stroke-linejoin: round; }
+.bahi .tongue { fill: #F07A85; }
+.bahi .mouth { opacity: 0; transition: opacity .12s; }
+.bahi .sweat path { fill: #9BD3F5; stroke: #3C7FB0; stroke-width: 2; }
+.bahi .sweat { opacity: 0; transition: opacity .3s; }
+.bahi .shadow { fill: #15181B; opacity: .1; transform-box: fill-box; transform-origin: center; }
+.bahi .leg { fill: #5A1414; }
+.bahi .foot { fill: #3B2A2A; stroke: #1E1414; stroke-width: 2.5; }
+.bahi .outline { fill: #3A1010; }
+.bahi .edge { fill: #B49A6A; opacity: .25; }
+.bahi .weave { fill: #fff; opacity: .08; }
+.bahi .band { fill: #E8B84A; opacity: .33; }
+.bahi .gold-line { fill: none; stroke: #E8B84A; stroke-width: 3.5; }
+.bahi .gold-line.thin { stroke-width: 1.5; opacity: .55; }
+.bahi .gold { fill: #E8B84A; }
+.bahi .bow-line { stroke: #9A6A10; stroke-width: 2; }
+.bahi .tail { fill: none; stroke: #E8B84A; stroke-width: 3.5; stroke-linecap: round; }
+.bahi .knot { fill: #C9952C; }
+.bahi .gloss { fill: #fff; opacity: .16; }
+.bahi .sleeve { fill: none; stroke: #8E1B1B; stroke-width: 13; stroke-linecap: round; }
+.bahi .hand { fill: #FFE0B2; stroke: #5A1414; stroke-width: 3; }
+.bahi .pose { display: none; }
+.bahi .party { opacity: 0; transition: opacity .25s; }
+.bahi .spark { fill: #E2A93B; transform-box: fill-box; transform-origin: center; }
+.bahi .spark-1 { fill: #5FD3A0; }
+.bahi .spark-3 { fill: #FF8A65; }
+.bahi .confetti { transform-box: fill-box; transform-origin: center; }
+.bahi .c1 { fill: #FF6B6B; } .bahi .c2 { fill: #4FC3F7; } .bahi .c3 { fill: #FFC93C; } .bahi .c4 { fill: #7E57C2; } .bahi .c5 { fill: #5FD3A0; }
+.bahi .rig { transform-box: view-box; transform-origin: 200px 352px; }
+.bahi .face-shift { transition: transform .35s ease; }
+.bahi .look { transition: transform .18s ease-out; transform: translate(calc(var(--lx) * 5.6px), calc(var(--ly) * 5.6px)); }
+.bahi .lid { transform: translateY(-22px); }
+.bahi .talk { transform-box: fill-box; transform-origin: center top; }
+.bahi .arm-R, .bahi .arm-L { transform-box: view-box; }
+.bahi .arm-R { transform-origin: 280px 210px; }
+.bahi .arm-L { transform-origin: 120px 210px; }
+
+.bahi[data-mood="happy"] .pose-happy, .bahi[data-mood="thinking"] .pose-thinking, .bahi[data-mood="celebrate"] .pose-celebrate, .bahi[data-mood="worried"] .pose-worried, .bahi[data-mood="wave"] .pose-wave { display: inline; }
+.bahi[data-mood="happy"] .m-smile, .bahi[data-mood="thinking"] .m-hmm, .bahi[data-mood="celebrate"] .m-grin, .bahi[data-mood="worried"] .m-worry, .bahi[data-mood="wave"] .m-open { opacity: 1; }
+.bahi .brow-L { transform: rotate(-7deg); }
+.bahi .brow-R { transform: rotate(7deg); }
+.bahi[data-mood="wave"] .brow-L { transform: translateY(-3px) rotate(-8deg); }
+.bahi[data-mood="wave"] .brow-R { transform: translateY(-3px) rotate(8deg); }
+.bahi[data-mood="wave"] .face-shift { transform: translateX(3px); }
+.bahi[data-mood="wave"] { --lx: .25; }
+.bahi[data-mood="thinking"] .brow-L { transform: translateY(2px) rotate(4deg); }
+.bahi[data-mood="thinking"] .brow-R { transform: translateY(-7px) rotate(12deg); }
+.bahi[data-mood="thinking"] .face-shift { transform: translateX(4px); }
+.bahi[data-mood="thinking"] .eye-L .lid { transform: translateY(-9px); }
+.bahi[data-mood="thinking"] .eye-R .lid { transform: translateY(-16px); }
+.bahi[data-mood="thinking"] .look { transform: translate(4.5px, -4.5px); }
+.bahi[data-mood="celebrate"] .open { opacity: 0; }
+.bahi[data-mood="celebrate"] .closed { opacity: 1; }
+.bahi[data-mood="celebrate"] .brow-L { transform: translateY(-6px) rotate(-11deg); }
+.bahi[data-mood="celebrate"] .brow-R { transform: translateY(-6px) rotate(11deg); }
+.bahi[data-mood="celebrate"] .party { opacity: 1; }
+.bahi[data-mood="worried"] .brow-L { transform: translateY(-5px) rotate(-22deg); }
+.bahi[data-mood="worried"] .brow-R { transform: translateY(-5px) rotate(22deg); }
+.bahi[data-mood="worried"] .face-shift { transform: translateX(-2px); }
+.bahi[data-mood="worried"] .lid { transform: translateY(-18px); }
+.bahi[data-mood="worried"] .sweat { opacity: 1; }
+.bahi[data-mood="worried"] .look { transform: translate(-1px, 2px); }
+.bahi[data-mood="happy"] .cheek, .bahi[data-mood="wave"] .cheek, .bahi[data-mood="celebrate"] .cheek { opacity: 1; }
+.bahi .cheek { opacity: .5; transition: opacity .3s; }
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.still) .bahi .rig { animation: bahi-breathe 3.2s ease-in-out infinite; }
+  html:not(.still) .bahi .lid { animation: bahi-blink 5.2s infinite; }
+  html:not(.still) .bahi .eye-R .lid { animation-delay: .02s; }
+  html:not(.still) .bahi[data-mood="wave"] .pose-wave .arm-R { animation: bahi-wave 1.1s ease-in-out infinite alternate; }
+  html:not(.still) .bahi[data-mood="celebrate"] .rig { animation: bahi-hop .9s cubic-bezier(.3,.7,.4,1) infinite; }
+  html:not(.still) .bahi[data-mood="celebrate"] .shadow { animation: bahi-shadow .9s cubic-bezier(.3,.7,.4,1) infinite; }
+  html:not(.still) .bahi[data-mood="celebrate"] .arm-L { animation: bahi-cheer-l .45s ease-in-out infinite alternate; }
+  html:not(.still) .bahi[data-mood="celebrate"] .arm-R { animation: bahi-cheer-r .45s ease-in-out infinite alternate; }
+  html:not(.still) .bahi[data-mood="celebrate"] .spark { animation: bahi-twinkle 1.2s ease-in-out infinite; }
+  html:not(.still) .bahi[data-mood="celebrate"] .spark-1, html:not(.still) .bahi[data-mood="celebrate"] .spark-3 { animation-delay: .5s; }
+  html:not(.still) .bahi[data-mood="celebrate"] .confetti { animation: bahi-confetti 1.6s ease-in infinite; }
+  html:not(.still) .bahi[data-mood="celebrate"] .conf-1, html:not(.still) .bahi[data-mood="celebrate"] .conf-3 { animation-delay: .6s; }
+  html:not(.still) .bahi[data-mood="celebrate"] .conf-2 { animation-delay: 1.1s; }
+  html:not(.still) .bahi[data-mood="worried"] .sweat { animation: bahi-sweat 2.4s ease-in infinite; }
+  html:not(.still) .bahi[data-mood="worried"] .rig { animation: bahi-fret 2.4s ease-in-out infinite; }
+  html:not(.still) .bahi[data-mood="thinking"] .rig { animation: bahi-ponder 3.6s ease-in-out infinite; }
+  html:not(.still) .bahi.talking .talk { animation: bahi-talk .26s ease-in-out infinite alternate; }
+  html:not(.still) .bahi[data-mood="happy"] .pose-happy .arm-R { animation: bahi-sway 2.8s ease-in-out infinite alternate; }
+}
+
+@keyframes bahi-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.012, 1.022); } }
+@keyframes bahi-blink { 0%, 93%, 100% { transform: translateY(-22px); } 95.5% { transform: translateY(20px); } }
+@keyframes bahi-wave { from { transform: rotate(-6deg); } to { transform: rotate(10deg); } }
+@keyframes bahi-hop { 0%, 100% { transform: translateY(0) scale(1.04, .94); } 15% { transform: translateY(0) scale(.96, 1.06); } 45% { transform: translateY(-24px) scale(1, 1.02); } 75% { transform: translateY(0) scale(1.05, .93); } }
+@keyframes bahi-shadow { 0%, 100% { transform: scaleX(1); } 45% { transform: scaleX(.7); opacity: .06; } }
+@keyframes bahi-cheer-l { from { transform: rotate(0); } to { transform: rotate(-9deg); } }
+@keyframes bahi-cheer-r { from { transform: rotate(0); } to { transform: rotate(9deg); } }
+@keyframes bahi-twinkle { 0%, 100% { transform: scale(.6) rotate(0); opacity: .5; } 50% { transform: scale(1.15) rotate(25deg); opacity: 1; } }
+@keyframes bahi-confetti { 0% { transform: translateY(-10px) rotate(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(60px) rotate(220deg); opacity: 0; } }
+@keyframes bahi-sweat { 0%, 20% { transform: translate(70px, -34px); opacity: 0; } 35% { opacity: 1; } 100% { transform: translate(72px, -8px); opacity: 0; } }
+@keyframes bahi-fret { 0%, 100% { transform: rotate(0); } 40% { transform: rotate(-1.2deg); } 60% { transform: rotate(1.2deg); } }
+@keyframes bahi-ponder { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(2deg) translateY(-2px); } }
+@keyframes bahi-talk { from { transform: scaleY(1); } to { transform: scaleY(.55); } }
+@keyframes bahi-sway { from { transform: rotate(0); } to { transform: rotate(-4deg); } }

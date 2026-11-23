@@ -35,6 +35,21 @@ Reports go to `deploy/qa/reports/`.
   (header and meta `noindex`), out of the sitemap and unlinked until the owner decides
   whether to delete them.
 
+## Bahi and the animations
+
+- Bahi on the site is an inline SVG drawn by `deploy/seo/bahi.mjs` from the same geometry as the
+  app's Rive file (`bahi.riv`), with the five moods (wave, happy, thinking, celebrate, worried) in
+  `assets/bahi.css` and the eyes, tips and the companion that follows you down the home page in
+  `assets/bahi.js`. The Rive web runtime is not used: it needs WebAssembly, which the content
+  security policy does not allow, and it would add about 400 KB.
+- The home page demos (the phone chat, Say it / See it / Say yes, the invoice-to-return flow and
+  the due-date calendar) are in `assets/home.js` and `assets/home.css`. Without JavaScript, with
+  "reduce motion" set, or after "Pause animations", every demo shows its finished state.
+- The hero Bahi and the home FAQ (with its FAQPage structured data) are written into `index.html`
+  by `node deploy/seo/build.mjs`; edit the FAQ in `HOME_FAQ` in `deploy/seo/pages.mjs`.
+- Sharing images: `cd deploy/qa && node og-images.mjs` draws a 1200 x 630 image for every guide
+  page into `deploy/public/assets/og/`. Run it after changing a page's heading or demo.
+
 ## What only the owner can fill in
 
 Contact details come from the company's own site, mldynamic.com (registered office, support
