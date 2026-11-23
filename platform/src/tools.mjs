@@ -56,7 +56,7 @@ import { addRecurring, stopRecurring, listRecurring, runRecurring } from './recu
 import { postExpense, retagExpense, listExpenses, expenseHeads } from './expenses.mjs';
 import { businessSummary } from './business-summary.mjs';
 import { gstr3bFor, periodSummary } from './period-summary.mjs';
-import { createCreditNote, cancelInvoice, creditNotesForPeriod } from './credit-notes.mjs';
+import { createCreditNote, cancelInvoice, creditNotesForPeriod, planCreditNote } from './credit-notes.mjs';
 import { createDebitNote, createPurchaseNote, debitNotesForPeriod, purchaseNotesForPeriod } from './debit-notes.mjs';
 import { reviewOf, answerReview } from './gst-review.mjs';
 import { exportEntries } from './entries-export.mjs';
@@ -676,7 +676,21 @@ export const TOOLS = [
     title: 'Credit note',
     description: 'Reduce a posted sales invoice by a credit note (goods returned, price reduced, or the whole invoice) with reversing entries. Never edits the invoice.',
     args: ['invoiceId', 'amount', 'date', 'reason'],
-    run: (state, args) => (engineBooks(countryOf(state), 'create_credit_note')?.(state, args) ?? loyaltyAfterCreditNote(state, createCreditNote(state, args))),
+    run: (state, args) => {
+      const own = engineBooks(countryOf(state), 'create_credit_note')?.(state, args);
+      if (own != null) return own;
+      const restock = args?.restock === true && countryOf(state) === 'IN';
+      if (restock) {
+        const planned = planCreditNote(state, args);
+        if (planned.ok && !planned.plan.full) return { ok: false, error: 'RESTOCK_NEEDS_WHOLE_INVOICE', invoiceId: planned.plan.invoice.id };
+      }
+      const result = loyaltyAfterCreditNote(state, createCreditNote(state, args));
+      if (!result.ok || !restock) return result;
+      const note = result.creditNote;
+      const back = returnDocumentStock(state, note.invoiceId, note.date, note.id);
+      if (back.length) result.stockReturned = back.length;
+      return result;
+    },
   },
   {
     name: 'cancel_invoice',

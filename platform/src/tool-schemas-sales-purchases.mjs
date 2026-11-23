@@ -62,6 +62,7 @@ export const SALES_PURCHASE_TOOL_SCHEMAS = {
       amount: { type: 'number', exclusiveMinimum: 0 },
       date: { type: 'string' },
       reason: { type: 'string', minLength: 1, maxLength: 200 },
+      restock: { type: 'boolean' },
       lines: {
         type: 'array',
         minItems: 1,
