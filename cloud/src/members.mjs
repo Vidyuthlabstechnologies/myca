@@ -29,7 +29,7 @@ export function createMembers({ db, secret, now = () => Date.now(), notify = nul
   }
 
   return {
-    async invite(businessId, context, { phone: phoneInput, role } = {}) {
+    async invite(businessId, context, { phone: phoneInput, role } = {}, { seatsAllowed = null } = {}) {
       const phone = normalizePhone(phoneInput);
       if (!phone) return fail('INVALID_PHONE');
       if (!INVITABLE_ROLES.includes(role)) return fail('INVALID_ROLE');
@@ -41,6 +41,12 @@ export function createMembers({ db, secret, now = () => Date.now(), notify = nul
           [businessId, phone],
         );
         if (member.rowCount) return fail('ALREADY_A_MEMBER');
+        if (seatsAllowed) {
+          const taken = await q('select count(*)::int as n from memberships m join users u on u.id = m.user_id where m.business_id = $1 and u.deleted_at is null', [businessId]);
+          const held = await q(`select count(*)::int as n from invitations where business_id = $1 and ${OPEN} and expires_at > $2 and phone_hash <> $3`, [businessId, at(), phoneHash]);
+          const seats = await seatsAllowed(taken.rows[0].n + held.rows[0].n);
+          if (!seats.ok) return seats;
+        }
         await q(`update invitations set revoked_at = $3 where business_id = $1 and phone_hash = $2 and ${OPEN}`, [businessId, phoneHash, at()]);
         const open = await q(`select count(*)::int as n from invitations where business_id = $1 and ${OPEN} and expires_at > $2`, [businessId, at()]);
         if (open.rows[0].n >= MAX_OPEN_INVITES) return fail('TOO_MANY_INVITATIONS');
@@ -89,15 +95,6 @@ export function createMembers({ db, secret, now = () => Date.now(), notify = nul
         await audit(q, businessId, context, 'member.role_changed', { userId: targetUserId, from: was, to: role });
         return { ok: true, role, was };
       });
-    },
-
-    async seatsHeld(businessId, phoneInput) {
-      const phone = normalizePhone(phoneInput);
-      const found = await db.query(
-        `select count(*)::int as n from invitations where business_id = $1 and ${OPEN} and expires_at > $2 and phone_hash <> $3`,
-        [businessId, at(), phone ? keyedHash(secret, phone) : ''],
-      );
-      return found.rows[0].n;
     },
 
     async openFor(businessId) {
