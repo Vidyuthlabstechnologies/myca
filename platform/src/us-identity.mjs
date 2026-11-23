@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
 import { decryptSecret, encryptSecret } from './credential-vault.mjs';
 import { redactNrics, redactNricsDeep } from './my-identity.mjs';
+import { redactEmiratesIds, redactEmiratesIdsDeep, redactUaeForModel, redactUaeForModelDeep } from './ae-identity.mjs';
 
 const SEALED_PREFIX = 'tin1';
 const VAULT_PREFIX = 'tinv';
@@ -135,7 +136,13 @@ function redactorFor(country) {
   const code = String(country || '').toUpperCase();
   if (code === 'US') return { text: redactTins, deep: redactTinsDeep };
   if (code === 'MY') return { text: redactNrics, deep: redactNricsDeep };
+  if (code === 'AE') return { text: redactEmiratesIds, deep: redactEmiratesIdsDeep };
   return null;
+}
+
+function modelRedactorFor(country) {
+  if (String(country || '').toUpperCase() === 'AE') return { text: redactUaeForModel, deep: redactUaeForModelDeep };
+  return redactorFor(country);
 }
 
 export function tinsMaskedFor(country) {
@@ -176,7 +183,7 @@ function redactBlock(block, redactor) {
 }
 
 export function redactModelRequest(body, country = 'US') {
-  const redactor = redactorFor(country);
+  const redactor = modelRedactorFor(country);
   if (!body || typeof body !== 'object' || !redactor) return body;
   const out = { ...body };
   if (typeof out.system === 'string') out.system = redactor.text(out.system);

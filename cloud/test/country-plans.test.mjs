@@ -42,3 +42,20 @@ test('India and the US keep their own plans, and unknown countries fall back to 
   assert.equal(uk.currency, 'GBP');
   assert.equal(uk.plans.length, 4);
 });
+
+test('UAE plans are served in dirhams with their own Play products, never the India plan ids', () => {
+  const offers = countryPlanOffers('AE');
+  assert.equal(offers.currency, 'AED');
+  const byId = Object.fromEntries(offers.plans.map((plan) => [plan.id, plan]));
+  assert.deepEqual(Object.keys(byId), ['ae-starter', 'ae-business', 'ae-firm']);
+  assert.deepEqual(offers.plans.map((plan) => [plan.price, plan.productId, plan.members]), [[299, 'myca_ae_starter_monthly', 2], [799, 'myca_ae_business_monthly', 5], [2499, 'myca_ae_firm_monthly', 25]]);
+  assert.doesNotMatch(JSON.stringify(offers), /₹|INR|GST|monthlyRupees/);
+  const cfg = billingConfigFromEnv({ MYCA_PLAY_PACKAGE: 'com.mldynamic.myca', MYCA_PLAY_PRODUCT_FIRM: 'india_firm_live', MYCA_PLAY_PACKAGE_AE: 'com.mldynamic.myca.uae' });
+  assert.equal(cfg.countries.AE.packageName, 'com.mldynamic.myca.uae');
+  assert.deepEqual(cfg.countries.AE.productIds, {});
+  const live = countryPlanOffers('AE', cfg.countries);
+  assert.equal(live.plans.find((plan) => plan.id === 'ae-firm').productId, 'myca_ae_firm_monthly', 'the India firm product must not leak into the UAE edition');
+  assert.ok(live.plans.every((plan) => plan.buyable));
+  const own = billingConfigFromEnv({ MYCA_PLAY_PACKAGE_AE: 'com.mldynamic.myca.uae', MYCA_PLAY_PRODUCT_AE_FIRM: 'ae_firm_live' });
+  assert.equal(countryPlanOffers('AE', own.countries).plans.find((plan) => plan.id === 'ae-firm').productId, 'ae_firm_live');
+});

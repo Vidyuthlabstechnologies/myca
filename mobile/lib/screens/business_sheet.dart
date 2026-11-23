@@ -10,7 +10,9 @@ import '../theme.dart';
 import '../uae/uae_cloud_strings.dart';
 import '../uae/uae_edition.dart';
 import '../uae/uae_emirates.dart';
+import '../uae/uae_plan_strings.dart';
 import '../uae/uae_strings.dart';
+import 'uae/uae_plan_screen.dart';
 import '../uk/uk_plan_screen.dart';
 import '../widgets.dart';
 import 'businesses_screen.dart';
@@ -91,15 +93,15 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                         navigator.push(MaterialPageRoute<void>(builder: (_) => const PeopleScreen()));
                       },
                     ),
-                    if (ae == null)
                     RowCard(
+                      key: const ValueKey('business.plan'),
                       leading: const TintTile(tint: Tint.ask, mark: Mark.confirm),
-                      title: inText(sheet, 'Plan and billing'),
-                      subtitle: inText(sheet, 'Your plan, trial and what it includes'),
+                      title: ae != null ? ae.planTitle : inText(sheet, 'Plan and billing'),
+                      subtitle: ae != null ? ae.planRowSubtitle : inText(sheet, 'Your plan, trial and what it includes'),
                       trailing: const Chevron(),
                       onTap: () {
                         navigator.pop();
-                        navigator.push(MaterialPageRoute<void>(builder: (_) => state.edition == 'GB' ? const UkPlanScreen() : const PlanScreen()));
+                        navigator.push(MaterialPageRoute<void>(builder: (_) => ae != null ? const UaePlanScreen() : state.edition == 'GB' ? const UkPlanScreen() : const PlanScreen()));
                       },
                     ),
                     RowCard(
