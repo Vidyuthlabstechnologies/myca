@@ -400,6 +400,27 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     const paid = await billing.usFilingAllowed(businessId, pending.args?.taxYear);
     return paid.ok ? null : paid;
   }
+  async function chatInBooks(session, { businessId, userId, actor, asker = actor, message, address = '', canPost = { ok: true } }) {
+    if (!canPost.ok) return readOnlyChat(session, message, asker);
+    if (await unpaidFiling(businessId, session)) await session.discard(actor);
+    const unprotected = await secondStepMissing(userId, session.state.pendingChatAction?.name);
+    if (unprotected && confirmationIntent(message) && confirmationIntent(message) !== 'cancel') {
+      await session.discard(actor);
+      return { reply: unprotected.hint, tools: [], error: unprotected.error };
+    }
+    await withServerFactors(userId, session.state.pendingChatAction, address);
+    // A "yes" in chat can confirm a pending US filing, which must reach the partner the same way.
+    const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, userId, () => session.chat(message, asker)) : await session.chat(message, asker);
+    const unpaid = await unpaidFiling(businessId, session);
+    if (!unpaid) return out;
+    await session.discard(actor);
+    return { reply: unpaid.hint, tools: [], error: unpaid.error };
+  }
+
+  async function whatsAppChat(session, { businessId, userId, actor, message }) {
+    const canPost = await billing.allows(businessId, 'post');
+    return chatInBooks(session, { businessId, userId, actor, message, canPost });
+  }
   const billing = billingGiven || createBilling({ db, now, log });
   const govt = createGovtActions({ connectors, withBooks: (...args) => runner.withBooks(...args), fetchFn: gspFetch });
   const gstPortal = createGstPortal({ db, connectors, withBooks: (...args) => runner.withBooks(...args), billing, key: connectorKey, fetchFn: gspFetch, now });
@@ -415,7 +436,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const growth = createGrowth({ db, now, siteUrl: growthConfig.siteUrl ?? process.env.MYCA_SITE_URL ?? '', reward: growthConfig.reward ?? process.env.MYCA_REFERRAL_REWARD ?? '' });
   const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain }, storedBytes: (businessId) => businesses.storedBytes(businessId), limitBytes: MAX_BUSINESS_BYTES });
   const rateLimits = createRateLimits({ db, now, limits: limitsGiven });
-  const whatsApp = createWhatsApp({ db, withBooks, billing, withSharedBooks: runner.withSharedBooks, syncOf, rateLimits, config: whatsapp, sender: whatsappSender, now, log });
+  const whatsApp = createWhatsApp({ db, withBooks, billing, withSharedBooks: runner.withSharedBooks, syncOf, rateLimits, config: whatsapp, sender: whatsappSender, now, log, chat: (session, how) => whatsAppChat(session, how), consented: (userId) => consent.accepted(userId) });
   const consent = createConsent({ db, now, notices: noticesFor(hostedCountries()) });
   const usConsents = createUsConsents({ db, now, environment });
   const privacyRequests = createPrivacyRequests({ db, now });
@@ -1092,22 +1113,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
         const asker = withChatLanguage(actor, body.lang);
         const canPost = await billing.allows(businessId, 'post');
-        return withBooks(businessId, context, async (session) => {
-          if (!canPost.ok) return readOnlyChat(session, message, asker);
-          if (await unpaidFiling(businessId, session)) await session.discard(actor);
-          const unprotected = await secondStepMissing(user.userId, session.state.pendingChatAction?.name);
-          if (unprotected && confirmationIntent(message) && confirmationIntent(message) !== 'cancel') {
-            await session.discard(actor);
-            return { reply: unprotected.hint, tools: [], error: unprotected.error };
-          }
-          await withServerFactors(user.userId, session.state.pendingChatAction, clientAddress(req));
-          // A "yes" in chat can confirm a pending US filing, which must reach the partner the same way.
-          const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, user.userId, () => session.chat(message, asker)) : await session.chat(message, asker);
-          const unpaid = await unpaidFiling(businessId, session);
-          if (!unpaid) return out;
-          await session.discard(actor);
-          return { reply: unpaid.hint, tools: [], error: unpaid.error };
-        });
+        return withBooks(businessId, context, (session) => chatInBooks(session, { businessId, userId: user.userId, actor, asker, message, address: clientAddress(req), canPost }));
       }
       if (action === 'company') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
