@@ -239,7 +239,7 @@ export const PRIVACY_NOTICE_MY_MS = {
   ],
 };
 
-const AE_VERSION = 'ae-draft-2026-11-15.2';
+const AE_VERSION = 'ae-draft-2026-11-23';
 const AE_CONTROLLER = 'ML Dynamic Solutions Private Limited, a company registered in India, 606, 6th Floor, Gowra Fountainhead, Patrika Nagar, Madhapur, HITEC City, Hyderabad, Telangana 500081, India';
 const AE_PRIVACY_EMAIL = '[privacy email, to be confirmed before release]';
 
@@ -271,7 +271,7 @@ export const PRIVACY_NOTICE_AE = {
     },
     {
       heading: 'Who else sees your data',
-      body: 'People you invite to your business see what their role allows. Google checks a Google sign-in and a Google Play subscription. Google Cloud hosts MyCA. The SMS provider receives your number and sign-in code when phone sign-in is on. The language model provider receives a chat message or bill image only when you use those features. An Accredited Service Provider for e-invoicing receives invoice data only after we connect one and you switch it on. Authorities receive data only when UAE law requires it.',
+      body: 'People you invite to your business see what their role allows. Google checks a Google sign-in and a Google Play subscription. Google Cloud hosts MyCA. The SMS provider receives your number and sign-in code when phone sign-in is on. The language model provider, Anthropic PBC in the United States, receives a chat message or bill image only when you use those features, with Emirates ID numbers and UAE IBANs masked first; this is a transfer under Article 23 of Federal Decree-Law No. 45 of 2021, and Anthropic does not train its models on it. An Accredited Service Provider for e-invoicing receives invoice data only after we connect one and you switch it on. Authorities receive data only when UAE law requires it.',
     },
     {
       heading: 'Where it is kept',
@@ -317,7 +317,7 @@ export const PRIVACY_NOTICE_AE_AR = {
     },
     {
       heading: 'من يطّلع أيضًا على بياناتك',
-      body: 'الأشخاص الذين تدعوهم إلى منشأتك يرون ما تسمح به صلاحياتهم. تتحقق Google من تسجيل الدخول عبر Google ومن اشتراك Google Play. تستضيف Google Cloud تطبيق MyCA. يتلقى مزوّد الرسائل النصية رقمك ورمز الدخول عند تفعيل الدخول بالهاتف. يتلقى مزوّد النموذج اللغوي رسالة المحادثة أو صورة الفاتورة فقط عند استخدامك لهاتين الميزتين. يتلقى مزوّد خدمة معتمد للفوترة الإلكترونية بيانات الفاتورة فقط بعد ربطه وتفعيلك له. وتتلقى الجهات الرسمية البيانات فقط عندما يوجب قانون الإمارات ذلك.',
+      body: 'الأشخاص الذين تدعوهم إلى منشأتك يرون ما تسمح به صلاحياتهم. تتحقق Google من تسجيل الدخول عبر Google ومن اشتراك Google Play. تستضيف Google Cloud تطبيق MyCA. يتلقى مزوّد الرسائل النصية رقمك ورمز الدخول عند تفعيل الدخول بالهاتف. يتلقى مزوّد النموذج اللغوي، شركة Anthropic PBC في الولايات المتحدة، رسالة المحادثة أو صورة الفاتورة فقط عند استخدامك لهاتين الميزتين، بعد إخفاء أرقام الهوية الإماراتية وأرقام IBAN الإماراتية؛ ويُعدّ ذلك نقلًا بموجب المادة 23 من المرسوم بقانون اتحادي رقم 45 لسنة 2021، ولا تدرّب Anthropic نماذجها عليها. يتلقى مزوّد خدمة معتمد للفوترة الإلكترونية بيانات الفاتورة فقط بعد ربطه وتفعيلك له. وتتلقى الجهات الرسمية البيانات فقط عندما يوجب قانون الإمارات ذلك.',
     },
     {
       heading: 'أين تُحفظ بياناتك',

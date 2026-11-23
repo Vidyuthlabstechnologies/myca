@@ -30,9 +30,9 @@ export const UNITED_ARAB_EMIRATES = Object.freeze({
     currency: 'AED',
     providers: Object.freeze(['play']),
     plans: Object.freeze([
-      Object.freeze({ id: 'starter', kind: 'monthly', price: 299, sells: 'software', provider: 'play' }),
-      Object.freeze({ id: 'business', kind: 'monthly', price: 799, sells: 'software', provider: 'play' }),
-      Object.freeze({ id: 'firm', kind: 'monthly', price: 2499, sells: 'software', provider: 'play', review: 'For tax agents and accounting firms serving many UAE clients.' }),
+      Object.freeze({ id: 'ae-starter', title: 'Starter', kind: 'monthly', price: 299, sells: 'software', provider: 'play', playProduct: 'myca_ae_starter_monthly', members: 2, features: Object.freeze(['books', 'post', 'chat', 'team', 'vat-returns', 'corporate-tax']) }),
+      Object.freeze({ id: 'ae-business', title: 'Business', kind: 'monthly', price: 799, sells: 'software', provider: 'play', playProduct: 'myca_ae_business_monthly', members: 5, features: Object.freeze(['books', 'post', 'chat', 'team', 'vat-returns', 'corporate-tax', 'einvoice', 'priority-support']) }),
+      Object.freeze({ id: 'ae-firm', title: 'Firm', kind: 'monthly', price: 2499, sells: 'software', provider: 'play', playProduct: 'myca_ae_firm_monthly', members: 25, features: Object.freeze(['books', 'post', 'chat', 'team', 'vat-returns', 'corporate-tax', 'einvoice', 'priority-support', 'agent-clients']), review: 'For tax agents and accounting firms serving many UAE clients.' }),
     ]),
   }),
 });

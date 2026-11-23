@@ -76,8 +76,7 @@ Each is reached only when you use the feature, and only with what that feature n
 - Our hosting provider, Google Cloud, which stores everything above for us (see "Where your data
   is kept").
 - The SMS provider, when phone sign-in is on: your phone number and the sign-in code.
-- The language model provider, [name, country], when a chat message matches no built-in action or
-  you ask MyCA to read a bill: that text or image only.
+- The language model provider, Anthropic PBC, United States, when a chat message matches no built-in action or you ask MyCA to read a bill: that text or image only, with Emirates ID numbers and UAE IBANs masked first. Anthropic does not use it to train its models.
 - The email relay, when you send an email from the app: the message and the addresses.
 - An Accredited Service Provider for e-invoicing, [name], only after we connect one and you switch
   it on: the invoice data needed for the Peppol network.
@@ -91,8 +90,7 @@ Cloud has no region in the UAE today. We plan to move UAE data to a data centre 
 
 Storing data in Qatar is a transfer outside the UAE. We rely on our contract with Google Cloud,
 which requires protection at least equal to UAE law (Federal Decree-Law No. 45 of 2021,
-Article 23), and on the transfer being needed to provide the service you asked for. If the
-language model provider is outside the UAE and Qatar, the same contract safeguards apply.
+Article 23), and on the transfer being needed to provide the service you asked for. Sending a message or bill to the language model provider in the United States is a second transfer; it rests on the same Article 23 basis, our contract with Anthropic and the transfer being needed for the feature you chose.
 
 If your business is in the DIFC or ADGM, ask us for our DIFC/ADGM data processing addendum.
 
@@ -206,8 +204,7 @@ MyCA ليس وكيلًا ضريبيًا مسجّلًا ولا يقدّم الإ�
 - Google: للتحقق من تسجيل الدخول عبر Google ومن اشتراك Google Play.
 - مزوّد الاستضافة، Google Cloud، الذي يحفظ كل ما سبق نيابةً عنّا (انظر "أين تُحفظ بياناتك").
 - مزوّد الرسائل النصية عند تفعيل الدخول برقم الهاتف: رقم هاتفك ورمز الدخول.
-- مزوّد النموذج اللغوي، [الاسم، الدولة]، عندما لا تطابق رسالتك أي إجراء مدمج أو تطلب قراءة فاتورة:
-  ذلك النص أو تلك الصورة فقط.
+- مزوّد النموذج اللغوي، شركة Anthropic PBC في الولايات المتحدة، عندما لا تطابق رسالتك أي إجراء مدمج أو تطلب قراءة فاتورة: ذلك النص أو تلك الصورة فقط، بعد إخفاء أرقام الهوية الإماراتية وأرقام الحسابات المصرفية الدولية (IBAN) الإماراتية. ولا تستخدمها Anthropic لتدريب نماذجها.
 - خدمة إرسال البريد، عندما ترسل بريدًا من التطبيق: الرسالة والعناوين.
 - مزوّد خدمة معتمد للفوترة الإلكترونية، [الاسم]، فقط بعد ربطه وتفعيلك له: بيانات الفاتورة اللازمة
   لشبكة Peppol.
@@ -221,8 +218,7 @@ MyCA ليس وكيلًا ضريبيًا مسجّلًا ولا يقدّم الإ�
 
 يُعدّ حفظ البيانات في قطر نقلًا لها خارج الدولة. ونستند في ذلك إلى عقدنا مع Google Cloud الذي يُلزمها
 بحماية لا تقل عن قانون الإمارات (المرسوم بقانون اتحادي رقم 45 لسنة 2021، المادة 23)، وإلى أن النقل
-لازم لتقديم الخدمة التي طلبتها. وإذا كان مزوّد النموذج اللغوي خارج الإمارات وقطر، تسري الضمانات
-التعاقدية نفسها.
+لازم لتقديم الخدمة التي طلبتها. ويُعدّ إرسال رسالة أو فاتورة إلى مزوّد النموذج اللغوي في الولايات المتحدة نقلًا ثانيًا يستند إلى أساس المادة 23 نفسه: عقدنا مع Anthropic، وأن النقل لازم للميزة التي اخترتها.
 
 إذا كانت منشأتك في مركز دبي المالي العالمي (DIFC) أو سوق أبوظبي العالمي (ADGM)، اطلب منّا ملحق معالجة
 البيانات الخاص بهما.
