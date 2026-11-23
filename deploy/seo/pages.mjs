@@ -2,6 +2,8 @@ export const ORIGIN = 'https://__SITE_ORIGIN__';
 
 export const PLAY_ID = 'com.mldynamic.myca';
 
+export const PLAY_LISTED = false;
+
 export const EARLY_ACCESS_ACTION = '__EARLY_ACCESS_URL__';
 
 export const INDIA_PRICES = Object.freeze({ essentials: '₹999', pro: '₹1,999', assured: '₹4,999', firm: '₹5,999' });

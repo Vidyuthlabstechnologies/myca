@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PRIVACY_NOTICE_US } from '../../cloud/src/consent.mjs';
-import { EARLY_ACCESS_ACTION, GUIDE_INDEX, ORIGIN, PAGES, PLAY_ID, US_FORMS } from './pages.mjs';
+import { EARLY_ACCESS_ACTION, GUIDE_INDEX, ORIGIN, PAGES, PLAY_ID, PLAY_LISTED, US_FORMS, US_PRICES } from './pages.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = join(here, '..', 'public');
@@ -20,6 +20,16 @@ export function usLegalReady() {
   return ![...pages, [PRIVACY_NOTICE_US.controller, ...PRIVACY_NOTICE_US.sections.map((s) => s.body)].join('\n')].some((text) => US_LEGAL_BLANK.test(text));
 }
 
+export const LEGAL_PAGES_INDIA = Object.freeze(['privacy', 'terms', 'refunds', 'disclaimer', 'grievance', 'delete-account']);
+
+export function indexable(name, dir = PUBLIC_DIR) {
+  try {
+    return !/<meta name="robots" content="[^"]*noindex/.test(readFileSync(join(dir, `${name}.html`), 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
 const escape = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const jsonLd = (value) => JSON.stringify(value).replace(/</g, '\\u003c');
 
@@ -30,7 +40,7 @@ export function playUrl(campaign, content = '') {
 
 const bySlug = Object.fromEntries(PAGES.map((page) => [page.slug, page]));
 
-function shell({ path, title, description, body, ld, edition = 'india' }) {
+function shell({ path, title, description, body, ld, edition = 'india', noindex = false }) {
   const url = path ? `${ORIGIN}/${path}` : `${ORIGIN}/`;
   return `<!DOCTYPE html>
 <html lang="${edition === 'us' ? 'en-US' : 'en-IN'}">
@@ -39,9 +49,11 @@ function shell({ path, title, description, body, ld, edition = 'india' }) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escape(title)}</title>
 <meta name="description" content="${escape(description)}">
-<link rel="canonical" href="${url}">
+${noindex ? '<meta name="robots" content="noindex">\n' : ''}<link rel="canonical" href="${url}">
 <meta name="theme-color" content="#FAFAF7">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="${edition === 'us' ? 'MyCA US' : 'MyCA'}">
+<meta property="og:locale" content="${edition === 'us' ? 'en_US' : 'en_IN'}">
 <meta property="og:url" content="${url}">
 <meta property="og:title" content="${escape(title)}">
 <meta property="og:description" content="${escape(description)}">
@@ -54,26 +66,30 @@ function shell({ path, title, description, body, ld, edition = 'india' }) {
 ${ld.map((item) => `<script type="application/ld+json">${jsonLd(item)}</script>`).join('\n')}
 </head>
 <body>
+<a class="skip" href="#content">Skip to content</a>
 <header class="site-header">
   <div class="wrap">
     <nav>
-      <a class="brand" href="/" aria-label="MyCA home"><img src="/assets/logo.svg" alt="" width="26" height="26"><span>My<span class="ca">CA</span></span></a>
+      <a class="brand" href="${edition === 'us' ? '/us' : '/'}" aria-label="${edition === 'us' ? 'MyCA US home' : 'MyCA home'}"><img src="/assets/logo.svg" alt="" width="26" height="26"><span>My<span class="ca">CA</span></span></a>
       <ul>
-        <li class="hide-sm"><a href="/guides">Guides</a></li>
+${edition === 'us' ? `        <li class="hide-sm"><a href="/guides">Guides</a></li>
+        <li class="hide-sm"><a href="/us#forms">Forms</a></li>
+        <li><a href="/us#pricing">Pricing</a></li>
+        <li><a class="btn primary small" href="/us#early-access">Get early access</a></li>` : `        <li class="hide-sm"><a href="/guides">Guides</a></li>
         <li class="hide-sm"><a href="/us">MyCA US</a></li>
         <li><a href="/#pricing">Pricing</a></li>
-        <li><a class="btn primary small" href="/#get">Get MyCA</a></li>
+        <li><a class="btn primary small" href="/#get">Get MyCA</a></li>`}
       </ul>
     </nav>
   </div>
 </header>
-<main>
+<main id="content">
 ${body}
 </main>
 <footer class="site-footer">
   <div class="wrap row">
     <div>
-      <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="26" height="26"><span>My<span class="ca">CA</span></span></a>
+      <a class="brand" href="${edition === 'us' ? '/us' : '/'}"><img src="/assets/logo.svg" alt="" width="26" height="26"><span>My<span class="ca">CA</span></span></a>
       <p>ML Dynamic Solutions Private Limited.${edition === 'us' ? '' : '<br><small class="legal-line">MyCA is software by ML Dynamic Solutions Private Limited. It is not a firm of chartered accountants and does not give tax or legal advice. GST filing goes through a licensed GST Suvidha Provider; MyCA is not affiliated with GSTN, the Income Tax Department or NIC.</small>'}</p>
     </div>
     <ul>
@@ -95,6 +111,7 @@ ${edition === 'us' ? (usLegalReady() ? `      <li><a href="/us/terms">Terms</a><
 
 function ctaHref(page) {
   if (page.cta.href) return page.cta.href;
+  if (!PLAY_LISTED) return '/#get';
   return playUrl(page.slug.replace(/[^a-z0-9]+/g, '_'));
 }
 
@@ -105,7 +122,7 @@ export function earlyAccess(slug) {
     <div class="wrap">
       <h2>Get early access</h2>
       <p class="sub">Leave your email and we write when MyCA US opens in January 2027, with the launch price. Every email has an unsubscribe link.</p>
-      <form class="early-access" id="${id}" method="post" action="${EARLY_ACCESS_ACTION}" hidden>
+      <form class="early-access" id="${id}" method="post" action="${EARLY_ACCESS_ACTION}" data-off="${id}-off" hidden>
         <label for="${id}-email">Email</label>
         <div class="row">
           <input id="${id}-email" type="email" name="email_address" autocomplete="email" required maxlength="254" placeholder="you@example.com">
@@ -114,14 +131,7 @@ export function earlyAccess(slug) {
         <p class="fine">Your email goes only to our list provider and is used only for MyCA US launch news. See <a href="/privacy">Privacy</a>.</p>
       </form>
       <p class="fine" id="${id}-off">The early-access list opens soon. Check back here.</p>
-      <script>
-        (function () {
-          var form = document.getElementById('${id}');
-          if (!/^https:\\/\\/[^\\s"<>]+$/.test(form.getAttribute('action') || '')) return;
-          form.hidden = false;
-          document.getElementById('${id}-off').hidden = true;
-        })();
-      </script>
+      <script src="/assets/early-access.js" defer></script>
     </div>
   </section>`;
 }
@@ -136,6 +146,20 @@ export function renderPage(page) {
       <h2>Forms in the first season</h2>
       <p class="sub">If your return needs something not on this list, MyCA tells you before you pay.</p>
       <ul class="chips">${US_FORMS.map((form) => `<li>${escape(form)}</li>`).join('')}</ul>
+    </div>
+  </section>`
+    : '';
+  const pricing = page.slug === 'us'
+    ? `
+  <section class="block" id="pricing">
+    <div class="wrap">
+      <h2>Pricing</h2>
+      <p class="sub">Preparing your return and seeing your refund are free. You pay only when you file.</p>
+      <div class="guide-points">
+        <div class="card"><h3>Federal return</h3><p class="price money">${escape(US_PRICES.returnList)}</p><p>${escape(US_PRICES.returnLaunch)} for returns filed through ${escape(US_PRICES.launchUntil)}. One payment per return and year.</p></div>
+        <div class="card"><h3>MyCA Plus</h3><p class="price money">${escape(US_PRICES.plus)} a year</p><p>Quarterly estimated payments, a withholding check and help with IRS letters. Renews each year until you cancel.</p></div>
+        <div class="card"><h3>Expert Review</h3><p class="price money">${escape(US_PRICES.expert)}</p><p>Opening soon: a tax professional reviews your return before you file. Join the waitlist in the app.</p></div>
+      </div>
     </div>
   </section>`
     : '';
@@ -154,7 +178,7 @@ export function renderPage(page) {
 ${page.points.map(([title, text]) => `        <div class="card"><h3>${escape(title)}</h3><p>${escape(text)}</p></div>`).join('\n')}
       </div>
     </div>
-  </section>${forms}${early}
+  </section>${forms}${pricing}${early}
   <section class="block">
     <div class="wrap">
       <h2>Questions</h2>
@@ -214,7 +238,8 @@ ${group('us', 'US federal taxes')}
 }
 
 export function renderSitemap() {
-  const paths = ['', GUIDE_INDEX.slug, ...PAGES.map((page) => page.slug), 'privacy', 'terms', 'refunds', 'disclaimer', 'grievance'];
+  const legal = LEGAL_PAGES_INDIA.filter((name) => indexable(name));
+  const paths = ['', GUIDE_INDEX.slug, ...PAGES.map((page) => page.slug), ...legal];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${paths.map((path) => `  <url><loc>${ORIGIN}/${path}</loc></url>`).join('\n')}
@@ -237,19 +262,11 @@ export function renderInvite() {
     <h1 class="display">Someone you know keeps their books in MyCA.</h1>
     <p class="lede">Get the app and enter this invite code after you sign in: open Your business, then Invite a business owner.</p>
     <p class="code" id="code" aria-live="polite">&nbsp;</p>
-    <div class="cta"><a class="btn primary" id="play" href="${escape(playUrl('referral'))}">Get MyCA for Android</a><a class="btn" href="/">What is MyCA?</a></div>
+    <div class="cta"><a class="btn primary" id="play" href="${escape(PLAY_LISTED ? playUrl('referral') : '/#get')}"${PLAY_LISTED ? ` data-play="${escape(`https://play.google.com/store/apps/details?id=${PLAY_ID}&referrer=`)}"` : ''}>Get MyCA for Android</a><a class="btn" href="/">What is MyCA?</a></div>
     <p class="fine">Invite codes work in the first 30 days after you join.</p>
   </div>
-  <script>
-    (function () {
-      var raw = (location.pathname.split('/')[2] || '').toUpperCase().replace(/[^23456789ABCDEFGHJKMNPQRSTUVWXYZ]/g, '');
-      if (raw.length !== 8) return;
-      document.getElementById('code').textContent = raw;
-      var play = document.getElementById('play');
-      play.href = ${JSON.stringify(`https://play.google.com/store/apps/details?id=${PLAY_ID}&referrer=`)} + encodeURIComponent('utm_source=referral&utm_medium=invite&utm_campaign=referral&utm_content=' + raw);
-    })();
-  </script>`;
-  return shell({ path: 'invite', title: 'You were invited to MyCA', description: 'Someone you know invited you to MyCA. Get the app and enter their invite code after you sign in.', body, ld: [] }).replace('<meta name="theme-color"', '<meta name="robots" content="noindex">\n<meta name="theme-color"');
+  <script src="/assets/invite.js" defer></script>`;
+  return shell({ path: 'invite', title: 'You were invited to MyCA', description: 'Someone you know invited you to MyCA. Get the app and enter their invite code after you sign in.', body, ld: [], noindex: true });
 }
 
 export function renderUsPrivacy(notice = PRIVACY_NOTICE_US) {
@@ -264,8 +281,25 @@ ${notice.sections.map((section) => `      <h2>${escape(section.heading)}</h2>\n$
   return shell({ path: 'us/privacy', title: 'MyCA US privacy notice', description: 'How MyCA US collects, uses, shares and protects your tax information, including your Social Security number, and the choices and rights you have.', body, ld: [], edition: 'us' }).replace('<meta name="theme-color"', '<meta name="robots" content="noindex">\n<meta name="theme-color"');
 }
 
+export function renderNotFound() {
+  const body = `  <div class="wrap guide-hero">
+    <p class="eyebrow">Page not found</p>
+    <h1 class="display">This page is not in our books.</h1>
+    <p class="lede">The address may be mistyped, or the page has moved. These are the places most people are looking for.</p>
+    <div class="cta"><a class="btn primary" href="/">Go to the home page</a><a class="btn" href="/guides">Read the guides</a></div>
+    <ul class="tile-list not-found">
+      <li><a href="/#pricing">MyCA pricing in India</a></li>
+      <li><a href="/us">MyCA US</a></li>
+      <li><a href="/privacy">Privacy policy</a></li>
+      <li><a href="/delete-account">Delete your account</a></li>
+    </ul>
+  </div>`;
+  return shell({ path: '404', title: 'Page not found | MyCA', description: 'This page is not on the MyCA website. Go to the home page, the guides, pricing, or the privacy and account pages.', body, ld: [], noindex: true }).replace(/<link rel="canonical"[^>]*>\n/, '').replace(/<meta property="og:url"[^>]*>\n/, '');
+}
+
 export function outputs() {
   const files = {
+    '404.html': renderNotFound(),
     'invite.html': renderInvite(),
     'guides.html': renderGuides(),
     'sitemap.xml': renderSitemap(),

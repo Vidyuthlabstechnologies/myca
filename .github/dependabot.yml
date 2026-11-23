@@ -42,6 +42,14 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: npm
+    directory: /deploy/qa
+    schedule:
+      interval: weekly
+    groups:
+      site-qa:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
     directory: /design
     schedule:
       interval: weekly

@@ -66,7 +66,7 @@ test('US pages carry an early-access form that stays hidden until its address is
       assert.doesNotMatch(html, /__EARLY_ACCESS_URL__/, page.slug);
       continue;
     }
-    assert.match(html, /<form class="early-access" id="early-access-[a-z0-9-]+" method="post" action="__EARLY_ACCESS_URL__" hidden>/, page.slug);
+    assert.match(html, /<form class="early-access" id="early-access-[a-z0-9-]+" method="post" action="__EARLY_ACCESS_URL__" data-off="early-access-[a-z0-9-]+-off" hidden>/, page.slug);
     assert.match(html, /name="email_address"/, page.slug);
   }
   const conf = readFileSync(join(root, 'deploy', 'site', 'default.conf.template'), 'utf8');
