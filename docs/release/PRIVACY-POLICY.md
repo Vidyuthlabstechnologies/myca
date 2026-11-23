@@ -46,9 +46,11 @@ Each of these is reached only when you use the feature, and only with what that 
 - The GST Suvidha Provider (currently Quicko), when you file a GST return or use the
   e-way bill service through it: the return data, your GSTIN and the OTP step.
 - The NIC e-invoice and e-way bill systems, when you generate an IRN or e-way bill: the invoice data.
-- The language model provider, when the service has a model switched on: the text of a
-  chat message that matches no built-in action, and the text or image of a bill you ask
-  MyCA to read. Figures are never computed by the model.
+- The language model provider (Anthropic), when the service has a model switched on: the
+  text of a chat message that matches no built-in action, and the text or image of a bill
+  you ask MyCA to read. Aadhaar numbers are swapped for placeholders before the text leaves
+  (`platform/src/india-identity.mjs`); the provider may not train on what it receives.
+  Figures are never computed by the model.
 - The WhatsApp gateway, when you send a reminder or link WhatsApp: the message and the
   recipient's number.
 - The email relay, when you send an email from the app: the message and the addresses.
@@ -77,12 +79,18 @@ Businesses screen, delete a business there, and delete your account there or at
 https://[site]/delete-account. Deleting the account withdraws consent: it disappears at once
 and thirty days later the name, phone number, email and Google account link are erased for
 good; signing in again within those thirty days cancels it. If you are not satisfied, you
-can complain to the Data Protection Board of India.
+can complain to the Data Protection Board of India. You may also give, review or withdraw
+consent through a consent manager registered with the Board (DPDP Act s.6(7) to (9), in force
+from 13 November 2026). You can ask for this notice in English or any language in the Eighth
+Schedule to the Constitution (s.5(3)), and we will send it.
 
 ## Children
 
 MyCA is for people aged 18 and over. Everyone confirms they are 18 or over before using it
-(`consents.adult_declared`).
+(`consents.adult_declared`). A lawful guardian of a person with a disability opens the
+account in their own name; we do not knowingly process the personal data of a child, or of a
+person with a disability who has a lawful guardian, without that parent's or guardian's
+verifiable consent (s.9).
 
 ## Retention and security
 

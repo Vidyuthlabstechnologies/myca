@@ -164,7 +164,7 @@ export const TAX_TOOL_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     required: ['quarter'],
-    properties: { quarter: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' }, form: { type: 'string', enum: ['24Q', '26Q', '27Q'] }, tan: { type: 'string', maxLength: 10 }, filingType: { type: 'string', enum: ['regular', 'correction'] }, caApprovalId: { type: 'string', maxLength: 40 } },
+    properties: { quarter: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' }, form: { type: 'string', enum: ['24Q', '26Q', '27Q', '138', '140', '144'] }, tan: { type: 'string', maxLength: 10 }, filingType: { type: 'string', enum: ['regular', 'correction'] }, caApprovalId: { type: 'string', maxLength: 40 } },
   },
   portal_status: { type: 'object', additionalProperties: false, properties: {} },
   rules_status: {

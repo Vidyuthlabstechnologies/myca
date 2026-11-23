@@ -2,6 +2,7 @@ import { csvRows } from './text-safe.mjs';
 import { allocateDeposits, quartersWithDeductions, parseQuarter, tdsReturnDraft } from './tds-return.mjs';
 import { salaryAnnexureII } from './salary-annexure.mjs';
 import { salaryPrivate } from './employees.mjs';
+import { formLabel, formNumber } from './it-act-forms.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
@@ -40,7 +41,7 @@ export function form16A(state, args = {}) {
     const own = entries.filter((entry) => deducteeKeyOf(entry) === deducteeKeyOf(row) && entry.section === row.section);
     return {
       serial: index + 1,
-      certificateNo: `16A/${draft.quarter.replace(/\s+/g, '-')}/${String(index + 1).padStart(3, '0')}`,
+      certificateNo: `${formNumber('otherCertificate', draft.quarter)}/${draft.quarter.replace(/\s+/g, '-')}/${String(index + 1).padStart(3, '0')}`,
       deductee: { name: row.payee, pan: row.pan, noPan: row.noPan },
       section: row.section,
       quarter: draft.quarter,
@@ -58,6 +59,7 @@ export function form16A(state, args = {}) {
     ok: true,
     data: {
       form: '16A',
+      formName: formLabel('otherCertificate', draft.quarter),
       quarter: draft.quarter,
       quarters: draft.quarters,
       deductor: deductor(state),
@@ -71,7 +73,7 @@ export function form16A(state, args = {}) {
         'Challans are the quarter\'s deposits as a whole; TRACES apportions them deductee by deductee from the statement.',
         ...(draft.unreviewed ? ['The rates come from MyCA\'s dated rules, which your CA has not reviewed yet.'] : []),
       ],
-      fileName: `Form16A_${state.company.tan || 'TAN'}_${draft.quarter.replace(/\s+/g, '-')}.csv`,
+      fileName: `Form${formNumber('otherCertificate', draft.quarter)}_${state.company.tan || 'TAN'}_${draft.quarter.replace(/\s+/g, '-')}.csv`,
       csv: csvRows([
         ['certificate_no', 'deductee', 'pan', 'section', 'quarter', 'payment_date', 'amount_paid', 'rate', 'tds'],
         ...certificates.flatMap((c) => (c.payments.length ? c.payments.map((p) => [c.certificateNo, c.deductee.name, c.deductee.pan, c.section, c.quarter, p.date, p.amount, p.rate, p.tds]) : [[c.certificateNo, c.deductee.name, c.deductee.pan, c.section, c.quarter, '', c.amountPaid, '', c.tdsDeducted]])),
@@ -93,7 +95,7 @@ export function form16(state, args = {}) {
   });
   const certificates = a.rows.map((row, index) => ({
     serial: index + 1,
-    certificateNo: `16/${a.fy}/${row.employeeId}`,
+    certificateNo: `${formNumber('salaryCertificate', a.fy)}/${a.fy}/${row.employeeId}`,
     employee: { id: row.employeeId, name: row.name, pan: row.pan, regime: row.regime },
     partA: byQuarter.map((q) => ({ quarter: q.quarter, amountPaid: round2(q.entries.filter((entry) => entry.payee === row.name).reduce((sum, entry) => sum + entry.basis, 0)), tdsDeducted: round2(q.entries.filter((entry) => entry.payee === row.name).reduce((sum, entry) => sum + entry.tds, 0)), challans: q.challans })),
     partB: {
@@ -108,7 +110,7 @@ export function form16(state, args = {}) {
       excess: row.excess,
     },
     notes: [
-      ...(row.pan ? [] : ['No PAN recorded; Form 16 cannot be issued from TRACES without it.']),
+      ...(row.pan ? [] : [`No PAN recorded; ${formLabel('salaryCertificate', a.fy)} cannot be issued from TRACES without it.`]),
       ...(row.monthsPaid < 12 ? [`${row.monthsPaid === 1 ? '1 month' : `${row.monthsPaid} months`} of ${a.fy} were run in MyCA.`] : []),
     ],
   }));
@@ -116,17 +118,18 @@ export function form16(state, args = {}) {
     ok: true,
     data: {
       form: '16',
+      formName: formLabel('salaryCertificate', a.fy),
       fy: a.fy,
       deductor: deductor(state),
       certificates,
       quarters: byQuarter.map((q) => ({ quarter: q.quarter, tds: q.tds, challans: q.challans })),
       unreviewed: a.unreviewed,
       notes: [
-        'Part A (tax deducted and deposited) comes from TRACES after the Form 24Q statements are processed; these figures are the books\' own for checking.',
+        `Part A (tax deducted and deposited) comes from TRACES after the ${formLabel('salaryStatement', a.fy)} statements are processed; these figures are the books' own for checking.`,
         'Part B is from the approved payroll months. Exemptions under section 10 and the employee\'s declarations (other 80C, 80D, house property, other income) are added from the employee\'s declaration before issue.',
         ...a.notes.filter((note) => !note.startsWith('Exemptions')),
       ],
-      fileName: `Form16_${state.company.tan || 'TAN'}_${a.fy}.csv`,
+      fileName: `Form${formNumber('salaryCertificate', a.fy)}_${state.company.tan || 'TAN'}_${a.fy}.csv`,
       csv: csvRows([
         ['certificate_no', 'employee_id', 'employee', 'pan', 'regime', 'gross_salary', 'standard_deduction_16ia', 'professional_tax_16iii', 'deductions_80c', 'total_income', 'tax_on_total_income', 'tds_deducted', 'shortfall', 'excess'],
         ...certificates.map((c) => [c.certificateNo, c.employee.id, c.employee.name, c.employee.pan, c.employee.regime, c.partB.grossSalary, c.partB.standardDeduction16ia, c.partB.professionalTax16iii, c.partB.deductions80C, c.partB.totalIncome, c.partB.taxOnTotalIncome, c.partB.tdsDeducted, c.partB.shortfall, c.partB.excess]),
@@ -141,12 +144,12 @@ export function tdsCertificates(state, args = {}) {
 
 export function certificateWords(data, money) {
   if (data.form === '16A') {
-    const lines = [`Form 16A drafts for ${data.quarter}: ${data.certificates.length === 1 ? '1 deductee' : `${data.certificates.length} deductees`}, TDS ${money(data.deducted)} deducted, ${money(data.deposited)} deposited.`];
+    const lines = [`${data.formName || 'Form 16A'} drafts for ${data.quarter}: ${data.certificates.length === 1 ? '1 deductee' : `${data.certificates.length} deductees`}, TDS ${money(data.deducted)} deducted, ${money(data.deposited)} deposited.`];
     for (const c of data.certificates) lines.push(`· ${c.deductee.name}${c.deductee.pan ? ` (${c.deductee.pan})` : ' (no PAN)'}, ${c.section}: paid ${money(c.amountPaid)}, TDS ${money(c.tdsDeducted)}`);
     lines.push(`Saved as ${data.fileName} from the Taxes screen. ${data.notes[0]}`);
     return lines.join('\n');
   }
-  const lines = [`Form 16 drafts for ${data.fy}: ${data.certificates.length === 1 ? '1 employee' : `${data.certificates.length} employees`}.`];
+  const lines = [`${data.formName || 'Form 16'} drafts for ${data.fy}: ${data.certificates.length === 1 ? '1 employee' : `${data.certificates.length} employees`}.`];
   for (const c of data.certificates) lines.push(`· ${c.employee.name}${c.employee.pan ? ` (${c.employee.pan})` : ' (no PAN)'}: salary ${money(c.partB.grossSalary)}, tax ${money(c.partB.taxOnTotalIncome)}, TDS ${money(c.partB.tdsDeducted)}`);
   lines.push(`Saved as ${data.fileName} from the payroll screen. ${data.notes[1]}`);
   return lines.join('\n');

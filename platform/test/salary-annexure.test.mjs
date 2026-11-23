@@ -43,12 +43,12 @@ test('Annexure II adds each employee\'s approved months, works the year\'s tax u
   assert.match(d.notes.join(' '), /Ravi Kumar: no PAN recorded/);
   assert.match(d.notes.join(' '), /3 months of 2026-27 were run in MyCA/);
   assert.match(d.notes.join(' '), /Exemptions under section 10/);
-  assert.equal(d.fileName, '24Q_AnnexureII_MUMA12345B_2026-27.csv');
+  assert.equal(d.fileName, '138_AnnexureII_MUMA12345B_2026-27.csv');
   const lines = d.csv.trim().split(/\r?\n/);
   assert.equal(lines[0], 'employee_id,name,pan,regime,months_paid,gross_salary,professional_tax_16iii,standard_deduction_16ia,provident_fund_80c,total_income,tax_on_total_income,tds_deducted,shortfall,excess');
   assert.equal(lines.length, 3);
   const reply = await chat(state, 'annexure II');
-  assert.match(reply.reply, /24Q Annexure II for 2026-27 \(2 employees, 3 months run\)/);
+  assert.match(reply.reply, /Form 138 \(was Form 24Q\) Annexure II for 2026-27 \(2 employees, 3 months run\)/);
   assert.match(reply.reply, /Arjun Rao \(ABCPR1234L\), new regime: salary ₹4,50,000\.00/);
   const empty = await runTool(state, 'salary_annexure', { fy: '2025-26' });
   assert.equal(empty.data.rows.length, 0);

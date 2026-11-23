@@ -114,7 +114,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Other payments (26Q)'));
+      await tester.tap(find.text('Other payments (26Q / Form 140)'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.widgetWithText(TextField, 'Acknowledgement number (ARN)'),
