@@ -1,6 +1,7 @@
 import { loadEnvFile } from './runtime-config.mjs';
 import { redactModelRequest } from './us-identity.mjs';
 import { currentCountryCode } from './country.mjs';
+import { pseudonymiseAadhaar, restoreAadhaar } from './india-identity.mjs';
 
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
 const DEFAULT_BASE_URL = 'https://api.anthropic.com';
@@ -38,7 +39,14 @@ export function modelConfigured() {
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
 async function callModel(unredacted, country = currentCountryCode()) {
-  const body = redactModelRequest(unredacted, country);
+  const india = String(country || 'IN').toUpperCase() === 'IN';
+  const { body: swapped, vault } = india ? pseudonymiseAadhaar(unredacted) : { body: unredacted, vault: [] };
+  const called = await sendToModel(redactModelRequest(swapped, country));
+  if (!vault.length || !called?.ok) return called;
+  return { ...called, response: restoreAadhaar(called.response, vault) };
+}
+
+async function sendToModel(body) {
   const config = modelConfig();
   if (transportOverride) return transportOverride(body);
   if (!config.apiKey) return { ok: false, error: 'MODEL_NOT_CONFIGURED' };

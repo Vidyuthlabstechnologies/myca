@@ -1,6 +1,6 @@
 import { EWB_REASONS, EWB_TRANSPORT_MODES, ewayBillPartA, ewbDate, ewbResult, findEwbInvoice, transportPayload } from './eway-bill.mjs';
 
-const EWB_NO = /^[0-9]{12}$/;
+const EWB_NO = /^(?:[0-9]{12}|[0-9]{14})$/;
 const VEHICLE = /^[A-Z]{2}[0-9]{1,2}[A-Z]{0,3}[0-9]{4}$|^[0-9]{2}BH[0-9]{4}[A-Z]{1,2}$|^TM[A-Z0-9]{6}$/;
 const TRANSPORTER_ID = /^[0-9]{2}[A-Z0-9]{13}$/;
 const DDMMYYYY = /^[0-3][0-9]\/[0-1][0-9]\/20[0-9]{2}$/;
@@ -42,7 +42,7 @@ function targetOf(state, params) {
   const invoice = findEwbInvoice(state, { invoiceId: params.invoiceId, ewbNo: params.ewbNo });
   if (params.invoiceId && !invoice) return fail('INVOICE_NOT_FOUND', { invoiceId: params.invoiceId });
   const ewbNo = String(params.ewbNo || invoice?.ewbNo || '').trim();
-  if (!ewbNo) return fail('EWB_NO_REQUIRED', { hint: 'Pass the 12-digit e-way bill number, or the invoice that has one.' });
+  if (!ewbNo) return fail('EWB_NO_REQUIRED', { hint: 'Pass the e-way bill number (12 digits, or 14 digits from 1 Jan 2027), or the invoice that has one.' });
   if (!EWB_NO.test(ewbNo)) return fail('BAD_EWB_NO', { ewbNo });
   return { ok: true, ewbNo, invoice };
 }

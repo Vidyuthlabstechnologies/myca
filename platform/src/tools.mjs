@@ -2567,7 +2567,7 @@ export const TOOLS = [
   {
     name: 'generate_tds_fvu',
     title: 'Generate the TDS FVU through the provider',
-    description: 'Submit the quarter\'s TDS statement (24Q salary, 26Q others, 27Q non-residents) to the provider\'s FVU job behind the action gate, and keep the job id and file links. The signed TXT and CSI uploads still happen on the provider\'s links.',
+    description: 'Submit the quarter\'s TDS statement (24Q salary, 26Q others, 27Q non-residents; from the tax year 2026-27 these are Forms 138, 140 and 144 under the Income-tax Rules 2026, and either name is accepted) to the provider\'s FVU job behind the action gate, and keep the job id and file links. The signed TXT and CSI uploads still happen on the provider\'s links.',
     args: ['quarter', 'form', 'tan', 'filingType', 'caApprovalId'],
     run: async (state, args = {}) => {
       const out = await generateTdsFvu(state, args, resolveToolActor(args));
@@ -3051,7 +3051,7 @@ export const TOOLS = [
   {
     name: 'tds_certificates',
     title: 'TDS certificate drafts',
-    description: 'Drafts of Form 16A for a quarter (payments other than salary, one per deductee with the payments, TDS and the quarter\'s challans) or Form 16 for a financial year (form "salary": Part A by quarter and Part B from the approved payroll months), as rows and a CSV. The issued certificates come from TRACES after the statement is processed; MyCA files nothing. Read-only.',
+    description: 'Drafts of Form 16A (Form 131 from the tax year 2026-27) for a quarter (payments other than salary, one per deductee with the payments, TDS and the quarter\'s challans) or Form 16 (Form 130 from 2026-27) for a financial year (form "salary": Part A by quarter and Part B from the approved payroll months), as rows and a CSV. The issued certificates come from TRACES after the statement is processed; MyCA files nothing. Read-only.',
     args: ['quarter', 'form', 'fy'],
     run: (state, args = {}) => tdsCertificates(state, args),
   },
@@ -3437,7 +3437,7 @@ export const TOOLS = [
   {
     name: 'record_filing',
     title: 'Record a filed return',
-    description: 'Record that a return was filed outside MyCA (on the portal or by the CA), with its acknowledgement (ARN) and date. The return must be one MyCA lists for this business; for a TDS statement say the form, 24Q (salary) or 26Q (other payments). Files nothing.',
+    description: 'Record that a return was filed outside MyCA (on the portal or by the CA), with its acknowledgement (ARN) and date. The return must be one MyCA lists for this business; for a TDS statement say the form, 24Q or Form 138 (salary) or 26Q or Form 140 (other payments). Files nothing.',
     args: ['returnType', 'period', 'arn', 'filedOn', 'filedBy', 'form'],
     run: (state, args = {}) => recordFiling(state, args, filingRows(state, args.filedOn)),
   },

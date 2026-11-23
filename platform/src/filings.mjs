@@ -17,7 +17,7 @@ function filingGstin(book, gstin) {
 }
 
 const TDS_STATEMENT = 'TDS_QUARTERLY';
-const TDS_FORM_NAMES = { salary: 'salary', '24Q': 'salary', 138: 'salary', other: 'other', '26Q': 'other', 140: 'other' };
+const TDS_FORM_NAMES = { salary: 'salary', '24Q': 'salary', 138: 'salary', other: 'other', '26Q': 'other', 140: 'other', 'FORM 138': 'salary', 'FORM 140': 'other' };
 const TDS_FORM_LABELS = { salary: 'salary (24Q / Form 138)', other: 'payments other than salary (26Q / Form 140)' };
 const QUARTER_MONTHS = { 1: ['04', '05', '06'], 2: ['07', '08', '09'], 3: ['10', '11', '12'], 4: ['01', '02', '03'] };
 
