@@ -10,7 +10,7 @@ import { createQuicko } from './quicko.mjs';
 import { createBilling, readOnlyChat, US_PLUS_TOOLS } from './billing.mjs';
 import { gstin } from '../../platform/src/sprint-load.mjs';
 import { rule } from '../../sprints/statutory-rules/src/index.mjs';
-import { createAuth, isUuid, OTP_MAX_GLOBAL_PER_HOUR } from './auth.mjs';
+import { createAuth, isUuid, normalizePhone, OTP_MAX_GLOBAL_PER_HOUR } from './auth.mjs';
 import { createSecondFactor } from './second-factor.mjs';
 import { createDevices } from './devices.mjs';
 import { createBusinesses, engineRole } from './businesses.mjs';
@@ -25,7 +25,7 @@ import { createCrashReports } from './crash-reports.mjs';
 import { createGrowth } from './growth.mjs';
 import { PRIVACY_NOTICE, consentExempt, createConsent, legalLinks, noticeFor, noticesFor } from './consent.mjs';
 import { createPrivacyRequests } from './privacy-requests.mjs';
-import { createUsConsents, PARTNER_TINS } from './us-7216.mjs';
+import { createUsConsents, PARTNER_TINS, renderConsent, US_PREPARER_NAME } from './us-7216.mjs';
 import { GB_SECOND_STEP_TOOLS, SECOND_STEP_FOR_FILING, SECOND_STEP_FOR_HMRC, US_SECOND_STEP_TOOLS, usSecondStepRequired } from './us-safeguards.mjs';
 import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
@@ -417,6 +417,21 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     return { reply: unpaid.hint, tools: [], error: unpaid.error };
   }
 
+  async function usShareConsentMissing(businessId, user, body = {}) {
+    const found = await db.query('select kind from businesses where id = $1', [businessId]);
+    if (found.rows[0]?.kind !== 'household' || body.relationship === 'spouse') return null;
+    const phone = normalizePhone(body.phone);
+    if (!phone) return null;
+    if (body.consent && typeof body.consent === 'object') {
+      const signed = await usConsents.signShare(user.userId, user.deviceId, { phone, recipientName: body.consent.recipientName, signedName: body.consent.signedName, validUntil: body.consent.validUntil, version: body.consent.version });
+      if (!signed.ok) return signed;
+      return null;
+    }
+    if (await usConsents.validShare(user.userId, phone)) return null;
+    const form = usConsents.shareForm({ phone, recipientName: body.recipientName });
+    return { ok: false, error: 'US_SHARE_CONSENT_REQUIRED', hint: 'Federal law needs your signed consent before your return is shown to anyone other than your spouse on a joint return.', consent: { document: form.document, version: form.version, kind: form.kind, title: form.title, text: renderConsent(form) } };
+  }
+
   async function whatsAppChat(session, { businessId, userId, actor, message }) {
     const canPost = await billing.allows(businessId, 'post');
     return chatInBooks(session, { businessId, userId, actor, message, canPost });
@@ -678,6 +693,12 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
 
     if (parts[1] === 'me' && parts[2] === 'us-consents') {
       if (parts.length === 3 && method === 'GET') return usConsents.list(user.userId);
+      if (parts.length === 4 && parts[3] === 'share' && method === 'GET') {
+        const phone = normalizePhone(url.searchParams.get('phone') || '');
+        if (!phone) return { ok: false, error: 'INVALID_PHONE' };
+        const form = usConsents.shareForm({ phone, recipientName: url.searchParams.get('name') || '' });
+        return { ok: true, consent: { document: form.document, version: form.version, kind: form.kind, title: form.title, preparer: US_PREPARER_NAME, text: renderConsent(form), final: true, signed: await usConsents.validShare(user.userId, phone) } };
+      }
       if (parts.length === 3 && method === 'POST') return usConsents.sign(user.userId, user.deviceId, await readJson(req));
       if (parts.length === 4 && method === 'DELETE') return usConsents.revoke(user.userId, decodedSegment(parts[3]));
       throw httpError(404, 'NOT_FOUND');
@@ -1020,6 +1041,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (action === 'invitations') {
         const team = await billing.allows(businessId, 'team');
         if (!team.ok) return team;
+        const shareBlocked = await usShareConsentMissing(businessId, user, body);
+        if (shareBlocked) return shareBlocked;
         return members.invite(businessId, context, body, { seatsAllowed: (used) => billing.withinLimit(businessId, 'members', used) });
       }
       if (action === 'inbound') return inbound.create(businessId, context, body);

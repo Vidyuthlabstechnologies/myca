@@ -322,3 +322,19 @@ test('2026 interview asks the material participation question for a business and
   const prior = await runTool(state, 'us_interview', { taxYear: '2025' });
   assert.equal((prior.data.questions || []).some((question) => question.id === 'qbiMaterialParticipation'), false);
 });
+
+test('a child under 18 brings a Trump account note (Form 4547), with the pilot contribution only for 2025 to 2028 births', () => {
+  const out = single([w2(50000, 5000)], { taxYear: '2026', dependents: [
+    { firstName: 'Mia', lastName: 'Diaz', relationship: 'daughter', dateOfBirth: '2025-03-01', ssn: true, monthsLived: 12 },
+    { firstName: 'Leo', lastName: 'Diaz', relationship: 'son', dateOfBirth: '2015-01-01', ssn: true, monthsLived: 12 },
+  ] });
+  const note = out.data.checks.find((c) => c.code === 'TRUMP_ACCOUNT_ELECTION');
+  assert.ok(note, 'note present');
+  assert.equal(note.level, 'warning');
+  assert.equal(note.form, '4547');
+  assert.match(note.message, /Mia, Leo may be able to get a Trump account/);
+  assert.match(note.message, /born 2025 to 2028 \(Mia\) may also get a \$1,000 pilot contribution/);
+  assert.ok(!out.data.unsupported.some((u) => u.form === '4547'), 'optional, never listed as a form the return needs');
+  const adult = single([w2(50000, 5000)], { dependents: [{ firstName: 'Ana', lastName: 'Diaz', relationship: 'daughter', dateOfBirth: '2000-01-01', ssn: true, monthsLived: 12, student: true }] });
+  assert.ok(!adult.data.checks.some((c) => c.code === 'TRUMP_ACCOUNT_ELECTION'));
+});

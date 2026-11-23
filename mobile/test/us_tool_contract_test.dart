@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:myca/us/us_ai_permission.dart';
 import 'package:myca/api/models.dart';
 import 'package:myca/app_services.dart';
 import 'package:myca/app_state.dart';
@@ -95,6 +96,7 @@ Future<void> type(WidgetTester tester, String key, String text) async {
 }
 
 void main() {
+  setUp(() => usAiPermissionStore = MemoryUsAiPermissionStore(allowAll: true));
   setUp(() => moneyCountry = 'US');
   tearDown(() => moneyCountry = 'IN');
 

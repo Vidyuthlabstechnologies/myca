@@ -8,6 +8,7 @@ import '../my/my_strings.dart';
 import '../proposal_flow.dart';
 import '../marks.dart';
 import '../theme.dart';
+import '../us/us_ai_permission.dart';
 import '../uae/uae_edition.dart';
 import '../uae/uae_strings.dart';
 import '../widgets.dart';
@@ -22,6 +23,13 @@ class AskScreen extends StatefulWidget {
 }
 
 class _AskScreenState extends State<AskScreen> with ProposalFlow {
+  static const _usStarters = [
+    'Is my return ready to file?',
+    'What is my refund so far?',
+    'Which forms do I still need?',
+    'Show deadlines',
+  ];
+
   static const _starters = [
     'How is business?',
     'Dhanda kaisa chal raha hai?',
@@ -59,7 +67,7 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
     final first = widget.first?.trim() ?? '';
     if (first.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) say(first);
+        if (mounted) _send(first);
       });
     }
   }
@@ -71,9 +79,14 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
     super.dispose();
   }
 
-  void _send(String text, {String? shown}) {
+  Future<void> _send(String text, {String? shown}) async {
     final message = text.trim();
     if (message.isEmpty || busy) return;
+    if (!await ensureUsAiPermission(context)) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nothing was sent. You can finish your return without the assistant.')));
+      return;
+    }
+    if (!mounted) return;
     _input.clear();
     say(message, shown: shown);
   }
@@ -81,6 +94,7 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
   @override
   Widget build(BuildContext context) {
     final s = UaeStrings.of(context);
+    final us = AppScope.of(context).edition == 'US';
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
@@ -101,6 +115,12 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                     children: [
                       if (uaeEdition(context))
                         EmptyNote(text: UaeStrings.of(context).askIntro)
+                      else if (us)
+                        const EmptyNote(
+                          text: 'Ask about your return, your forms or a deadline. Your question goes to Anthropic\'s AI only if you allow it. '
+                              'Nothing is saved until you confirm it, and every figure comes from MyCA\'s tax rules, not the AI. '
+                              'MyCA is tax preparation software, not a CPA, enrolled agent or attorney, and does not give legal advice.',
+                        )
                       else
                       EmptyNote(
                         text:
@@ -116,7 +136,7 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          for (final starter in _starters)
+                          for (final starter in us ? _usStarters : _starters)
                             if (!uaeEdition(context) || starter != 'Dhanda kaisa chal raha hai?')
                             ActionChip(
                               label: Text(s.starter(starter)),
