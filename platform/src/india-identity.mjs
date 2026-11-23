@@ -1,9 +1,3 @@
-// Aadhaar numbers never leave India for the language model. The Aadhaar Act 2016 (s.29) and
-// UIDAI's rules let an entity hold an Aadhaar number only for the purpose it was given and
-// forbid passing it on; the model provider may process text outside India. Before a model call
-// every valid Aadhaar number in the text is swapped for a placeholder, and the placeholder is put
-// back in the tool input the model returns, so "check PAN-Aadhaar link" still works.
-
 const D = [
   [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [1, 2, 3, 4, 0, 6, 7, 8, 9, 5], [2, 3, 4, 0, 1, 7, 8, 9, 5, 6],
   [3, 4, 0, 1, 2, 8, 9, 5, 6, 7], [4, 0, 1, 2, 3, 9, 5, 6, 7, 8], [5, 9, 8, 7, 6, 0, 4, 3, 2, 1],
@@ -15,7 +9,6 @@ const P = [
   [8, 9, 1, 6, 0, 4, 3, 5, 2, 7], [9, 4, 5, 3, 1, 2, 6, 8, 7, 0], [4, 2, 8, 6, 5, 7, 3, 9, 0, 1],
   [2, 7, 9, 3, 8, 0, 6, 4, 1, 5], [7, 0, 4, 6, 9, 1, 3, 2, 5, 8],
 ];
-// 12 digits, optionally grouped 4-4-4 with spaces or hyphens, not part of a longer number.
 const CANDIDATE = /(?<![\w-])(?<!\d[.,])([2-9]\d{3})([ -]?)(\d{4})\2(\d{4})(?![\w-]|[.,]\d)/g;
 const TOKEN = /\[AADHAAR-(\d{1,3})\]/g;
 
@@ -62,7 +55,6 @@ function swapDeep(value, vault, depth = 0) {
   return value;
 }
 
-// Returns the request with Aadhaar numbers replaced, and the numbers in placeholder order.
 export function pseudonymiseAadhaar(body) {
   const vault = [];
   if (!body || typeof body !== 'object') return { body, vault };

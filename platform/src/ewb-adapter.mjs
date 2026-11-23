@@ -1,7 +1,5 @@
 import { EWB_REASONS, EWB_TRANSPORT_MODES, ewayBillPartA, ewbDate, ewbResult, findEwbInvoice, transportPayload } from './eway-bill.mjs';
 
-// 12 digits today; 14 digits for e-way bills generated from 1 Jan 2027 (GSTN advisory of
-// 4 Nov 2026). Old 12-digit numbers stay valid and are never renumbered.
 const EWB_NO = /^(?:[0-9]{12}|[0-9]{14})$/;
 const VEHICLE = /^[A-Z]{2}[0-9]{1,2}[A-Z]{0,3}[0-9]{4}$|^[0-9]{2}BH[0-9]{4}[A-Z]{1,2}$|^TM[A-Z0-9]{6}$/;
 const TRANSPORTER_ID = /^[0-9]{2}[A-Z0-9]{13}$/;
