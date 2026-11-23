@@ -80,7 +80,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
   Future<void> _load() async {
     _busy = true;
     try {
-      final data = toolData(await api.query('loyalty_balance', {}));
+      final data = loadedData(await api.query('loyalty_balance', {}));
       if (!mounted) return;
       final rules = LoyaltyRules.fromJson(data['settings']);
       final rows = data['customers'];
@@ -100,7 +100,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
         _soon = (data['expiringSoonPoints'] is num ? data['expiringSoonPoints'] as num : 0).toInt();
       });
     } on MycaApiException catch (err) {
-      if (mounted) setState(() => _loadError = err.message);
+      if (mounted) setState(() => _loadError = err.message.isEmpty ? inText(context, 'Could not load.') : err.message);
     } finally {
       _busy = false;
       if (mounted) setState(() => _loading = false);
