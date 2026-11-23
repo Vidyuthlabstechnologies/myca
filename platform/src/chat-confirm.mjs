@@ -229,9 +229,21 @@ export function previewOf(state, name, args = {}) {
   }
 }
 
+function proposerOf(state) {
+  return String(state?.__actor?.userId || '');
+}
+
+export function pendingFor(state) {
+  const pending = state?.pendingChatAction;
+  if (!pending) return null;
+  const by = String(pending.proposedBy || '');
+  return !by || by === proposerOf(state) ? pending : null;
+}
+
 export function openPending(state, plan, preview, now = Date.now()) {
   const pending = {
     token: randomBytes(6).toString('hex'),
+    proposedBy: proposerOf(state),
     name: plan.name,
     args: preview.pinned || plan.args,
     clearsPendingFile: Boolean(plan.clearsPendingFile),
@@ -258,7 +270,7 @@ export function confirmationIntent(text) {
 
 // A pending action is single use and expires, so a stray "yes" much later posts nothing.
 export function takePending(state, intent, now = Date.now()) {
-  const pending = state.pendingChatAction;
+  const pending = pendingFor(state);
   if (!pending) return { ok: false, error: 'NOTHING_PENDING' };
   clearPending(state);
   if (Date.parse(pending.expiresAt) <= now) return { ok: false, error: 'EXPIRED', pending };
