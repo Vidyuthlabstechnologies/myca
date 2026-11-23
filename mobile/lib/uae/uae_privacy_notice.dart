@@ -46,7 +46,7 @@ const _english = [
         '• Google: to check a Google sign-in and a Google Play subscription.\n'
         '• Our hosting provider, Google Cloud, which stores everything above for us (see "Where your data is kept").\n'
         '• The SMS provider, when phone sign-in is on: your phone number and the sign-in code.\n'
-        '• The language model provider, [name, country], when a chat message matches no built-in action or you ask MyCA to read a bill: that text or image only.\n'
+        '• The language model provider, Anthropic PBC, United States, when a chat message matches no built-in action or you ask MyCA to read a bill: that text or image only, with Emirates ID numbers and UAE IBANs masked first. Anthropic does not use it to train its models.\n'
         '• The email relay, when you send an email from the app: the message and the addresses.\n'
         '• An Accredited Service Provider for e-invoicing, [name], only after we connect one and you switch it on: the invoice data needed for the Peppol network.\n'
         '• Authorities, only when UAE law requires it and through due process.',
@@ -54,7 +54,7 @@ const _english = [
   UaeNoticeSection(
     'Where your data is kept',
     'Your data is stored by Google Cloud in Doha, Qatar (region me-central1), because Google Cloud has no region in the UAE today. We plan to move UAE data to a data centre in the UAE [target date, when contracted] and will tell you in the app when we do.\n\n'
-        'Storing data in Qatar is a transfer outside the UAE. We rely on our contract with Google Cloud, which requires protection at least equal to UAE law (Federal Decree-Law No. 45 of 2021, Article 23), and on the transfer being needed to provide the service you asked for. If the language model provider is outside the UAE and Qatar, the same contract safeguards apply.\n\n'
+        'Storing data in Qatar is a transfer outside the UAE. We rely on our contract with Google Cloud, which requires protection at least equal to UAE law (Federal Decree-Law No. 45 of 2021, Article 23), and on the transfer being needed to provide the service you asked for. Sending a message or bill to the language model provider in the United States is a second transfer; it rests on the same Article 23 basis, our contract with Anthropic and the transfer being needed for the feature you chose.\n\n'
         'If your business is in the DIFC or ADGM, ask us for our DIFC/ADGM data processing addendum.',
   ),
   UaeNoticeSection(
@@ -126,7 +126,7 @@ const _arabic = [
         '• Google: للتحقق من تسجيل الدخول عبر Google ومن اشتراك Google Play.\n'
         '• مزوّد الاستضافة، Google Cloud، الذي يحفظ كل ما سبق نيابةً عنّا (انظر "أين تُحفظ بياناتك").\n'
         '• مزوّد الرسائل النصية عند تفعيل الدخول برقم الهاتف: رقم هاتفك ورمز الدخول.\n'
-        '• مزوّد النموذج اللغوي، [الاسم، الدولة]، عندما لا تطابق رسالتك أي إجراء مدمج أو تطلب قراءة فاتورة: ذلك النص أو تلك الصورة فقط.\n'
+        '• مزوّد النموذج اللغوي، شركة Anthropic PBC في الولايات المتحدة، عندما لا تطابق رسالتك أي إجراء مدمج أو تطلب قراءة فاتورة: ذلك النص أو تلك الصورة فقط، بعد إخفاء أرقام الهوية الإماراتية وأرقام الحسابات المصرفية الدولية (IBAN) الإماراتية. ولا تستخدمها Anthropic لتدريب نماذجها.\n'
         '• خدمة إرسال البريد، عندما ترسل بريدًا من التطبيق: الرسالة والعناوين.\n'
         '• مزوّد خدمة معتمد للفوترة الإلكترونية، [الاسم]، فقط بعد ربطه وتفعيلك له: بيانات الفاتورة اللازمة لشبكة Peppol.\n'
         '• الجهات الرسمية، فقط عندما يوجب قانون الإمارات ذلك ووفق الإجراءات النظامية.',
@@ -134,7 +134,7 @@ const _arabic = [
   UaeNoticeSection(
     'أين تُحفظ بياناتك',
     'تُحفظ بياناتك لدى Google Cloud في الدوحة، قطر (المنطقة me-central1)، لأن Google Cloud لا تملك منطقة داخل الإمارات حاليًا. ونعتزم نقل بيانات عملاء الإمارات إلى مركز بيانات داخل الدولة [الموعد المستهدف عند التعاقد]، وسنبلغك داخل التطبيق عند ذلك.\n\n'
-        'يُعدّ حفظ البيانات في قطر نقلًا لها خارج الدولة. ونستند في ذلك إلى عقدنا مع Google Cloud الذي يُلزمها بحماية لا تقل عن قانون الإمارات (المرسوم بقانون اتحادي رقم 45 لسنة 2021، المادة 23)، وإلى أن النقل لازم لتقديم الخدمة التي طلبتها. وإذا كان مزوّد النموذج اللغوي خارج الإمارات وقطر، تسري الضمانات التعاقدية نفسها.\n\n'
+        'يُعدّ حفظ البيانات في قطر نقلًا لها خارج الدولة. ونستند في ذلك إلى عقدنا مع Google Cloud الذي يُلزمها بحماية لا تقل عن قانون الإمارات (المرسوم بقانون اتحادي رقم 45 لسنة 2021، المادة 23)، وإلى أن النقل لازم لتقديم الخدمة التي طلبتها. ويُعدّ إرسال رسالة أو فاتورة إلى مزوّد النموذج اللغوي في الولايات المتحدة نقلًا ثانيًا يستند إلى أساس المادة 23 نفسه: عقدنا مع Anthropic، وأن النقل لازم للميزة التي اخترتها.\n\n'
         'إذا كانت منشأتك في مركز دبي المالي العالمي (DIFC) أو سوق أبوظبي العالمي (ADGM)، اطلب منّا ملحق معالجة البيانات الخاص بهما.',
   ),
   UaeNoticeSection(

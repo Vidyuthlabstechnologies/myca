@@ -104,6 +104,35 @@ Legend: **Blocker** = cannot launch without it. **Before scale** = can soft-laun
       only with a "done-with-you" promise (onboarding call, MyInvois setup done for them,
       WhatsApp support), or add an entry tier. The owner's call.
 
+## Compliance recheck, 23 November 2026
+
+What changed in the law since the 14 November draft, and what MyCA now does. LHDN's and Customs'
+own sites refused automated reads from the build environment, so these come from firm and
+practitioner summaries (sources in `sprints/statutory-rules/src/rules/malaysia*.mjs`); they stay
+"unreviewed" until a Malaysian tax agent attests them.
+
+| Area | Rule as of 23 Nov 2026 | MyCA |
+|---|---|---|
+| E-invoice exemption | Annual turnover below RM3 million exempt from 1 September 2026 (LHDN statement 30 August 2026); lost if a related, holding or shareholder company is at RM3 million or more | Already in; unchanged |
+| E-invoice relaxation | The 1 January 2026 phase (RM3m to RM5m) has relaxation to **31 December 2027**; no prosecution before 1 January 2028 (Guideline v4.7, April 2026) | "Do I have to e-invoice?" now says so |
+| PKPS e-Invois | Voluntary disclosure of missed or wrong e-invoices, no penalty in good faith, until 31 December 2027 | Mentioned in the same answer |
+| RM10,000 consolidation limit | Sources disagree on whether the relaxation lifts it | MyCA keeps the limit (stricter reading); **tax agent to confirm** |
+| SST rental or leasing | 6% from 1 January 2026, gazetted as P.U.(A) 125/2026; exemption threshold **RM1.5 million** (was RM1 million); new MSME lessors exempt for their first year | Rate was in; threshold and notes added |
+| SST construction | Contracts signed before 1 July 2025 that cannot be revised stay exempt to 30 June 2027 | Shown in the registration answer |
+| Income tax YA 2026 | Rates and relief caps as YA 2025, plus tourism and arts entrance fees up to RM1,000 (YA 2026 only). Budget 2027 (RM12,000 individual relief, 18% and 24% bands) is only proposed for YA 2027 | YA 2026 estimates used to fail ("no figures for that year"); now work. YA 2027 still refused until the Finance Act passes |
+| Minimum wage | RM1,700 a month (all employers from 1 August 2025); RM2,000 announced for June 2027 | Payroll warns below it for full-time staff |
+| SOCSO for foreign workers | Employment injury (employer 1.25%) and invalidity (0.5% each) since 1 July 2024, same total as the first category; LINDUNG 24 Jam 0.75% from 1 June 2026 | Already in; unchanged |
+| PDPA 2024 amendments | Biometric data sensitive, processors bound, transfers by "substantially similar" test (1 April 2025); DPO, breach notice, portability (1 June 2025) | Notice says "data controller", names Anthropic (US) and Google Play, gives the s129(3) basis for model calls, the 21-day answer, 18+ |
+| PDPA sensitive data (s40) | Explicit consent needed for religious belief and health data. Zakat shows religion; disability reliefs show health | New separate explicit-consent tick, recorded as consent `my-sensitive-data`; **counsel to confirm** it may be a condition of the tax and payroll features |
+| PDPA s7(3) language | Notice in Bahasa Melayu and English | The app now fetches the notice in the app's language (it always showed English before) with a switch; both languages published at `/my/privacy` on the website |
+
+Engineering fix found on the way: checking an e-invoice's status at LHDN did not keep the answer,
+because status reads ran in a read-only session; the app kept showing "submitted" and could not
+reissue a number LHDN had marked invalid. Status, details and received-list reads now save what
+LHDN says, and e-invoice writes reach MyInvois at the service's provider setting.
+
+Every Malaysian user accepts the notice again (version `my-draft-2026-11-23`).
+
 ## Summary table for the owner
 
 | # | Item | Blocker? |
@@ -122,3 +151,5 @@ Legend: **Blocker** = cannot launch without it. **Before scale** = can soft-laun
 | 12 | SST / digital service tax registration check | Before scale |
 | 13 | Pricing decision | Before marketing spend |
 | 14 | Malaysian support WhatsApp and email | Yes |
+| 15 | Tax agent: RM10,000 consolidation limit during the relaxation, YA 2026 reliefs, rental RM1.5m threshold | Yes for e-invoice and tax screens |
+| 16 | Counsel: sensitive-data tick as a condition of use, and the website notice at /my/privacy | Yes |

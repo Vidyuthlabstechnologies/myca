@@ -1,4 +1,8 @@
-import { fail, toFils, isIsoDate, addDays, ruleOn, todayIso } from './common.mjs';
+import { fail, toFils, isIsoDate, addDays, addMonthsClamped, ruleOn, todayIso } from './common.mjs';
+
+function addYearsClamped(date, years) {
+  return addMonthsClamped(date, years * 12);
+}
 import { ctDueDate } from './corporate-tax.mjs';
 
 function daysBetween(from, to) {
@@ -26,7 +30,11 @@ export function uaeDeadlines(args = {}) {
   if (args.vatPeriodEnd) {
     const rule = ruleOn('ae.vat.return-period', args.vatPeriodEnd);
     if (rule) items.push(item('vat-return', 'VAT return (VAT 201) and payment on EmaraTax', addDays(args.vatPeriodEnd, rule.value.dueDaysAfterPeriodEnd), today));
+    const limits = ruleOn('ae.vat.credit-limits', today);
+    if (limits) items.push(item('vat-credit-expiry', 'Last day to ask for a refund of, or use, this period\'s excess input VAT', addYearsClamped(args.vatPeriodEnd, limits.value.refundRequestYears), today));
   }
+  const transitional = ruleOn('ae.vat.credit-limits', today);
+  if (transitional && today <= transitional.value.transitionalClaimBy) items.push(item('vat-transitional-claims', 'Last day to claim old VAT refunds and credits that expired or expire within a year of 1 January 2026', transitional.value.transitionalClaimBy, today));
   if (args.ctPeriodEnd) {
     const due = ctDueDate(args.ctPeriodEnd);
     if (due) items.push(item('ct-return', 'Corporate Tax return and payment on EmaraTax', due, today));

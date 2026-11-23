@@ -12,6 +12,7 @@ import '../../us/us_return.dart';
 import '../../us/us_state.dart';
 import '../../widgets.dart';
 import '../ask_screen.dart';
+import '../../us/us_ai_permission.dart';
 import '../businesses_screen.dart';
 import '../invite_screen.dart';
 import '../people_screen.dart';
@@ -198,6 +199,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
               item('switch', 'Switch or add', 'Another return, or books for a business', const BusinessesScreen()),
               if (state.cloud != null)
                 item('consent', 'Sharing your Social Security numbers', 'Read, sign or withdraw your consent for our e-file partner', UsConsentScreen(consents: CloudUsConsents(state.cloud!), document: usPartnerTinsConsent)),
+              _UsAiSwitch(state: state),
               if (state.cloud != null && state.crashes != null)
                 ListenableBuilder(
                   listenable: state,
@@ -554,4 +556,44 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
       ),
     );
   }
+}
+
+class _UsAiSwitch extends StatefulWidget {
+  const _UsAiSwitch({required this.state});
+
+  final AppState state;
+
+  @override
+  State<_UsAiSwitch> createState() => _UsAiSwitchState();
+}
+
+class _UsAiSwitchState extends State<_UsAiSwitch> {
+  bool? _allowed;
+
+  @override
+  void initState() {
+    super.initState();
+    usAiAllowed(widget.state).then((value) {
+      if (mounted) setState(() => _allowed = value);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => SwitchListTile(
+    key: const Key('usAccount.ai'),
+    title: const Text('AI help from Anthropic'),
+    subtitle: const Text('Answers questions and reads forms you photograph. Off means nothing is sent to the AI.'),
+    value: _allowed ?? false,
+    onChanged: _allowed == null
+        ? null
+        : (enabled) async {
+            if (enabled) {
+              final yes = await ensureUsAiPermission(context);
+              if (mounted) setState(() => _allowed = yes);
+            } else {
+              await setUsAiAllowed(widget.state, false);
+              if (mounted) setState(() => _allowed = false);
+            }
+          },
+  );
 }

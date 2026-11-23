@@ -37,7 +37,7 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
     _reports ??= _load();
   }
 
-  Future<List<SavedReport>> _load() async => savedReportsFrom(await api.query('list_reports'));
+  Future<List<SavedReport>> _load() async => savedReportsFrom(loaded(await api.query('list_reports')));
 
   @override
   Future<void> onPosted() async {

@@ -310,6 +310,7 @@ final Map<String, Widget> downScreens = {
   'cash': const CashScreen(),
   'employees': const EmployeesScreen(),
   'your ca': const CaScreen(),
+  'invoice': const InvoiceScreen(invoiceId: 'INV-0002'),
 };
 
 /// Form screens that fetch nothing until the owner acts.
@@ -325,7 +326,7 @@ void downMain() {
         expect(tester.takeException(), isNull);
         expect(find.byType(CircularProgressIndicator), findsNothing, reason: 'still loading after the call failed');
         expect(find.byType(LinearProgressIndicator).hitTestable(), findsNothing, reason: 'still loading after the call failed');
-        if (label == 'cannot reach MyCA' && !loadsNothingOnOpen.contains(entry.key)) {
+        if (!loadsNothingOnOpen.contains(entry.key)) {
           final failed = RegExp('could not|cannot reach|not be', caseSensitive: false);
           expect(find.byWidgetPredicate((w) => w is Text && failed.hasMatch(w.data ?? '')).hitTestable(), findsWidgets, reason: 'the owner is not told the screen failed to load');
         }

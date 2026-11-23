@@ -1,6 +1,6 @@
 # MyCA UAE: compliance register
 
-Written 2026-11-14 for the separate UAE app (`com.mldynamic.myca.uae`, "MyCA UAE"). It covers what
+Written 2026-11-14 and rechecked 2026-11-23 (section 10 lists what changed) for the separate UAE app (`com.mldynamic.myca.uae`, "MyCA UAE"). It covers what
 the law and the stores ask of MyCA in the UAE, what the app and the marketing may and may not say,
 and what only the company can do. It is a working register, not legal advice: before the app is
 sold, a UAE-qualified lawyer reviews sections 1, 2 and 7, and a registered tax agent reviews
@@ -45,6 +45,12 @@ Primary: https://u.ae/en/about-the-uae/digital-uae/data/data-protection-laws (pa
   https://www.morganlewis.com/pubs/2026/06/uae-establishes-federal-authority-for-artificial-intelligence-and-data
   **Recheck monthly** until the regulations appear; when they do, update this section, the
   privacy notice and the breach runbook in the same change.
+- **Recheck 2026-11-23:** still no Executive Regulations and no penalty Cabinet decision. The
+  official legislation portal lists no implementing regulation as of 9 November 2026. Secondary:
+  https://orentara.com/en/insights/uae-pdpl-executive-regulations-status and
+  https://www.businessdubai.ae/blogs/uae-pdpl-data-protection . The Federal Authority for AI and
+  Data above comes from one law-firm note only; treat it as unconfirmed. The 72-hour breach rule
+  below is MyCA's own policy, not a statutory deadline.
 - Fines: AED 50,000 to AED 5 million are widely reported but depend on a Cabinet decision.
   Secondary (Kayrouz, above). Treat as indicative.
 
@@ -152,9 +158,13 @@ MyCA's basis, in this order:
 4. **Move** to an in-UAE region when a contract is signed, and say so in the notice. That removes
    the question entirely and is what larger customers and DIFC/ADGM firms will ask for.
 
-Model provider: if a bill or chat leaves Qatar for a model provider in the US or elsewhere, that
-is a second transfer under the same Art. 23 contract basis. Name the provider and country in the
-notice.
+Model provider: a bill or chat that matches no built-in action goes to Anthropic PBC in the
+United States. That is a second transfer under the same Art. 23 contract basis, and the notice
+(version `ae-draft-2026-11-23`) now names the provider and the country. Before anything leaves for
+the model, `platform/src/ae-identity.mjs` masks Emirates ID numbers (784, 15 digits, Luhn check)
+and UAE IBANs (mod 97) in the system text, messages, tool inputs and tool results; chat text and
+audit metadata in the UAE edition mask Emirates IDs too. TRNs are business identifiers the tax
+tools need and are not masked.
 
 ### 1.8 Customers in DIFC or ADGM
 
@@ -183,6 +193,7 @@ first. **Recheck** both regimes with counsel before signing such a customer.
 | Corporate Tax records | 7 years from the end of the tax period (Federal Decree-Law No. 47 of 2022, Art. 56) | Secondary: https://www.meydanfz.ae/blog/record-retention-uae |
 | Pending refund | 2 more years while a refund application is pending (Cabinet Decision 17 of 2026, in force 1 April 2026) | Secondary: https://www.pwc.com/m1/en/services/tax/middle-east-tax-news-alerts/2026/uae-tax-procedures-law-executive-regulations-amendments.html |
 | Tax Procedures amendments | Federal Decree-Law No. 17 of 2025, in force 1 January 2026: refunds limited to 5 years from period end; FTA may audit beyond the limit in some cases | Primary: https://mof.gov.ae/en/news/ministry-of-finance-to-implement-amendments-to-the-tax-procedures-law-starting-early-2026/ |
+| E-invoices | 5 years after the tax period, plus 4 years if disputed or audited, plus 1 year if a voluntary disclosure falls in year 5 (MoF Electronic Invoicing Guidelines v1.1, 5.4). The 7-year default covers it | https://mof.gov.ae/wp-content/uploads/2026/02/UAE-Electronic-Invoicing-Guidelines_V-1.0-23Feb2026.pdf |
 
 What the app does about it:
 - The default retention for a UAE business is 7 years after the end of the tax period (it
@@ -204,6 +215,18 @@ What the app does about it:
 | Corporate Tax | 0% up to AED 375,000 of taxable income, 9% above; return 9 months after period end | ae.md |
 | Small Business Relief | Revenue up to AED 3 million, extended to tax periods ending on or before 31 December 2029 by Ministerial Decision No. 131 (announced 7 August 2026) | Secondary: https://en.aletihad.ae/news/uae/4683761/ministry-of-finance-extends-small-business-relief-for-corpor (WAM). Exclusions (members of multinational groups, Qualifying Free Zone Persons) come from MD 73 of 2023; confirm with the FTA |
 | Qualifying Free Zone Person | 0% on qualifying income, must still register and file | ae.md |
+
+VAT law changes in force 1 January 2026 (Federal Decree-Laws No. 16 and 17 of 2025; primary:
+https://mof.gov.ae/en/news/ministry-of-finance-to-implement-vat-law-amendments-starting-january-2026 ,
+secondary article list: https://kpmg.com/ae/en/insights/tax-insights/federal-decree-law-no-16-and-17-of-2025.html):
+
+| Change | What MyCA does |
+|---|---|
+| Excess recoverable input VAT can be carried forward for at most 5 years from the end of the period it arose in (VAT Art. 74(3)); refunds are asked for within 5 years (Tax Procedures Art. 38) | `ae_deadlines` with a VAT period shows "last day to ask for a refund of, or use, this period's excess input VAT" (period end plus 5 years). Rule `ae.vat.credit-limits` |
+| Old claims that had expired or would expire within a year can still be made until **31 December 2026** (transitional Art. 3) | `ae_deadlines` shows the 31 December 2026 cut-off to every UAE business until it passes |
+| No self-invoice is needed for reverse-charge supplies; the supporting documents are still kept (Art. 48(1)) | MyCA never issued reverse-charge self-invoices; reverse-charge bills keep the supplier's document |
+| FTA may refuse input VAT where the supply is part of an evasion chain the business knew or should have known of (Art. 54) | Not modelled. The TRN check (`validate_ae_trn`) is a format check only; tell users to confirm a supplier's TRN on the FTA's TRN verification page before claiming |
+| Voluntary disclosure only for cases the FTA specifies; other errors are corrected in the next return | MyCA has no voluntary disclosure flow; a correction goes into the next VAT 201 the business prepares |
 
 How the VAT 201 comes from the books (2026-11-14):
 - A UAE sale (`create_ae_invoice`, and the shared `create_invoice` in the UAE edition) books
@@ -234,27 +257,32 @@ How the VAT 201 comes from the books (2026-11-14):
 | Group | Appoint an ASP by | Go live | Source |
 |---|---|---|---|
 | Pilot | | 1 July 2026 | Ministerial Decision 244 of 2025, primary: https://mof.gov.ae/wp-content/uploads/2025/09/Ministerial-Decision-No.-244-of-2025-on-the-Implementation-of-the-Electronic-Invoicing-System.pdf |
-| Revenue AED 50 million or more | 31 July 2026, **extended to 30 October 2026** by an amendment to MD 244 | 1 January 2027 | Secondary: https://sovos.com/regulatory-updates/global-vat/uae-e-invoicing-service-provider-appointment-deadline-for-phase-1-businesses-extended/ (11 May 2026) |
+| Revenue AED 50 million or more | 31 July 2026, **extended to 30 October 2026** by Ministerial Decision 66 of 2026 (14 May 2026). That date has now passed | 1 January 2027 | Secondary: https://sovos.com/regulatory-updates/global-vat/uae-e-invoicing-service-provider-appointment-deadline-for-phase-1-businesses-extended/ (11 May 2026), https://www.e-invoice.app/blog/uae-einvoicing-asp-deadline-extended-october-2026 . The MoF Guidelines v1.1 PDF still prints 31 July 2026 |
 | Revenue below AED 50 million (MyCA's market) | 31 March 2027 | 1 July 2027 | MD 244 of 2025; Sovos above |
 | Government entities | later dates | | MD 244 |
 
 Format and network: PINT AE over Peppol, five-corner model, only through a Ministry of
 Finance-accredited ASP. B2B and B2G in scope; B2C later.
 
-### 4.2 Penalties (Cabinet Decision No. 106 of 2025, issued 24 November 2025)
+### 4.2 Penalties (Cabinet Decision No. 173 of 2026, announced 30 October 2026)
+
+Cabinet Decision 173 of 2026 repeals Cabinet Decision 106 of 2025. In force the day after
+Official Gazette publication; the Gazette date is not confirmed, so MyCA uses 31 October 2026.
 
 | Failure | Penalty |
 |---|---|
-| Not implementing e-invoicing, or not appointing an ASP on time | AED 5,000 for each month or part of a month |
+| Not implementing e-invoicing, or not appointing an ASP on time (issuer or recipient) | AED 5,000 for the first instance, then AED 5,000 for each further month or part month, capped at AED 50,000 in any 12 consecutive months |
 | Not issuing and sending an e-invoice | AED 100 per invoice, up to AED 5,000 a calendar month |
 | Not issuing and sending an e-credit note | AED 100 per note, up to AED 5,000 a calendar month |
-| Issuer not telling the FTA of a system failure | AED 1,000 per day |
-| Recipient not telling the issuer of a system failure | AED 1,000 per day |
-| Not updating the ASP when registered data changes | AED 1,000 per day |
+| Not telling the ASP when registered data changes (within 5 business days) | AED 250 per day, up to AED 5,000 a calendar month (was AED 1,000 a day, uncapped) |
+| Not telling the FTA, or the issuer, of a system failure | **Removed** (Ministerial Decision 197 of 2026 also repealed the notice duty in MD 243 Art. 12) |
 
-Voluntary adopters are outside the penalties. Secondary:
-https://taxnews.ey.com/news/2025-2433-uae-ministry-of-finance-publishes-cabinet-decision-on-penalties-for-noncompliance-with-e-invoicing
-(5 December 2025). Confirm against the MoF copy before quoting numbers in ads.
+One penalty where the same person is issuer and recipient of the same violation. Voluntary
+adopters are outside the penalties. `ae_penalty_estimate` computes all four rows (rule
+`ae.einvoice.penalties`). Secondary: https://vyssor.com/insights/uae-e-invoicing-penalties-cabinet/
+(12 November 2026), https://www.genzone.com/uae-e-invoicing-penalties-cabinet-decision-173/
+(6 November 2026), https://www.thenationalnews.com/business/2026/11/01/uae-updates-e-invoicing-penalties-for-businesses/ .
+**Recheck** against the MoF English PDF of the decision and the Gazette date before quoting in ads.
 
 ### 4.3 What MyCA may say
 
@@ -408,3 +436,22 @@ Things the code and the docs cannot do. Each blocks the step after it.
 - Exact executive-regulation timelines for PDPL breach notice when published.
 - Confirm the text of Ministerial Decision No. 131 on the MoF site and its exclusions.
 - Whether records may be stored outside the UAE without FTA approval (Tax Procedures).
+
+## 10. Recheck log
+
+### 2026-11-23 (thread "Make Dubai app compliant and ship")
+
+- E-invoicing penalties: Cabinet Decision 173 of 2026 replaces 106 of 2025 (section 4.2); the
+  estimator and the rule now follow it.
+- E-invoicing dates: unchanged; large-business ASP date (30 October 2026) has passed, go-live
+  1 January 2027. B2G 1 October 2027.
+- VAT: 5-year limit on excess input VAT and refunds, 31 December 2026 transitional cut-off, no
+  reverse-charge self-invoice (section 3). Both dates appear in `ae_deadlines`.
+- PDPL: Executive Regulations still not issued (section 1.1).
+- AI provider: named in the notice (Anthropic PBC, United States); Emirates IDs and UAE IBANs are
+  masked before model calls (section 1.7). Notice version `ae-draft-2026-11-23`, so every UAE user
+  accepts it again.
+- Plans: the app now has a UAE plan screen (Starter AED 299, Business AED 799, Firm AED 2,499 a
+  month, English and Arabic, Play billing, 14-day trial). The plan ids became `ae-starter`,
+  `ae-business`, `ae-firm` with Play products `myca_ae_*_monthly`; the old id `firm` clashed with the
+  India CA firm plan and its `MYCA_PLAY_PRODUCT_FIRM` setting.

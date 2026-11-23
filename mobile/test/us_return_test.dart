@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:myca/us/us_ai_permission.dart';
 import 'package:myca/us/us_text_scaler.dart';
 import 'package:myca/api/models.dart';
 import 'package:myca/api/myca_api.dart';
@@ -508,7 +509,18 @@ void main() {
     expect(find.textContaining('W-2 · Acme Corp'), findsOneWidget);
     expect(find.textContaining('\$52,000.00'), findsOneWidget);
 
+    usAiPermissionStore = MemoryUsAiPermissionStore();
     await tester.tap(find.byKey(const Key('usForms.scan')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('usAi.dialog')), findsOneWidget);
+    expect(find.textContaining('Anthropic'), findsWidgets);
+    await tester.tap(find.byKey(const Key('usAi.no')));
+    await tester.pumpAndSettle();
+    expect(api.queries.where((q) => q.name == 'read_us_tax_document'), isEmpty);
+    expect(find.textContaining('Nothing was sent'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('usForms.scan')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('usAi.yes')));
     await tester.pumpAndSettle();
     expect(api.queries.where((q) => q.name == 'read_us_tax_document').single.args['documentId'], 'sha-int.jpg');
     expect(find.text('Add 1099-INT'), findsOneWidget);

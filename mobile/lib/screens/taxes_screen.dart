@@ -505,7 +505,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '${state.error ?? inText(context, 'Could not load.')}',
+                    '${'${state.error ?? ''}'.isEmpty ? inText(context, 'Could not load.') : state.error}',
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),

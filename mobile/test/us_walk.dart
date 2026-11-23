@@ -23,6 +23,9 @@ import 'package:myca/screens/us/us_state_questions_screen.dart';
 import 'package:myca/screens/us/us_state_residency_screen.dart';
 import 'package:myca/screens/us/us_state_return_screen.dart';
 import 'package:myca/us/us_consents.dart';
+import 'package:myca/us/us_ai_permission.dart';
+import 'package:myca/us/us_share_consent.dart';
+import 'package:myca/screens/ask_screen.dart';
 import 'package:myca/us/us_filing_fee.dart';
 import 'package:myca/us/us_return.dart';
 
@@ -360,6 +363,16 @@ class UsWalk {
     await snap('17_form_w2_errors');
     await popAll();
     await open(UsFormEditorScreen(taxYear: walkYear, kind: builtInFormKinds.firstWhere((k) => k.kind == '1099-B'), joint: true, readNote: 'Read from Robinhood 1099 Consolidated 2025.pdf. Check each box against the form before you save.'), '18_form_1099b_read');
+    await popAll();
+    usAiPermissionStore = MemoryUsAiPermissionStore();
+    await open(const AskScreen(), '18a_ask');
+    await tester.enterText(find.byType(TextField).last, 'What is my refund so far?');
+    await tester.testTextInput.receiveAction(TextInputAction.send);
+    await snap('18b_ai_permission');
+    await tapKey('usAi.no');
+    await popAll();
+    usAiPermissionStore = MemoryUsAiPermissionStore(allowAll: true);
+    await open(const UsShareConsentPage(consentText: 'Consent to disclose your return to someone you invite\n\nTax return preparer: Quanzo AI\n\nFederal law requires this consent form be provided to you. Unless authorized by law, we cannot disclose your tax return information to third parties for purposes other than the preparation and filing of your tax return without your consent.\n\nWhat you allow: Quanzo AI may disclose to Sam Tax, at the phone number ending 0172, once they accept your invitation in MyCA, the federal and state returns you prepare in MyCA.'), '18c_share_consent');
     await popAll();
 
     api.questions = [

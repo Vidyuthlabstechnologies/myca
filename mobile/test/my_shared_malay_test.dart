@@ -100,6 +100,46 @@ void main() {
     expect(find.text('Notis privasi'), findsOneWidget);
   });
 
+  testWidgets('the Malaysian notice opens in the app language, switches language, and needs the 18+ and sensitive-data ticks', (tester) async {
+    final cloud = FakeCloud();
+    final state = hostedState(cloud);
+    await tester.runAsync(() async {
+      await state.cloud!.requestCode('9876543210');
+      await state.cloud!.verifyCode(FakeCloud.code);
+    });
+    await tester.pumpWidget(myApp(state, const PrivacyNoticeScreen(), language: 'ms'));
+    await settle(tester);
+    expect(cloud.noticeLanguages, ['ms'], reason: 'a Malay app asks for the Malay notice');
+    expect(find.text('Cara MyCA menggunakan data peribadi anda (Malaysia)'), findsOneWidget);
+    await reveal(tester, find.byKey(const ValueKey('consent.agree')));
+    FilledButton agree() => tester.widget<FilledButton>(find.byKey(const ValueKey('consent.agree')));
+    expect(agree().onPressed, isNull, reason: 'nothing is accepted before both boxes are ticked');
+    await reveal(tester, find.byKey(const ValueKey('consent.adult')));
+    await tester.tap(find.byKey(const ValueKey('consent.adult')));
+    await tester.pump();
+    expect(agree().onPressed, isNull, reason: 'explicit consent to sensitive data is its own tick');
+    await reveal(tester, find.byKey(const ValueKey('consent.sensitive')));
+    expect(find.textContaining('persetujuan nyata'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('consent.sensitive')));
+    await tester.pump();
+    expect(agree().onPressed, isNotNull);
+    await reveal(tester, find.byKey(const ValueKey('consent.agree')));
+    await tester.tap(find.byKey(const ValueKey('consent.agree')));
+    await settle(tester);
+    expect(cloud.consents, contains('privacy@my-test'));
+  });
+
+  testWidgets('the Malaysian notice can be read in English from a Malay app', (tester) async {
+    final cloud = FakeCloud();
+    await tester.pumpWidget(myApp(hostedState(cloud), const PrivacyNoticeScreen(readOnly: true), language: 'ms'));
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('consent.language')));
+    await settle(tester);
+    expect(cloud.noticeLanguages, ['ms', 'en']);
+    expect(find.text('How MyCA uses your information (Malaysia)'), findsOneWidget);
+    expect(find.text('Baca dalam Bahasa Melayu'), findsOneWidget);
+  });
+
   testWidgets('the name screen reads in Malay and asks for a name in Malay', (tester) async {
     await tester.pumpWidget(myApp(hostedState(FakeCloud()), const NameScreen(), language: 'ms'));
     await settle(tester);

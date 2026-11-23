@@ -65,7 +65,7 @@ Share with the people who help you
 Invite your spouse or your tax professional to see the return.
 
 State returns
-MyCA files your federal return. State returns are not offered yet; MyCA gives you the federal numbers your state's own filing site asks for.
+MyCA prepares your federal return and the state returns it supports, and files them through our e-file partner.
 
 MyCA US is not affiliated with the IRS or any government agency.
 ```
@@ -82,7 +82,7 @@ listed in the privacy notice. Checked against `docs/compliance/us/COMPLIANCE-REV
 | Name, email, phone | Yes | Account, the return | No | No |
 | Government ID (SSN/ITIN) | Yes | The return | No (to the e-file partner only when the user files, and only with the separate IRC 7216 consent) | No |
 | Financial info (income forms, bank account for refund or payment, purchase history) | Yes | The return, refund, payment | No | No |
-| Photos and files (tax forms, IRS letters) | Yes, when the user adds them | Reading the form | No (read by the AI model as a service provider, SSNs removed, not kept by it) | Yes |
+| Photos and files (tax forms, IRS letters) | Yes, when the user adds them | Reading the form | No (read by the AI model as a service provider, only after the user allows it in the app; a photo is sent as taken; the model may not train on it) | Yes |
 | Device or other IDs (install id, device type) | Yes | Security, the e-file signature record | No | No |
 | App activity (screens reached, for the sign-up funnel) | Yes | Analytics | No | No |
 | Crash logs | Yes, only if the user turns them on | Fixing errors | No | Yes |

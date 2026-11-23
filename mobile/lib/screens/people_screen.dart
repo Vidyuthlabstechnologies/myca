@@ -11,6 +11,7 @@ import '../widgets.dart';
 import '../uae/uae_cloud_strings.dart';
 import '../uae/uae_edition.dart';
 import '../uae/uae_strings.dart';
+import '../us/us_share_consent.dart';
 
 const _roleHelp = {
   'staff': 'Records sales, bills, payments and expenses.',
@@ -19,6 +20,12 @@ const _roleHelp = {
 
 String _roleWords(BuildContext context, String role) => uaeEdition(context)
     ? UaeStrings.of(context).roleHelp(role)
+    : AppScope.of(context).edition == 'US' && AppScope.of(context).household
+    ? switch (role) {
+        'staff' => 'Sees the return and can add forms and answers. Only you sign and file.',
+        'accountant' => 'For a tax professional helping you. Sees and edits the return; only you sign and file.',
+        _ => 'Can do everything, including deleting the return and inviting others.',
+      }
     : switch (role) {
         'staff' => inText(context, 'Records sales, bills, payments and expenses.'),
         'accountant' => inText(context, 'Works in the books like staff. For your CA or bookkeeper.'),
@@ -377,19 +384,60 @@ class _InviteSheet extends StatefulWidget {
 
 class _InviteSheetState extends State<_InviteSheet> {
   final _phone = TextEditingController();
+  final _name = TextEditingController();
   String _role = 'staff';
+  String _relationship = 'spouse';
   String _error = '';
   bool _busy = false;
 
   @override
   void dispose() {
     _phone.dispose();
+    _name.dispose();
     super.dispose();
+  }
+
+  bool get _usReturn => AppScope.of(context).edition == 'US' && AppScope.of(context).household;
+
+  Future<void> _sendUs(NavigatorState navigator) async {
+    final phone = _phone.text.trim();
+    final name = _name.text.trim();
+    if (name.isEmpty) return setState(() => _error = 'Type their name.');
+    setState(() {
+      _busy = true;
+      _error = '';
+    });
+    try {
+      if (_relationship == 'spouse') {
+        await widget.cloud.invite(phone, _role, relationship: 'spouse', recipientName: name);
+        navigator.pop(true);
+        return;
+      }
+      final form = await widget.cloud.usShareConsent(phone, name);
+      if (form['signed'] == true) {
+        await widget.cloud.invite(phone, _role, relationship: 'other', recipientName: name);
+        navigator.pop(true);
+        return;
+      }
+      if (!mounted) return;
+      final signedName = await showUsShareConsent(context, '${form['text'] ?? ''}');
+      if (signedName == null) {
+        if (mounted) setState(() => _error = 'Not invited. Their invitation needs your signed consent.');
+        return;
+      }
+      await widget.cloud.invite(phone, _role, relationship: 'other', recipientName: name, consent: {'recipientName': name, 'signedName': signedName, 'version': form['version']});
+      navigator.pop(true);
+    } on MycaApiException catch (err) {
+      if (mounted) setState(() => _error = err.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _send() async {
     final navigator = Navigator.of(context);
     final s = UaeStrings.of(context);
+    if (_usReturn) return _sendUs(navigator);
     var phone = _phone.text.trim();
     if (uaeEdition(context)) {
       final number = uaeMobileNumber(phone);
@@ -415,6 +463,7 @@ class _InviteSheetState extends State<_InviteSheet> {
     final text = Theme.of(context).textTheme;
     final s = UaeStrings.of(context);
     final ae = uaeEdition(context);
+    final us = _usReturn;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
       child: SingleChildScrollView(
@@ -429,13 +478,42 @@ class _InviteSheetState extends State<_InviteSheet> {
               style: text.bodyMedium,
             ),
             const SizedBox(height: 16),
+            if (us) ...[
+              TextField(key: const Key('invite.name'), controller: _name, autofocus: true, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Their name')),
+              const SizedBox(height: 12),
+            ],
             TextField(
+              key: const Key('invite.phone'),
               controller: _phone,
-              autofocus: true,
+              autofocus: !us,
               keyboardType: TextInputType.phone,
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]'))],
-              decoration: InputDecoration(labelText: s.ar ? s.theirMobile : inText(context, 'Their mobile number'), prefixText: ae ? s.uaePrefix : '+91  '),
+              inputFormatters: [FilteringTextInputFormatter.allow(us ? RegExp(r'[0-9+() -]') : RegExp(r'[0-9+ ]'))],
+              decoration: InputDecoration(labelText: s.ar ? s.theirMobile : inText(context, 'Their mobile number'), prefixText: ae ? s.uaePrefix : us ? '+1  ' : '+91  '),
             ),
+            if (us) ...[
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final (value, label) in const [('spouse', 'My spouse on a joint return'), ('other', 'Someone else')])
+                    ChoiceChip(
+                      key: Key('invite.relationship.$value'),
+                      label: Text(label),
+                      selected: _relationship == value,
+                      selectedColor: paletteOf(context).sunken,
+                      showCheckmark: false,
+                      onSelected: (_) => setState(() => _relationship = value),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _relationship == 'spouse'
+                    ? 'Your spouse is on the same return, so no extra consent is needed.'
+                    : 'Federal law needs your signed consent before anyone else, such as a tax professional or a relative, sees your return. You read and sign it next.',
+                style: text.bodyMedium,
+              ),
+            ],
             const SizedBox(height: 14),
             Wrap(
               spacing: 8,

@@ -38,7 +38,7 @@ test('the UAE pack: business and accountant segments, Arabic, Play billing for s
   assert.equal(pack.status, 'beta');
   assert.deepEqual(pack.languages, ['en', 'ar']);
   assert.equal(pack.app.androidId, 'com.mldynamic.myca.uae');
-  assert.deepEqual(pack.billing.plans.map((plan) => [plan.id, plan.price, plan.provider]), [['starter', 299, 'play'], ['business', 799, 'play'], ['firm', 2499, 'play']]);
+  assert.deepEqual(pack.billing.plans.map((plan) => [plan.id, plan.price, plan.provider]), [['ae-starter', 299, 'play'], ['ae-business', 799, 'play'], ['ae-firm', 2499, 'play']]);
   assert.deepEqual(pack.residency.regionPrefixes, ['me-central1']);
   assert.ok(pack.licences.some((licence) => licence.id === 'in-country-host'));
   assert.ok(pack.licences.some((licence) => licence.id === 'asp'));
@@ -277,13 +277,49 @@ test('penalties from 14 April 2026: VAT AED 1,000 or 2,000, CT AED 500 a month t
 
 test('deadlines: VAT and CT due dates and the e-invoicing wave by revenue', () => {
   const small = uaeDeadlines({ today: '2026-11-14', vatPeriodEnd: '2026-12-31', ctPeriodEnd: '2026-12-31', revenue: 4000000 });
-  assert.deepEqual(small.data.items.map((i) => [i.id, i.date]), [['vat-return', '2027-01-28'], ['einvoice-asp', '2027-03-31'], ['einvoice-live', '2027-07-01'], ['ct-return', '2027-09-30']]);
-  assert.equal(small.data.next.id, 'vat-return');
+  const core = (items) => items.filter((i) => !i.id.startsWith('vat-credit') && !i.id.startsWith('vat-transitional'));
+  assert.deepEqual(core(small.data.items).map((i) => [i.id, i.date]), [['vat-return', '2027-01-28'], ['einvoice-asp', '2027-03-31'], ['einvoice-live', '2027-07-01'], ['ct-return', '2027-09-30']]);
+  assert.equal(small.data.next.id, 'vat-transitional-claims');
   const large = uaeDeadlines({ today: '2026-11-14', revenue: 50000000 });
-  assert.deepEqual(large.data.items.map((i) => [i.id, i.date, i.overdue]), [['einvoice-asp', '2026-10-30', true], ['einvoice-live', '2027-01-01', false]]);
-  assert.equal(uaeDeadlines({ today: '2026-11-14', government: true }).data.items[1].date, '2027-10-01');
+  assert.deepEqual(core(large.data.items).map((i) => [i.id, i.date, i.overdue]), [['einvoice-asp', '2026-10-30', true], ['einvoice-live', '2027-01-01', false]]);
+  assert.equal(core(uaeDeadlines({ today: '2026-11-14', government: true }).data.items)[1].date, '2027-10-01');
   assert.equal(uaeDeadlines({ today: '2026-11-14', vatPeriodEnd: '31-12-2026' }).error, 'BAD_DATE');
-  assert.equal(uaeDeadlines({ today: '2026-11-14' }).data.items.length, 0);
+  assert.equal(uaeDeadlines({ today: '2027-01-01' }).data.items.length, 0);
+});
+
+test('deadlines: the 5-year limit on excess input VAT and the 31 December 2026 cut-off for old claims', () => {
+  const now = uaeDeadlines({ today: '2026-11-23', vatPeriodEnd: '2026-09-30' });
+  const byId = Object.fromEntries(now.data.items.map((i) => [i.id, i]));
+  assert.equal(byId['vat-transitional-claims'].date, '2026-12-31');
+  assert.equal(byId['vat-transitional-claims'].daysLeft, 38);
+  assert.equal(byId['vat-credit-expiry'].date, '2031-09-30');
+  assert.equal(now.data.next.id, 'vat-transitional-claims');
+  assert.equal(byId['vat-return'].overdue, true);
+  assert.equal(uaeDeadlines({ today: '2027-01-01', vatPeriodEnd: '2026-12-31' }).data.items.some((i) => i.id === 'vat-transitional-claims'), false);
+  assert.equal(uaeDeadlines({ today: '2025-12-31', vatPeriodEnd: '2025-09-30' }).data.items.some((i) => i.id === 'vat-credit-expiry'), false);
+});
+
+test('e-invoicing penalties follow Cabinet Decision 173 of 2026', () => {
+  const late = (dueDate, doneOn) => penaltyEstimate({ kind: 'einvoice-not-implemented', dueDate, doneOn }).data;
+  assert.equal(late('2027-07-01', '2027-07-01').penalty, 0);
+  assert.equal(late('2027-07-01', '2027-07-02').penalty, 5000);
+  assert.equal(late('2027-07-01', '2027-09-15').penalty, 15000);
+  const long = late('2027-01-01', '2028-06-01');
+  assert.equal(long.penalty, 50000);
+  assert.equal(long.capped, true);
+  assert.equal(long.ruleId, 'ae.einvoice.penalties');
+  assert.equal(penaltyEstimate({ kind: 'einvoice-not-issued', count: 12, doneOn: '2027-08-01' }).data.penalty, 1200);
+  const many = penaltyEstimate({ kind: 'einvoice-not-issued', count: 80, doneOn: '2027-08-01' }).data;
+  assert.equal(many.penalty, 5000);
+  assert.equal(many.capped, true);
+  assert.equal(penaltyEstimate({ kind: 'einvoice-credit-note-not-issued', count: 3, doneOn: '2027-08-01' }).data.penalty, 300);
+  assert.equal(penaltyEstimate({ kind: 'einvoice-data-not-updated', dueDate: '2027-08-10', doneOn: '2027-08-14' }).data.penalty, 1000);
+  assert.equal(penaltyEstimate({ kind: 'einvoice-data-not-updated', dueDate: '2027-08-01', doneOn: '2027-09-30' }).data.penalty, 10000);
+  assert.equal(penaltyEstimate({ kind: 'einvoice-not-issued', count: 5, voluntary: true }).data.penalty, 0);
+  assert.equal(penaltyEstimate({ kind: 'einvoice-not-issued', count: 5, doneOn: '2026-07-15' }).error, 'RULE_NOT_IN_FORCE');
+  assert.equal(penaltyEstimate({ kind: 'einvoice-not-issued', count: -1, doneOn: '2027-08-01' }).error, 'BAD_AMOUNT');
+  assert.equal(penaltyEstimate({ kind: 'einvoice-not-implemented', doneOn: '2027-08-01' }).error, 'BAD_DATE');
+  assert.equal(penaltyEstimate({ kind: 'einvoice-data-not-updated', dueDate: '2010-01-01', doneOn: '2027-08-01' }).error, 'BAD_DATE');
 });
 
 test('TRN: 15 digits, TIN is the first 10, endpoint 0235', () => {

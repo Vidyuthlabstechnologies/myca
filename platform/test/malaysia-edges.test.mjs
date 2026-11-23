@@ -97,7 +97,7 @@ test('a non-resident pays a flat 30% with no reliefs, no rebate and no zakat reb
 test('wrong years of assessment and missing or malformed input are refused', () => {
   assert.equal(tax({ yearOfAssessment: '2022', income: { employment: 1 } }).error, 'RULE_NOT_IN_FORCE');
   assert.equal(tax({ yearOfAssessment: '2023', income: { employment: 1 } }).error, 'RULE_NOT_IN_FORCE', 'no reliefs are recorded for YA 2023');
-  assert.equal(tax({ yearOfAssessment: '2026', income: { employment: 1 } }).error, 'RULE_NOT_IN_FORCE');
+  assert.equal(tax({ yearOfAssessment: '2027', income: { employment: 1 } }).error, 'RULE_NOT_IN_FORCE');
   for (const year of ['2025.5', '25', '', 'twenty', null]) assert.equal(tax({ yearOfAssessment: year, income: {} }).error, 'BAD_YEAR_OF_ASSESSMENT', String(year));
   assert.equal(malaysiaIncomeTax({ yearOfAssessment: '2025' }).error, 'INCOME_REQUIRED');
   assert.equal(tax({ resident: 'yes', income: {} }).error, 'BAD_AMOUNTS');

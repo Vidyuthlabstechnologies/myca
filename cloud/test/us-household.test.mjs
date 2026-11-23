@@ -74,3 +74,38 @@ test('SSNs are masked in the hosted audit log', async () => {
   const rows = await api.db.query('select metadata::text as m from audit_log where business_id = $1', [id]);
   assert.ok(rows.rows.every((r) => !r.m.includes('123-45-6780') && !r.m.includes('123456780')));
 });
+
+test('sharing a US return with anyone but a joint-return spouse needs a signed 7216 consent naming them', async () => {
+  const session = await api.signIn('+919400000071');
+  const created = await api.call('POST', '/v1/businesses', { token: session.accessToken, body: { name: 'Avery Lee', country: 'US', kind: 'household' } });
+  const id = created.body.business.id;
+  const invite = (body) => api.call('POST', `/v1/businesses/${id}/invitations`, { token: session.accessToken, body });
+  const blocked = await invite({ phone: '+919400000072', role: 'accountant', recipientName: 'Sam Tax' });
+  assert.equal(blocked.body.error, 'US_SHARE_CONSENT_REQUIRED', blocked.text);
+  assert.match(blocked.body.consent.text, /Sam Tax, at the phone number ending 0072/);
+  assert.match(blocked.body.consent.text, /Treasury Inspector General/);
+  assert.match(blocked.body.consent.text, /You are not required to complete this form/);
+  const unsigned = await invite({ phone: '+919400000072', role: 'accountant', consent: { recipientName: 'Sam Tax', signedName: '' } });
+  assert.equal(unsigned.body.error, 'SIGNATURE_REQUIRED');
+  const signed = await invite({ phone: '+919400000072', role: 'accountant', consent: { recipientName: 'Sam Tax', signedName: 'Avery Lee', version: blocked.body.consent.version } });
+  assert.equal(signed.body.ok, true, signed.text);
+  const again = await invite({ phone: '+919400000072', role: 'accountant' });
+  assert.equal(again.body.ok, true, 'a valid consent for that person is reused');
+  const other = await invite({ phone: '+919400000073', role: 'staff' });
+  assert.equal(other.body.error, 'US_SHARE_CONSENT_REQUIRED', 'a consent covers only the person it names');
+  const spouse = await invite({ phone: '+919400000074', role: 'staff', relationship: 'spouse' });
+  assert.equal(spouse.body.ok, true, spouse.text);
+  const business = await api.call('POST', '/v1/businesses', { token: session.accessToken, body: { name: 'Luna Bakery LLC', country: 'US' } });
+  const plain = await api.call('POST', `/v1/businesses/${business.body.business.id}/invitations`, { token: session.accessToken, body: { phone: '+919400000075', role: 'staff' } });
+  assert.notEqual(plain.body.error, 'US_SHARE_CONSENT_REQUIRED', 'books for a business are not a return');
+});
+
+test('the app can read the sharing consent for a number before signing it', async () => {
+  const session = await api.signIn('+919400000076');
+  const read = await api.call('GET', `/v1/me/us-consents/share?phone=${encodeURIComponent('+919400000077')}&name=${encodeURIComponent('Kim Park')}`, { token: session.accessToken });
+  assert.equal(read.status, 200, read.text);
+  assert.match(read.body.consent.text, /Kim Park, at the phone number ending 0077/);
+  assert.equal(read.body.consent.signed, false);
+  const bad = await api.call('GET', '/v1/me/us-consents/share?phone=12', { token: session.accessToken });
+  assert.equal(bad.body.error, 'INVALID_PHONE');
+});

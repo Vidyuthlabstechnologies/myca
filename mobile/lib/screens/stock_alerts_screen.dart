@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../api/models.dart';
+import '../widgets.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../india/india_strings.dart';
@@ -24,10 +24,10 @@ class _StockAlertsScreenState extends State<StockAlertsScreen> {
 
   Future<void> _load() async {
     try {
-      final data = toolData(await AppScope.of(context).api.query('stock_alerts', const {}));
+      final data = loadedData(await AppScope.of(context).api.query('stock_alerts', const {}));
       if (mounted) setState(() => _data = data);
     } on MycaApiException catch (err) {
-      if (mounted) setState(() => _message = err.message);
+      if (mounted) setState(() => _message = err.message.isEmpty ? inText(context, 'Could not load.') : err.message);
     }
   }
 
@@ -50,7 +50,16 @@ class _StockAlertsScreenState extends State<StockAlertsScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(inText(context, 'Expiring soon and low stock'))),
       body: data == null
-          ? Center(child: _message.isEmpty ? const CircularProgressIndicator() : Text(_message, key: const Key('alerts-message')))
+          ? _message.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : LoadFailed(
+                  key: const Key('alerts-message'),
+                  message: _message,
+                  onRetry: () {
+                    setState(() => _message = '');
+                    _load();
+                  },
+                )
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
