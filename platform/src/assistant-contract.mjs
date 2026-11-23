@@ -28,7 +28,7 @@ import { planTermsFromChat, takeInvoiceTerms } from './terms-intent.mjs';
 import { localToday } from './dates.mjs';
 import { documentsOf } from './document-store.mjs';
 import { normalizeChat, parseDocument, documentProblemReply, saidNonPositiveAmount, receiptAmount, amountsSaid, soleAmountSaid, receiptDate, moneyDate, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
-import { confirmationIntent } from './chat-confirm.mjs';
+import { confirmationIntent, pendingFor } from './chat-confirm.mjs';
 import { planBankFromChat } from './bank-intent.mjs';
 import { salesDocumentKindSaid, MONTH_NAMES } from './chat-words.mjs';
 import { IMS_SAID, planImsFromChat } from './ims-intent.mjs';
@@ -131,7 +131,7 @@ export function planLocalToolCall(state, message) {
 
   const decision = confirmationIntent(text);
   if (decision) {
-    if (!state.pendingChatAction) return { kind: 'reply', reply: 'There is nothing waiting to be posted.', tools: [] };
+    if (!pendingFor(state)) return { kind: 'reply', reply: 'There is nothing waiting to be posted.', tools: [] };
     return decision === 'cancel' ? { kind: 'cancel' } : { kind: 'confirm', decision };
   }
 

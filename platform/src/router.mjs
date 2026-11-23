@@ -21,7 +21,7 @@ import { planLocalToolCall, validateAssistantToolCall } from './assistant-contra
 import { validateAppToolCall } from './assistant-tools.mjs';
 import { OFFLINE_TOOLS, offlineWords } from './offline-sales.mjs';
 import { imsWords, imsDecidedWords } from './ims.mjs';
-import { needsConfirmation, proposable, previewOf, openPending, takePending, clearPending, previewReply, blockedReply, rowsCounted } from './chat-confirm.mjs';
+import { needsConfirmation, proposable, previewOf, openPending, takePending, clearPending, pendingFor, previewReply, blockedReply, rowsCounted } from './chat-confirm.mjs';
 import { referenceImportContent, resolveImportContent } from './import-documents.mjs';
 import { openPendingArgs } from './us-efile.mjs';
 import { spoken } from './words.mjs';
@@ -1101,7 +1101,7 @@ function holdForConfirmation(state, plan, validate = validateAssistantToolCall) 
   if (!schemaCheck.ok) return { reply: notAccepted(schemaCheck.error), tools: [], blocked: true };
   const preview = previewOf(state, plan.name, resolved.args);
   if (preview.blockers.length) {
-    clearPending(state);
+    if (pendingFor(state)) clearPending(state);
     return { reply: blockedReply(preview), tools: [], posted: false, blocked: true, preview };
   }
   const pending = openPending(state, { ...plan, args: referenceImportContent(state, plan.name, plan.args) }, preview);
@@ -1156,14 +1156,14 @@ async function confirmCore(state, token) {
     return { reply: 'A confirmation needs the code from its preview.', tools: [], posted: false, error: 'TOKEN_REQUIRED' };
   }
   const last = state.lastConfirmation;
-  if (last && last.token === code && state.pendingChatAction?.token !== code) {
+  if (last && last.token === code && pendingFor(state)?.token !== code) {
     return { reply: last.reply, tools: [], posted: last.posted, confirmed: true, replayed: true };
   }
   return runConfirmation(state, { token: code });
 }
 
 function discardCore(state) {
-  const pending = state.pendingChatAction;
+  const pending = pendingFor(state);
   if (!pending) return { reply: NOTHING_PENDING, tools: [], posted: false };
   clearPending(state);
   return { reply: `Not posted: ${pending.summary || 'nothing was waiting'}`, tools: [], posted: false };

@@ -114,6 +114,9 @@ test('a member who switches the Monday brief on gets it on WhatsApp from the wee
   assert.match(mine[0].text, /^Week of .*\nCash ₹2,50,000\.00/, mine[0].text);
   assert.match(mine[0].text, /The one thing:/);
   assert.equal(replies.slice(sentBefore).some((r) => r.phone === '+919700000106'), false, 'the accountant gets nothing');
+  const retried = await Promise.all([1, 2].map(() => api.call('POST', '/v1/jobs/weekly', { headers: { [JOB_HEADER]: JOB_TOKEN } })));
+  assert.deepEqual(retried.map((r) => r.body.sent), [0, 0], 'a retried or overlapping weekly run does not send the brief again the same week');
+  assert.equal(replies.slice(sentBefore).filter((r) => r.phone === '+919700000105').length, 1);
   const off = await api.call('POST', biz(owner, 'brief'), { token: owner.token, body: { weekly: false } });
   assert.equal(off.body.weekly, false);
   const again = await api.call('POST', '/v1/jobs/weekly', { headers: { [JOB_HEADER]: JOB_TOKEN } });
