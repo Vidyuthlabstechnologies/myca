@@ -68,6 +68,27 @@ void main() {
     expect(find.text('−₹23,600.00'), findsOneWidget);
   });
 
+  testWidgets('goods that came back go into stock only with a whole-invoice credit note', (tester) async {
+    final api = FakeMycaApi(signedIn: true);
+    await openInvoice(tester, api);
+    await scrollToActions(tester);
+    await tester.tap(find.text('Credit note'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Amount, with GST (optional)'), '1000');
+    await tester.enterText(find.widgetWithText(TextField, 'Reason'), 'Goods returned');
+    await tester.tap(find.text('Goods came back into stock'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Preview'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Only a credit note for the whole invoice puts goods back in stock'), findsOneWidget);
+    expect(api.proposals, isEmpty);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Amount, with GST (optional)'), '');
+    await tester.tap(find.text('Preview'));
+    await tester.pumpAndSettle();
+    expect(api.proposals.single.args, {'invoiceId': 'INV-0002', 'date': '2026-10-05', 'reason': 'Goods returned', 'restock': true});
+  });
+
   testWidgets('cancelling an invoice marks it cancelled, disables sending, and the customer chat says so', (tester) async {
     final api = FakeMycaApi(signedIn: true);
     await openInvoice(tester, api);

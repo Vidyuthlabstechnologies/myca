@@ -371,6 +371,7 @@ const CREDIT_NOTE_REASONS = {
   EXCEEDS_INVOICE: (p) => `Only ${money(p.room)} of ${p.invoiceId} is left to credit.`,
   PARTLY_CREDITED: (p) => `${p.invoiceId} already has a credit note; issue one for the rest instead of cancelling.`,
   CREDIT_NOTE_TIME_BARRED: (p) => p.hint,
+  RESTOCK_NEEDS_WHOLE_INVOICE: (p) => `Only a credit note for the whole of ${p.invoiceId} puts its goods back in stock. For a part return, leave stock off here and record the goods back with Stock in.`,
 };
 
 export function creditNotePreview(state, args, cancel = false) {
@@ -386,13 +387,15 @@ export function creditNotePreview(state, args, cancel = false) {
     return { blockers: [explain ? explain(planned, args, state) : planned.error], summary: '', effects: [], figures: {} };
   }
   const { plan } = planned;
+  const restock = !cancel && args.restock === true && countryOf(state) === 'IN';
+  if (restock && !plan.full) return { blockers: [CREDIT_NOTE_REASONS.RESTOCK_NEEDS_WHOLE_INVOICE({ invoiceId: plan.invoice.id })], summary: '', effects: [], figures: {} };
   const heads = [plan.cgst > 0 ? `CGST ${money(plan.cgst)}` : '', plan.sgst > 0 ? `SGST ${money(plan.sgst)}` : '', plan.igst > 0 ? `IGST ${money(plan.igst)}` : ''].filter(Boolean).join(' + ');
   const what = cancel ? `Cancel ${plan.invoice.id} (${plan.invoice.partyName}) by a credit note for its full ${money(plan.total)}` : `Credit note of ${money(plan.total)} against ${plan.invoice.id} (${plan.invoice.partyName})${plan.full ? ', the whole invoice' : ''}`;
   const refund = plan.refundDue > 0 ? ` ${plan.invoice.partyName} has paid ${money(plan.received)}, so ${money(plan.refundDue)} becomes due back to them.` : '';
   return {
     blockers: [],
     summary: `${what} dated ${plan.date}: taxable ${money(plan.taxable)}${heads ? `, ${heads}` : ''}. Reason: ${plan.reason}.${refund}`,
-    effects: ['The customer owes you that much less, or is owed it back if they have already paid.', 'The invoice stays as it was; the credit note goes into the GSTR-1 for its own month.'],
+    effects: ['The customer owes you that much less, or is owed it back if they have already paid.', 'The invoice stays as it was; the credit note goes into the GSTR-1 for its own month.', ...(restock ? ['The stock items sold on the invoice go back into stock, at the cost they left at.'] : [])],
     figures: { invoiceId: plan.invoice.id, date: plan.date, taxable: plan.taxable, cgst: plan.cgst, sgst: plan.sgst, igst: plan.igst, total: plan.total, refundDue: plan.refundDue, cancels: cancel },
   };
 }
