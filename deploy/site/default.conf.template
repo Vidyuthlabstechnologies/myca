@@ -76,6 +76,10 @@ server {
     return 301 /us;
   }
 
+  location = /my/ {
+    return 301 /my;
+  }
+
   location / {
     try_files $uri $uri.html $uri/ =404;
   }

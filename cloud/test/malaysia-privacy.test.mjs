@@ -67,7 +67,7 @@ test('the Malaysian notice is served before sign-in in English and Malay, and ac
   assert.match(malay.body.notice.title, /data peribadi/);
   const session = await api.signIn('+919400000901', { agree: false });
   assert.equal((await api.call('GET', '/v1/businesses', { token: session.accessToken })).status, 403);
-  const agreed = await api.call('POST', '/v1/me/consent', { token: session.accessToken, body: { document: 'privacy', version: PRIVACY_NOTICE_MY.version } });
+  const agreed = await api.call('POST', '/v1/me/consent', { token: session.accessToken, body: { document: 'privacy', version: PRIVACY_NOTICE_MY.version, adult: true, sensitive: true } });
   assert.equal(agreed.status, 200, agreed.text);
   assert.equal(agreed.body.version, PRIVACY_NOTICE_MY.version);
   assert.equal((await api.call('GET', '/v1/businesses', { token: session.accessToken })).status, 200);

@@ -5,6 +5,7 @@ export const US_PREPARER_NAME = 'Quanzo AI';
 export const PARTNER_TINS = 'us-7216-partner-tins';
 export const EXPERT_REVIEW = 'us-7216-expert-review';
 export const PLUS_USE = 'us-7216-plus-use';
+export const SHARE = 'us-7216-share';
 export const US_7216_VERSION = 'us-7216-draft-2026-11-22';
 const UNNAMED_PARTNER = '[Column Tax, once its partner agreement is signed]';
 const UNNAMED_EXPERT = '[the CPA or enrolled agent firm, to be named when the Expert Review partner is signed]';
@@ -78,6 +79,28 @@ export function usConsentForms({ partner = partnerSettings() } = {}) {
   ];
 }
 
+export function shareDocument(phone) {
+  return `${SHARE}.${createHash('sha256').update(String(phone || '')).digest('hex').slice(0, 24)}`;
+}
+
+export function shareForm({ phone, recipientName = '' }) {
+  const digits = String(phone || '');
+  const who = `${String(recipientName || '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'the person you invite'}, at the phone number ending ${digits.slice(-4)}`;
+  return {
+    document: shareDocument(digits),
+    version: US_7216_VERSION,
+    kind: 'disclose',
+    enforced: true,
+    title: 'Consent to disclose your return to someone you invite',
+    body: [
+      ...DISCLOSE_OUTSIDE_PREPARATION,
+      `What you allow: ${US_PREPARER_NAME} may disclose to ${who}, once they accept your invitation in MyCA, the federal and state returns you prepare in MyCA, with the forms, answers and documents they were made from. Social Security numbers and ITINs are shown to them only as the last four digits. They cannot sign or file your return.`,
+      'Why: so that the person you choose can see your return and help you with it. You can remove them in the app at any time, which ends what they can see.',
+      TIGTA_STATEMENT,
+    ],
+  };
+}
+
 export function formHasBlanks(form) {
   return /\[[^\]]+\]/.test([form.title, ...form.body].join('\n'));
 }
@@ -126,6 +149,30 @@ export function createUsConsents({ db, now = () => Date.now(), environment = 'lo
     );
   }
 
+  async function signForm(userId, deviceId, body, form) {
+    if (body.version !== undefined && body.version !== form.version) return { ok: false, error: 'CONSENT_CHANGED', version: form.version };
+    if (environment === 'production' && formHasBlanks(form)) return { ok: false, error: 'CONSENT_NOT_FINAL', hint: 'This consent cannot be signed until every name on it is filled in.' };
+    const signedName = String(body.signedName ?? '').replace(/\s+/g, ' ').trim();
+    if (signedName.length < 2 || signedName.length > 120 || !NAME.test(signedName)) return { ok: false, error: 'SIGNATURE_REQUIRED', hint: 'Type your full name to sign.' };
+    const at = now();
+    const period = consentPeriod(body.validUntil, at);
+    if (!period.ok) return period;
+    const signedAt = new Date(at).toISOString();
+    const validUntil = new Date(period.until).toISOString();
+    const text = renderConsent(form, { signedName, signedAt, validUntil: validUntil.slice(0, 10) });
+    const textSha256 = createHash('sha256').update(text).digest('hex');
+    await db.tx(async (q) => {
+      await q('update us_7216_consents set revoked_at = $3 where user_id = $1 and document = $2 and revoked_at is null', [userId, form.document, new Date(at)]);
+      await q(
+        `insert into us_7216_consents (user_id, document, version, kind, signed_name, text_sha256, consent_text, device_id, signed_at, valid_until)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [userId, form.document, form.version, form.kind, signedName, textSha256, text, deviceId || null, new Date(at), new Date(period.until)],
+      );
+      await audit(q, userId, 'us_7216.consent_signed', { document: form.document, version: form.version, validUntil, textSha256 });
+    });
+    return { ok: true, document: form.document, version: form.version, signedAt, validUntil, textSha256, text };
+  }
+
   return {
     async list(userId) {
       const out = [];
@@ -144,30 +191,23 @@ export function createUsConsents({ db, now = () => Date.now(), environment = 'lo
       const form = formFor(String(body.document || ''));
       if (!form) return { ok: false, error: 'CONSENT_UNKNOWN' };
       if (body.version !== form.version) return { ok: false, error: 'CONSENT_CHANGED', version: form.version };
-      if (environment === 'production' && formHasBlanks(form)) return { ok: false, error: 'CONSENT_NOT_FINAL', hint: 'This consent cannot be signed until every name on it is filled in.' };
-      const signedName = String(body.signedName ?? '').replace(/\s+/g, ' ').trim();
-      if (signedName.length < 2 || signedName.length > 120 || !NAME.test(signedName)) return { ok: false, error: 'SIGNATURE_REQUIRED', hint: 'Type your full name to sign.' };
-      const at = now();
-      const period = consentPeriod(body.validUntil, at);
-      if (!period.ok) return period;
-      const signedAt = new Date(at).toISOString();
-      const validUntil = new Date(period.until).toISOString();
-      const text = renderConsent(form, { signedName, signedAt, validUntil: validUntil.slice(0, 10) });
-      const textSha256 = createHash('sha256').update(text).digest('hex');
-      await db.tx(async (q) => {
-        await q('update us_7216_consents set revoked_at = $3 where user_id = $1 and document = $2 and revoked_at is null', [userId, form.document, new Date(at)]);
-        await q(
-          `insert into us_7216_consents (user_id, document, version, kind, signed_name, text_sha256, consent_text, device_id, signed_at, valid_until)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-          [userId, form.document, form.version, form.kind, signedName, textSha256, text, deviceId || null, new Date(at), new Date(period.until)],
-        );
-        await audit(q, userId, 'us_7216.consent_signed', { document: form.document, version: form.version, validUntil, textSha256 });
-      });
-      return { ok: true, document: form.document, version: form.version, signedAt, validUntil, textSha256, text };
+      return signForm(userId, deviceId, body, form);
+    },
+
+    shareForm,
+
+    async validShare(userId, phone) {
+      return Boolean(await current(userId, shareForm({ phone })));
+    },
+
+    async signShare(userId, deviceId, { phone, recipientName, signedName, validUntil, version } = {}) {
+      const form = shareForm({ phone, recipientName });
+      return signForm(userId, deviceId, { signedName, validUntil, version }, form);
     },
 
     async revoke(userId, document) {
-      const form = formFor(String(document || ''));
+      const shared = String(document || '').startsWith(`${SHARE}.`) ? { document: String(document) } : null;
+      const form = shared || formFor(String(document || ''));
       if (!form) return { ok: false, error: 'CONSENT_UNKNOWN' };
       const at = new Date(now());
       return db.tx(async (q) => {

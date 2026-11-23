@@ -26,11 +26,19 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
   bool _busy = false;
   bool _crashReports = false;
   bool _adult = false;
+  bool _sensitive = false;
+  String _lang = '';
+
+  Future<PrivacyNotice> _load(BuildContext context) {
+    final state = AppScope.of(context);
+    if (_lang.isEmpty && state.edition == 'MY') _lang = myMalayOr(context, 'en', 'ms');
+    return state.cloud!.privacyNotice(region: state.edition, lang: _lang);
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _notice ??= AppScope.of(context).cloud!.privacyNotice(region: AppScope.of(context).edition);
+    _notice ??= _load(context);
   }
 
   Future<void> _agree(PrivacyNotice notice) async {
@@ -40,14 +48,14 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
       _error = '';
     });
     try {
-      await state.cloud!.acceptNotice(notice, adult: _adult);
+      await state.cloud!.acceptNotice(notice, adult: _adult, sensitive: _sensitive);
       if (_crashReports) await state.setCrashReports(true);
       await state.refresh();
     } on MycaApiException catch (err) {
       if (mounted) {
         setState(() {
           _error = err.message;
-          _notice = state.cloud!.privacyNotice(region: state.edition);
+          _notice = _load(context);
         });
       }
     } finally {
@@ -57,7 +65,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
 
   void _retry() {
     setState(() {
-      _notice = AppScope.of(context).cloud!.privacyNotice(region: AppScope.of(context).edition);
+      _notice = _load(context);
     });
   }
 
@@ -106,6 +114,22 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
             final sections = ae ? [for (final section in uaeNoticeSections(s.ar)) (section.heading, section.body)] : [for (final section in notice.sections) (section.heading, section.body)];
             final body = [
               Text(ae ? uaeNoticeTitle(s.ar) : notice.title, style: text.headlineMedium),
+              if (malaysia) ...[
+                const SizedBox(height: 4),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton(
+                    key: const ValueKey('consent.language'),
+                    onPressed: _busy
+                        ? null
+                        : () => setState(() {
+                              _lang = notice.language == 'ms' ? 'en' : 'ms';
+                              _notice = _load(context);
+                            }),
+                    child: Text(notice.language == 'ms' ? 'Read in English' : 'Baca dalam Bahasa Melayu'),
+                  ),
+                ),
+              ],
               if (notice.status.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -169,10 +193,26 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                     title: Text(w(s.eighteenOrOver, 'Saya berumur 18 tahun atau lebih')),
                   ),
                 ),
+              if (notice.requiresSensitive)
+                Material(
+                  color: Colors.transparent,
+                  child: CheckboxListTile(
+                    key: const ValueKey('consent.sensitive'),
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: _sensitive,
+                    onChanged: _busy ? null : (value) => setState(() => _sensitive = value ?? false),
+                    title: Text(
+                      notice.language == 'ms'
+                          ? 'Saya memberi persetujuan nyata untuk MyCA memproses data peribadi sensitif yang saya masukkan (zakat, kecacatan atau penyakit serius) hanya untuk mengira cukai.'
+                          : 'I give explicit consent for MyCA to process the sensitive personal data I enter (zakat, disability or serious illness) only to work out tax.',
+                    ),
+                  ),
+                ),
               const SizedBox(height: 4),
               FilledButton(
                 key: const ValueKey('consent.agree'),
-                onPressed: _busy || (notice.requiresAdult && !_adult) ? null : () => _agree(notice),
+                onPressed: _busy || (notice.requiresAdult && !_adult) || (notice.requiresSensitive && !_sensitive) ? null : () => _agree(notice),
                 child: Text(_busy ? w(s.saving, 'Menyimpan…') : w(s.iAgree, 'Saya bersetuju')),
               ),
               const SizedBox(height: 4),

@@ -1,6 +1,6 @@
 # MyCA Malaysia privacy notice / Notis privasi MyCA Malaysia
 
-Status: draft for legal review, version `draft-2026-11-14-my`. Not approved for release. Section 7
+Status: draft for legal review, version `my-draft-2026-11-23` (in-app short form in `cloud/src/consent.mjs`; 23 November 2026 added the sensitive-data section with its separate explicit-consent tick, the 18+ declaration, Anthropic and Google Play as named recipients, the section 129(3) basis for model calls, the 21-day answer, and "data controller" in place of "data user"; every Malaysian user accepts again). Not approved for release. Section 7
 of the Personal Data Protection Act 2010 requires the notice in the national language and in
 English; both versions below say the same thing, and if they differ the owner must decide which
 prevails (recommended: say both are equally authoritative, and fix any difference). The Malay text
@@ -38,6 +38,14 @@ controller of its customers', suppliers' and employees' data, and we process tha
   to the books and who made it, and, only if you switch them on, crash reports with names,
   amounts and numbers removed.
 - Your Google Play subscription status (we never see your card).
+
+**Sensitive personal data.** Some details you may choose to enter are sensitive personal data
+under the PDPA: zakat you pay (it shows your religious belief) and disability or serious-illness
+reliefs for you, your spouse, your children or your employees (they show physical or mental
+health). We use them only to work out the relief, rebate or monthly tax deduction they belong to.
+Under section 40 we process them only with your **explicit consent**, given by a separate tick
+when you accept this notice; you can withdraw it by deleting those entries or your account. You do
+not have to enter them.
 
 **Where it comes from.** From you, from people you invite to your business, from files you choose,
 from Google when you sign in with Google, and from LHDN MyInvois when it validates or rejects an
@@ -124,6 +132,15 @@ dan kami memproses data itu bagi pihak anda.
   setiap perubahan pada buku akaun dan siapa yang membuatnya, dan, hanya jika anda
   menghidupkannya, laporan ranap tanpa nama, amaun dan nombor.
 - Status langganan Google Play anda (kami tidak pernah melihat kad anda).
+
+**Data peribadi sensitif.** Sesetengah butiran yang anda pilih untuk masukkan ialah data
+peribadi sensitif di bawah APDP: zakat yang anda bayar (ia menunjukkan kepercayaan agama anda) dan
+pelepasan kecacatan atau penyakit serius bagi anda, pasangan, anak atau pekerja anda (ia
+menunjukkan kesihatan fizikal atau mental). Kami menggunakannya hanya untuk mengira pelepasan,
+rebat atau potongan cukai bulanan yang berkaitan. Di bawah seksyen 40 kami memprosesnya hanya
+dengan **persetujuan nyata** anda, yang diberikan melalui tanda berasingan apabila anda menerima
+notis ini; anda boleh menariknya balik dengan memadam butiran itu atau akaun anda. Anda tidak wajib
+memasukkannya.
 
 **Dari mana data itu diperoleh.** Daripada anda, daripada orang yang anda jemput ke perniagaan
 anda, daripada fail yang anda pilih, daripada Google apabila anda log masuk dengan Google, dan

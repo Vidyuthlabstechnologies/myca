@@ -64,7 +64,7 @@ export const PRIVACY_NOTICE = {
 
 export const PRIVACY_NOTICE_US = {
   document: 'privacy',
-  version: 'us-draft-2026-11-22',
+  version: 'us-draft-2026-11-23',
   region: 'US',
   requiresAdult: true,
   title: 'How MyCA uses your information (United States)',
@@ -85,7 +85,7 @@ export const PRIVACY_NOTICE_US = {
     },
     {
       heading: 'Who it is shared with',
-      body: 'Our e-file partner, when you choose to file: we pass on your names, dates of birth, address, dependents, tax forms and our estimate so you do not type them again; the partner may use them only to file your return. Your Social Security numbers are passed on only if you sign a separate consent, which you can withdraw in the app at any time. The IRS, through that partner. Google Cloud, which hosts MyCA. Anthropic, whose AI model reads the forms you photograph and answers your questions; Social Security numbers and ITINs are removed before anything is sent to it, and it may not keep or train on what it receives. Stripe, Google Play or Apple when you pay, which receive payment details but not your return. People you invite to your return, such as your spouse or your tax professional, who see Social Security numbers only as the last four digits. Nobody else, unless the law requires it.',
+      body: 'Our e-file partner, when you choose to file: we pass on your names, dates of birth, address, dependents, tax forms and our estimate so you do not type them again; the partner may use them only to file your return. Your Social Security numbers are passed on only if you sign a separate consent, which you can withdraw in the app at any time. The IRS, through that partner. Google Cloud, which hosts MyCA. Anthropic, whose AI model answers your questions and reads the forms and letters you photograph, only after you allow it in the app; you can still type every form in yourself. Social Security numbers and ITINs are removed from the text of your messages before it is sent. A photo is sent as taken, so a number printed on the form reaches Anthropic; the model is told not to read it and MyCA removes any such number from what comes back. Anthropic may not train on what it receives and keeps it only for the short period its commercial terms allow [retention period to be confirmed before release]. The AI never works out a figure on your return; MyCA\'s tax rules do. Stripe, Google Play or Apple when you pay, which receive payment details but not your return. People you invite to your return, such as your spouse or your tax professional, who see Social Security numbers only as the last four digits. Nobody else, unless the law requires it.',
     },
     {
       heading: 'How it is protected',
@@ -118,7 +118,7 @@ export const PRIVACY_NOTICE_US = {
   ],
 };
 
-const MY_VERSION = 'my-draft-2026-11-14';
+const MY_VERSION = 'my-draft-2026-11-23';
 const MY_CONTROLLER = 'ML Dynamic Solutions Private Limited, 606, 6th Floor, Gowra Fountainhead, Patrika Nagar, Madhapur, HITEC City, Hyderabad, Telangana 500081, India';
 const MY_DPO_EMAIL = 'dpo@[domain to be confirmed]';
 
@@ -127,6 +127,8 @@ export const PRIVACY_NOTICE_MY = {
   version: MY_VERSION,
   region: 'MY',
   language: 'en',
+  requiresAdult: true,
+  sensitiveConsent: { document: 'my-sensitive-data' },
   title: 'How MyCA uses your personal data (Malaysia)',
   status: 'Draft for legal review under the Personal Data Protection Act 2010 as amended in 2024. Not yet approved for release.',
   law: 'Personal Data Protection Act 2010 (Act 709), as amended by the Personal Data Protection (Amendment) Act 2024',
@@ -138,23 +140,27 @@ export const PRIVACY_NOTICE_MY = {
   sections: [
     {
       heading: 'Who we are',
-      body: `MyCA is provided by ${MY_CONTROLLER}. We are the data user (controller) of the personal data described here under the Personal Data Protection Act 2010 as amended in 2024 (the PDPA), and we are responsible for it.`,
+      body: `MyCA is provided by ${MY_CONTROLLER}. We are the data controller (called the data user before the 2024 amendments) of the personal data described here under the Personal Data Protection Act 2010 as amended in 2024 (the PDPA), and we are responsible for it.`,
     },
     {
       heading: 'What we collect',
       body: 'To sign you in: your mobile number, or the name and email address of the Google account you choose. To keep your books: the invoices, bills, expenses, receipts and payments you record, the customers and suppliers named in them with their tax identification numbers (TIN), business registration, MyKad or passport numbers and addresses, the e-invoices you issue or receive through LHDN MyInvois, and the files you upload. To estimate your income tax: the income, reliefs, zakat and monthly tax deductions you enter. We also keep which phone you signed in on and a record of every change to the books and who made it.',
     },
     {
+      heading: 'Sensitive personal data',
+      body: 'Some details you may choose to enter are sensitive personal data under the PDPA: zakat you pay, which shows your religious belief, and disability or serious-illness reliefs for you, your spouse, your children or your employees, which show physical or mental health. MyCA uses them only to work out the tax relief, rebate or monthly tax deduction they belong to, and never for anything else. We process them only with your explicit consent, which you give by ticking the separate box below; you can withdraw it at any time by deleting these entries or your account. You do not have to enter them, and the rest of MyCA works without them.',
+    },
+    {
       heading: 'Why we use it',
-      body: 'To keep your books; to build, sign and submit e-invoices to LHDN MyInvois when you confirm them; to prepare your SST-02 figures and your income tax estimate; to remind you of due dates; to let the people you invite work with you; to keep your account secure; and to fix problems in the app. We do not sell your personal data and do not use it for advertising. Giving us these details is voluntary, but without them we cannot keep your books or issue e-invoices for you.',
+      body: 'To keep your books; to build, sign and submit e-invoices to LHDN MyInvois when you confirm them; to prepare your SST-02 figures and your income tax estimate; to remind you of due dates; to let the people you invite work with you; to keep your account secure; to answer your questions with the MyCA assistant; and to fix problems in the app. We do not sell your personal data and do not use it for advertising. Giving us these details is voluntary, but without them we cannot keep your books or issue e-invoices for you.',
     },
     {
       heading: 'Who it is shared with',
-      body: 'LHDN (the Inland Revenue Board of Malaysia), when you submit, cancel or reject an e-invoice or check a TIN. Google Cloud, which hosts MyCA. The people you invite to your business, such as your staff or your tax agent. Nobody else, unless the law requires it.',
+      body: 'LHDN (the Inland Revenue Board of Malaysia), when you submit, cancel or reject an e-invoice or check a TIN. Google Cloud, which hosts MyCA. Anthropic, in the United States, which runs the AI model behind the MyCA assistant: it receives only the text of what you ask and the figures needed to answer, with MyKad numbers masked, and does not train on it. Google Play, which handles your subscription payment. The provider that sends our sign-in codes and emails. The people you invite to your business, such as your staff or your tax agent. Nobody else, unless the law requires it.',
     },
     {
       heading: 'Where it is kept',
-      body: 'On Google Cloud servers in Singapore (region asia-southeast1). Google Cloud has no region in Malaysia yet. Section 129 of the PDPA, as amended in 2024, allows personal data to be transferred to a place outside Malaysia whose law is substantially similar to the PDPA or ensures an adequate level of protection; we rely on Singapore\'s Personal Data Protection Act 2012 for that. We will move your data to a Malaysian region when one opens.',
+      body: 'On Google Cloud servers in Singapore (region asia-southeast1). Google Cloud has no region in Malaysia yet. Section 129 of the PDPA, as amended in 2024, allows personal data to be transferred to a place outside Malaysia whose law is substantially similar to the PDPA or ensures an adequate level of protection; we rely on Singapore\'s Personal Data Protection Act 2012 for that. Questions you ask the MyCA assistant are sent to Anthropic in the United States, under a contract that binds it to protect the data (section 129(3)). We will move your data to a Malaysian region when one opens.',
     },
     {
       heading: 'How long we keep it',
@@ -162,7 +168,11 @@ export const PRIVACY_NOTICE_MY = {
     },
     {
       heading: 'Your rights',
-      body: 'You may ask for access to the personal data we hold about you and for a copy of it, ask us to correct it if it is inaccurate, incomplete, misleading or out of date, ask us to send it to another data user (data portability), and withdraw your consent at any time by deleting your account in the app; records the law requires us to keep are kept for that time. You may complain to the Personal Data Protection Commissioner of Malaysia.',
+      body: 'You may ask for access to the personal data we hold about you and for a copy of it, ask us to correct it if it is inaccurate, incomplete, misleading or out of date, ask us to send it to another data controller (data portability), and withdraw your consent at any time by deleting your account in the app; records the law requires us to keep are kept for that time. We answer within 21 days. Use Your privacy rights in the app or write to the Data Protection Officer. You may complain to the Personal Data Protection Commissioner of Malaysia.',
+    },
+    {
+      heading: 'Age and changes',
+      body: 'MyCA Malaysia is for businesses and for people aged 18 or over. When this notice changes in a way that matters, we show the new version in the app in Bahasa Melayu and English and ask you to accept it before you carry on.',
     },
     {
       heading: 'If something goes wrong',
@@ -184,23 +194,27 @@ export const PRIVACY_NOTICE_MY_MS = {
   sections: [
     {
       heading: 'Siapa kami',
-      body: `MyCA disediakan oleh ${MY_CONTROLLER}. Kami ialah pengguna data (pengawal) bagi data peribadi yang diterangkan di sini di bawah Akta Perlindungan Data Peribadi 2010 seperti yang dipinda pada 2024 (APDP), dan kami bertanggungjawab ke atasnya.`,
+      body: `MyCA disediakan oleh ${MY_CONTROLLER}. Kami ialah pengawal data (dahulu dipanggil pengguna data sebelum pindaan 2024) bagi data peribadi yang diterangkan di sini di bawah Akta Perlindungan Data Peribadi 2010 seperti yang dipinda pada 2024 (APDP), dan kami bertanggungjawab ke atasnya.`,
     },
     {
       heading: 'Apa yang kami kumpul',
       body: 'Untuk log masuk: nombor telefon bimbit anda, atau nama dan alamat e-mel akaun Google yang anda pilih. Untuk menyimpan buku akaun anda: invois, bil, perbelanjaan, resit dan bayaran yang anda rekodkan, pelanggan dan pembekal yang dinamakan di dalamnya bersama nombor pengenalan cukai (TIN), nombor pendaftaran perniagaan, MyKad atau pasport dan alamat mereka, e-invois yang anda keluarkan atau terima melalui LHDN MyInvois, dan fail yang anda muat naik. Untuk menganggar cukai pendapatan anda: pendapatan, pelepasan, zakat dan potongan cukai bulanan yang anda masukkan. Kami juga menyimpan telefon yang anda gunakan untuk log masuk dan rekod setiap perubahan pada buku akaun serta siapa yang membuatnya.',
     },
     {
+      heading: 'Data peribadi sensitif',
+      body: 'Sesetengah butiran yang anda pilih untuk masukkan ialah data peribadi sensitif di bawah APDP: zakat yang anda bayar, yang menunjukkan kepercayaan agama anda, dan pelepasan kecacatan atau penyakit serius bagi anda, pasangan, anak atau pekerja anda, yang menunjukkan kesihatan fizikal atau mental. MyCA menggunakannya hanya untuk mengira pelepasan cukai, rebat atau potongan cukai bulanan yang berkaitan, dan tidak untuk tujuan lain. Kami memprosesnya hanya dengan persetujuan nyata anda, yang anda berikan dengan menandakan kotak berasingan di bawah; anda boleh menariknya balik pada bila-bila masa dengan memadam butiran ini atau akaun anda. Anda tidak wajib memasukkannya, dan bahagian lain MyCA berfungsi tanpanya.',
+    },
+    {
       heading: 'Mengapa kami menggunakannya',
-      body: 'Untuk menyimpan buku akaun anda; untuk membina, menandatangani dan menghantar e-invois kepada LHDN MyInvois apabila anda mengesahkannya; untuk menyediakan angka SST-02 dan anggaran cukai pendapatan anda; untuk mengingatkan anda tentang tarikh akhir; untuk membolehkan orang yang anda jemput bekerja bersama anda; untuk memastikan akaun anda selamat; dan untuk membetulkan masalah dalam aplikasi. Kami tidak menjual data peribadi anda dan tidak menggunakannya untuk pengiklanan. Pemberian butiran ini adalah sukarela, tetapi tanpanya kami tidak dapat menyimpan buku akaun anda atau mengeluarkan e-invois untuk anda.',
+      body: 'Untuk menyimpan buku akaun anda; untuk membina, menandatangani dan menghantar e-invois kepada LHDN MyInvois apabila anda mengesahkannya; untuk menyediakan angka SST-02 dan anggaran cukai pendapatan anda; untuk mengingatkan anda tentang tarikh akhir; untuk membolehkan orang yang anda jemput bekerja bersama anda; untuk memastikan akaun anda selamat; untuk menjawab soalan anda melalui pembantu MyCA; dan untuk membetulkan masalah dalam aplikasi. Kami tidak menjual data peribadi anda dan tidak menggunakannya untuk pengiklanan. Pemberian butiran ini adalah sukarela, tetapi tanpanya kami tidak dapat menyimpan buku akaun anda atau mengeluarkan e-invois untuk anda.',
     },
     {
       heading: 'Dengan siapa ia dikongsi',
-      body: 'LHDN (Lembaga Hasil Dalam Negeri Malaysia), apabila anda menghantar, membatalkan atau menolak e-invois atau menyemak TIN. Google Cloud, yang mengehoskan MyCA. Orang yang anda jemput ke perniagaan anda, seperti kakitangan atau ejen cukai anda. Tiada orang lain, melainkan jika dikehendaki oleh undang-undang.',
+      body: 'LHDN (Lembaga Hasil Dalam Negeri Malaysia), apabila anda menghantar, membatalkan atau menolak e-invois atau menyemak TIN. Google Cloud, yang mengehoskan MyCA. Anthropic, di Amerika Syarikat, yang menjalankan model AI di sebalik pembantu MyCA: ia hanya menerima teks soalan anda dan angka yang diperlukan untuk menjawab, dengan nombor MyKad disembunyikan, dan tidak melatih modelnya dengannya. Google Play, yang mengendalikan bayaran langganan anda. Penyedia yang menghantar kod log masuk dan e-mel kami. Orang yang anda jemput ke perniagaan anda, seperti kakitangan atau ejen cukai anda. Tiada orang lain, melainkan jika dikehendaki oleh undang-undang.',
     },
     {
       heading: 'Di mana ia disimpan',
-      body: 'Di pelayan Google Cloud di Singapura (rantau asia-southeast1). Google Cloud belum mempunyai rantau di Malaysia. Seksyen 129 APDP, seperti yang dipinda pada 2024, membenarkan data peribadi dipindahkan ke tempat di luar Malaysia yang undang-undangnya pada substansinya serupa dengan APDP atau memastikan tahap perlindungan yang mencukupi; kami bergantung pada Akta Perlindungan Data Peribadi 2012 Singapura untuk itu. Kami akan memindahkan data anda ke rantau di Malaysia apabila ia dibuka.',
+      body: 'Di pelayan Google Cloud di Singapura (rantau asia-southeast1). Google Cloud belum mempunyai rantau di Malaysia. Seksyen 129 APDP, seperti yang dipinda pada 2024, membenarkan data peribadi dipindahkan ke tempat di luar Malaysia yang undang-undangnya pada substansinya serupa dengan APDP atau memastikan tahap perlindungan yang mencukupi; kami bergantung pada Akta Perlindungan Data Peribadi 2012 Singapura untuk itu. Soalan yang anda tanya kepada pembantu MyCA dihantar kepada Anthropic di Amerika Syarikat, di bawah kontrak yang mewajibkannya melindungi data itu (seksyen 129(3)). Kami akan memindahkan data anda ke rantau di Malaysia apabila ia dibuka.',
     },
     {
       heading: 'Berapa lama kami menyimpannya',
@@ -208,7 +222,11 @@ export const PRIVACY_NOTICE_MY_MS = {
     },
     {
       heading: 'Hak anda',
-      body: 'Anda boleh meminta akses kepada data peribadi yang kami simpan tentang anda dan salinannya, meminta kami membetulkannya jika ia tidak tepat, tidak lengkap, mengelirukan atau tidak terkini, meminta kami menghantarnya kepada pengguna data lain (kemudahalihan data), dan menarik balik persetujuan anda pada bila-bila masa dengan memadam akaun anda dalam aplikasi; rekod yang dikehendaki oleh undang-undang disimpan untuk tempoh itu. Anda boleh membuat aduan kepada Pesuruhjaya Perlindungan Data Peribadi Malaysia.',
+      body: 'Anda boleh meminta akses kepada data peribadi yang kami simpan tentang anda dan salinannya, meminta kami membetulkannya jika ia tidak tepat, tidak lengkap, mengelirukan atau tidak terkini, meminta kami menghantarnya kepada pengawal data lain (kemudahalihan data), dan menarik balik persetujuan anda pada bila-bila masa dengan memadam akaun anda dalam aplikasi; rekod yang dikehendaki oleh undang-undang disimpan untuk tempoh itu. Kami menjawab dalam masa 21 hari. Gunakan Hak privasi anda dalam aplikasi atau tulis kepada Pegawai Perlindungan Data. Anda boleh membuat aduan kepada Pesuruhjaya Perlindungan Data Peribadi Malaysia.',
+    },
+    {
+      heading: 'Umur dan perubahan',
+      body: 'MyCA Malaysia adalah untuk perniagaan dan untuk orang yang berumur 18 tahun ke atas. Apabila notis ini berubah dengan cara yang penting, kami menunjukkan versi baharu dalam aplikasi dalam Bahasa Melayu dan Bahasa Inggeris dan meminta anda menerimanya sebelum meneruskan.',
     },
     {
       heading: 'Jika berlaku masalah',
@@ -221,7 +239,7 @@ export const PRIVACY_NOTICE_MY_MS = {
   ],
 };
 
-const AE_VERSION = 'ae-draft-2026-11-15.2';
+const AE_VERSION = 'ae-draft-2026-11-23';
 const AE_CONTROLLER = 'ML Dynamic Solutions Private Limited, a company registered in India, 606, 6th Floor, Gowra Fountainhead, Patrika Nagar, Madhapur, HITEC City, Hyderabad, Telangana 500081, India';
 const AE_PRIVACY_EMAIL = '[privacy email, to be confirmed before release]';
 
@@ -253,7 +271,7 @@ export const PRIVACY_NOTICE_AE = {
     },
     {
       heading: 'Who else sees your data',
-      body: 'People you invite to your business see what their role allows. Google checks a Google sign-in and a Google Play subscription. Google Cloud hosts MyCA. The SMS provider receives your number and sign-in code when phone sign-in is on. The language model provider receives a chat message or bill image only when you use those features. An Accredited Service Provider for e-invoicing receives invoice data only after we connect one and you switch it on. Authorities receive data only when UAE law requires it.',
+      body: 'People you invite to your business see what their role allows. Google checks a Google sign-in and a Google Play subscription. Google Cloud hosts MyCA. The SMS provider receives your number and sign-in code when phone sign-in is on. The language model provider, Anthropic PBC in the United States, receives a chat message or bill image only when you use those features, with Emirates ID numbers and UAE IBANs masked first; this is a transfer under Article 23 of Federal Decree-Law No. 45 of 2021, and Anthropic does not train its models on it. An Accredited Service Provider for e-invoicing receives invoice data only after we connect one and you switch it on. Authorities receive data only when UAE law requires it.',
     },
     {
       heading: 'Where it is kept',
@@ -299,7 +317,7 @@ export const PRIVACY_NOTICE_AE_AR = {
     },
     {
       heading: 'من يطّلع أيضًا على بياناتك',
-      body: 'الأشخاص الذين تدعوهم إلى منشأتك يرون ما تسمح به صلاحياتهم. تتحقق Google من تسجيل الدخول عبر Google ومن اشتراك Google Play. تستضيف Google Cloud تطبيق MyCA. يتلقى مزوّد الرسائل النصية رقمك ورمز الدخول عند تفعيل الدخول بالهاتف. يتلقى مزوّد النموذج اللغوي رسالة المحادثة أو صورة الفاتورة فقط عند استخدامك لهاتين الميزتين. يتلقى مزوّد خدمة معتمد للفوترة الإلكترونية بيانات الفاتورة فقط بعد ربطه وتفعيلك له. وتتلقى الجهات الرسمية البيانات فقط عندما يوجب قانون الإمارات ذلك.',
+      body: 'الأشخاص الذين تدعوهم إلى منشأتك يرون ما تسمح به صلاحياتهم. تتحقق Google من تسجيل الدخول عبر Google ومن اشتراك Google Play. تستضيف Google Cloud تطبيق MyCA. يتلقى مزوّد الرسائل النصية رقمك ورمز الدخول عند تفعيل الدخول بالهاتف. يتلقى مزوّد النموذج اللغوي، شركة Anthropic PBC في الولايات المتحدة، رسالة المحادثة أو صورة الفاتورة فقط عند استخدامك لهاتين الميزتين، بعد إخفاء أرقام الهوية الإماراتية وأرقام IBAN الإماراتية؛ ويُعدّ ذلك نقلًا بموجب المادة 23 من المرسوم بقانون اتحادي رقم 45 لسنة 2021، ولا تدرّب Anthropic نماذجها عليها. يتلقى مزوّد خدمة معتمد للفوترة الإلكترونية بيانات الفاتورة فقط بعد ربطه وتفعيلك له. وتتلقى الجهات الرسمية البيانات فقط عندما يوجب قانون الإمارات ذلك.',
     },
     {
       heading: 'أين تُحفظ بياناتك',
@@ -378,11 +396,21 @@ export function createConsent({ db, now = () => Date.now(), notices = NOTICES })
       if (notice.requiresAdult && body.adult !== true) {
         return { ok: false, error: 'ADULT_REQUIRED', hint: 'Confirm that you are 18 or over to use MyCA. If the box is missing, update the app.' };
       }
+      if (notice.sensitiveConsent && body.sensitive !== true) {
+        return { ok: false, error: 'SENSITIVE_CONSENT_REQUIRED', hint: 'Tick the separate box that gives explicit consent for the sensitive personal data described in the notice (PDPA section 40). If the box is missing, update the app.' };
+      }
       await db.query(
         `insert into consents (user_id, document, version, device_id, accepted_at, adult_declared) values ($1, $2, $3, $4, $5, $6)
          on conflict (user_id, document, version) do nothing`,
         [userId, notice.document, notice.version, deviceId || null, new Date(now()), body.adult === true],
       );
+      if (notice.sensitiveConsent) {
+        await db.query(
+          `insert into consents (user_id, document, version, device_id, accepted_at, adult_declared) values ($1, $2, $3, $4, $5, $6)
+           on conflict (user_id, document, version) do nothing`,
+          [userId, notice.sensitiveConsent.document, notice.version, deviceId || null, new Date(now()), body.adult === true],
+        );
+      }
       return { ok: true, document: notice.document, version: notice.version };
     },
   };

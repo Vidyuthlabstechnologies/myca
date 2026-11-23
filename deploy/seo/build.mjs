@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PRIVACY_NOTICE_US } from '../../cloud/src/consent.mjs';
+import { PRIVACY_NOTICE_MY, PRIVACY_NOTICE_MY_MS, PRIVACY_NOTICE_US } from '../../cloud/src/consent.mjs';
 import { EARLY_ACCESS_ACTION, GUIDE_INDEX, ORIGIN, PAGES, PLAY_ID, PLAY_LISTED, US_FORMS, US_PRICES } from './pages.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -94,7 +94,7 @@ ${body}
     </div>
     <ul>
       <li><a href="/guides">Guides</a></li>
-${edition === 'us' ? (usLegalReady() ? '      <li><a href="/us/privacy">Privacy</a></li>\n' : '') : '      <li><a href="/privacy">Privacy</a></li>\n'}      <li><a href="/delete-account">Delete your account</a></li>
+${edition === 'us' ? (usLegalReady() ? '      <li><a href="/us/privacy">Privacy</a></li>\n' : '') : '      <li><a href="/privacy">Privacy</a></li>\n'}      <li><a href="${edition === 'us' ? '/us/delete-account' : '/delete-account'}">Delete your account</a></li>
 ${edition === 'us' ? (usLegalReady() ? `      <li><a href="/us/terms">Terms</a></li>
       <li><a href="/us/refunds">Refunds</a></li>
 ` : '') : `      <li><a href="/terms">Terms</a></li>
@@ -297,6 +297,29 @@ export function renderNotFound() {
   return shell({ path: '404', title: 'Page not found | MyCA', description: 'This page is not on the MyCA website. Go to the home page, the guides, pricing, or the privacy and account pages.', body, ld: [], noindex: true }).replace(/<link rel="canonical"[^>]*>\n/, '').replace(/<meta property="og:url"[^>]*>\n/, '');
 }
 
+function noticeBlock(notice, lang) {
+  return `      <div lang="${lang}">
+      <h2>${escape(notice.title)}</h2>
+${notice.status ? `      <p class="note">${escape(notice.status)}</p>\n` : ''}${notice.sections.map((section) => `      <h3>${escape(section.heading)}</h3>\n${String(section.body).split(/\n\s*\n/).map((para) => `      <p>${escape(para.trim())}</p>`).join('\n')}`).join('\n')}
+      </div>`;
+}
+
+// PDPA section 7(3): the notice is in the national language and in English. One page holds both,
+// built from the same text the MyCA Malaysia app shows, so the two can never drift.
+export function renderMyPrivacy(english = PRIVACY_NOTICE_MY, malay = PRIVACY_NOTICE_MY_MS) {
+  const body = `
+  <section class="block">
+    <div class="wrap prose">
+      <h1>MyCA Malaysia privacy notice / Notis privasi MyCA Malaysia</h1>
+      <p class="fine">Version ${escape(english.version)}. The same notice is shown in the MyCA Malaysia app before you sign in. <a href="#bm" lang="ms">Baca dalam Bahasa Melayu</a>.</p>
+${noticeBlock(english, 'en')}
+      <hr id="bm">
+${noticeBlock(malay, 'ms')}
+    </div>
+  </section>`;
+  return shell({ path: 'my/privacy', title: 'MyCA Malaysia privacy notice', description: 'How MyCA Malaysia collects, uses, shares and protects personal data under the Personal Data Protection Act 2010, in English and Bahasa Melayu.', body, ld: [] }).replace('<meta name="theme-color"', '<meta name="robots" content="noindex">\n<meta name="theme-color"');
+}
+
 export function outputs() {
   const files = {
     '404.html': renderNotFound(),
@@ -305,6 +328,7 @@ export function outputs() {
     'sitemap.xml': renderSitemap(),
     'robots.txt': renderRobots(),
     'us/privacy.html': renderUsPrivacy(),
+    'my/privacy.html': renderMyPrivacy(),
   };
   for (const page of PAGES) files[`${page.slug}.html`] = renderPage(page);
   return files;

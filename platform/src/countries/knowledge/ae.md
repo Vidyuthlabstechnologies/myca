@@ -87,8 +87,10 @@ first and decide later whether to become one.
   0235:9900000097, exports to a buyer with no Peppol ID 0235:9900000099. Each person appoints
   one ASP for sending and receiving. Out of scope: B2C, exempt financial services, airline
   tickets, sovereign government activity. Rounding at invoice total, AED totals required on a
-  foreign-currency invoice. Penalties under Cabinet Decision 106 of 2025 apply only from each
-  person's mandatory date.
+  foreign-currency invoice. Penalties under Cabinet Decision 173 of 2026 (which replaced
+  Cabinet Decision 106 of 2025 on 30 October 2026, capping the implementation fine at AED 50,000
+  in any 12 months and removing the system-failure notice fines) apply only from each person's
+  own due date; voluntary issuance is outside them.
   Source: https://mof.gov.ae/wp-content/uploads/2026/02/UAE-Electronic-Invoicing-Guidelines_V-1.0-23Feb2026.pdf
 - MyCA's small-business customers fall in the second wave: they must have chosen a provider by
   31 March 2027. A UAE product should be selling before that date.

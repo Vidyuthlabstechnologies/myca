@@ -139,8 +139,8 @@ export const PAGES = [
     ],
     faq: [
       ['When can I file?', 'MyCA US opens for the 2026 tax year in January 2027.'],
-      ['Does it do state returns?', 'Not this season. MyCA gives you a carry-over sheet with the federal figures your state return needs.'],
-      ['What if MyCA makes a mistake?', 'If a mistake in MyCA\'s calculations means your federal return needs to be corrected, we fix it and you file the correction at no extra charge. If the IRS has already accepted the return, MyCA cannot file the amended return (Form 1040-X) yet, so we refund your filing fee in full and give you a corrected copy of every line for your tax professional. This promise does not cover IRS penalties or interest.'],
+      ['Does it do state returns?', 'Yes, for the states with an income tax and DC. MyCA works out each state return from your federal one and files it with the federal return through our e-file partner where the partner files that state. A state whose 2026 figures are not published yet is marked provisional and cannot be filed until they are.'],
+      ['What if MyCA makes a mistake?', 'If a mistake in MyCA\'s calculations means your federal return needs to be corrected, we fix it and you file the correction at no extra charge. If the IRS has already accepted the return, MyCA prepares the amended return (Form 1040-X) for you to print, sign and mail, because it cannot e-file an amended return yet, and we refund your filing fee in full. This promise does not cover IRS penalties or interest.'],
       ['Can a tax professional review my return?', 'Expert Review is coming soon, and you can join the waitlist in the app. Until then you can share your return with your own tax professional from the app.'],
       ['Is MyCA connected to the IRS?', 'No. MyCA is not affiliated with the IRS or any government agency. Your return is e-filed through our e-file partner.'],
     ],

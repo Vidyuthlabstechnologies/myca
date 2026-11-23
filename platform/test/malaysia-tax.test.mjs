@@ -44,7 +44,7 @@ test('an unknown relief is reported, not counted, and a year without rules is re
   const out = malaysiaIncomeTax({ yearOfAssessment: '2025', income: { employment: 50000 }, reliefs: { holiday: 5000 } });
   assert.deepEqual(out.data.unknownReliefs, ['holiday']);
   assert.equal(out.data.totalReliefs, 9000);
-  const later = malaysiaIncomeTax({ yearOfAssessment: '2026', income: { employment: 50000 } });
+  const later = malaysiaIncomeTax({ yearOfAssessment: '2027', income: { employment: 50000 } });
   assert.equal(later.ok, false);
   assert.equal(later.error, 'RULE_NOT_IN_FORCE');
   assert.equal(malaysiaIncomeTax({ yearOfAssessment: 'x' }).error, 'BAD_YEAR_OF_ASSESSMENT');
@@ -115,7 +115,9 @@ test('registration thresholds differ by service and the late penalty steps up', 
   assert.equal(sstRegistrationCheck({ category: 'food-and-beverage', last12Months: 1400000, date: '2026-01-01' }).data.mustRegister, false);
   assert.equal(sstRegistrationCheck({ category: 'general', last12Months: 500000, date: '2026-01-01' }).data.mustRegister, false, 'registration is due once the value exceeds the threshold');
   assert.equal(sstRegistrationCheck({ category: 'general', last12Months: 500000.01, date: '2026-01-01' }).data.mustRegister, true);
-  assert.equal(sstRegistrationCheck({ category: 'rental-or-leasing', last12Months: 900000, date: '2026-01-01' }).data.threshold, 1000000);
+  assert.equal(sstRegistrationCheck({ category: 'rental-or-leasing', last12Months: 900000, date: '2025-12-31' }).data.threshold, 1000000);
+  assert.equal(sstRegistrationCheck({ category: 'rental-or-leasing', last12Months: 1200000, date: '2026-01-01' }).data.threshold, 1500000);
+  assert.equal(sstRegistrationCheck({ category: 'rental-or-leasing', last12Months: 1200000, date: '2026-01-01' }).data.mustRegister, false);
   assert.equal(sstRegistrationCheck({ kind: 'sales', last12Months: 600000, date: '2026-01-01' }).data.mustRegister, true);
   const late = sstLatePenalty({ unpaidTax: 1000, dueDate: '2026-05-31', paidOn: '2026-07-15' });
   assert.equal(late.data.daysLate, 45);

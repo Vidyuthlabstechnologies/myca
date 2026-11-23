@@ -49,6 +49,7 @@ export function engineTables(manifests) {
     externalActions: Object.freeze(manifests.flatMap((manifest) => (manifest.externalActions || []).map((action) => Object.freeze({ id: action.id, access: action.access, irreversible: action.irreversible === true, timeoutSeconds: action.timeoutSeconds || 60, hosts: Object.freeze({ live: Object.freeze([...(action.hosts?.live || [])]), test: Object.freeze([...(action.hosts?.test || [])]) }), country: manifest.country })))),
     providerTools: Object.freeze(tools.filter((tool) => tool.access === 'write' && tool.providerCalls === true).map((tool) => tool.name)),
     addressTools: Object.freeze(tools.filter((tool) => tool.clientAddress === true).map((tool) => tool.name)),
+    syncTools: Object.freeze(tools.filter((tool) => tool.access === 'read' && tool.syncsBook === true).map((tool) => tool.name)),
     owners: new Map(tools.map((tool) => [tool.name, tool.country])),
   });
 }
@@ -64,6 +65,10 @@ export const ENGINE_RULE_FAMILIES = TABLES.ruleFamilies;
 export const ENGINE_EXTERNAL_ACTIONS = TABLES.externalActions;
 export const ENGINE_PROVIDER_TOOLS = TABLES.providerTools;
 export const ENGINE_ADDRESS_TOOLS = TABLES.addressTools;
+// Read tools that refresh what the book holds from a government system (an e-invoice's status
+// at LHDN, say). The service runs them in a write transaction with its own provider setting, so
+// the refreshed status is kept instead of being thrown away with a read-only session.
+export const ENGINE_SYNC_TOOLS = TABLES.syncTools;
 
 export function engineTakesOver(toolName, country) {
   const manifest = manifestFor(country);
@@ -119,6 +124,8 @@ export function manifestProblems(manifests = MANIFESTS, countryCodes = []) {
       if (!TOOL_ACCESS.includes(tool.access)) problems.push(`${at}: access is read or write.`);
       if (tool.providerCalls !== undefined && (tool.providerCalls !== true || tool.access !== 'write')) problems.push(`${at}: providerCalls is true on a write tool whose confirm reaches a government or provider; reads run with provider calls off.`);
       if (tool.providerCalls === true && !(manifest.externalActions || []).length) problems.push(`${at}: a tool that reaches a provider needs the manifest to declare its externalActions.`);
+      if (tool.syncsBook !== undefined && (tool.syncsBook !== true || tool.access !== 'read')) problems.push(`${at}: syncsBook is true on a read tool that refreshes the book from a provider; a write tool already keeps its changes.`);
+      if (tool.syncsBook === true && !(manifest.externalActions || []).length) problems.push(`${at}: a tool that refreshes from a provider needs the manifest to declare its externalActions.`);
       if (tool.clientAddress !== undefined && tool.clientAddress !== true) problems.push(`${at}: clientAddress is true or left out.`);
       if (tool.clientAddress === true && !Object.hasOwn(tool.schema?.properties || {}, 'device')) problems.push(`${at}: a tool given the client address takes a device argument.`);
       if (!tool.schema || tool.schema.type !== 'object' || tool.schema.additionalProperties !== false || typeof tool.schema.properties !== 'object') problems.push(`${at}: the schema is an object schema with additionalProperties false and its properties listed.`);

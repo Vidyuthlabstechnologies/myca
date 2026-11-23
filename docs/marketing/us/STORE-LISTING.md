@@ -74,7 +74,7 @@ Share with the people who help you
 Invite your spouse or your tax professional to see the return.
 
 State returns
-MyCA files your federal return. State returns are not offered yet; MyCA gives you the federal numbers your state's own filing site asks for.
+MyCA prepares your federal return and the state returns it supports, and files them through our e-file partner.
 
 MyCA US is not affiliated with the IRS or any government agency.
 ```

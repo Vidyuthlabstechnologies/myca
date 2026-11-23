@@ -22,7 +22,7 @@ export const MANIFEST = Object.freeze({
     Object.freeze({ key: 'ae-corporate-tax', title: 'UAE corporate tax', prefix: 'ae.ct.', watch: Object.freeze(['Ministerial Decisions on Small Business Relief and Free Zone Persons', 'FTA Corporate Tax guides']) }),
     Object.freeze({ key: 'ae-labour', title: 'UAE labour law: gratuity, overtime, wage deductions and the Wage Protection System', prefix: 'ae.labour.', watch: Object.freeze(['Amendments to Federal Decree-Law 33 of 2021 and Cabinet Resolution 1 of 2022', 'Central Bank WPS file format notices']) }),
     Object.freeze({ key: 'ae-pension', title: 'UAE GPSSA pension contributions for Emiratis', prefix: 'ae.pension.', watch: Object.freeze(['GPSSA circulars on contribution rates and the contribution salary cap']) }),
-    Object.freeze({ key: 'ae-einvoice', title: 'UAE electronic invoicing (PINT AE)', prefix: 'ae.einvoice.', watch: Object.freeze(['Ministry of Finance e-invoicing guidelines and PINT AE releases', 'Cabinet Decision 106 of 2025 amendments']) }),
+    Object.freeze({ key: 'ae-einvoice', title: 'UAE electronic invoicing (PINT AE)', prefix: 'ae.einvoice.', watch: Object.freeze(['Ministry of Finance e-invoicing guidelines and PINT AE releases', 'Cabinet Decision 173 of 2026 on e-invoicing penalties and its amendments']) }),
   ]),
   tools: Object.freeze([
     Object.freeze({
@@ -39,7 +39,7 @@ export const MANIFEST = Object.freeze({
     }),
     Object.freeze({
       name: 'ae_deadlines', title: 'UAE tax deadlines',
-      description: 'The next VAT return and payment date, the corporate tax return date and the e-invoicing dates (appoint an Accredited Service Provider, go live) for the business\'s revenue, with days left. Read-only.',
+      description: 'The next VAT return and payment date, the last day to claim that period\'s excess input VAT (5 years), the 31 December 2026 cut-off for old refund claims, the corporate tax return date and the e-invoicing dates (appoint an Accredited Service Provider, go live) for the business\'s revenue, with days left. Read-only.',
       access: 'read',
       schema: schema({ today: text, vatPeriodEnd: text, ctPeriodEnd: text, revenue: number, government: flag }),
     }),
@@ -69,9 +69,9 @@ export const MANIFEST = Object.freeze({
     }),
     Object.freeze({
       name: 'ae_penalty_estimate', title: 'Estimate a UAE tax penalty',
-      description: 'The administrative penalty for a late VAT return, late VAT payment, late corporate tax return or late corporate tax payment under the schedule in force from 14 April 2026. Read-only.',
+      description: 'The administrative penalty for a late VAT return, late VAT payment, late corporate tax return or late corporate tax payment under the schedule in force from 14 April 2026, or an e-invoicing penalty under Cabinet Decision 173 of 2026: no e-invoicing or no Accredited Service Provider by the due date, e-invoices or e-credit notes not issued in a month (count), or the ASP not told of changed registration details. Read-only.',
       access: 'read',
-      schema: schema({ kind: { type: 'string', enum: ['vat-late-return', 'vat-late-payment', 'ct-late-return', 'ct-late-payment'] }, dueDate: text, doneOn: text, taxUnpaid: number, repeatWithin24Months: flag }, ['kind', 'dueDate']),
+      schema: schema({ kind: { type: 'string', enum: ['vat-late-return', 'vat-late-payment', 'ct-late-return', 'ct-late-payment', 'einvoice-not-implemented', 'einvoice-not-issued', 'einvoice-credit-note-not-issued', 'einvoice-data-not-updated'] }, dueDate: text, doneOn: text, taxUnpaid: number, repeatWithin24Months: flag, count: { type: 'integer', minimum: 0 }, voluntary: flag }, ['kind']),
     }),
     Object.freeze({
       name: 'ae_vat_lines', title: 'VAT lines from the books',

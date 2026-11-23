@@ -24,9 +24,11 @@ test('the Pages headers carry the same policy as the Cloud Run server', () => {
   assert.match(text, /\/assets\/fonts\/\*\n  Cache-Control: public, max-age=2592000/);
 });
 
-test('the redirects keep the Cloud Run addresses: /us/ to /us, /index to /, and invite links on /r/', () => {
+test('the redirects keep the Cloud Run addresses: each folder without its slash, /index to /, and invite links on /r/', () => {
   const rules = renderRedirects().trim().split('\n');
-  assert.deepEqual(rules, ['/us/ /us 301', '/index / 301', '/r/* /r/ 200']);
+  assert.ok(rules.includes('/us/ /us 301'));
+  assert.deepEqual(rules.slice(-2), ['/index / 301', '/r/* /r/ 200']);
+  for (const [, folder] of readFileSync(new URL('../site/default.conf.template', import.meta.url), 'utf8').matchAll(/location = \/([a-z0-9-]+)\/ \{/g)) assert.ok(rules.includes(`/${folder}/ /${folder} 301`), folder);
 });
 
 test('the build fills in the address, moves the invite page under /r/ and leaves no placeholder behind', () => {

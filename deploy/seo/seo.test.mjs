@@ -104,3 +104,14 @@ test('US pages do not link the draft legal pages from the footer while they stil
     if (drafts) assert.ok(!/href="\/us\/(privacy|terms|refunds)"/.test(footer), name);
   }
 });
+
+test('the Malaysian privacy notice is published in English and Bahasa Melayu from the in-app text', async () => {
+  const { renderMyPrivacy } = await import('./build.mjs');
+  const { PRIVACY_NOTICE_MY, PRIVACY_NOTICE_MY_MS } = await import('../../cloud/src/consent.mjs');
+  const html = renderMyPrivacy();
+  assert.match(html, /<meta name="robots" content="noindex">/);
+  assert.match(html, /<div lang="en">/);
+  assert.match(html, /<div lang="ms">/);
+  assert.ok(html.includes(`Version ${PRIVACY_NOTICE_MY.version}`));
+  for (const section of [...PRIVACY_NOTICE_MY.sections, ...PRIVACY_NOTICE_MY_MS.sections]) assert.ok(html.includes(section.heading.replace(/&/g, '&amp;')), section.heading);
+});

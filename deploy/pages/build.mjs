@@ -41,8 +41,9 @@ export function renderHeaders(headers = serverHeaders()) {
   return `${blocks.map(([path, lines]) => `${path}\n${lines.join('\n')}`).join('\n\n')}\n`;
 }
 
-export function renderRedirects() {
-  return ['/us/ /us 301', '/index / 301', '/r/* /r/ 200', ''].join('\n');
+export function renderRedirects(conf = readFileSync(NGINX, 'utf8')) {
+  const folders = [...conf.matchAll(/location = \/([a-z0-9-]+)\/ \{\s*return 301 \/\1;\s*\}/g)].map((match) => `/${match[1]}/ /${match[1]} 301`);
+  return [...folders, '/index / 301', '/r/* /r/ 200', ''].join('\n');
 }
 
 function files(dir) {
