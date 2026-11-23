@@ -23,25 +23,25 @@ export const MANIFEST = Object.freeze({
     Object.freeze({
       name: 'cancel_my_einvoice', title: 'Cancel a Malaysian e-invoice',
       description: 'Cancel an e-invoice LHDN has validated, within 72 hours of validation, with a reason. Goes through the action gate: sandbox unless live calls are on, and production needs the accountant\'s approval.',
-      access: 'write',
+      access: 'write', providerCalls: true,
       schema: schema({ uuid: { type: 'string' }, reason: { type: 'string' }, approvalId: { type: 'string' } }, ['uuid', 'reason']),
     }),
     Object.freeze({
       name: 'issue_my_consolidated_einvoice', title: "Issue the monthly consolidated e-invoice",
       description: "Issue one consolidated e-invoice to the general public (TIN EI00000000010, classification 004) for a month of B2C receipts, after the month ends and within 7 days. Refuses excluded activities and any single receipt above RM10,000; a late one needs acknowledgeLate. Goes through the action gate.",
-      access: 'write',
+      access: 'write', providerCalls: true,
       schema: schema({ month: { type: 'string', pattern: '^\\d{4}-(0[1-9]|1[0-2])$' }, number: { type: 'string' }, lines: { type: 'array', minItems: 1, items: consolidatedLine }, activity: { type: 'string' }, paymentMethod: { type: 'string' }, acknowledgeLate: { type: 'boolean' }, lateReason: { type: 'string' }, approvalId: { type: 'string' } }, ['month', 'lines']),
     }),
     Object.freeze({
       name: 'issue_my_einvoice', title: 'Issue a Malaysian e-invoice',
       description: 'Check, sign and submit one e-invoice, credit, debit or refund note to LHDN MyInvois. The supplier comes from the saved e-invoice profile when not given. Sandbox unless live calls are on; production needs the accountant\'s approval.',
-      access: 'write',
+      access: 'write', providerCalls: true,
       schema: schema({ type: { type: 'string' }, number: { type: 'string' }, issueDate: { type: 'string' }, issueTime: { type: 'string' }, currency: { type: 'string' }, exchangeRate: { type: 'number' }, buyer: party, supplier: party, lines, original: party, paymentMethod: { type: 'string' }, consolidated: { type: 'boolean' }, approvalId: { type: 'string' } }, ['number', 'buyer', 'lines']),
     }),
     Object.freeze({
       name: 'issue_my_self_billed_einvoice', title: "Issue a self-billed e-invoice",
       description: "Issue a self-billed e-invoice, credit, debit or refund note (types 11 to 14) as the buyer, for a foreign supplier, an agent, a dealer or an individual who does not issue one. A foreign supplier gets TIN EI00000000030; a foreign currency needs its exchange rate to ringgit. Goes through the action gate.",
-      access: 'write',
+      access: 'write', providerCalls: true,
       schema: schema({ type: { type: 'string', enum: ['self-billed-invoice', 'self-billed-credit-note', 'self-billed-debit-note', 'self-billed-refund-note'] }, number: { type: 'string' }, issueDate: { type: 'string' }, issueTime: { type: 'string' }, supplier: party, lines, currency: { type: 'string' }, exchangeRate: { type: 'number', exclusiveMinimum: 0 }, original: party, paymentMethod: { type: 'string' }, approvalId: { type: 'string' } }, ['number', 'supplier', 'lines']),
     }),
     Object.freeze({
@@ -59,7 +59,7 @@ export const MANIFEST = Object.freeze({
     Object.freeze({
       name: 'my_einvoice_details', title: "Malaysian e-invoice details",
       description: "Read one e-invoice from LHDN by its UUID: status, parties, totals, the QR share link, and every validation error when LHDN found it invalid. Read-only.",
-      access: 'read',
+      access: 'read', syncsBook: true,
       schema: schema({ uuid }, ['uuid']),
     }),
     Object.freeze({
@@ -71,7 +71,7 @@ export const MANIFEST = Object.freeze({
     Object.freeze({
       name: 'my_einvoice_status', title: 'Malaysian e-invoice status',
       description: 'Read an LHDN submission by its submission UID: whether each document is valid, invalid or still in progress. Read-only.',
-      access: 'read',
+      access: 'read', syncsBook: true,
       schema: schema({ submissionUid: { type: 'string' } }, ['submissionUid']),
     }),
     Object.freeze({
@@ -90,12 +90,12 @@ export const MANIFEST = Object.freeze({
       name: 'my_payroll', title: 'Malaysian payroll: EPF, SOCSO, EIS and PCB',
       description: 'EPF, SOCSO, EIS and PCB for each employee for one month from the dated tables: EPF from the Third Schedule bands (11% employee, 13% or 12% employer, rounded up to the ringgit; 60 and over and non-Malaysian rates), SOCSO first category and EIS from the RM100 bands up to the RM6,000 ceiling, and PCB by LHDN\'s computerised method (category 1, 2 or 3, qualifying children with a child in higher education or a disabled child counted as 4, disabled employee or spouse, bonus, year-to-date pay, zakat, TP1 deductions; flat rate for non-residents), with net pay, employer cost and the 15th-of-next-month due date. Read-only.',
       access: 'read',
-      schema: schema({ month: { type: 'string' }, employees: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string' }, wages: { type: 'number' }, bonus: { type: 'number', minimum: 0 }, age: { type: 'number' }, citizen: { type: 'boolean' }, eisCovered: { type: 'boolean' }, lindung24Jam: { type: 'boolean' }, resident: { type: 'boolean' }, pcbCategory: { type: 'number', enum: [1, 2, 3] }, children: { type: 'number', minimum: 0 }, disabled: { type: 'boolean' }, disabledSpouse: { type: 'boolean' }, zakat: { type: 'number', minimum: 0 }, deductions: { type: 'number', minimum: 0 }, yearToDate: { type: 'object', additionalProperties: false, properties: { income: { type: 'number', minimum: 0 }, epf: { type: 'number', minimum: 0 }, pcb: { type: 'number', minimum: 0 }, zakat: { type: 'number', minimum: 0 }, deductions: { type: 'number', minimum: 0 } } } } } } }, ['month', 'employees']),
+      schema: schema({ month: { type: 'string' }, employees: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string' }, wages: { type: 'number' }, bonus: { type: 'number', minimum: 0 }, age: { type: 'number' }, citizen: { type: 'boolean' }, eisCovered: { type: 'boolean' }, lindung24Jam: { type: 'boolean' }, partTime: { type: 'boolean' }, smallEmployer: { type: 'boolean' }, resident: { type: 'boolean' }, pcbCategory: { type: 'number', enum: [1, 2, 3] }, children: { type: 'number', minimum: 0 }, disabled: { type: 'boolean' }, disabledSpouse: { type: 'boolean' }, zakat: { type: 'number', minimum: 0 }, deductions: { type: 'number', minimum: 0 }, yearToDate: { type: 'object', additionalProperties: false, properties: { income: { type: 'number', minimum: 0 }, epf: { type: 'number', minimum: 0 }, pcb: { type: 'number', minimum: 0 }, zakat: { type: 'number', minimum: 0 }, deductions: { type: 'number', minimum: 0 } } } } } } }, ['month', 'employees']),
     }),
     Object.freeze({
       name: 'my_received_einvoices', title: "E-invoices received from suppliers",
       description: "List the e-invoices suppliers issued to the business in the last 31 days from LHDN, with until when each can still be rejected. Read-only.",
-      access: 'read',
+      access: 'read', syncsBook: true,
       schema: schema({ pageNo: { type: 'integer', minimum: 1 }, pageSize: { type: 'integer', minimum: 1, maximum: 100 } }),
     }),
     Object.freeze({
@@ -125,7 +125,7 @@ export const MANIFEST = Object.freeze({
     Object.freeze({
       name: 'reject_my_einvoice', title: "Reject a received e-invoice",
       description: "Ask a supplier to cancel an e-invoice they issued to the business, with a reason, once and within 72 hours of validation. Goes through the action gate: sandbox unless live calls are on, and production needs the accountant's approval.",
-      access: 'write',
+      access: 'write', providerCalls: true,
       schema: schema({ uuid, reason: { type: 'string', maxLength: 300 }, approvalId: { type: 'string' } }, ['uuid', 'reason']),
     }),
     Object.freeze({

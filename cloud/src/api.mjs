@@ -46,7 +46,7 @@ import { htmlEscape } from '../../platform/src/text-safe.mjs';
 import { DEMO_BLOCKED_ACTIONS, seedDemo } from './demo.mjs';
 import { createRateLimits, LIMITS } from './rate-limits.mjs';
 import { createStoreFront, MAX_STORE_ORDER_BYTES, STORE_PAGE_CSP } from './store-front.mjs';
-import { ENGINE_WRITE_TOOLS, ENGINE_PROVIDER_TOOLS, ENGINE_ADDRESS_TOOLS } from '../../platform/src/countries/manifests.mjs';
+import { ENGINE_WRITE_TOOLS, ENGINE_PROVIDER_TOOLS, ENGINE_ADDRESS_TOOLS, ENGINE_SYNC_TOOLS } from '../../platform/src/countries/manifests.mjs';
 
 const INDIA_OFFSET_MS = 330 * 60 * 1000;
 
@@ -1102,6 +1102,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           const plus = await billing.usPlusAllows(businessId);
           if (!plus.ok) return plus;
         }
+        if (ENGINE_SYNC_TOOLS.includes(body.name)) return withBooks(businessId, context, (session) => withProviderContext({ environment: serviceProviderEnvironment() }, () => session.query(body.name, body.args || {}, actor)));
         const queried = await runner.withReadOnlyBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
         if (body.name === 'catalogue_view' && queried?.data?.link?.path) queried.data.link.url = `${publicOrigin(req)}${queried.data.link.path}`;
         return queried;

@@ -114,6 +114,7 @@ class FakeCloud {
   String sharedAsOf = '';
   int shares = 0;
   final consents = <String>[];
+  final noticeLanguages = <String>[];
   String userName = '';
   String role = 'owner';
   Map<String, Object?> company = const {};
@@ -182,15 +183,22 @@ class FakeCloud {
       return _json(200, {'ok': true, 'environment': serverEnvironment, 'providerMode': providerMode, 'version': 'test'});
     }
     if (path == '/v1/privacy-notice' && request.url.queryParameters['region'] == 'MY') {
+      final malay = request.url.queryParameters['lang'] == 'ms';
+      noticeLanguages.add(malay ? 'ms' : 'en');
       return _json(200, {
         'ok': true,
         'notice': {
           'document': 'privacy',
           'version': 'my-test',
-          'title': 'How MyCA uses your information (Malaysia)',
+          'language': malay ? 'ms' : 'en',
+          'requiresAdult': true,
+          'sensitiveConsent': {'document': 'my-sensitive-data'},
+          'title': malay ? 'Cara MyCA menggunakan data peribadi anda (Malaysia)' : 'How MyCA uses your information (Malaysia)',
           'status': 'Draft for legal review.',
           'sections': [
-            {'heading': 'Where it is kept', 'body': 'Malaysian data is kept in Google Cloud Singapore under PDPA section 129.'},
+            malay
+                ? {'heading': 'Di mana ia disimpan', 'body': 'Data Malaysia disimpan di Google Cloud Singapura di bawah seksyen 129 APDP.'}
+                : {'heading': 'Where it is kept', 'body': 'Malaysian data is kept in Google Cloud Singapore under PDPA section 129.'},
           ],
         },
       });
@@ -328,8 +336,10 @@ class FakeCloud {
       return _json(200, {'ok': true, 'requests': privacyRequests, 'replyWithinDays': 30});
     }
     if (path == '/v1/me/consent' && request.method == 'POST') {
-      if (body['version'] != 'v-test' && body['version'] != 'us-test') return _json(400, {'ok': false, 'error': 'NOTICE_CHANGED'});
+      if (body['version'] != 'v-test' && body['version'] != 'us-test' && body['version'] != 'my-test') return _json(400, {'ok': false, 'error': 'NOTICE_CHANGED'});
       if (body['version'] == 'v-test' && body['adult'] != true) return _json(400, {'ok': false, 'error': 'ADULT_REQUIRED'});
+      if (body['version'] == 'my-test' && body['adult'] != true) return _json(400, {'ok': false, 'error': 'ADULT_REQUIRED'});
+      if (body['version'] == 'my-test' && body['sensitive'] != true) return _json(400, {'ok': false, 'error': 'SENSITIVE_CONSENT_REQUIRED'});
       noticeAccepted = true;
       consents.add('${body['document']}@${body['version']}');
       return _json(200, {'ok': true});
