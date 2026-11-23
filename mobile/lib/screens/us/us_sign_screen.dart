@@ -717,7 +717,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                     child: const Column(
                       children: [
                         RadioListTile<String>(key: Key('usSign.pay.debit'), contentPadding: EdgeInsets.zero, value: 'direct_debit', title: Text('Take it from my bank account'), subtitle: Text('Free. Pick a date up to April 15.')),
-                        RadioListTile<String>(key: Key('usSign.pay.later'), contentPadding: EdgeInsets.zero, value: 'later', title: Text('I will pay the IRS myself'), subtitle: Text('With IRS Direct Pay or a check, by April 15.')),
+                        RadioListTile<String>(key: Key('usSign.pay.later'), contentPadding: EdgeInsets.zero, value: 'later', title: Text('I will pay the IRS myself'), subtitle: Text('With IRS Direct Pay or your IRS online account, by April 15. The IRS still takes checks but asks for electronic payment.')),
                       ],
                     ),
                   )
@@ -728,7 +728,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                     child: const Column(
                       children: [
                         RadioListTile<String>(key: Key('usSign.refund.deposit'), contentPadding: EdgeInsets.zero, value: 'direct_deposit', title: Text('Direct deposit'), subtitle: Text('Fastest. Usually within 21 days.')),
-                        RadioListTile<String>(key: Key('usSign.refund.check'), contentPadding: EdgeInsets.zero, value: 'check', title: Text('Paper check by mail'), subtitle: Text('Takes several weeks longer.')),
+                        RadioListTile<String>(key: Key('usSign.refund.check'), contentPadding: EdgeInsets.zero, value: 'check', title: Text('I have no bank account for a refund'), subtitle: Text('The IRS stopped mailing refund checks by default. It holds the refund and writes to you (notice CP53E) to ask for an account; a paper check comes only if you cannot give one, six weeks or more later.')),
                       ],
                     ),
                   ),

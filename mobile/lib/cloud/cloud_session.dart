@@ -1408,7 +1408,18 @@ class CloudSession {
     return '${body['sharedAsOf'] ?? ''}';
   }
 
-  Future<void> invite(String phone, String role) => call('POST', '$_books/invitations', {'phone': phone, 'role': role});
+  Future<void> invite(String phone, String role, {String? relationship, String? recipientName, Map<String, Object?>? consent}) async => _accepted(await call('POST', '$_books/invitations', {
+    'phone': phone,
+    'role': role,
+    'relationship': ?relationship,
+    'recipientName': ?recipientName,
+    'consent': ?consent,
+  }));
+
+  Future<Map<String, dynamic>> usShareConsent(String phone, String name) async {
+    final body = _accepted(await call('GET', '/v1/me/us-consents/share?phone=${Uri.encodeQueryComponent(phone)}&name=${Uri.encodeQueryComponent(name)}'));
+    return body['consent'] is Map ? (body['consent'] as Map).cast<String, dynamic>() : <String, dynamic>{};
+  }
 
   Future<void> revokeInvitation(String id) => call('DELETE', '$_books/invitations/$id');
 

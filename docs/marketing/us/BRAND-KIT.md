@@ -32,7 +32,7 @@ legal lines.
 | MyCA Plus | $249 a year | "MyCA Plus, $249 a year": estimated payments, a withholding check, help with IRS letters |
 | Expert Review | $299 | "Expert Review is coming soon. Join the waitlist." Never sold, priced as available, or promised until a CPA or EA partner is signed |
 | Preparing and seeing your refund | Free | Always paired with "pay only when you file" |
-| State returns | Not offered | "MyCA files your federal return. State returns are not offered yet." |
+| State returns | Prepared for supported states, filed through the partner | "MyCA prepares your federal return and the state returns it supports." |
 
 "Free" never stands alone. Any line that says free also says, in the same view and at the same
 size or close to it, that filing costs money. This follows the FTC's position on "free" tax

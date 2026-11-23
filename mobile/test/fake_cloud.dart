@@ -22,6 +22,8 @@ class FakeCloud {
   final members = <Map<String, Object?>>[];
   final openInvites = <Map<String, Object?>>[];
   final invited = <String>[];
+  final inviteBodies = <Map<String, Object?>>[];
+  final usShareSigned = <String>{};
   final removed = <String>[];
   final roleChanges = <String>[];
   final briefChanges = <bool>[];
@@ -521,9 +523,17 @@ class FakeCloud {
         'invitations': role == 'owner' ? openInvites : const <Object?>[],
       });
     }
+    if (request.url.path == '/v1/me/us-consents/share' && request.method == 'GET') {
+      final phone = request.url.queryParameters['phone'] ?? '';
+      final name = request.url.queryParameters['name'] ?? '';
+      return _json(200, {'ok': true, 'consent': {'document': 'us-7216-share.x', 'version': 'v1', 'title': 'Consent to disclose your return to someone you invite', 'text': 'Quanzo AI may disclose to $name, at the phone number ending ${phone.length >= 4 ? phone.substring(phone.length - 4) : phone}, your return.', 'signed': usShareSigned.contains(phone)}});
+    }
     if (path == '$books/invitations' && request.method == 'POST') {
-      final phone = '${body['phone']}'.replaceAll(' ', '');
-      if (!RegExp(r'^(\+91)?[6-9]\d{9}$|^\+9715\d{8}$').hasMatch(phone)) return _json(400, {'ok': false, 'error': 'INVALID_PHONE'});
+      final phone = '${body['phone']}'.replaceAll(RegExp(r'[ ()-]'), '');
+      if (!RegExp(r'^(\+91)?[6-9]\d{9}$|^\+9715\d{8}$|^(\+1)?[2-9]\d{9}$').hasMatch(phone)) return _json(400, {'ok': false, 'error': 'INVALID_PHONE'});
+      inviteBodies.add(Map<String, Object?>.from(body));
+      if (company['entityType'] == 'household' && body['relationship'] != 'spouse' && body['consent'] == null && !usShareSigned.contains(phone)) return _json(400, {'ok': false, 'error': 'US_SHARE_CONSENT_REQUIRED'});
+      if (body['consent'] != null) usShareSigned.add(phone);
       invited.add('$phone:${body['role']}');
       final open = {'id': 'inv-${invited.length}', 'phoneHint': 'xxxxxxx${phone.substring(phone.length - 3)}', 'role': body['role']};
       openInvites.add(open);

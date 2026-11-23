@@ -54,6 +54,11 @@ const joint = (status) => status === 'mfj';
 const jointOr = (value, status) => (joint(status) ? value.mfj : value.other);
 const bracketKey = (status) => (status === 'qss' ? 'mfj' : status);
 
+function birthYearOf(dateOfBirth) {
+  const match = /^(\d{4})-/.exec(String(dateOfBirth || ''));
+  return match ? Number(match[1]) : 0;
+}
+
 function birthParts(dateOfBirth) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateOfBirth || ''));
   return match ? { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) } : null;
@@ -446,6 +451,12 @@ export function computeForm1040(input = {}, taxYearArg) {
   if (status === 'hoh' && !dependents.some((item) => item.qualifyingChild || item.relationship === 'parent' || Number(item.months ?? 12) > 6)) checks.push(check('error', 'HOH_NEEDS_QUALIFYING_PERSON', 'Head of household needs a qualifying person who lived with you more than half the year (a parent need not).', 'Add the dependent, or choose single.'));
   if (status === 'qss' && !dependents.some((item) => CHILD_RELATIONSHIPS.has(item.relationship))) checks.push(check('error', 'QSS_NEEDS_CHILD', 'Qualifying surviving spouse needs a dependent child or stepchild who lived with you all year.', 'Add the child, or choose another status.'));
   for (const item of dependents) if (item.dateOfBirth && item.age === null) checks.push(check('error', 'DEPENDENT_DOB_INVALID', `${item.firstName || 'A dependent'}'s date of birth is not a date.`, 'Enter it as YYYY-MM-DD.'));
+  const trumpChildren = listed.filter((item) => item.age !== null && item.age !== undefined && item.age < 18 && item.ssnValid !== false && !item.bornAfterYear);
+  if (trumpChildren.length) {
+    const pilot = trumpChildren.filter((item) => birthYearOf(item.dateOfBirth) >= 2025 && birthYearOf(item.dateOfBirth) <= 2028);
+    const names = trumpChildren.map((item) => item.firstName || 'a child').join(', ');
+    checks.push(check('warning', 'TRUMP_ACCOUNT_ELECTION', `${names} may be able to get a Trump account (IRC 530A)${pilot.length ? `; a US citizen child born 2025 to 2028 (${pilot.map((item) => item.firstName || 'a child').join(', ')}) may also get a $1,000 pilot contribution` : ''}. The election is made on Form 4547, which MyCA does not prepare. It can be e-filed with a return where the filing software supports it, mailed to the IRS, or made online if trumpaccounts.gov offers it.`, 'Optional. Nothing on this return changes.', '4547'));
+  }
   for (const item of dependents) if (item.qualifyingChild && item.age < 17 && item.ssnValid === false) checks.push(check('warning', 'CHILD_WITHOUT_SSN', `${item.firstName || 'A child'} has no SSN valid for work, so the $500 credit for other dependents applies instead of the child tax credit.`, ''));
 
   const w2s = formsOf(input, 'W-2');

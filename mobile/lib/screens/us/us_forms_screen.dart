@@ -5,6 +5,7 @@ import '../../api/models.dart';
 import '../../api/myca_api.dart';
 import '../../app_services.dart';
 import '../../app_state.dart';
+import '../../us/us_ai_permission.dart';
 import '../../format.dart';
 import '../../marks.dart';
 import '../../theme.dart';
@@ -82,6 +83,10 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
   Future<void> _scan() async {
     final state = AppScope.of(context);
     setState(() => _note = '');
+    if (!await ensureUsAiPermission(context)) {
+      if (mounted) setState(() => _note = 'Nothing was sent. Choose "Type it in" to enter the form yourself.');
+      return;
+    }
     final picked = await state.pickAnyFile();
     if (picked == null || !mounted) return;
     setState(() => _reading = true);

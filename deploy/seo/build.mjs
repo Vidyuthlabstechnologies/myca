@@ -78,7 +78,7 @@ ${body}
     </div>
     <ul>
       <li><a href="/guides">Guides</a></li>
-${edition === 'us' ? (usLegalReady() ? '      <li><a href="/us/privacy">Privacy</a></li>\n' : '') : '      <li><a href="/privacy">Privacy</a></li>\n'}      <li><a href="/delete-account">Delete your account</a></li>
+${edition === 'us' ? (usLegalReady() ? '      <li><a href="/us/privacy">Privacy</a></li>\n' : '') : '      <li><a href="/privacy">Privacy</a></li>\n'}      <li><a href="${edition === 'us' ? '/us/delete-account' : '/delete-account'}">Delete your account</a></li>
 ${edition === 'us' ? (usLegalReady() ? `      <li><a href="/us/terms">Terms</a></li>
       <li><a href="/us/refunds">Refunds</a></li>
 ` : '') : `      <li><a href="/terms">Terms</a></li>

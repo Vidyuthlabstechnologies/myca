@@ -129,7 +129,7 @@ function moneyPlan(args, lines, problems) {
       bankProblems(r, 'refund', problems);
       refund = { method: 'direct_deposit', routing: String(r.routing || ''), account: String(r.account || ''), accountType: r.accountType };
     } else if (r.method === 'check') refund = { method: 'check' };
-    else problems.push({ code: 'REFUND_METHOD_MISSING', message: 'Choose how to get your refund.', fix: 'Pick direct deposit or a paper check.', step: 'sign' });
+    else problems.push({ code: 'REFUND_METHOD_MISSING', message: 'Choose how to get your refund.', fix: 'Pick direct deposit, or say you have no bank account.', step: 'sign' });
   }
   if (owed > 0) {
     const p = args.payment || {};
@@ -401,7 +401,7 @@ export function signPreview(state, args = {}) {
     blockers,
     summary: `Sign your ${taxYear || ''} federal return (Form 8879) with your self-select PIN.`,
     effects: [
-      args.refund?.method === 'direct_deposit' ? `Refund by direct deposit to account ${mask(account)}.` : args.refund?.method === 'check' ? 'Refund by paper check.' : '',
+      args.refund?.method === 'direct_deposit' ? `Refund by direct deposit to account ${mask(account)}.` : args.refund?.method === 'check' ? 'No bank account given for the refund. The IRS holds the refund and mails notice CP53E asking for an account; it sends a paper check only if none can be given.' : '',
       args.payment?.method === 'direct_debit' ? `Tax owed debited from account ${mask(account)} on ${args.payment.date}.` : args.payment?.method === 'later' ? 'You will pay what you owe separately, by the due date.' : '',
       'Nothing is sent to the IRS until you file.',
     ].filter(Boolean),

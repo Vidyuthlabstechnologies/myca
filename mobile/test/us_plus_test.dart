@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:myca/us/us_ai_permission.dart';
 import 'package:myca/api/myca_api.dart';
 import 'package:myca/app_services.dart';
 import 'package:myca/billing/store_billing.dart';
@@ -79,6 +80,7 @@ Future<void> openOver(WidgetTester tester, Widget screen) async {
 }
 
 void main() {
+  setUp(() => usAiPermissionStore = MemoryUsAiPermissionStore(allowAll: true));
   testWidgets('the hub shows the \$129 price line before About you, and the state section from the server', (tester) async {
     final api = UsFakeApi()..taxpayer = {'filingStatus': 'single', 'address': {'state': 'TX'}};
     await tester.pumpWidget(MycaApp(state: usState(api)));

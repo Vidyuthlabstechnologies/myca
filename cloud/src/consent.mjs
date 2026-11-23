@@ -64,7 +64,7 @@ export const PRIVACY_NOTICE = {
 
 export const PRIVACY_NOTICE_US = {
   document: 'privacy',
-  version: 'us-draft-2026-11-22',
+  version: 'us-draft-2026-11-23',
   region: 'US',
   requiresAdult: true,
   title: 'How MyCA uses your information (United States)',
@@ -85,7 +85,7 @@ export const PRIVACY_NOTICE_US = {
     },
     {
       heading: 'Who it is shared with',
-      body: 'Our e-file partner, when you choose to file: we pass on your names, dates of birth, address, dependents, tax forms and our estimate so you do not type them again; the partner may use them only to file your return. Your Social Security numbers are passed on only if you sign a separate consent, which you can withdraw in the app at any time. The IRS, through that partner. Google Cloud, which hosts MyCA. Anthropic, whose AI model reads the forms you photograph and answers your questions; Social Security numbers and ITINs are removed before anything is sent to it, and it may not keep or train on what it receives. Stripe, Google Play or Apple when you pay, which receive payment details but not your return. People you invite to your return, such as your spouse or your tax professional, who see Social Security numbers only as the last four digits. Nobody else, unless the law requires it.',
+      body: 'Our e-file partner, when you choose to file: we pass on your names, dates of birth, address, dependents, tax forms and our estimate so you do not type them again; the partner may use them only to file your return. Your Social Security numbers are passed on only if you sign a separate consent, which you can withdraw in the app at any time. The IRS, through that partner. Google Cloud, which hosts MyCA. Anthropic, whose AI model answers your questions and reads the forms and letters you photograph, only after you allow it in the app; you can still type every form in yourself. Social Security numbers and ITINs are removed from the text of your messages before it is sent. A photo is sent as taken, so a number printed on the form reaches Anthropic; the model is told not to read it and MyCA removes any such number from what comes back. Anthropic may not train on what it receives and keeps it only for the short period its commercial terms allow [retention period to be confirmed before release]. The AI never works out a figure on your return; MyCA\'s tax rules do. Stripe, Google Play or Apple when you pay, which receive payment details but not your return. People you invite to your return, such as your spouse or your tax professional, who see Social Security numbers only as the last four digits. Nobody else, unless the law requires it.',
     },
     {
       heading: 'How it is protected',

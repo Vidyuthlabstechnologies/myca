@@ -5,6 +5,7 @@ import '../../api/models.dart';
 import '../../api/myca_api.dart';
 import '../../app_services.dart';
 import '../../app_state.dart';
+import '../../us/us_ai_permission.dart';
 import '../../billing/store_billing.dart';
 import '../../format.dart';
 import '../../marks.dart';
@@ -319,6 +320,11 @@ class _UsLetterScreenState extends State<UsLetterScreen> {
 
   Future<void> _pick() async {
     final state = AppScope.of(context);
+    if (!await ensureUsAiPermission(context)) {
+      if (mounted) setState(() => _note = 'Nothing was sent. Reading a letter needs the AI; you can still read it yourself and call the number on it.');
+      return;
+    }
+    if (!mounted) return;
     final picked = await state.pickAnyFile();
     if (picked == null || !mounted) return;
     setState(() {
