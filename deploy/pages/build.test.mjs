@@ -27,6 +27,7 @@ test('the Pages headers carry the same policy as the Cloud Run server', () => {
 test('the redirects keep the Cloud Run addresses: each folder without its slash, /index to /, and invite links on /r/', () => {
   const rules = renderRedirects().trim().split('\n');
   assert.ok(rules.includes('/us/ /us 301'));
+  assert.ok(rules.includes('/my /my/privacy 302'));
   assert.deepEqual(rules.slice(-2), ['/index / 301', '/r/* /r/ 200']);
   for (const [, folder] of readFileSync(new URL('../site/default.conf.template', import.meta.url), 'utf8').matchAll(/location = \/([a-z0-9-]+)\/ \{/g)) assert.ok(rules.includes(`/${folder}/ /${folder} 301`), folder);
 });

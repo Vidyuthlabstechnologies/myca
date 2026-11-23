@@ -43,7 +43,8 @@ export function renderHeaders(headers = serverHeaders()) {
 
 export function renderRedirects(conf = readFileSync(NGINX, 'utf8')) {
   const folders = [...conf.matchAll(/location = \/([a-z0-9-]+)\/ \{\s*return 301 \/\1;\s*\}/g)].map((match) => `/${match[1]}/ /${match[1]} 301`);
-  return [...folders, '/index / 301', '/r/* /r/ 200', ''].join('\n');
+  const pages = [...conf.matchAll(/location = \/([a-z0-9-]+) \{\s*return (30[127]) (\/[a-z0-9/-]+);\s*\}/g)].map((match) => `/${match[1]} ${match[3]} ${match[2]}`);
+  return [...folders, ...pages, '/index / 301', '/r/* /r/ 200', ''].join('\n');
 }
 
 function files(dir) {

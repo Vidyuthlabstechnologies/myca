@@ -34,3 +34,14 @@ test('a folder of pages answers its trailing-slash address with a redirect, not 
     assert.match(conf, new RegExp(`location = /${folder}/ \\{\\s*return 301 /${folder};\\s*\\}`), folder);
   }
 });
+
+test('a folder address without its slash lands on a page, never back on the slash address in a loop', () => {
+  const conf = readFileSync(join(PUBLIC_DIR, '..', 'site', 'default.conf.template'), 'utf8');
+  const folders = readdirSync(PUBLIC_DIR, { withFileTypes: true }).filter((entry) => entry.isDirectory() && entry.name !== 'assets').map((entry) => entry.name);
+  for (const folder of folders) {
+    const page = readdirSync(PUBLIC_DIR).includes(`${folder}.html`);
+    const target = conf.match(new RegExp(`location = /${folder} \\{\\s*return 30[127] (/[a-z0-9/-]+);\\s*\\}`))?.[1];
+    assert.ok(page || target, `/${folder} has no page and no redirect, so nginx sends it back to /${folder}/`);
+    if (target) assert.ok(readdirSync(PUBLIC_DIR, { recursive: true }).includes(`${target.slice(1)}.html`), `/${folder} redirects to ${target}, which has no page`);
+  }
+});

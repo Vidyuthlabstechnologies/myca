@@ -80,6 +80,10 @@ server {
     return 301 /my;
   }
 
+  location = /my {
+    return 302 /my/privacy;
+  }
+
   location / {
     try_files $uri $uri.html $uri/ =404;
   }
