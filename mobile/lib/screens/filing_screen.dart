@@ -129,8 +129,8 @@ class _RecordFilingScreenState extends State<RecordFilingScreen>
                       runSpacing: 4,
                       children: [
                         for (final option in [
-                          ('24Q', inText(context, 'Salary (24Q)')),
-                          ('26Q', inText(context, 'Other payments (26Q)')),
+                          ('24Q', inText(context, 'Salary (24Q / Form 138)')),
+                          ('26Q', inText(context, 'Other payments (26Q / Form 140)')),
                         ])
                           ChoiceChip(
                             label: Text(option.$2),

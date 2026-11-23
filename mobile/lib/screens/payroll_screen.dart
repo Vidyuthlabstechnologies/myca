@@ -158,8 +158,8 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
         final saved = await state.saveTextFile(name, data['csv'] as String);
         note = saved
             ? rows.length == 1
-                  ? inFill(inLine(lang, 'Saved {name} with 1 employee. Part A comes from TRACES after the 24Q statements are processed; these are the books\' own figures for checking.'), {'name': name})
-                  : inFill(inLine(lang, 'Saved {name} with {n} employees. Part A comes from TRACES after the 24Q statements are processed; these are the books\' own figures for checking.'), {'n': rows.length, 'name': name})
+                  ? inFill(inLine(lang, 'Saved {name} with 1 employee. Part A comes from TRACES after the 24Q (Form 138) statements are processed; these are the books\' own figures for checking.'), {'name': name})
+                  : inFill(inLine(lang, 'Saved {name} with {n} employees. Part A comes from TRACES after the 24Q (Form 138) statements are processed; these are the books\' own figures for checking.'), {'n': rows.length, 'name': name})
             : inLine(lang, 'Not saved.');
       }
     } on MycaApiException catch (err) {

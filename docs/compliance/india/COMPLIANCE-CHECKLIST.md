@@ -1,7 +1,7 @@
 # MyCA India: compliance checklist
 
 Written 2026-11-14 from `develop` by the compliance pass (thread "Make India app fully
-compliant"). Engineering's reading of the rules, for the owner's counsel to confirm; not
+compliant"); rechecked against the law as at 2026-11-23 (see "What changed since 2026-11-14"). Engineering's reading of the rules, for the owner's counsel to confirm; not
 legal advice. Status: **Done** (in the code now), **Owner** (only the owner can do it),
 **Counsel** (needs a lawyer's view), **Next** (engineering work still to do).
 
@@ -12,7 +12,7 @@ building them now avoids a second release.
 
 | # | Requirement | Where in law | Status | Evidence |
 |---|---|---|---|---|
-| 1.1 | Stand-alone notice in plain words: itemised data, the purpose of each, how to withdraw, exercise rights and complain to the Board | s.5; r.3 | Done | `cloud/src/consent.mjs` `PRIVACY_NOTICE` (version `india-2026-11-22`, which adds the owner's date of birth), shown before any books open |
+| 1.1 | Stand-alone notice in plain words: itemised data, the purpose of each, how to withdraw, exercise rights and complain to the Board | s.5; r.3 | Done | `cloud/src/consent.mjs` `PRIVACY_NOTICE` (version `india-2026-11-23`: owner's date of birth, the model provider named, Eighth Schedule language option, consent managers, guardian of a person with a disability), shown before any books open |
 | 1.2 | Notice names who data is shared with, and transfers outside India | s.5, s.16 | Done | "Who we share it with", "Where it is kept" sections |
 | 1.3 | Consent is free, specific, unambiguous, with a clear affirmative act; recorded with time and device | s.6 | Done | `consents` table; "I agree" button; versioned, re-asked when the notice changes |
 | 1.4 | No processing of children's data without verifiable parental consent | s.9; r.10 | Done (18+ only) | Required "I am 18 or over" box; `consents.adult_declared`; terms say 18+ |
@@ -28,6 +28,10 @@ building them now avoids a second release.
 | 1.14 | Processor contracts (Google Cloud, Quicko, SMS, model, WhatsApp, email relay) | s.8(2) | Owner | Sign each provider's DPA; keep copies |
 | 1.15 | Grace period length, legal-hold records, audit-trail names after erasure | s.8(7) | Counsel | Open points at the end of `RETENTION.md` |
 | 1.16 | Significant Data Fiduciary duties (DPO, DPIA, audit) | s.10 | Not applicable now | Only if notified as one |
+| 1.17 | Notice available in English or any Eighth Schedule language | s.5(3) | Done (on request) | Notice says so; Hindi in-app notice still needs a reviewed translation (Counsel) |
+| 1.18 | Consent through a registered consent manager | s.6(7) to (9); r.4, in force 13 Nov 2026 | Done (notice) / Next | No consent manager is registered yet (the Board has no members); integrate when one is |
+| 1.19 | Parent or guardian consent for a person with a disability who has a lawful guardian | s.9; r.11 | Done (declaration) | Age section: guardian opens the account in their own name |
+| 1.20 | Aadhaar numbers not passed on (Aadhaar Act 2016 s.29) | Aadhaar Act | Done | `platform/src/india-identity.mjs`: Verhoeff-valid Aadhaar numbers become placeholders before any India model call and are restored in the tool input |
 
 ## 2. IT Act 2000, SPDI Rules 2011, CERT-In directions 2022
 
@@ -75,7 +79,23 @@ building them now avoids a second release.
 | 5.9 | HSN digits by AATO (Notification 78/2020: 4 up to ₹5 cr, 6 above; B2C may omit up to ₹5 cr) on invoices, the IRN payload and GSTR-1 table 12 | Done (warning on the invoice, refusal on the IRN) | rule `gst.hsn.digits`; `hsnDigitIssues`, `irnTurnoverProblems`, `HSN_AATO_ESTIMATED` |
 | 5.10 | 30-day IRP reporting window, AATO ≥ ₹100 cr from 1 Nov 2023 and ≥ ₹10 cr from 1 Apr 2025 (NIC/GSTN advisories) | Done (refusal when AATO known or books reach it, warning when unknown) | rule `gst.einvoice.reporting-window`; `IRN_REPORTING_WINDOW_PASSED` on the IRN preflight and confirm card |
 | 5.11 | Credit note s.34(2) and GSTR-1 amendment s.37(3): 30 November after the year or the GSTR-9 date, whichever is earlier | Done | rules `gst.credit-note.declaration-deadline`, `gst.gstr1.amendment-deadline`; debit notes have no s.34 time limit |
-| 5.12 | Cess, UQC, CN/DN document layout | Next | Later PRs |
+| 5.12 | Cess, UQC, CN/DN document layout | Done (cess #299, UQC #362) / Next (CN/DN layout) | |
+| 5.13 | E-way bill numbers move from 12 to 14 digits, consolidated from 10 to 11, from 1 Jan 2027 (GSTN advisory 4 Nov 2026) | Done | `platform/src/ewb-adapter.mjs` `EWB_NO` takes 12 or 14 digits; numbers are kept as text, so nothing truncates; consolidated numbers are not checked for length |
+| 5.14 | Metro Rail transport mode (Notification 05/2026-CT, from 1 Nov 2026; transport document number mandatory) | Next | Live on the portal and in the NIC API sandbox only; add when NIC publishes the API mode code for production |
+| 5.15 | E-invoice for RCM supplies (RCMDOM, RCMIMP) from 1 Jan 2027 | Done (#276) | Confirm against GSTN advisory 688 when final |
+| 5.16 | Ship-to GSTIN capture and e-way bill closure | On hold by GSTN (advisory 668) | Do not make Ship-to GSTIN mandatory until GSTN gives a date |
+
+## 5A. Income-tax Act 2025 and Income-tax Rules 2026
+
+The 2025 Act (30 of 2025) and the Rules 2026 (CBDT Notification 22/2026) apply from 1 April 2026,
+for the tax year 2026-27 onward. FY 2025-26 (AY 2026-27) returns stay under the 1961 Act.
+
+| # | Requirement | Status | Evidence |
+|---|---|---|---|
+| 5A.1 | Rules and figures dated per year under the right Act | Done (earlier) | `sprints/statutory-rules/src/rules/income-tax.mjs`, tax module notes |
+| 5A.2 | New form numbers from 2026-27: Form 130 (was 16), 131 (was 16A), 138 (was 24Q), 140 (was 26Q), 144 (was 27Q), 168 (was 26AS) | Done | `platform/src/it-act-forms.mjs`; certificates, Annexure II, FVU and record-a-filing accept and show both names; filing screen labels |
+| 5A.3 | Section codes on 2026-27 TDS entries and certificates (s.393 table rows instead of 194C, 194J and so on) | CA / Next | The books still tag entries with the 1961 section; TRACES and the providers' FVU decide which codes the 2026-27 statements take |
+| 5A.4 | Interest under the 2025 Act (old 234A/B/C) | Done (note) | `platform/src/it-interest.mjs` says the method follows the 1961 Act; CA to confirm |
 
 ## 6. Google Play
 
@@ -104,6 +124,21 @@ building them now avoids a second release.
 | 8.1 | Tap targets 48dp, labels, contrast | Done | `mobile/test/accessibility_test.dart`; the new privacy screens are checked in `privacy_test.dart` |
 | 8.2 | Text scales without clamping | Done | No textScaler clamp in the app |
 | 8.3 | Status not by colour alone in review steps and count badges | Next | `review_screen.dart`, `CountBadge` |
+
+## What changed since 2026-11-14
+
+Checked on 2026-11-23 against GSTN advisories, incometaxindia.gov.in form pages and secondary
+summaries of the Gazette (law-firm pages; the Gazette PDFs themselves were not read).
+
+- DPDP: the main date stays **13 May 2027**. MeitY's January 2026 proposal to cut the window to
+  12 months has not been notified. Rule 4 (consent managers) and s.6(9) came into force on
+  13 Nov 2026, but the Board has no chair or members yet, so no consent manager is registered.
+  A "Removal of Difficulties" order (S.O. 5458(E), 5 Oct 2026) is reported to clarify s.9 for
+  persons with a disability who have a lawful guardian; not checked against the Gazette.
+- Income tax: the 2025 Act and the Rules 2026 are in force from 1 April 2026 (rows 5A).
+- GST: e-way bill numbering to 14 digits from 1 Jan 2027 (5.13); Metro Rail mode (5.14); RCM
+  e-invoicing from 1 Jan 2027 (5.15); Ship-to GSTIN on hold (5.16). Budget 2026 aligned s.34
+  credit notes with s.15 for post-sale discounts; CA to confirm the app's credit-note wording.
 
 ## What only the owner can do
 
