@@ -1,12 +1,13 @@
 {
-  "name": "ca-ai-market-research",
+  "name": "myca-site",
   "version": "1.0.0",
   "private": true,
   "devDependencies": {
     "wrangler": "^4.123.0"
   },
   "scripts": {
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev"
+    "build:pages": "node pages/build.mjs",
+    "dev": "wrangler pages dev",
+    "deploy": "wrangler pages deploy"
   }
 }

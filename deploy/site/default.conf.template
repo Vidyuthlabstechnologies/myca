@@ -1,32 +1,70 @@
+map $uri $myca_csp {
+  ~^/(research|status)(\.html)?$ "default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+  default "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; form-action 'self' https:; base-uri 'none'; frame-ancestors 'none'";
+}
+
+map $uri $myca_robots {
+  ~^/(research|status)(\.html)?$ "noindex, nofollow";
+  ~^/r/ "noindex";
+  /invite.html "noindex";
+  /404.html "noindex";
+  default "";
+}
+
+map $uri $myca_referrer {
+  ~^/r/ "no-referrer";
+  /invite.html "no-referrer";
+  default "strict-origin-when-cross-origin";
+}
+
+map $uri $myca_cache {
+  ~^/assets/fonts/ "public, max-age=2592000";
+  ~^/assets/.+\.(png|svg|jpg|webp)$ "public, max-age=86400";
+  default "public, max-age=300, must-revalidate";
+}
+
 server {
   listen 8080;
   server_name _;
   root /usr/share/nginx/html;
   server_tokens off;
   absolute_redirect off;
+  charset utf-8;
+  charset_types text/css application/javascript text/xml application/xml text/plain image/svg+xml;
 
-  add_header Cache-Control "public, max-age=300, must-revalidate" always;
+  gzip on;
+  gzip_vary on;
+  gzip_min_length 256;
+  gzip_comp_level 6;
+  gzip_types text/css application/javascript image/svg+xml text/xml application/xml text/plain application/json;
+
+  add_header Cache-Control $myca_cache always;
+  add_header Content-Security-Policy $myca_csp always;
   add_header X-Content-Type-Options "nosniff" always;
-  add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+  add_header Referrer-Policy $myca_referrer always;
   add_header Strict-Transport-Security "max-age=31536000" always;
   add_header X-Frame-Options "DENY" always;
+  add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()" always;
+  add_header Cross-Origin-Opener-Policy "same-origin" always;
+  add_header Cross-Origin-Resource-Policy "same-origin" always;
+  add_header X-Robots-Tag $myca_robots always;
 
   sub_filter_once off;
   sub_filter_types text/xml application/xml text/plain;
   sub_filter 'https://__SITE_ORIGIN__' 'https://$host';
   sub_filter '__EARLY_ACCESS_URL__' '${MYCA_EARLY_ACCESS_URL}';
 
+  error_page 404 /404.html;
+
+  location = /404.html {
+    internal;
+  }
+
   location = / {
     try_files /index.html =404;
   }
 
   location ^~ /r/ {
-    add_header X-Robots-Tag "noindex" always;
-    add_header Cache-Control "public, max-age=300, must-revalidate" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "no-referrer" always;
-    add_header Strict-Transport-Security "max-age=31536000" always;
-    add_header X-Frame-Options "DENY" always;
     try_files /invite.html =404;
   }
 
@@ -47,7 +85,7 @@ server {
   }
 
   location ~ ^/(.+)\.html$ {
-    return 301 /$1;
+    return 301 /$1$is_args$args;
   }
 
   location = /index {

@@ -3,7 +3,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SOURCES = ['platform/src', 'cloud/src', 'email-relay/src', 'deploy/src'];
+const SOURCES = ['platform/src', 'cloud/src', 'email-relay/src'];
 const SEARCHED = ['platform', 'cloud', 'email-relay', 'deploy', 'scripts', 'sprints'];
 const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'out']);
 const CODE = /\.(mjs|cjs|js|html)$/;
