@@ -43,7 +43,7 @@ jobs:
       - name: Install the checkers
         working-directory: deploy/qa
         run: |
-          npm ci --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit --no-fund
           npx playwright install --with-deps chromium
 
       - name: Build and start the production image
@@ -61,7 +61,11 @@ jobs:
 
       - name: Check every page, link, header, layout and accessibility rule
         working-directory: deploy/qa
-        run: node check-site.mjs http://localhost:8080 ${{ github.event_name == 'schedule' && '--external' || '' }}
+        env:
+          EVENT: ${{ github.event_name }}
+        shell: bash
+        run: |
+          if [[ "$EVENT" == "schedule" ]]; then node check-site.mjs http://localhost:8080 --external; else node check-site.mjs http://localhost:8080; fi
 
       - name: Check Lighthouse scores
         working-directory: deploy/qa

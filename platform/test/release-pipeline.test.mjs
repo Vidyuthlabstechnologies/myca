@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 
 const REPO = new URL('../../', import.meta.url);
 
@@ -577,7 +577,8 @@ test('#207: Dependabot covers every package that has a lockfile', () => {
     .filter((d) => { try { readFileSync(new URL(`${d.name}/package-lock.json`, REPO)); return true; } catch { return false; } })
     .map((d) => `/${d.name}`)
     .sort();
-  assert.deepEqual(npmDirs, lockDirs);
+  for (const dir of lockDirs) assert.ok(npmDirs.includes(dir), `Dependabot watches ${dir}`);
+  for (const dir of npmDirs) assert.ok(existsSync(new URL(`${dir.slice(1)}/package-lock.json`, REPO)), `${dir} has a lockfile`);
   assert.ok(deps.updates.some((u) => u['package-ecosystem'] === 'pub' && u.directory === '/mobile'));
   assert.ok(deps.updates.some((u) => u['package-ecosystem'] === 'github-actions'));
 });
