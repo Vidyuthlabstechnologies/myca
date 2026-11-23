@@ -43,3 +43,20 @@ test('chat, uploads and crash reports are limited per signed-in person', async (
   const other = await api.ownerWithBusiness('+919600000052');
   assert.equal((await api.call('POST', `/v1/businesses/${other.businessId}/ask`, { token: other.token, body: { message: 'what are my sales this month' } })).status, 200, 'someone else is not affected');
 });
+
+test('refreshing a session is not counted against the sign-in limit of a shared carrier address', async () => {
+  const shared = { 'x-forwarded-for': '203.0.113.50' };
+  let refreshToken = '';
+  for (let i = 0; i < 3; i += 1) {
+    const signed = await api.call('POST', '/v1/auth/google', { body: { idToken: googleToken({ sub: `40000000000000000000${i}` }) }, headers: { 'x-forwarded-for': `203.0.113.${60 + i}` } });
+    assert.equal(signed.status, 200, signed.text);
+    refreshToken = signed.body.refreshToken;
+  }
+  for (let i = 0; i < 6; i += 1) {
+    const out = await api.call('POST', '/v1/auth/refresh', { body: { refreshToken }, headers: shared });
+    assert.equal(out.status, 200, out.text);
+    refreshToken = out.body.refreshToken;
+  }
+  const reused = await api.call('POST', '/v1/auth/refresh', { body: { refreshToken: 'not-a-real-token' }, headers: shared });
+  assert.equal(reused.body.error, 'INVALID_REFRESH_TOKEN');
+});

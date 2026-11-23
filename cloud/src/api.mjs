@@ -582,7 +582,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     }
 
     if (parts[1] === 'auth' && method === 'POST') {
-      if (parts[2] !== 'otp' && parts[2] !== 'logout') await throttle('signIn', clientAddress(req));
+      if (parts[2] !== 'otp' && parts[2] !== 'logout' && parts[2] !== 'refresh') await throttle('signIn', clientAddress(req));
       const body = await readJson(req);
       if (parts[2] === 'otp') return auth.requestOtp(body.phone, clientAddress(req));
       if (parts[2] === 'verify') return withConsent(await auth.verifyOtp(body));
