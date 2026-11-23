@@ -50,6 +50,8 @@ function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
 }
 
+export const REFRESH_RETRY_GRACE_MS = 5 * 60 * 1000;
+
 export async function issueTokens(q, userId, deviceId, secret, now = () => Date.now()) {
   const refreshToken = newRefreshToken();
   await q('insert into refresh_tokens (token_hash, device_id, created_at, expires_at) values ($1, $2, $3, $4)', [
@@ -228,8 +230,14 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now(), seco
         if (!row) return fail('INVALID_REFRESH_TOKEN');
         if (row.revoked_at || row.deleted_at) return fail('DEVICE_REVOKED');
         if (row.used_at) {
-          await q('update devices set revoked_at = $2 where id = $1', [row.device_id, at()]);
-          return fail('REFRESH_TOKEN_REUSED');
+          const successorUsed = await q('select 1 from refresh_tokens where device_id = $1 and created_at >= $2 and used_at is not null and token_hash <> $3 limit 1', [row.device_id, row.used_at, row.token_hash]);
+          if (successorUsed.rowCount || now() - row.used_at.getTime() > REFRESH_RETRY_GRACE_MS) {
+            await q('update devices set revoked_at = $2 where id = $1', [row.device_id, at()]);
+            return fail('REFRESH_TOKEN_REUSED');
+          }
+          await q('delete from refresh_tokens where device_id = $1 and created_at >= $2 and used_at is null', [row.device_id, row.used_at]);
+          await q('update devices set last_seen_at = $2 where id = $1', [row.device_id, at()]);
+          return { ok: true, ...(await issueTokens(q, row.user_id, row.device_id, secret, now)) };
         }
         if (row.expires_at.getTime() <= now()) return fail('REFRESH_TOKEN_EXPIRED');
         await q('update refresh_tokens set used_at = $2 where token_hash = $1', [row.token_hash, at()]);
