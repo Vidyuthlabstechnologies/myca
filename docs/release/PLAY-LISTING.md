@@ -92,7 +92,7 @@ MyCA is made by ML Dynamic Solutions Private Limited.
 This is every permission the signed release APK asks for, read from the APK by the Android
 build (`aapt2 dump permissions`). The build fails when the APK and
 `mobile/android/permissions.txt` differ, so this table must change in the same commit as that
-file. Checked 2026-11-10 against the build of `601894e`.
+file. Checked 2026-11-23 against the build of `ba7fb07`.
 
 | Permission | Who adds it | Why |
 |---|---|---|
@@ -103,6 +103,10 @@ file. Checked 2026-11-10 against the build of `601894e`.
 | USE_FINGERPRINT | local_auth (androidx.biometric) | The same app lock on Android versions before 9 |
 | VIBRATE | flutter_local_notifications | A reminder may vibrate, following the phone's own notification setting |
 | com.android.vending.BILLING | in_app_purchase | Google Play Billing for the Essentials, Pro, MyCA Assured and CA firm subscriptions |
+| CAMERA | mobile_scanner | Scanning an item's barcode at the counter (Point of sale). Asked only when the owner opens the scanner; frames are read on the phone and never stored or uploaded |
+| BLUETOOTH_SCAN | MyCA (`neverForLocation`) and print_bluetooth_thermal | Finding a Bluetooth receipt printer at the counter; never used to work out location |
+| BLUETOOTH_CONNECT | print_bluetooth_thermal | Connecting to the paired receipt printer to print a bill |
+| BLUETOOTH, BLUETOOTH_ADMIN | print_bluetooth_thermal | The same printer connection on Android 11 and older, where these replace the two above |
 | ACCESS_NETWORK_STATE | merged from a library | Checks whether the phone is online before a call; reads no network details |
 | CHANGE_NETWORK_STATE | merged from a library | Not used by MyCA's own code; a normal permission that Play does not ask about |
 | WAKE_LOCK | merged from a library (background job scheduling) | Lets a scheduled reminder or a library's background job finish; MyCA keeps no screen or CPU awake itself |
@@ -110,8 +114,10 @@ file. Checked 2026-11-10 against the build of `601894e`.
 | com.mldynamic.myca.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION | AndroidX core, automatically | The app's own signature-level permission that keeps internal broadcast receivers private; no person is asked |
 | File access | (none) | Through the system picker only, for bills to read and files to save; no storage permission is requested |
 
-No camera, location, contacts, SMS, phone or storage permission is requested: photos come
-through the system picker, which may open the camera itself.
+No location, contacts, SMS, phone or storage permission is requested. The camera permission is
+only for the barcode scanner; bill photos still come through the system picker, which may open the
+camera itself. In the Data safety form, neither permission adds a data type: barcode frames and
+printer details stay on the phone.
 
 "Merged from a library" means the permission is not in `mobile/android/app/src/main/AndroidManifest.xml`
 or a plugin's own manifest; it comes from a library manifest that Gradle merges in. To see which
