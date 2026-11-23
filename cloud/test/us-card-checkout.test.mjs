@@ -194,10 +194,15 @@ test('MyCA Plus is a yearly subscription that unlocks the Plus tools and cancels
   const canceled = await post(who, 'us-plus-cancel', {});
   assert.equal(canceled.body.active, true, 'Plus runs to the end of the paid year');
   assert.equal(canceled.body.renews, false);
+  const ended = { id: 'sub_1', status: 'active', current_period_end: periodEnd, cancel_at_period_end: true };
+  Object.assign(subscriptions.get('sub_1'), { status: 'canceled', current_period_end: Math.floor(api.clock.now / 1000) - 10 * 86400 });
   await webhook({ type: 'customer.subscription.deleted', data: { object: { id: 'sub_1', status: 'canceled', current_period_end: Math.floor(api.clock.now / 1000) - 10 * 86400 } } });
   assert.equal((await get(who, 'us-plus')).body.active, false);
+  const stale = await webhook({ type: 'customer.subscription.updated', data: { object: ended } });
+  assert.equal(stale.status, 200, stale.text);
+  assert.equal((await get(who, 'us-plus')).body.active, false, 'an older event that arrives late does not bring Plus back');
   const audit = await api.db.query("select action from audit_log where business_id = $1 and action like 'billing.us_plus%' order by id", [who.businessId]);
-  assert.deepEqual(audit.rows.map((r) => r.action), ['billing.us_plus_started', 'billing.us_plus_canceled', 'billing.us_plus_changed']);
+  assert.deepEqual(audit.rows.map((r) => r.action), ['billing.us_plus_started', 'billing.us_plus_canceled', 'billing.us_plus_changed', 'billing.us_plus_changed']);
 });
 
 test('the waitlist for Done For You and the International add-on records interest without a price', async () => {
