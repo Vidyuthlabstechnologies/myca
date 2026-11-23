@@ -37,9 +37,10 @@ Reports go to `deploy/qa/reports/`.
 
 ## What only the owner can fill in
 
-The India privacy policy, terms, refunds and Grievance Officer pages still carry
-`[blanks]` (CIN, registered office, support email, Grievance Officer, the city for
-disputes) and stay `noindex` and out of the sitemap until they are filled. The same values
-live in `LEGAL_INDIA` in `cloud/src/consent.mjs`. The delete-account page tells people to
-"write to the support email" without showing one yet. Once a page has no blanks, remove its
-`noindex` line and rebuild; the tests then require it in the sitemap.
+Contact details come from the company's own site, mldynamic.com (registered office, support
+`info@mldynamic.com`, Grievance Officer email `privacy@mldynamic.com`, phone, courts at
+Hyderabad), and live in `LEGAL_INDIA` in `cloud/src/consent.mjs` and the legal pages. Still
+blank, so the India privacy policy, terms, refunds and Grievance Officer pages stay `noindex`
+and out of the sitemap: the CIN, the Grievance Officer's name, and counsel's liability
+wording in the terms. Once a page has no blanks, remove its `noindex` line and rebuild; the
+tests then require it in the sitemap.
