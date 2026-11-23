@@ -22,6 +22,12 @@ export const CRASH_REPORT_DAYS = 90;
 export const OTP_CHALLENGE_DAYS = 1;
 export const WHATSAPP_MESSAGE_DAYS = 30;
 
+export function mondayOf(day) {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+  return date.toISOString().slice(0, 10);
+}
+
 export function createJobs({ db, secret = '', rateLimits = null, withBooks, readBooks = null, connectors = null, syncChannels = null, pullsEnabled = () => false, sender = null, vault = null, billing = null, now = () => Date.now(), log = () => {} }) {
   async function recordsHeldUntil(businessId, requestId) {
     if (!readBooks) return null;
@@ -173,7 +179,7 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, read
     const summary = { ok: true, businesses: 0, sent: 0, skipped: 0, failed: [] };
     if (!sender) return { ...summary, skipped: 0, reason: 'NO_SENDER' };
     const found = await db.query(
-      `select m.business_id, u.phone, u.name
+      `select m.business_id, m.user_id, u.phone, u.name
          from memberships m join users u on u.id = m.user_id join businesses b on b.id = m.business_id
         where m.weekly_brief and m.role <> 'accountant' and u.deleted_at is null and b.deletion_requested_at is null
         order by m.business_id`,
@@ -184,6 +190,7 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, read
       byBusiness.get(row.business_id).push(row);
     }
     summary.businesses = byBusiness.size;
+    const week = mondayOf(localToday(new Date(now())));
     for (const [businessId, members] of byBusiness) {
       try {
         const out = await withBooks(businessId, { requestId, userId: null, deviceId: null }, (session) => session.chat('weekly brief', { actor: { userId: 'automation', role: 'owner', name: 'MyCA' } }));
@@ -191,6 +198,14 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, read
         if (!text) { summary.skipped += members.length; continue; }
         for (const member of members) {
           try {
+            const claimed = await db.query(
+              'update memberships set weekly_brief_week = $3 where business_id = $1 and user_id = $2 and weekly_brief and weekly_brief_week is distinct from $3 returning 1',
+              [businessId, member.user_id, week],
+            );
+            if (!claimed.rowCount) {
+              summary.skipped += 1;
+              continue;
+            }
             await sender.sendText(member.phone, text);
             summary.sent += 1;
           } catch (err) {
