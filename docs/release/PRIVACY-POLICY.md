@@ -2,9 +2,10 @@
 
 Effective date: to be set when published.
 
-Data fiduciary (controller): ML Dynamic Solutions Private Limited, CIN [CIN], [registered
-office address], support email [support address]. Grievance Officer: [name], [email],
-[phone]; we acknowledge within 48 hours and reply within 30 days. The in-app notice
+Data fiduciary (controller): ML Dynamic Solutions Private Limited, CIN U62099TS2025PTC197309,
+606, 6th Floor, Gowra Fountainhead, Patrika Nagar, Madhapur, Hi-Tech City, Hyderabad, Telangana
+500081, support email info@mldynamic.com. Grievance Officer: Varshini CB, privacy@mldynamic.com,
++91 93939 77222; we acknowledge within 48 hours and reply within 30 days. The in-app notice
 (`cloud/src/consent.mjs`, `LEGAL_INDIA`) holds the same fields; fill both.
 
 The bracketed fields are the only parts left for the owner (issue #148). The published copy
