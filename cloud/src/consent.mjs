@@ -1,10 +1,10 @@
 export const LEGAL_INDIA = Object.freeze({
   company: 'ML Dynamic Solutions Private Limited',
-  cin: '[CIN, to be filled before release]',
+  cin: 'U62099TS2025PTC197309',
   registeredOffice: '606, 6th Floor, Gowra Fountainhead, Patrika Nagar, Madhapur, Hi-Tech City, Hyderabad, Telangana 500081',
   supportEmail: 'info@mldynamic.com',
   grievanceOfficer: Object.freeze({
-    name: '[Grievance Officer name, to be appointed before release]',
+    name: 'Varshini CB',
     designation: 'Grievance Officer',
     email: 'privacy@mldynamic.com',
     phone: '+91 93939 77222',
