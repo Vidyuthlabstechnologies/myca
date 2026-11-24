@@ -10,6 +10,10 @@ on:
         type: choice
         options: [live, test]
         default: live
+      cloud_url:
+        description: "Optional: the https address of the hosted API, used instead of the repository variable (for when MYCA_CLOUD_URL is out of date)"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -23,7 +27,7 @@ jobs:
       id-token: write
     env:
       BACKEND: ${{ inputs.backend || 'live' }}
-      CLOUD_URL: ${{ inputs.backend == 'test' && vars.MYCA_CLOUD_URL_STAGING || vars.MYCA_CLOUD_URL }}
+      CLOUD_URL: ${{ inputs.cloud_url || (inputs.backend == 'test' && vars.MYCA_CLOUD_URL_STAGING || vars.MYCA_CLOUD_URL) }}
       GOOGLE_SERVER_CLIENT_ID: ${{ vars.MYCA_GOOGLE_SERVER_CLIENT_ID }}
       OIDC_CLIENT_ID: ${{ vars.MYCA_OIDC_CLIENT_ID }}
       WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
@@ -49,6 +53,21 @@ jobs:
             printf '::error::%s\n' "${problems[@]}"
             exit 1
           fi
+
+      - name: Refuse an API address that does not answer
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -n "$CLOUD_URL" ] || exit 0
+          case "$CLOUD_URL" in
+            https://*) ;;
+            *) echo "::error::The API address must start with https:// (now: '${CLOUD_URL}')"; exit 1 ;;
+          esac
+          if ! curl -fsS --max-time 20 "${CLOUD_URL%/}/v1/health" > /tmp/health.json; then
+            echo "::error::${CLOUD_URL} does not answer /v1/health, so the app would open to a dead server. Set MYCA_CLOUD_URL (or the cloud_url input) to the deployed API."
+            exit 1
+          fi
+          cat /tmp/health.json
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
