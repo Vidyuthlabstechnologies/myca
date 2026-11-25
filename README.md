@@ -1,5 +1,7 @@
 # MyCA
 
+> **Start with [`AGENTS.md`](AGENTS.md) and [`docs/HANDOVER.md`](docs/HANDOVER.md).** This README describes the original India-only, Windows-first design from October 2026 and is kept for history; where it disagrees with those two files, they win.
+
 **Product working title: Taxmeow.** A headless tax and accounting assistant for Indian
 business owners. There is no accounting software to learn: the owner talks to it. It
 keeps the books in the background and files GST and TDS returns once the owner

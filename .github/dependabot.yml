@@ -9,6 +9,7 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: npm
+    target-branch: develop
     directory: /platform
     schedule:
       interval: weekly
@@ -18,6 +19,7 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: npm
+    target-branch: develop
     directory: /cloud
     schedule:
       interval: weekly
@@ -26,6 +28,7 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: npm
+    target-branch: develop
     directory: /email-relay
     schedule:
       interval: weekly
@@ -34,6 +37,7 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: npm
+    target-branch: develop
     directory: /deploy
     schedule:
       interval: weekly
@@ -42,6 +46,7 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: npm
+    target-branch: develop
     directory: /deploy/qa
     schedule:
       interval: weekly
@@ -50,6 +55,7 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: npm
+    target-branch: develop
     directory: /design
     schedule:
       interval: weekly
@@ -58,6 +64,7 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: pub
+    target-branch: develop
     directory: /mobile
     schedule:
       interval: weekly
@@ -66,14 +73,19 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: docker
+    target-branch: develop
     directories: ["/cloud", "/deploy/site"]
     schedule:
       interval: weekly
     groups:
       base-images:
         patterns: ["*"]
+    ignore:
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: pub
+    target-branch: develop
     directory: /design/flutter/myca_design
     schedule:
       interval: weekly

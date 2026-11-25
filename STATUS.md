@@ -1,5 +1,7 @@
 # MyCA — Status
 
+> **Historical snapshot (2026-11-10).** The product has since grown into five country apps. For the current state, setup, release process and open work read [`docs/HANDOVER.md`](docs/HANDOVER.md) and run `node scripts/countries.mjs`.
+
 As of main on 2026-11-10. Verification: platform **1,351**, the hosted API **341** against Postgres,
 email relay **3**, every sprint suite, the Android app about **600** widget tests (`node scripts/check-all.mjs`),
 CI green, end-to-end smoke runs on Windows. Hosting: the API and the public site run on Google Cloud
