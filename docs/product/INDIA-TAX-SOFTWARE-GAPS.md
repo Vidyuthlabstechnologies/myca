@@ -23,7 +23,7 @@ Now: **yes for ITR-1, ITR-2, ITR-3 and ITR-4** (tool `build_itr_json`). The full
 |---|---|---|---|---|
 | Income | Salary, one house property, other sources, 112A up to ₹1.25 lakh | Salary (several employers, HRA), any number of house properties, capital gains of every kind, other sources | Books profit to business income, depreciation by block, salary, other sources, brought-forward business loss | 44AD and 44ADA, salary, interest, dividend |
 | Books feed | n/a | n/a | Yes (`fromBooks`) | Yes (`fromBooks`) |
-| Capital gains | 112A only | Full: holding periods, grandfathering, 23 July 2024 rates, section 50AA, indexation choice, losses | Not yet | Refused |
+| Capital gains | 112A only | Full: holding periods, grandfathering, 23 July 2024 rates, section 50AA, indexation choice, losses | Same engine as ITR-2 | Refused |
 | Loss set-off | Refused | Year and brought-forward, house property loss, carry-forward | Brought-forward business loss | Refused |
 | Tax | Regime choice, rebate, cess, 234A/B/C/F | Plus special-rate tax and surcharge | Same | Same |
 | Checked against the CBDT schema | AY 2025-26 | AY 2025-26 | AY 2025-26 | AY 2025-26 |
@@ -32,7 +32,7 @@ Limits that remain, said plainly:
 
 - The schema held is **AY 2025-26** only. For other years the JSON is built but marked unchecked; the official AY 2026-27 utility or schema must be loaded (owner or CA: download from the e-filing portal into `platform/src/itr-knowledge/forms`).
 - The portal also runs its Category A and B validation rules. ITR-4 has six of them encoded here; the other rules are not run.
-- Not built: Schedule FA and FSI (foreign assets), Schedule AL (income above ₹50 lakh), Schedule 54 and 54F claims, ESOP schedule, partner-firm and tax-audit data, capital gains inside ITR-3, and the carry-forward loss schedule.
+- Not built: Schedule FA and FSI (foreign assets), Schedule AL (income above ₹50 lakh), Schedule 54 and 54F claims, ESOP schedule, partner-firm and tax-audit data, a business loss of the year set off against other heads, and the carry-forward loss schedule.
 - Surcharge marginal relief is not computed when special-rate income is present.
 - Not CA-reviewed. A CA must check the figures before upload.
 
@@ -43,7 +43,7 @@ Status: **Ahead** = MyCA does it and the rival does not or does it worse. **Pari
 | Capability | Winman | ClearTax | MyCA | Status |
 |---|---|---|---|---|
 | ITR-4 (presumptive) JSON | Yes (assumed) | Not on home page | `build_itr_json` | Built now |
-| ITR-3 (books) JSON | Yes (assumed) | ITR-3 page linked | `build_itr_json`, books feed and depreciation | Built now, no capital gains yet |
+| ITR-3 (books) JSON | Yes (assumed) | ITR-3 page linked | `build_itr_json`, books feed, depreciation, capital gains, house property | Built now |
 | ITR-1, ITR-2 build | Assumed | Yes (ITR-2 page) | `build_itr_json`, ITR-2 with capital gains and loss set-off | Built now |
 | ITR-5, ITR-6, ITR-7 build | Assumed | Not stated | Knowledge and JSON check only | Gap |
 | Schema check of the upload JSON | Not stated | Not stated | Yes (`check_itr_json`, ITR-1 to 6) | Ahead |
@@ -68,16 +68,15 @@ Status: **Ahead** = MyCA does it and the rival does not or does it worse. **Pari
 
 ## Backlog, by impact
 
-Done: books into the builder, ITR-1, ITR-2, income-tax depreciation, capital gains engine.
+Done: books into the builder, ITR-1, ITR-2, capital gains and house property in ITR-3, income-tax depreciation, capital gains engine.
 
-1. **Capital gains, house property and loss set-off inside ITR-3.**
-2. **Load the AY 2026-27 schema and rules** so returns for the current year are checked.
-3. **Run the portal's Category A rules** for every form, not six for ITR-4.
-4. **Form 3CD / 44AB audit data** from the books, for CA firms.
-5. **Broker capital gains import** (contract notes and statements) into `capitalGains.transactions`.
-6. **Notice workflow** (read the notice, find the section, draft the reply, deadline).
-7. **PAN status and challan verification in bulk** for TDS.
-8. **Schedule FA, AL, 54/54F, ESOP, carry-forward loss schedule.**
+1. **Load the AY 2026-27 schema and rules** so returns for the current year are checked.
+2. **Run the portal's Category A rules** for every form, not six for ITR-4.
+3. **Form 3CD / 44AB audit data** from the books, for CA firms.
+4. **Broker capital gains import** (contract notes and statements) into `capitalGains.transactions`.
+5. **Notice workflow** (read the notice, find the section, draft the reply, deadline).
+6. **PAN status and challan verification in bulk** for TDS.
+7. **Schedule FA, AL, 54/54F, ESOP, carry-forward loss schedule.**
 
 ## Needs the owner or a CA
 

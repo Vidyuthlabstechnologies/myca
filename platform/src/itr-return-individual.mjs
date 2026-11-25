@@ -1,3 +1,4 @@
+import { houseProperty } from './it-house-property.mjs';
 import { shared, chapterViaExtras, viaPatch, assessmentYearOf, interestAndFee } from './itr-return-builder.mjs';
 
 const { skeletonFor, mergeInto, pruneEmpty, personalInfo, bankDetails, taxPayments, pickRegime, ageBandOf, finish, rupees, sum, DATE_RE } = shared;
@@ -7,23 +8,6 @@ function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
 }
 
-export function houseProperty(input = {}, regime) {
-  const type = ['S', 'L', 'D'].includes(input.type) ? input.type : '';
-  if (!type) return { type: '', gross: 0, taxPaid: 0, annualValue: 0, standardDeduction: 0, interest: 0, arrears: 0, income: 0, loss: 0 };
-  const gross = rupees(input.rentReceived);
-  const taxPaid = rupees(input.municipalTax);
-  const interestRaw = rupees(input.interest);
-  const arrears = rupees(input.arrearsRent);
-  if (type === 'S') {
-    const interest = regime === 'old' ? Math.min(interestRaw, 200000) : 0;
-    return { type, gross: 0, taxPaid: 0, annualValue: 0, standardDeduction: 0, interest, arrears: 0, income: -interest, loss: interest };
-  }
-  const annualValue = Math.max(0, gross - taxPaid);
-  const standardDeduction = Math.round(annualValue * 0.3);
-  const arrearsNet = arrears - Math.round(arrears * 0.3);
-  const raw = annualValue - standardDeduction - interestRaw + arrearsNet;
-  return { type, gross, taxPaid, annualValue, standardDeduction, interest: interestRaw, arrears, income: raw, loss: Math.max(0, -raw) };
-}
 
 const SECTION_10_NATURES = new Set(['10(5)', '10(6)', '10(7)', '10(10)', '10(10A)']);
 

@@ -10,6 +10,8 @@ The tool `build_itr_json` prepares an income tax return JSON for upload to the e
 | `platform/src/itr-return-builder.mjs` | ITR-4 and ITR-3 builders, the shared helpers (`shared`), interest 234A/B/C and fee 234F, Chapter VI-A, the schema skeleton, `finish` (validation and the output shape). |
 | `platform/src/itr-return-individual.mjs` | ITR-1 builder and the `houseProperty` rule. |
 | `platform/src/itr-return-itr2.mjs` | ITR-2 builder. |
+| `platform/src/itr-gain-schedules.mjs` | Schedules shared by ITR-2 and ITR-3: capital gains (CG, 112A, SI, current-year and brought-forward set-off) and house property. Form-specific field names are handled in one place. |
+| `platform/src/it-house-property.mjs`, `itr-util.mjs` | House property rule; small shared helpers (`layer` fills required fields of optional sections). |
 | `platform/src/itr-books.mjs` | `booksFigures`: reads a financial year's profit and loss, balance sheet, receipts, advance tax and TDS from the ledger. |
 | `platform/src/it-depreciation.mjs` | Income-tax depreciation by block (WDV, half rate under 180 days). |
 | `platform/src/capital-gains.mjs` | Classifies each sale, sets off losses, applies the 112A exemption. |
@@ -33,7 +35,7 @@ Amounts are whole rupees in and out. The tax engine runs in paise.
 
 - **ITR-1**: `salary`, `houseProperty`, `otherIncome`, `deductions`, `ltcg112A`.
 - **ITR-2**: `salary.employers[]`, `salary.hra`, `houseProperties[]` (with `sharePercent`, `interestLoans`), `otherIncome`, `capitalGains.transactions[]`, `broughtForward` (`shortTermCapitalLoss`, `longTermCapitalLoss`, `houseProperty`), `deductions`.
-- **ITR-3**: `profitAndLoss`, `adjustments`, `balanceSheet`, `fixedAssets`, `taxAudit`, `broughtForwardBusinessLoss`, or `fromBooks: true`.
+- **ITR-3**: `profitAndLoss`, `adjustments`, `balanceSheet`, `fixedAssets`, `taxAudit`, `broughtForwardBusinessLoss`, or `fromBooks: true`; plus `houseProperties[]`, `capitalGains.transactions[]` and `broughtForward` as for ITR-2 (the old single `houseProperty.netIncome` still works when neither is given).
 - **ITR-4**: `businesses` or `professions`, or `fromBooks: true`.
 
 A capital gains transaction: `kind` (`listed-equity`, `equity-mf`, `property`, `unlisted-shares`, `gold`, `debt-mf`, `bond`, `other`), `buyDate`, `sellDate`, `saleValue`, `cost`, `transferExpenses`, `improvementCost`, optional `fmv31Jan2018`, `indexedCost` (property), `isin` (required for 112A rows), `stt`, `listed`.
@@ -58,7 +60,7 @@ These were written from the Income-tax Act as amended and the CBDT schema. None 
 
 ## What is not built
 
-Schedule FA and FSI (foreign assets), Schedule AL (required above ₹50 lakh), sections 54, 54EC and 54F claims, ESOP schedule, carry-forward loss schedule (Schedule CFL; the amounts are in `summary.lossesToCarryForward`), non-resident and not-ordinarily-resident returns, capital gains inside ITR-3, Form 3CD, and the portal's Category A and B rules beyond six for ITR-4.
+Schedule FA and FSI (foreign assets), Schedule AL (required above ₹50 lakh), sections 54, 54EC and 54F claims, ESOP schedule, carry-forward loss schedule (Schedule CFL; the amounts are in `summary.lossesToCarryForward`), non-resident and not-ordinarily-resident returns, Form 3CD, a business loss of the year set off against other heads, and the portal's Category A and B rules beyond six for ITR-4.
 
 ## Owner or CA items
 

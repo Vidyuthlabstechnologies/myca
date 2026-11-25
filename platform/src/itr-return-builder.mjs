@@ -3,11 +3,14 @@ import { validateAgainstSchema } from './itr-json-check.mjs';
 import { incomeTax, rules } from './sprint-load.mjs';
 import { booksFigures } from './itr-books.mjs';
 import { depreciationSchedule } from './it-depreciation.mjs';
+import { rupees, signed, sum, mergeInto, layer, DATE_RE } from './itr-util.mjs';
+import { computeCapitalGains } from './capital-gains.mjs';
+import { houseBlocks } from './it-house-property.mjs';
+import { gainSchedules, houseSchedule } from './itr-gain-schedules.mjs';
 
 const PAISE = 100;
 const SCHEMA_AY = { 'ITR-1': '2025', 'ITR-2': '2025', 'ITR-3': '2025', 'ITR-4': '2025' };
 const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const STATE_CODES = new Set(['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '99']);
 const ITR4_BUSINESS_CODES = new Set(['01001', '01002', '01003', '01004', '01005']);
 
@@ -15,9 +18,6 @@ function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
 }
 
-const rupees = (value) => Math.max(0, Math.round(Number(value) || 0));
-const signed = (value) => Math.round(Number(value) || 0);
-const sum = (...values) => values.reduce((total, value) => total + (Number(value) || 0), 0);
 
 export function assessmentYearOf(fy) {
   const match = /^(\d{4})-(\d{2})$/.exec(String(fy || ''));
@@ -89,17 +89,6 @@ function pruneEmpty(body, paths) {
   }
 }
 
-function mergeInto(target, patch) {
-  for (const [key, value] of Object.entries(patch)) {
-    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
-    if (value && typeof value === 'object' && !Array.isArray(value) && Object.hasOwn(target, key) && target[key] && typeof target[key] === 'object' && !Array.isArray(target[key])) {
-      mergeInto(target[key], value);
-    } else {
-      target[key] = value;
-    }
-  }
-  return target;
-}
 
 function monthsBetween(fromIso, toIso) {
   const from = new Date(`${fromIso}T00:00:00Z`);
@@ -243,6 +232,34 @@ export function viaPatch(calc, extras) {
   if (calc.employerNpsPaise) sections.Section80CCDEmployer = calc.employerNpsPaise / PAISE;
   const total = Math.min(calc.section80CPaise + calc.section80DPaise + (calc.otherChapterViaPaise || 0) + (calc.employerNpsPaise || 0), calc.grossTotalIncomePaise) / PAISE;
   return { block: { ...sections, TotalChapVIADeductions: total }, total };
+}
+
+function withGainsInput(args) {
+  return (Array.isArray(args.capitalGains?.transactions) && args.capitalGains.transactions.length > 0) || (Array.isArray(args.houseProperties) && args.houseProperties.length > 0);
+}
+
+function runTaxSpecial({ fy, regime, salary, otherIncome, deductions, ageBand, extras, special }) {
+  const claims = {
+    otherChapterViaPaise: (extras?.totalOld || 0) * PAISE,
+    employerNpsPaise: (regime === 'old' ? extras?.employerNpsOld || 0 : extras?.employerNpsNew || 0) * PAISE,
+    section80CPaise: rupees(deductions.c80) * PAISE,
+    healthInsuranceSelfAndFamilyPaise: rupees(deductions.d80Self) * PAISE,
+    healthInsuranceParentsPaise: rupees(deductions.d80Parents) * PAISE,
+    selfAndFamilyIncludesSenior: deductions.selfSenior === true,
+    parentsIncludeSenior: deductions.parentsSenior === true,
+  };
+  const result = incomeTax.computeIncomeTaxSpecial({
+    fy,
+    regime,
+    ageBand,
+    residentIndividual: true,
+    salaryPaise: rupees(salary) * PAISE,
+    otherIncomePaise: signed(otherIncome) * PAISE,
+    claims,
+    special: Object.fromEntries(Object.entries(special || {}).map(([key, value]) => [key, Math.max(0, value) * PAISE])),
+  });
+  if (result.error) return result;
+  return { ...result, slabTaxPaise: result.normalTaxPaise + result.specialTaxPaise, grossTotalIncomePaise: result.grossNormalIncomePaise + result.specialIncomePaise };
 }
 
 function runTax({ fy, regime, salary, otherIncome, businessIncome, deductions, ageBand, extras }) {
@@ -585,9 +602,47 @@ export function buildItr3(args = {}) {
   const lossBF = rupees(args.broughtForwardBusinessLoss);
   const taxableBusiness = Math.max(0, businessIncome);
   const setOff = Math.min(lossBF, taxableBusiness);
-  if (houseProperty < 0 || args.capitalGains) warnings.push('House property loss, capital gains and loss set-off schedules are not built by this tool. Add them in the portal utility.');
+  if (!withGainsInput(args) && (houseProperty < 0 || args.capitalGains)) warnings.push('House property loss, capital gains and loss set-off schedules are not built unless houseProperties or capitalGains.transactions are given.');
   const extras = chapterViaExtras(deductions, { ageBand, savingsInterest: args.otherIncome?.savingsInterest, depositInterest: args.otherIncome?.depositInterest });
-  const tax = pickRegime(args, { fy: info.fy, salary: salaryGross, otherIncome: otherSources + houseProperty, businessIncome: taxableBusiness - setOff, deductions, ageBand, extras });
+  const gainTransactions = Array.isArray(args.capitalGains?.transactions) ? args.capitalGains.transactions : [];
+  const propertyList = Array.isArray(args.houseProperties) ? args.houseProperties : [];
+  const withGains = gainTransactions.length > 0 || propertyList.length > 0;
+  let cg = null;
+  let gainRun = null;
+  let tax;
+  if (withGains) {
+    cg = computeCapitalGains({ transactions: gainTransactions, broughtForward: { stcl: args.broughtForward?.shortTermCapitalLoss, ltcl: args.broughtForward?.longTermCapitalLoss } });
+    problems.push(...cg.problems);
+    notes.push(...cg.notes);
+    for (const row of cg.rows) notes.push(...row.notes.map((text) => `${row.name}: ${text}`));
+    const bfHp = rupees(args.broughtForward?.houseProperty);
+    const runFor = (regime) => {
+      const rows = houseBlocks(propertyList, regime);
+      const hpTotal = rows.reduce((total, row) => total + row.h.income, 0) + houseProperty;
+      const available = Math.max(0, salaryGross + otherSources + (taxableBusiness - setOff) + cg.normalRateGain);
+      let hpForTax = 0;
+      let hpLossSetoff = 0;
+      let hpLossCarried = 0;
+      if (hpTotal >= 0) hpForTax = hpTotal;
+      else if (regime === 'old') {
+        hpLossSetoff = Math.min(-hpTotal, 200000, available);
+        hpLossCarried = -hpTotal - hpLossSetoff;
+        hpForTax = -hpLossSetoff;
+      } else hpLossCarried = -hpTotal;
+      const bfSetoff = Math.min(bfHp, Math.max(0, hpForTax));
+      hpForTax -= bfSetoff;
+      const calc = runTaxSpecial({ fy: info.fy, regime, salary: salaryGross, otherIncome: otherSources + hpForTax + (taxableBusiness - setOff) + cg.normalRateGain, deductions, ageBand, extras, special: cg.specialIncome });
+      return { regime, rows, hpTotal, hpForTax, hpLossSetoff, hpLossCarried, bfHpCarried: bfHp - bfSetoff, calc };
+    };
+    const wanted = readRegime(args);
+    const candidates = wanted === 'auto' ? [runFor('new'), runFor('old')] : [runFor(wanted)];
+    const broken = candidates.find((item) => item.calc.error);
+    if (broken) return fail(broken.calc.error, { fy: info.fy, hint: 'No income-tax rules are recorded for this financial year; nothing was computed.' });
+    gainRun = candidates.length === 2 && candidates[1].calc.taxPayablePaise < candidates[0].calc.taxPayablePaise ? candidates[1] : candidates[0];
+    tax = { regime: gainRun.regime, calc: gainRun.calc, compared: candidates.length === 2 ? { newTax: candidates[0].calc.taxPayablePaise / PAISE, oldTax: candidates[1].calc.taxPayablePaise / PAISE } : null };
+  } else {
+    tax = pickRegime(args, { fy: info.fy, salary: salaryGross, otherIncome: otherSources + houseProperty, businessIncome: taxableBusiness - setOff, deductions, ageBand, extras });
+  }
   if (tax.calc.error) return fail(tax.calc.error, { fy: info.fy, hint: 'No income-tax rules are recorded for this financial year; nothing was computed.' });
   const calc = tax.calc;
   const old = tax.regime === 'old';
@@ -615,7 +670,7 @@ export function buildItr3(args = {}) {
   const selfAssessment = rupees(args.taxesPaid?.selfAssessment);
   const challans = Array.isArray(args.taxesPaid?.challans) ? args.taxesPaid.challans : [];
   const advanceTotal = advance.reduce((total, p) => total + p.amount, 0);
-  const interest = interestAndFee({ ayStart: info.ayStart, dueDate, filingDate, taxLiability: taxPayable, tdsAndTcs: tds + tcs, advancePayments: advance, presumptive: false, totalIncome, selfAssessment });
+  const interest = interestAndFee({ ayStart: info.ayStart, dueDate, filingDate, taxLiability: taxPayable, tdsAndTcs: tds + tcs, advancePayments: advance, presumptive: false, totalIncome, selfAssessment, hasCapitalGainOrLottery: Boolean(cg && cg.rows.some((row) => row.gain > 0)) });
   const interestTotal = interest.us234A + interest.us234B + interest.us234C;
   const totalTaxInterest = taxPayable + interestTotal + interest.fee234F;
   const taxesPaid = advanceTotal + tds + tcs + selfAssessment;
@@ -783,10 +838,49 @@ export function buildItr3(args = {}) {
       Date: filingDate,
     },
   };
-  mergeInto(skeleton.body, patch);
+  let gainSummary = {};
+  if (withGains) {
+    const gains = gainSchedules({ form: 'ITR-3', cg, skeleton, args, problems, calc });
+    const hpPositive = Math.max(0, gainRun.hpForTax);
+    const hpLossUsed = Math.max(0, -gainRun.hpForTax);
+    const salariesRow = Math.max(0, salaryGross - standardDeduction);
+    const businessRow = taxableBusiness - setOff;
+    const totalTI = salariesRow + hpPositive + businessRow + gains.capGain.TotalCapGains + otherSources;
+    patch['PartB-TI'] = {
+      ...patch['PartB-TI'],
+      IncomeFromHP: hpPositive,
+      CapGain: gains.capGain,
+      TotalTI: totalTI,
+      CurrentYearLoss: hpLossUsed,
+      BalanceAfterSetoffLosses: Math.max(0, totalTI - hpLossUsed),
+      GrossTotalIncome: Math.max(0, totalTI - hpLossUsed),
+      IncChargeTaxSplRate111A112: gains.specialTotal,
+    };
+    patch.PartB_TTI.ComputationOfTaxLiability.TaxPayableOnTI = { ...patch.PartB_TTI.ComputationOfTaxLiability.TaxPayableOnTI, TaxAtNormalRatesOnAggrInc: calc.normalTaxPaise / PAISE, TaxAtSpecialRates: calc.specialTaxPaise / PAISE };
+    const hpSchedule = houseSchedule({ rows: gainRun.rows, skeleton, taxpayer, total: gainRun.hpTotal });
+    if (hpSchedule) patch.ScheduleHP = hpSchedule;
+    Object.assign(patch, gains.patch);
+    patch.ScheduleCYLA = { ...gains.cylaRows, TotalCurYr: { TotHPlossCurYr: gainRun.hpLossSetoff + gainRun.hpLossCarried }, TotalLossSetOff: { TotHPlossCurYrSetoff: gainRun.hpLossSetoff }, LossRemAftSetOff: { BalHPlossCurYrAftSetoff: gainRun.hpLossCarried } };
+    patch.ScheduleBFLA = { ...gains.bflaRows, TotalBFLossSetOff: { TotBFLossSetoff: gains.bfTotal } };
+    gainSummary = {
+      shortTermGains: gains.capGain.ShortTerm.TotalShortTerm,
+      longTermGains: gains.capGain.LongTerm.TotalLongTerm,
+      exemption112A: cg.exemption112A,
+      taxAtSpecialRates: calc.specialTaxPaise / PAISE,
+      incomeFromHouseProperty: gainRun.hpTotal,
+      lossesToCarryForward: { shortTermCapitalLoss: cg.carryForward.stcl, longTermCapitalLoss: cg.carryForward.ltcl, houseProperty: gainRun.hpLossCarried + gainRun.bfHpCarried },
+      indexationChoice: cg.indexationChoice,
+    };
+    if (calc.surchargeWarning) warnings.push(calc.surchargeWarning);
+    layer(skeleton.body, JSON.parse(JSON.stringify(patch)), [], skeleton.itemAt);
+    gains.finishBody(skeleton.body);
+  } else {
+    mergeInto(skeleton.body, patch);
+  }
   pruneEmpty(skeleton.body, [['ScheduleIT', 'TaxPayment']]);
   const itr = { ITR: { ITR3: skeleton.body } };
   const summary = {
+    ...gainSummary,
     regime: tax.regime,
     comparedRegimes: tax.compared,
     profitBeforeTaxPerBooks: profitBeforeTax,

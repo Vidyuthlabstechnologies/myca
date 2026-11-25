@@ -13,6 +13,7 @@ import { validateAssistantToolCall } from '../src/assistant-tools.mjs';
 import { REMOTE_QUERY_TOOLS } from '../src/remote-contract.mjs';
 import { buildItr3, buildItr4, interestAndFee, presumptiveIncome } from '../src/itr-return-builder.mjs';
 import { buildItr1 } from '../src/itr-return-individual.mjs';
+import { buildItrReturn } from '../src/itr-return.mjs';
 import { checkItrJson } from '../src/itr-json-check.mjs';
 
 const taxpayer = { name: 'Test Person', pan: 'ABCDE1234F', dob: '1985-05-05', fatherName: 'Test Father', mobile: '9876543210', email: 'test@example.com', address: { flat: '12', locality: 'MG Road', city: 'Bengaluru', stateCode: '29', pin: '560001' } };
@@ -191,4 +192,22 @@ test('ITR-1 refuses what the form does not allow and caps self-occupied interest
   const auto = buildItr1({ fy: '2024-25', taxpayer, bank, regime: 'auto', salary: { gross: 1500000 }, deductions: { c80: 150000, d80Self: 25000 }, houseProperty: { type: 'S', interest: 200000 } });
   assert.ok(auto.data.summary.comparedRegimes.oldTax >= 0);
   assert.equal(auto.data.validation.valid, true, JSON.stringify(auto.data.validation.errors));
+});
+
+test('ITR-3 with shares, gold and a let-out property: special-rate tax, schedules valid', () => {
+  const result = buildItrReturn({}, {
+    form: 'ITR-3', fy: '2024-25', regime: 'new', taxpayer, bank,
+    profitAndLoss: { turnover: 2500000, expenses: 1200000 },
+    houseProperties: [{ type: 'L', rentReceived: 240000, municipalTax: 12000, interest: 150000, address: { line: 'Flat 4', city: 'Pune', stateCode: '27' } }],
+    capitalGains: { transactions: [
+      { name: 'INFY', kind: 'listed-equity', isin: 'INE009A01021', buyDate: '2022-01-10', sellDate: '2024-09-10', saleValue: 400000, cost: 250000 },
+      { name: 'HDFC', kind: 'listed-equity', isin: 'INE040A01034', buyDate: '2024-01-10', sellDate: '2024-08-10', saleValue: 300000, cost: 200000 },
+      { name: 'Gold', kind: 'gold', buyDate: '2020-01-01', sellDate: '2024-06-01', saleValue: 300000, cost: 200000 },
+    ] },
+  });
+  assert.equal(result.data.ready, true, JSON.stringify(result.data.problems));
+  assert.equal(result.data.validation.valid, true);
+  assert.equal(result.data.summary.taxAtSpecialRates, 3125 + 20000 + 20000);
+  assert.equal(result.data.summary.shortTermGains, 100000);
+  assert.equal(result.data.summary.incomeFromHouseProperty, 9600);
 });

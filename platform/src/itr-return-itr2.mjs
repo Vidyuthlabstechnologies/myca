@@ -1,6 +1,8 @@
 import { shared, chapterViaExtras, viaPatch, assessmentYearOf, interestAndFee } from './itr-return-builder.mjs';
-import { houseProperty } from './itr-return-individual.mjs';
+import { houseBlocks } from './it-house-property.mjs';
 import { computeCapitalGains } from './capital-gains.mjs';
+import { gainSchedules, houseSchedule } from './itr-gain-schedules.mjs';
+import { layer } from './itr-util.mjs';
 import { incomeTax } from './sprint-load.mjs';
 
 const { skeletonFor, mergeInto, pruneEmpty, personalInfo, bankDetails, taxPayments, ageBandOf, finish, rupees, signed, sum, DATE_RE } = shared;
@@ -9,41 +11,6 @@ const HP_LOSS_LIMIT = 200000;
 const SECTION_10_NATURES = new Set(['10(5)', '10(6)', '10(7)', '10(10)', '10(10A)']);
 const EMPLOYER_NATURES = new Set(['CGOV', 'SGOV', 'PSU', 'PE', 'PESG', 'PEPS', 'PEO', 'OTH', 'NA']);
 
-const COLUMNS = {
-  STCG15Per: ['stcg111A_BE'],
-  STCG20Per: ['stcg111A_AE'],
-  STCG30Per: [],
-  STCGAppRate: ['stcgOther'],
-  STCGDTAARate: [],
-  LTCG10Per: ['ltcg112A_BE'],
-  LTCG12_5Per: ['ltcg112A_AE', 'ltcgOther_AE'],
-  LTCG20Per: ['ltcgOther_BE'],
-  LTCGDTAARate: [],
-};
-const SHORT_COLUMNS = ['STCG15Per', 'STCG20Per', 'STCG30Per', 'STCGAppRate', 'STCGDTAARate'];
-const LONG_COLUMNS = ['LTCG10Per', 'LTCG12_5Per', 'LTCG20Per', 'LTCGDTAARate'];
-const LOSS_SUFFIX = { STCG15Per: 'Stcl15Per', STCG20Per: 'Stcl20Per', STCG30Per: 'Stcl30Per', STCGAppRate: 'StclAppRate', STCGDTAARate: 'StclDTAARate', LTCG10Per: 'Ltcl10Per', LTCG12_5Per: 'Ltcl12_5Per', LTCG20Per: 'Ltcl20Per', LTCGDTAARate: 'LtclDTAARate' };
-const SETOFF_FIELD = { STCG15Per: 'StclSetoff15Per', STCG20Per: 'StclSetoff20Per', STCG30Per: 'StclSetoff30Per', STCGAppRate: 'StclSetoffAppRate', STCGDTAARate: 'StclSetoffDTAARate', LTCG10Per: 'LtclSetOff10Per', LTCG12_5Per: 'LtclSetOff12_5Per', LTCG20Per: 'LtclSetOff20Per', LTCGDTAARate: 'LtclSetOffDTAARate' };
-const GAIN_BLOCK = { STCG15Per: 'InStcg15Per', STCG20Per: 'InStcg20Per', STCG30Per: 'InStcg30Per', STCGAppRate: 'InStcgAppRate', STCGDTAARate: 'InStcgDTAARate', LTCG10Per: 'InLtcg10Per', LTCG12_5Per: 'InLtcg12_5Per', LTCG20Per: 'InLtcg20Per', LTCGDTAARate: 'InLtcgDTAARate' };
-const columnOf = (bucket) => Object.keys(COLUMNS).find((name) => COLUMNS[name].includes(bucket));
-const fromBuckets = (map, column) => COLUMNS[column].reduce((total, key) => total + (map[key] || 0), 0);
-
-function layer(target, patch, path, itemAt) {
-  for (const [key, value] of Object.entries(patch)) {
-    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
-    const isObject = value && typeof value === 'object' && !Array.isArray(value);
-    if (!isObject) {
-      target[key] = value;
-      continue;
-    }
-    if (!Object.hasOwn(target, key) || typeof target[key] !== 'object' || target[key] === null) {
-      const base = itemAt([...path, key]);
-      target[key] = base && typeof base === 'object' && !Array.isArray(base) ? base : {};
-    }
-    layer(target[key], value, [...path, key], itemAt);
-  }
-  return target;
-}
 
 function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
@@ -85,29 +52,7 @@ function salaryBlock(args, notes, problems) {
   return { rows, exempt, exemptTotal: exemptTotal + hraExempt, hra, hraExempt, gross, professionalTax: rupees(input.professionalTax), entertainment: rupees(input.entertainmentAllowance) };
 }
 
-function loanRows(input, interest) {
-  const loans = Array.isArray(input.interestLoans) && input.interestLoans.length ? input.interestLoans : [{ interest }];
-  return loans.map((loan) => ({
-    LoanTknFrom: loan.from === 'I' ? 'I' : 'B',
-    BankOrInstnName: String(loan.lender || 'Lender').slice(0, 125),
-    LoanAccNoOfBankOrInstnRefNo: String(loan.accountNo || 'LOAN1').slice(0, 20),
-    DateofLoan: DATE_RE.test(String(loan.date || '')) ? loan.date : '2000-04-01',
-    TotalLoanAmt: rupees(loan.amount),
-    LoanOutstndngAmt: rupees(loan.outstanding),
-    InterestUs24B: rupees(loan.interest ?? interest),
-  }));
-}
 
-function propertyBlock(args, regime) {
-  const list = Array.isArray(args.houseProperties) ? args.houseProperties : [];
-  const rows = list.map((input, index) => {
-    const share = Math.min(100, Math.max(0, Number(input.sharePercent ?? 100)));
-    const scaled = { ...input, rentReceived: Math.round(rupees(input.rentReceived) * share / 100), municipalTax: Math.round(rupees(input.municipalTax) * share / 100), arrearsRent: rupees(input.arrearsRent) };
-    const h = houseProperty(scaled, regime);
-    return { index, input, share, h };
-  });
-  return rows;
-}
 
 function otherSourcesBlock(args) {
   const other = args.otherIncome || {};
@@ -123,170 +68,6 @@ function otherSourcesBlock(args) {
   const gross = savings + deposits + refundInterest + otherInterest + familyPension + dividend + misc;
   const net = Math.max(0, gross - familyPensionDeduction - expenses);
   return { savings, deposits, refundInterest, otherInterest, familyPension, familyPensionDeduction, dividend, misc, expenses, gross, net, dividendByQuarter: other.dividendByQuarter, otherNature: other.otherNature };
-}
-
-function gainLines(rows) {
-  const zero = () => ({ sale: 0, cost: 0, improvement: 0, expenses: 0, gain: 0 });
-  const groups = { stt: { be: zero(), ae: zero() }, otherShort: { be: zero(), ae: zero() }, otherLong: { be: zero(), ae: zero() }, property: [] };
-  for (const row of rows) {
-    const side = row.after ? 'ae' : 'be';
-    const add = (target) => {
-      target.sale += row.sale;
-      target.cost += row.cost;
-      target.improvement += row.improvement;
-      target.expenses += row.expenses;
-      target.gain += row.gain;
-    };
-    if (row.bucket.startsWith('stcg111A')) add(groups.stt[side]);
-    else if (row.kind === 'property') groups.property.push(row);
-    else if (row.bucket === 'stcgOther') add(groups.otherShort[side]);
-    else if (row.bucket.startsWith('ltcg112A')) add(groups.stt[`long${side}`] ||= zero());
-    else add(groups.otherLong[side]);
-  }
-  return groups;
-}
-
-function capitalGainsPatch(cg, rows, regime) {
-  const groups = gainLines(rows);
-  const equityLine = (g) => ({
-    FullConsideration: g.sale,
-    DeductSec48: { AquisitCost: g.cost, ImproveCost: g.improvement, ExpOnTrans: g.expenses, TotalDedn: g.cost + g.improvement + g.expenses },
-    BalanceCG: g.gain,
-    LossSec94of7Or94of8: 0,
-    CapgainonAssets: g.gain,
-  });
-  const otherLine = (g, short = false) => ({
-    FullValueConsdRecvUnqshr: 0,
-    FairMrktValueUnqshr: 0,
-    FullValueConsdSec50CA: 0,
-    FullValueConsdOthUnqshr: g.sale,
-    FullConsideration: g.sale,
-    DeductSec48: { AquisitCost: g.cost, ImproveCost: g.improvement, ExpOnTrans: g.expenses, TotalDedn: g.cost + g.improvement + g.expenses },
-    BalanceCG: g.gain,
-    ...(short ? { LossSec94of7Or94of8: 0 } : { DeductionUs54F: 0 }),
-    CapgainonAssets: g.gain,
-  });
-  const propertyRows = groups.property;
-  const shortProperty = propertyRows.filter((row) => !row.longTerm);
-  const longProperty = propertyRows.filter((row) => row.longTerm);
-  const shortOtherTotal = groups.otherShort.be.gain + groups.otherShort.ae.gain;
-  const sttShort = groups.stt.be.gain + groups.stt.ae.gain;
-  const sttShortLines = groups.stt.be.sale || groups.stt.ae.sale ? [{
-    MFSectionCode: '1A',
-    EquityMFonSTTDtls_BE: { ...equityLine(groups.stt.be), CapgainonAssets: groups.stt.be.gain },
-    EquityMFonSTTDtls: equityLine(groups.stt.ae),
-    TotalCapGainonassets: sttShort,
-  }] : [];
-  const shortPropertyTotal = shortProperty.reduce((total, row) => total + row.gain, 0);
-  const totalSTCG = sttShort + shortOtherTotal + shortPropertyTotal;
-  const longEquityBE = groups.stt.longbe || { sale: 0, cost: 0, improvement: 0, expenses: 0, gain: 0 };
-  const longEquityAE = groups.stt.longae || { sale: 0, cost: 0, improvement: 0, expenses: 0, gain: 0 };
-  const longPropertyTotal = longProperty.reduce((total, row) => total + row.gain, 0);
-  const longEquity = longEquityBE.gain + longEquityAE.gain;
-  const longOther = groups.otherLong.be.gain + groups.otherLong.ae.gain;
-  const totalLTCG = longEquity + longPropertyTotal + longOther;
-  const landDetails = (list, isLong) => list.map((row) => {
-    const base = {
-      DateofPurchase: row.buyDate,
-      DateofSale: row.sellDate,
-      FullConsideration: row.sale,
-      FullConsideration50C: row.sale,
-      AquisitCost: row.cost,
-      ExpOnTrans: row.expenses,
-      TotalDedn: row.cost + row.improvement + row.expenses,
-      Balance: row.gain,
-    };
-    if (!isLong) return { ...base, ImproveCost: row.improvement, DeductionUs54B: 0, STCGonImmvblPrprty: row.gain };
-    const indexed = row.indexationChosen ? rupees(row.indexedCost) : row.cost;
-    return {
-      ...base,
-      AquisitCostIndex: indexed,
-      CostOfImprovements: { CostOfImprovementsDtls: [], TotalImprovecost: row.improvement, TotalindexImprovecost: row.improvement },
-      ExemptionOrDednUs54: { ExemptionGrandTotal: 0 },
-      LTCGonImmvblPrprty: row.after ? row.gain : 0,
-      LTCGonImmvblPrprtyBE: row.after ? 0 : row.gain,
-    };
-  });
-  const patch = {
-    ShortTermCapGainFor23: {
-      EquityMFonSTT: sttShortLines,
-      SaleOnOtherAssets: otherLine({ sale: groups.otherShort.be.sale + groups.otherShort.ae.sale, cost: groups.otherShort.be.cost + groups.otherShort.ae.cost, improvement: groups.otherShort.be.improvement + groups.otherShort.ae.improvement, expenses: groups.otherShort.be.expenses + groups.otherShort.ae.expenses, gain: shortOtherTotal }, true),
-      TotalAmtDeemedStcg: 0,
-      TotalAmtNotTaxUsDTAAStcg: 0,
-      TotalAmtTaxUsDTAAStcg: 0,
-      TotalSTCG: totalSTCG,
-    },
-    LongTermCapGain23: {
-      SaleOfEquityShareUs112A: {
-        BalanceCG: longEquity,
-        BalanceCGTransferBE: longEquityBE.gain,
-        BalanceCGTransferAE: longEquityAE.gain,
-        DeductionUs54F: 0,
-        DeductionUs54FBE: 0,
-        DeductionUs54FAE: 0,
-        CapgainonAssets: longEquity,
-        CapgainonAssetsTransferBE: longEquityBE.gain,
-        CapgainonAssetsTransferAE: longEquityAE.gain,
-      },
-      SaleofAssetNADtls: {
-        SaleofAssetNA_BE: otherLine(groups.otherLong.be),
-        SaleofAssetNA: otherLine(groups.otherLong.ae),
-        TotalCapgainonAssets: longOther,
-      },
-      TotalAmtDeemedLtcg: 0,
-      TotalAmtNotTaxUsDTAALtcg: 0,
-      TotalAmtTaxUsDTAALtcg: 0,
-      TotalLTCG: totalLTCG,
-    },
-    SumOfCGIncm: totalSTCG + totalLTCG,
-    IncmFromVDATrnsf: 0,
-    TotScheduleCGFor23: totalSTCG + totalLTCG,
-  };
-  const landShort = landDetails(shortProperty, false);
-  const landLong = landDetails(longProperty, true);
-  const extra = { shortLand: landShort, longLand: landLong, shortPropertyTotal, longPropertyBE: longProperty.filter((row) => !row.after).reduce((total, row) => total + row.gain, 0), longPropertyAE: longProperty.filter((row) => row.after).reduce((total, row) => total + row.gain, 0) };
-  return { patch, extra, totals: { totalSTCG, totalLTCG } };
-}
-
-function currYrLosses(cg) {
-  const net = {};
-  for (const column of Object.keys(COLUMNS)) net[column] = fromBuckets(cg.original, column);
-  const lossIn = {};
-  const gainIn = {};
-  for (const column of Object.keys(COLUMNS)) {
-    lossIn[column] = Math.max(0, -net[column]);
-    gainIn[column] = Math.max(0, net[column]);
-  }
-  const cellMatrix = {};
-  for (const [lossBucket, targets] of Object.entries(cg.lossMatrix)) {
-    const lossColumn = columnOf(lossBucket);
-    for (const [gainBucket, amount] of Object.entries(targets)) {
-      const gainColumn = columnOf(gainBucket);
-      if (lossColumn === gainColumn) continue;
-      cellMatrix[gainColumn] ||= {};
-      cellMatrix[gainColumn][lossColumn] = (cellMatrix[gainColumn][lossColumn] || 0) + amount;
-    }
-  }
-  const block = { InLossSetOff: {}, TotLossSetOff: {}, LossRemainSetOff: {} };
-  for (const column of Object.keys(COLUMNS)) {
-    block.InLossSetOff[SETOFF_FIELD[column]] = lossIn[column];
-    const setOffTotal = Object.values(cg.lossMatrix).length ? Object.entries(cg.lossMatrix).filter(([lossBucket]) => columnOf(lossBucket) === column).reduce((total, [, targets]) => total + Object.values(targets).reduce((a, b) => a + b, 0), 0) : 0;
-    block.TotLossSetOff[SETOFF_FIELD[column]] = setOffTotal;
-    block.LossRemainSetOff[SETOFF_FIELD[column]] = Math.max(0, lossIn[column] - setOffTotal);
-    const gainBlock = { CurrYearIncome: gainIn[column] };
-    let used = 0;
-    for (const other of Object.keys(COLUMNS)) {
-      if (other === column || !SETOFF_FIELD[other]) continue;
-      const field = SETOFF_FIELD[other];
-      if (column.startsWith('STCG') && other.startsWith('LTCG')) continue;
-      const amount = cellMatrix[column]?.[other] || 0;
-      gainBlock[field] = amount;
-      used += amount;
-    }
-    gainBlock.CurrYrCapGain = Math.max(0, gainIn[column] - used);
-    block[GAIN_BLOCK[column]] = gainBlock;
-  }
-  return block;
 }
 
 export function buildItr2(args = {}) {
@@ -322,7 +103,7 @@ export function buildItr2(args = {}) {
 
   const regimeWanted = ['old', 'new', 'auto'].includes(args.regime) ? args.regime : 'new';
   const specialPaise = Object.fromEntries(Object.entries(cg.specialIncome).map(([key, value]) => [key, Math.max(0, value) * PAISE]));
-  const hpBlocks = (regime) => propertyBlock(args, regime);
+  const hpBlocks = (regime) => houseBlocks(args.houseProperties, regime);
   const bfHp = rupees(args.broughtForward?.houseProperty);
 
   const runFor = (regime) => {
@@ -431,10 +212,7 @@ export function buildItr2(args = {}) {
   if (run.hpLossCarried > 0 && old) notes.push(`A house property loss of Rs ${run.hpLossCarried} is carried forward (set-off against other heads is limited to Rs 2 lakh and to the income available).`);
 
   const patch = {};
-  const sections = capitalGainsPatch(cg, cg.rows, chosen);
-  const columnsAfterYear = Object.fromEntries(Object.keys(COLUMNS).map((column) => [column, fromBuckets(cg.afterYearLosses, column) + (column.startsWith('LTCG') ? 0 : 0)]));
-  const columnsFinal = Object.fromEntries(Object.keys(COLUMNS).map((column) => [column, fromBuckets(specialFinal, column) + (column === 'STCGAppRate' ? cg.normalRateGain : 0)]));
-  const bfSetoffByColumn = (column) => fromBuckets(cg.bfSetoff.short, column) + fromBuckets(cg.bfSetoff.long, column);
+  const gains = gainSchedules({ form: 'ITR-2', cg, skeleton, args, problems, calc });
 
   patch.CreationInfo = { SWVersionNo: '1.0', SWCreatedBy: 'SW00000001', JSONCreatedBy: 'SW00000001', JSONCreationDate: filingDate, IntermediaryCity: 'Bengaluru', Digest: '-' };
   patch.Form_ITR2 = { FormName: 'ITR-2', Description: 'For Indls and HUFs not having income from business or profession', AssessmentYear: String(info.ayStart), SchemaVer: 'Ver1.0', FormVer: 'Ver1.0' };
@@ -482,132 +260,22 @@ export function buildItr2(args = {}) {
   if (salary.hra) patch.ScheduleS.Section10_13A = { Placeofwork: salary.hra.place, ActlHRARecv: salary.hra.received, ActlRentPaid: salary.hra.rentPaid, DtlsSalUsSec171: salary.hra.salaryForHra, ActlRentPaid10Per: Math.round(salary.hra.salaryForHra * 0.1), Sal40Or50Per: Math.round(salary.hra.salaryForHra * (salary.hra.place === '1' ? 0.5 : 0.4)), EligbleExmpAllwncUs10Hra: salary.hraExempt, EligbleExmpAllwncUs13A: salary.hraExempt };
   if (salary.hra) delete patch.ScheduleS.Section10_13A.EligbleExmpAllwncUs10Hra;
 
-  const hpItems = run.rows.filter((row) => row.h.type).map((row, position) => {
-    const item = skeleton.itemAt(['ScheduleHP', 'PropertyDetails']);
-    const h = row.h;
-    const owned = Math.round(Math.max(0, h.annualValue));
-    const address = row.input.address || {};
-    return mergeInto(item, {
-      HPSNo: position + 1,
-      AddressDetailWithZipCode: {
-        AddrDetail: String(address.line || 'NA').slice(0, 200),
-        CityOrTownOrDistrict: String(address.city || 'NA').slice(0, 50),
-        StateCode: String(address.stateCode || taxpayer.address?.stateCode || '99').padStart(2, '0'),
-        CountryCode: '91',
-        ...(address.pin ? { PinCode: Number(String(address.pin).replace(/\D/g, '')) || undefined } : {}),
-      },
-      PropertyOwner: 'SE',
-      PropCoOwnedFlg: row.share < 100 ? 'YES' : 'NO',
-      AsseseeShareProperty: row.share,
-      ifLetOut: h.type,
-      Rentdetails: {
-        AnnualLetableValue: h.gross,
-        RentNotRealized: 0,
-        LocalTaxes: h.taxPaid,
-        TotalUnrealizedAndTax: h.taxPaid,
-        BalanceALV: owned,
-        AnnualOfPropOwned: owned,
-        ThirtyPercentOfBalance: h.standardDeduction,
-        IntOnBorwCap: h.interest,
-        Section24B: { Section24BDtls: h.interest > 0 ? loanRows(row.input, h.interest) : [], TotalInterestUs24B: h.interest },
-        TotalDeduct: h.standardDeduction + h.interest,
-        ArrearsUnrealizedRentRcvd: h.arrears,
-        IncomeOfHP: h.income,
-      },
-    });
-  });
-  if (hpItems.length) {
-    for (const item of hpItems) {
-      if (item.PropCoOwnedFlg === 'NO') item.AsseseeShareProperty = 100;
-      if (item.ifLetOut !== 'L') delete item.TenantDetails;
-    }
-    patch.ScheduleHP = { PropertyDetails: hpItems, PassThroghIncome: 0, TotalIncomeChargeableUnHP: run.hpTotal };
-  }
+  const hpSchedule = houseSchedule({ rows: run.rows, skeleton, taxpayer, total: run.hpTotal });
+  if (hpSchedule) patch.ScheduleHP = hpSchedule;
 
-  Object.assign(patch, { ScheduleCGFor23: sections.patch });
-  const gainsAfterSetOff = Object.values(columnsAfterYear).reduce((a, b) => a + b, 0);
-  patch.ScheduleCGFor23.SumOfCGIncm = gainsAfterSetOff;
-  patch.ScheduleCGFor23.TotScheduleCGFor23 = gainsAfterSetOff;
-  patch.ScheduleCGFor23.CurrYrLosses = currYrLosses(cg);
-  patch.ScheduleCGFor23.DeducClaimInfo = { TotDeductClaim: 0 };
+  Object.assign(patch, gains.patch);
 
-  const sched112 = cg.rows.filter((row) => row.bucket.startsWith('ltcg112A'));
-  if (sched112.length) {
-    const lines = args.capitalGains?.transactions?.filter((txn) => txn.kind === 'listed-equity' || txn.kind === 'equity-mf') || [];
-    const isinOf = (row) => lines.find((txn) => (txn.name || txn.kind) === row.name && txn.buyDate === row.buyDate && txn.sellDate === row.sellDate)?.isin;
-    const details = sched112.map((row) => {
-      const isin = String(isinOf(row) || '').toUpperCase();
-      if (!/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(isin)) problems.push({ path: 'capitalGains.transactions', message: `Schedule 112A needs the ISIN of ${row.name}.` });
-      const item = skeleton.itemAt(['Schedule112A', 'Schedule112ADtls']);
-      const source = lines.find((txn) => (txn.name || txn.kind) === row.name && txn.buyDate === row.buyDate && txn.sellDate === row.sellDate) || {};
-      const fmv = source.fmv31Jan2018 != null ? rupees(source.fmv31Jan2018) : 0;
-      return mergeInto(item, {
-        ShareOnOrBefore: row.buyDate < '2018-02-01' ? 'BE' : 'AE',
-        ShareTransferredOnOrBefore: row.after ? 'AE' : 'BE',
-        ISINCode: isin,
-        ShareUnitName: String(row.name).slice(0, 125),
-        TotSaleValue: row.sale,
-        CostAcqWithoutIndx: rupees(source.cost),
-        AcquisitionCost: row.cost,
-        LTCGBeforelowerB1B2: Math.max(0, row.sale - rupees(source.cost)),
-        FairMktValuePerShareunit: 0,
-        TotFairMktValueCapAst: fmv,
-        ExpExclCnctTransfer: row.expenses,
-        TotalDeductions: row.cost + row.expenses + row.improvement,
-        Balance: row.gain,
-      });
-    });
-    const total = (key) => details.reduce((acc, item) => acc + (Number(item[key]) || 0), 0);
-    const gainBE = details.filter((item) => item.ShareTransferredOnOrBefore === 'BE').reduce((acc, item) => acc + item.Balance, 0);
-    const gainAE = details.filter((item) => item.ShareTransferredOnOrBefore === 'AE').reduce((acc, item) => acc + item.Balance, 0);
-    patch.Schedule112A = {
-      Schedule112ADtls: details,
-      SaleValue112A: total('TotSaleValue'),
-      CostAcqWithoutIndx112A: total('CostAcqWithoutIndx'),
-      AcquisitionCost112A: total('AcquisitionCost'),
-      LTCGBeforelowerB1B2112A: total('LTCGBeforelowerB1B2'),
-      FairMktValueCapAst112A: total('TotFairMktValueCapAst'),
-      ExpExclCnctTransfer112A: total('ExpExclCnctTransfer'),
-      Deductions112A: total('TotalDeductions'),
-      Balance112A: gainBE + gainAE,
-      Balance112ABE: gainBE,
-      Balance112AAE: gainAE,
-      TotalBalance112A: gainBE + gainAE,
-    };
-  }
-
-  const cyla = {};
-  for (const column of Object.keys(COLUMNS)) {
-    const value = columnsAfterYear[column];
-    cyla[column] = { IncCYLA: { IncOfCurYrUnderThatHead: value, IncOfCurYrAfterSetOff: value } };
-  }
-  cyla.TotalCurYr = { TotHPlossCurYr: Math.min(run.hpLossSetoff + run.hpLossCarried, run.hpLossSetoff + run.hpLossCarried), TotOthSrcLossNoRaceHorse: 0 };
+  const cyla = { ...gains.cylaRows };
+  cyla.TotalCurYr = { TotHPlossCurYr: run.hpLossSetoff + run.hpLossCarried, TotOthSrcLossNoRaceHorse: 0 };
   cyla.TotalLossSetOff = { TotHPlossCurYrSetoff: run.hpLossSetoff, TotOthSrcLossNoRaceHorseSetoff: 0 };
   cyla.LossRemAftSetOff = { BalHPlossCurYrAftSetoff: run.hpLossCarried, BalOthSrcLossNoRaceHorseAftSetoff: 0 };
   patch.ScheduleCYLA = cyla;
-
-  const bfla = { Salary: { IncBFLA: { IncOfCurYrUndHeadFromCYLA: incomeFromSalary, IncOfCurYrAfterSetOffBFLosses: incomeFromSalary } } };
-  let bfTotal = 0;
-  for (const column of Object.keys(COLUMNS)) {
-    const from = columnsAfterYear[column];
-    const used = Math.min(from, bfSetoffByColumn(column));
-    bfTotal += used;
-    bfla[column] = { IncBFLA: { IncOfCurYrUndHeadFromCYLA: from, BFlossPrevYrUndSameHeadSetoff: used, IncOfCurYrAfterSetOffBFLosses: from - used } };
-  }
-  bfla.TotalBFLossSetOff = { TotBFLossSetoff: bfTotal };
-  bfla.IncomeOfCurrYrAftCYLABFLA = incomeFromSalary + Object.values(columnsAfterYear).reduce((a, b) => a + b, 0) - bfTotal;
-  patch.ScheduleBFLA = bfla;
-
-  const siRows = [];
-  const siRate = (bucket) => ({ stcg111A_BE: ['1A_BE', 15], stcg111A_AE: ['1A', 20], ltcg112A_BE: ['2A_BE', 10], ltcg112A_AE: ['2A', 12.5], ltcgOther_BE: ['21_BE', 20], ltcgOther_AE: ['22', 12.5] })[bucket];
-  const byKey = calc.specialTaxByKey || {};
-  for (const [bucket, income] of Object.entries(specialFinal)) {
-    if (income <= 0) continue;
-    const [code, rate] = siRate(bucket);
-    const item = skeleton.itemAt(['ScheduleSI', 'SplCodeRateTax']);
-    siRows.push(mergeInto(item, { SecCode: code, SplRatePercent: rate, SplRateInc: income, SplRateIncTax: byKey[bucket] != null ? byKey[bucket] / PAISE : Math.round(income * rate / 100) }));
-  }
-  if (siRows.length) patch.ScheduleSI = { SplCodeRateTax: siRows, TotSplRateInc: specialTotal, TotSplRateIncTax: siRows.reduce((total, row) => total + row.SplRateIncTax, 0) };
+  patch.ScheduleBFLA = {
+    Salary: { IncBFLA: { IncOfCurYrUndHeadFromCYLA: incomeFromSalary, IncOfCurYrAfterSetOffBFLosses: incomeFromSalary } },
+    ...gains.bflaRows,
+    TotalBFLossSetOff: { TotBFLossSetoff: gains.bfTotal },
+    IncomeOfCurrYrAftCYLABFLA: incomeFromSalary + gains.gainsAfterSetOff - gains.bfTotal,
+  };
 
   const otherDetails = [];
   const dividendQuarters = Array.isArray(other.dividendByQuarter) && other.dividendByQuarter.length === 5 ? other.dividendByQuarter.map(rupees) : [other.dividend, 0, 0, 0, 0];
@@ -640,17 +308,13 @@ export function buildItr2(args = {}) {
   }
 
   const hpIncomeRow = Math.max(0, run.hpForTax);
-  const stRows = { ShortTerm15Per: columnsFinal.STCG15Per, ShortTerm20Per: columnsFinal.STCG20Per, ShortTerm30Per: 0, ShortTermAppRate: columnsFinal.STCGAppRate, ShortTermSplRateDTAA: 0 };
-  stRows.TotalShortTerm = Object.values(stRows).reduce((a, b) => a + b, 0);
-  const ltRows = { LongTerm10Per: columnsFinal.LTCG10Per, LongTerm12_5Per: columnsFinal.LTCG12_5Per, LongTerm20Per: columnsFinal.LTCG20Per, LongTermSplRateDTAA: 0 };
-  ltRows.TotalLongTerm = Object.values(ltRows).reduce((a, b) => a + b, 0);
-  const capTotal = stRows.TotalShortTerm + ltRows.TotalLongTerm;
+  const { ShortTerm: stRows, LongTerm: ltRows, TotalCapGains: capTotal } = gains.capGain;
   const totalTI = incomeFromSalary + hpIncomeRow + capTotal + other.net;
   const hpLossUsed = Math.max(0, -run.hpForTax);
   patch['PartB-TI'] = {
     Salaries: incomeFromSalary,
     IncomeFromHP: hpIncomeRow,
-    CapGain: { ShortTerm: stRows, LongTerm: ltRows, ShortTermLongTermTotal: capTotal, CapGains30Per115BBH: 0, TotalCapGains: capTotal },
+    CapGain: gains.capGain,
     IncFromOS: { OtherSrcThanOwnRaceHorse: other.net, IncChargblSplRate: 0, FromOwnRaceHorse: 0, TotIncFromOS: other.net },
     TotalTI: totalTI,
     CurrentYearLoss: hpLossUsed,
@@ -725,10 +389,7 @@ export function buildItr2(args = {}) {
   if (cleaned.ScheduleOS) delete cleaned.ScheduleOS.DividendQuarters;
   layer(skeleton.body, cleaned, [], skeleton.itemAt);
   const body = skeleton.body;
-  if (!sections.extra.shortLand.length) delete body.ScheduleCGFor23.ShortTermCapGainFor23.SaleofLandBuild;
-  else body.ScheduleCGFor23.ShortTermCapGainFor23.SaleofLandBuild = { SaleofLandBuildDtls: sections.extra.shortLand };
-  if (!sections.extra.longLand.length) delete body.ScheduleCGFor23.LongTermCapGain23.SaleofLandBuild;
-  else body.ScheduleCGFor23.LongTermCapGain23.SaleofLandBuild = { SaleofLandBuildDtls: sections.extra.longLand, TotalLTCGImmblPrprty: sections.extra.longPropertyBE + sections.extra.longPropertyAE, TotalLTCGImmblPrprtyBE: sections.extra.longPropertyBE, TotalLTCGImmblPrprtyAE: sections.extra.longPropertyAE, TotalExcessTax: 0 };
+  gains.finishBody(body);
   pruneEmpty(body, [['ScheduleIT', 'TaxPayment'], ['ScheduleTDS1', 'TDSonSalary'], ['ScheduleTDS2', 'TDSOthThanSalaryDtls'], ['ScheduleS', 'Salaries']]);
   if (!salary.rows.length) delete body.ScheduleS;
   if (!other.gross && !other.expenses) delete body.ScheduleOS;
