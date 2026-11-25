@@ -1,6 +1,3 @@
-// Depreciation under the Income-tax Act, written-down-value method by block of assets (section 32, Income-tax Rules Appendix I).
-// An asset used for fewer than 180 days in the year earns half the rate on its addition.
-// Rates are the commonly applied blocks; a CA confirms the block for unusual assets (see docs/product/INDIA-ITR-BUILDER.md).
 
 export const DEPRECIATION_BLOCKS = {
   'building-residential': { label: 'Residential building', rate: 5 },
@@ -21,7 +18,6 @@ function daysFrom(dateIso, toIso) {
   return Math.round((Date.parse(`${toIso}T00:00:00Z`) - Date.parse(`${dateIso}T00:00:00Z`)) / 86400000) + 1;
 }
 
-// blocks: [{ block, openingWdv, additions: [{ date, amount }], sales: amount }]
 export function depreciationSchedule({ blocks = [], fyEnd }) {
   if (!ISO.test(String(fyEnd || ''))) return { ok: false, error: 'FY_END_REQUIRED' };
   const rows = [];
@@ -45,7 +41,6 @@ export function depreciationSchedule({ blocks = [], fyEnd }) {
     let depreciation = 0;
     let shortTermGain = 0;
     if (wdvBeforeDepreciation < 0) {
-      // Sales above the block value: the excess is a short-term capital gain under section 50 and the block is empty.
       shortTermGain = -wdvBeforeDepreciation;
       notes.push(`${spec.label}: sale proceeds exceed the block value by Rs ${shortTermGain}; that is a short-term capital gain under section 50, not business income.`);
     } else if (wdvBeforeDepreciation > 0) {

@@ -1,6 +1,3 @@
-// Builds an income tax return JSON (ITR-4 Sugam and ITR-3) for upload to the e-filing portal,
-// computes the tax with MyCA's dated rules, and checks the result against the official CBDT
-// schema held in itr-knowledge. All amounts in and out are whole rupees (the JSON is in rupees).
 import { loadItrForm } from './itr-knowledge.mjs';
 import { validateAgainstSchema } from './itr-json-check.mjs';
 import { incomeTax, rules } from './sprint-load.mjs';
@@ -30,9 +27,6 @@ export function assessmentYearOf(fy) {
   return { fy, ayStart: start + 1, ayLabel: `${start + 1}-${String(start + 2).slice(2)}`, fyStart: `${start}-04-01`, fyEnd: `${start + 1}-03-31` };
 }
 
-// ---------------------------------------------------------------------------------------------
-// Schema-driven skeleton: every required field filled with a value that satisfies its type/enum.
-// ---------------------------------------------------------------------------------------------
 const PATTERN_FILL = [
   [/S\]\[W\]/, 'SW00000001'],
   [/A-Z\]\{5\}/, 'AAAAA0000A'],
@@ -75,10 +69,20 @@ function skeletonFor(form) {
   };
   const root = resolve(schema.properties.ITR).properties;
   const key = Object.keys(root)[0];
-  return { schema, key, body: make(root[key]) };
+  const itemAt = (path) => {
+    let node = resolve(root[key]);
+    for (const part of path) {
+      node = resolve(node);
+      if (part === '[]') node = resolve(node.items);
+      else node = node.properties?.[part];
+      if (!node) return null;
+    }
+    const target = resolve(node);
+    return make(target.type === 'array' ? target.items : target);
+  };
+  return { schema, key, body: make(root[key]), itemAt };
 }
 
-// Optional schedules that carry a list must hold at least one entry, so empty ones are removed.
 function pruneEmpty(body, paths) {
   for (const [section, listKey] of paths) {
     if (body[section] && Array.isArray(body[section][listKey]) && body[section][listKey].length === 0) delete body[section];
@@ -97,10 +101,6 @@ function mergeInto(target, patch) {
   return target;
 }
 
-// ---------------------------------------------------------------------------------------------
-// Interest and fee (sections 234A, 234B, 234C, 234F)
-// ---------------------------------------------------------------------------------------------
-// Months or part of a month from `fromIso` (exclusive) to `toIso`.
 function monthsBetween(fromIso, toIso) {
   const from = new Date(`${fromIso}T00:00:00Z`);
   const to = new Date(`${toIso}T00:00:00Z`);
@@ -111,8 +111,6 @@ function monthsBetween(fromIso, toIso) {
 
 const roundDown100 = (amount) => Math.floor(Math.max(0, amount) / 100) * 100;
 
-// Sections 234A (late filing), 234B (advance tax short), 234C (instalments late), 234F (late fee).
-// Shortfalls are rounded down to Rs 100 and interest is 1% a month or part of a month.
 export function interestAndFee({ ayStart, dueDate, filingDate, taxLiability, tdsAndTcs, advancePayments = [], presumptive = false, totalIncome = 0, selfAssessment = 0, hasCapitalGainOrLottery = false }) {
   const assessed = Math.max(0, taxLiability - tdsAndTcs);
   const fyEndYear = ayStart - 1;
@@ -140,7 +138,6 @@ export function interestAndFee({ ayStart, dueDate, filingDate, taxLiability, tds
         const paid = paidBy(step.due);
         const required = (assessed * step.percent) / 100;
         if (paid >= required) continue;
-        // Relief: 12% paid by 15 June, 36% by 15 September(relaxed shortfall) carry no interest for that instalment.
         if (step.relaxedAt && paid >= (assessed * step.relaxedAt) / 100) continue;
         out.us234C += Math.round(roundDown100(required - paid) * 0.01 * step.months);
       }
@@ -149,9 +146,6 @@ export function interestAndFee({ ayStart, dueDate, filingDate, taxLiability, tds
   return out;
 }
 
-// ---------------------------------------------------------------------------------------------
-// Shared taxpayer input checks
-// ---------------------------------------------------------------------------------------------
 function personalInfo(taxpayer, notes, problems, form) {
   const t = taxpayer || {};
   const pan = String(t.pan || '').toUpperCase();
@@ -216,8 +210,6 @@ function readRegime(args) {
   return regime;
 }
 
-// Chapter VI-A deductions other than 80C and 80D, each held to its statutory cap.
-// Returns whole rupees per section and the total that counts in the old regime; 80CCD(2) counts in both regimes.
 export function chapterViaExtras(deductions = {}, { ageBand = 'below-60', savingsInterest = 0, depositInterest = 0 } = {}) {
   const senior = ageBand !== 'below-60';
   const cap = (value, max) => Math.max(0, Math.min(rupees(value), max));
@@ -242,7 +234,6 @@ export function chapterViaExtras(deductions = {}, { ageBand = 'below-60', saving
   return { sections, totalOld, employerNpsNew: Math.min(employerRaw, employerCapNew), employerNpsOld: Math.min(employerRaw, employerCapOld) };
 }
 
-// The Chapter VI-A block of the return: sections that count, and the total after the cap at gross total income.
 export function viaPatch(calc, extras) {
   const old = (calc.otherChapterViaPaise || 0) > 0 || calc.section80CPaise > 0 || calc.section80DPaise > 0;
   const sections = {};
@@ -298,9 +289,6 @@ function ageBandOf(dob, fyEnd) {
   return age >= 80 ? '80-plus' : age >= 60 ? '60-to-79' : 'below-60';
 }
 
-// ---------------------------------------------------------------------------------------------
-// Presumptive income (44AD, 44ADA)
-// ---------------------------------------------------------------------------------------------
 export function presumptiveIncome({ businesses = [], professions = [], fy }) {
   const onDate = assessmentYearOf(fy)?.fyStart;
   const biz = rules.rule('income-tax.presumptive.business', onDate);
@@ -313,7 +301,6 @@ export function presumptiveIncome({ businesses = [], professions = [], fy }) {
   const turnover = bank + cash + other;
   const digitalRate = biz.value.digitalReceiptsRatePercent;
   const otherRate = biz.value.otherReceiptsRatePercent;
-  // Bank and electronic receipts earn the lower rate; cash and any other mode earn the higher rate.
   const income6 = Math.round((bank * digitalRate) / 100);
   const income8 = Math.round(((cash + other) * otherRate) / 100);
   const income44ad = income6 + income8;
@@ -336,9 +323,6 @@ export function presumptiveIncome({ businesses = [], professions = [], fy }) {
   };
 }
 
-// ---------------------------------------------------------------------------------------------
-// ITR-4 (Sugam)
-// ---------------------------------------------------------------------------------------------
 export function buildItr4(args = {}) {
   const info = assessmentYearOf(args.fy || '2024-25');
   if (!info) return fail('FY_INVALID', { hint: 'Give the financial year as 2024-25.' });
@@ -362,7 +346,6 @@ export function buildItr4(args = {}) {
   if (presume.overBusinessCap) problems.push({ path: 'businesses', message: `Turnover ${presume.turnover} is above the 44AD limit of ${presume.businessCapRupees}; ITR-4 cannot be used.` });
   if (presume.overProfessionCap) problems.push({ path: 'professions', message: `Gross receipts ${presume.receipts} are above the 44ADA limit of ${presume.professionCapRupees}; ITR-4 cannot be used.` });
 
-  // The taxpayer may declare a higher profit than the presumptive minimum, never less (less needs books and an audit).
   const declaredBusiness = args.declaredBusinessProfit == null ? presume.income44ad : rupees(args.declaredBusinessProfit);
   const declaredProfession = args.declaredProfessionProfit == null ? presume.income44ada : rupees(args.declaredProfessionProfit);
   if (declaredBusiness < presume.income44ad) problems.push({ path: 'declaredBusinessProfit', message: `Profit under 44AD cannot be below ${presume.income44ad} in ITR-4. Declaring less needs books of account and a tax audit, so use ITR-3.` });
@@ -542,7 +525,6 @@ export function buildItr4(args = {}) {
   }, checks: itr4Checks({ presume, declaredBusiness, declaredProfession, totalIncome, businesses }) });
 }
 
-// A handful of the CBDT Category A rules for ITR-4 (ids from the ITR-4 rules file) run on the numbers we built.
 function itr4Checks({ presume, declaredBusiness, declaredProfession, totalIncome, businesses }) {
   const found = [];
   const rule = (id, ok, text) => { if (!ok) found.push({ rule: id, category: 'A', text }); };
@@ -555,9 +537,6 @@ function itr4Checks({ presume, declaredBusiness, declaredProfession, totalIncome
   return found;
 }
 
-// ---------------------------------------------------------------------------------------------
-// ITR-3 (business or profession with books of account)
-// ---------------------------------------------------------------------------------------------
 export function buildItr3(args = {}) {
   const info = assessmentYearOf(args.fy || '2024-25');
   if (!info) return fail('FY_INVALID', { hint: 'Give the financial year as 2024-25.' });
@@ -583,7 +562,6 @@ export function buildItr3(args = {}) {
   const profitBeforeTax = incomeOnlyBusiness + creditsOther - expenseTotal - depreciationBooks - interestPaid;
   if (!turnover && !pl.expenses) problems.push({ path: 'profitAndLoss', message: 'Give the profit and loss totals from the books: turnover and expenses at least.' });
 
-  // Tax-computation adjustments from the books profit to business income (Schedule BP).
   const adj = args.adjustments || {};
   const depIT = rupees(adj.depreciationIncomeTax);
   const disallow40A = rupees(adj.disallowed40A);
@@ -592,7 +570,7 @@ export function buildItr3(args = {}) {
   const disallow40 = rupees(adj.disallowed40);
   const otherAdditions = rupees(adj.otherAdditions);
   const otherDeductions = rupees(adj.otherDeductions);
-  const incomeOtherHeads = interestIncome + rentIncome; // credited to P&L but taxed under other heads
+  const incomeOtherHeads = interestIncome + rentIncome;
   const businessBeforeAdj = profitBeforeTax - incomeOtherHeads;
   const additions = depreciationBooks + disallow40A + disallow43B + disallow37 + disallow40 + otherAdditions;
   const deductionsBP = depIT + otherDeductions;
@@ -645,7 +623,6 @@ export function buildItr3(args = {}) {
   const refund = Math.max(0, taxesPaid - totalTaxInterest);
   if (!args.bank?.account) problems.push({ path: 'bank', message: refund > 0 ? 'A refund is due: a bank account in your name, pre-validated on the portal, is needed to receive it.' : 'The return needs at least one bank account in your name, even when no refund is due.' });
 
-  // Balance sheet: each side must add to the same total, so the capital account is the balancing figure when not given.
   const bs = args.balanceSheet || {};
   const fixedAssets = rupees(bs.fixedAssetsNet);
   const inventories = rupees(bs.inventories);
@@ -829,7 +806,6 @@ export function buildItr3(args = {}) {
   return finish({ form: 'ITR-3', itr, schema: skeleton.schema, info, notes, problems, warnings, summary, checks: [] });
 }
 
-// ---------------------------------------------------------------------------------------------
 function finish({ form, itr, schema, info, notes, problems, warnings, summary, checks }) {
   const schemaYear = SCHEMA_AY[form];
   const ayCode = String(info.ayStart);
@@ -861,8 +837,6 @@ function finish({ form, itr, schema, info, notes, problems, warnings, summary, c
   };
 }
 
-// Fills what the caller left out from the books: profit and loss, balance sheet, taxes paid, depreciation, name and PAN.
-// Anything the caller gave explicitly wins over the books.
 function withBooks(state, form, args) {
   const fy = args.fy || '2024-25';
   const figures = booksFigures(state, { fy });
@@ -903,7 +877,6 @@ function withBooks(state, form, args) {
     if (schedule) {
       merged.adjustments = { depreciationIncomeTax: schedule.totalDepreciation, ...(args.adjustments || {}) };
       if (args.balanceSheet?.fixedAssetsNet == null) balanceSheet.fixedAssetsNet = schedule.closingWdv;
-      // Books carry no depreciation line: the income-tax depreciation is charged in the profit and loss too, so it is not allowed twice.
       if (!books.profitAndLoss.depreciationBooks && args.profitAndLoss?.depreciationBooks == null) merged.profitAndLoss.depreciationBooks = schedule.totalDepreciation;
     }
     merged.balanceSheet = balanceSheet;
@@ -940,5 +913,4 @@ export function buildItrReturnWordsInner(data) {
   return lines.join('\n');
 }
 
-// Shared with the individual (ITR-1 and ITR-2) builders.
 export const shared = { skeletonFor, mergeInto, pruneEmpty, personalInfo, bankDetails, taxPayments, pickRegime, ageBandOf, finish, rupees, signed, sum, runTax, DATE_RE };

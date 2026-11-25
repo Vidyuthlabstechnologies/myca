@@ -1,4 +1,3 @@
-// ITR-1 (Sahaj) for a resident individual with salary, one house property and other sources.
 import { shared, chapterViaExtras, viaPatch, assessmentYearOf, interestAndFee } from './itr-return-builder.mjs';
 
 const { skeletonFor, mergeInto, pruneEmpty, personalInfo, bankDetails, taxPayments, pickRegime, ageBandOf, finish, rupees, sum, DATE_RE } = shared;
@@ -8,7 +7,6 @@ function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
 }
 
-// One house property: net annual value, 30% standard deduction, interest, and the loss limit.
 export function houseProperty(input = {}, regime) {
   const type = ['S', 'L', 'D'].includes(input.type) ? input.type : '';
   if (!type) return { type: '', gross: 0, taxPaid: 0, annualValue: 0, standardDeduction: 0, interest: 0, arrears: 0, income: 0, loss: 0 };
@@ -17,7 +15,6 @@ export function houseProperty(input = {}, regime) {
   const interestRaw = rupees(input.interest);
   const arrears = rupees(input.arrearsRent);
   if (type === 'S') {
-    // Self-occupied: no annual value, interest up to Rs 2 lakh in the old regime only.
     const interest = regime === 'old' ? Math.min(interestRaw, 200000) : 0;
     return { type, gross: 0, taxPaid: 0, annualValue: 0, standardDeduction: 0, interest, arrears: 0, income: -interest, loss: interest };
   }
@@ -50,7 +47,6 @@ export function buildItr1(args = {}) {
   if (rupees(args.businessIncome) > 0 || (args.businesses || []).length || (args.professions || []).length) problems.push({ path: 'businesses', message: 'Business or professional income rules out ITR-1. Use ITR-3 or ITR-4.' });
   if (args.capitalGains && Object.values(args.capitalGains).some((value) => Number(value) !== 0)) problems.push({ path: 'capitalGains', message: 'ITR-1 allows only long-term gains under 112A up to Rs 1.25 lakh. Other capital gains need ITR-2.' });
   if (rupees(args.broughtForwardLoss) > 0) problems.push({ path: 'broughtForwardLoss', message: 'A loss brought forward from an earlier year rules out ITR-1. Use ITR-2.' });
-  if (rupees(args.salary?.perquisites) > 0 && false) notes.push('');
 
   const salary = args.salary || {};
   const ageBand = ageBandOf(personal.DOB, info.fyEnd);
@@ -81,10 +77,8 @@ export function buildItr1(args = {}) {
   const gain112a = args.ltcg112A ? Math.max(0, rupees(args.ltcg112A.saleValue) - rupees(args.ltcg112A.cost)) : 0;
   if (gain112a > 125000) problems.push({ path: 'ltcg112A', message: `Long-term gain under 112A of Rs ${gain112a} is above Rs 1.25 lakh. ITR-1 cannot be used; use ITR-2.` });
 
-  // Run the tax once per regime with the house property rule of that regime.
   const runFor = (regime) => {
     const h = houseProperty(args.houseProperty, regime);
-    // New regime: a house property loss cannot be set off against other heads, and ITR-1 cannot carry it forward.
     const hpIncome = regime === 'new' ? Math.max(0, h.income) : Math.max(h.income, -200000);
     return { h, hpIncome };
   };

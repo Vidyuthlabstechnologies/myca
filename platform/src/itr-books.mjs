@@ -1,5 +1,3 @@
-// Reads a financial year's figures out of MyCA's books so the ITR-3 and ITR-4 builder does not need them typed in.
-// Everything comes from posted ledger entries, the invoice receipts, the advance tax register and the TDS credits.
 import { profitAndLoss, balanceSheet } from './statements.mjs';
 import { creditsToDate } from './advance-tax.mjs';
 import { assessmentYearOf } from './itr-return-builder.mjs';

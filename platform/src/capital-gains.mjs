@@ -1,9 +1,6 @@
-// Capital gains for a resident individual or HUF: holding period, grandfathering, the rates that changed on 23 July 2024,
-// the Rs 1.25 lakh section 112A exemption, and set-off of the year's and earlier years' losses.
-// Whole rupees throughout. Scope and open points are in docs/product/INDIA-ITR-BUILDER.md.
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
-const CUTOFF = '2024-07-23'; // transfers on or after this date: new rates and holding periods
+const CUTOFF = '2024-07-23';
 const GRANDFATHER_DATE = '2018-02-01';
 const SPECIFIED_MF_DATE = '2023-04-01';
 const EXEMPT_112A = 125000;
@@ -19,8 +16,6 @@ function monthsHeld(buy, sell) {
   return months;
 }
 
-// Long term when held for more than the period: 12 months for listed securities and equity fund units;
-// 24 months for property, unlisted shares and the rest after 23 July 2024; 36 months for gold, debt fund units and bonds before it.
 export function holdingTest(txn) {
   const after = txn.sellDate >= CUTOFF;
   const listed = txn.kind === 'listed-equity' || txn.kind === 'equity-mf';
@@ -48,11 +43,9 @@ export function classify(txn, index = 0) {
   let cost = num(txn.cost);
   const stt = txn.stt !== false && (txn.kind === 'listed-equity' || txn.kind === 'equity-mf');
   const test = holdingTest(txn);
-  // Specified mutual funds bought on or after 1 April 2023 and unlisted bonds are deemed short term (section 50AA).
   const deemedShort = (txn.kind === 'debt-mf' && txn.buyDate >= SPECIFIED_MF_DATE) || (txn.kind === 'bond' && txn.listed !== true && txn.sellDate >= CUTOFF);
   const longTerm = deemedShort ? false : test.longTerm;
   const notes = [];
-  // Equity bought before 1 Feb 2018: cost is the higher of actual cost and the lower of 31 Jan 2018 value and sale value.
   if (stt && longTerm && txn.buyDate < GRANDFATHER_DATE && txn.fmv31Jan2018 != null) {
     cost = Math.max(cost, Math.min(num(txn.fmv31Jan2018), sale));
   } else if (stt && longTerm && txn.buyDate < GRANDFATHER_DATE) {
@@ -71,7 +64,6 @@ export function classify(txn, index = 0) {
 const SHORT = ['stcg111A_BE', 'stcg111A_AE', 'stcgOther'];
 const LONG = ['ltcg112A_BE', 'ltcg112A_AE', 'ltcgOther_BE', 'ltcgOther_AE'];
 
-// transactions: see classify(); broughtForward: { stcl, ltcl } from earlier years (already within the 8-year limit)
 export function computeCapitalGains({ transactions = [], broughtForward = {} } = {}) {
   const rows = [];
   const problems = [];
@@ -83,7 +75,6 @@ export function computeCapitalGains({ transactions = [], broughtForward = {} } =
   const buckets = Object.fromEntries([...SHORT, ...LONG].map((key) => [key, 0]));
   for (const row of rows) buckets[row.bucket] += row.gain;
 
-  // Property bought before 23 July 2024 and sold after: the lower of 12.5% without indexation and 20% with indexation.
   let indexationChoice = [];
   for (const row of rows) {
     if (row.bucket === 'ltcgOther_AE' && row.kind === 'property' && row.buyDate < CUTOFF) {
@@ -95,7 +86,6 @@ export function computeCapitalGains({ transactions = [], broughtForward = {} } =
         row.indexationChosen = indexed < flat;
         indexationChoice.push({ name: row.name, flatTax: Math.round(flat), indexedTax: Math.round(indexed), chosen: indexed < flat ? 'indexed' : 'flat' });
         if (indexed < flat) {
-          // taxed at 20% on the indexed gain: moved to the 20% bucket
           buckets.ltcgOther_AE -= row.gain;
           buckets.ltcgOther_BE += row.sale - row.indexedCost - row.expenses;
           row.bucket = 'ltcgOther_BE';
@@ -107,34 +97,44 @@ export function computeCapitalGains({ transactions = [], broughtForward = {} } =
 
   const original = { ...buckets };
   const used = { stcl: 0, ltcl: 0, bfStcl: 0, bfLtcl: 0 };
-  // Losses of the year: short-term loss against any gain, long-term loss against long-term gains only.
   const order = {
     short: ['stcgOther', 'stcg111A_AE', 'stcg111A_BE', 'ltcgOther_BE', 'ltcgOther_AE', 'ltcg112A_AE', 'ltcg112A_BE'],
     long: ['ltcgOther_BE', 'ltcgOther_AE', 'ltcg112A_AE', 'ltcg112A_BE'],
   };
-  const pool = (list) => list.reduce((total, key) => total + Math.max(0, buckets[key]), 0);
-  const absorb = (loss, list) => {
+  const lossMatrix = {};
+  const bfSetoff = { short: {}, long: {} };
+  const absorb = (loss, list, record) => {
     let left = loss;
     for (const key of list) {
       if (left <= 0) break;
       const take = Math.min(left, Math.max(0, buckets[key]));
       buckets[key] -= take;
       left -= take;
+      if (take > 0) record[key] = (record[key] || 0) + take;
     }
     return loss - left;
   };
-  const stcl = Math.max(0, -SHORT.reduce((total, key) => total + Math.min(0, buckets[key]), 0));
-  const ltcl = Math.max(0, -LONG.reduce((total, key) => total + Math.min(0, buckets[key]), 0));
+  const negatives = Object.fromEntries([...SHORT, ...LONG].map((key) => [key, Math.max(0, -buckets[key])]));
+  const stcl = SHORT.reduce((total, key) => total + negatives[key], 0);
+  const ltcl = LONG.reduce((total, key) => total + negatives[key], 0);
   for (const key of [...SHORT, ...LONG]) if (buckets[key] < 0) buckets[key] = 0;
-  used.stcl = absorb(stcl, order.short);
-  used.ltcl = absorb(ltcl, order.long);
+  for (const key of SHORT) {
+    if (!negatives[key]) continue;
+    lossMatrix[key] = {};
+    used.stcl += absorb(negatives[key], order.short, lossMatrix[key]);
+  }
+  for (const key of LONG) {
+    if (!negatives[key]) continue;
+    lossMatrix[key] = {};
+    used.ltcl += absorb(negatives[key], order.long, lossMatrix[key]);
+  }
+  const afterYearLosses = { ...buckets };
   const bfShort = Math.max(0, num(broughtForward.stcl));
   const bfLong = Math.max(0, num(broughtForward.ltcl));
-  used.bfStcl = absorb(bfShort, order.short);
-  used.bfLtcl = absorb(bfLong, order.long);
+  used.bfStcl = absorb(bfShort, order.short, bfSetoff.short);
+  used.bfLtcl = absorb(bfLong, order.long, bfSetoff.long);
   const carryForward = { stcl: stcl - used.stcl + bfShort - used.bfStcl, ltcl: ltcl - used.ltcl + bfLong - used.bfLtcl };
 
-  // Section 112A: the first Rs 1.25 lakh of the year's gains is exempt. Applied to the gains taxed at 10% first (the cautious order).
   let exemption = EXEMPT_112A;
   const exempted = {};
   for (const key of ['ltcg112A_BE', 'ltcg112A_AE']) {
@@ -157,6 +157,9 @@ export function computeCapitalGains({ transactions = [], broughtForward = {} } =
     problems,
     rows,
     original,
+    afterYearLosses,
+    lossMatrix,
+    bfSetoff,
     losses: used,
     carryForward,
     exemption112A: EXEMPT_112A - exemption,
