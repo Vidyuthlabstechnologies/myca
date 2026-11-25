@@ -163,6 +163,7 @@ const TOOL_RISK = {
   tax_modules: 'read_only',
   itr_knowledge: 'read_only',
   check_itr_json: 'read_only',
+  build_itr_json: 'read_only',
   tax_plan: 'read_only',
   review_income_tax: 'read_only',
   income_tax_interest: 'read_only',

@@ -1,6 +1,8 @@
 import { IMS_MAX_KEY } from './ims.mjs';
 import { noArgs, tdsProperties, REGISTRATION_ARG, INVOICE_ID, invoiceIdOr } from './tool-schema-parts.mjs';
 
+const ADDRESS_LINE = { type: 'object', additionalProperties: false, properties: { line: { type: 'string', maxLength: 200 }, city: { type: 'string', maxLength: 50 }, stateCode: { type: 'string', maxLength: 2 }, pin: { type: 'string', maxLength: 6 } } };
+
 export const TAX_TOOL_SCHEMAS = {
   provider_doctor: noArgs,
   govt_set_public_key: {
@@ -323,6 +325,50 @@ export const TAX_TOOL_SCHEMAS = {
     additionalProperties: false,
     required: ['json'],
     properties: { json: { type: 'string', minLength: 2, maxLength: 8388608 }, form: { type: 'string', pattern: '^(?:[Ii][Tt][Rr])?\\s*-?\\s*[1-7]$', maxLength: 8 } },
+  },
+  build_itr_json: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['form', 'taxpayer'],
+    properties: {
+      form: { type: 'string', pattern: '^(?:[Ii][Tt][Rr])?\\s*-?\\s*[1-4]$', maxLength: 8 },
+      fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' },
+      regime: { type: 'string', enum: ['new', 'old', 'auto'] },
+      filingDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      returnSection: { type: 'integer', minimum: 11, maximum: 21 },
+      taxpayer: { type: 'object', additionalProperties: false, properties: { name: { type: 'string', maxLength: 75 }, pan: { type: 'string', maxLength: 10 }, dob: { type: 'string', maxLength: 10 }, fatherName: { type: 'string', maxLength: 125 }, employerCategory: { type: 'string', enum: ['CGOV', 'SGOV', 'PSU', 'PE', 'PESG', 'PEPS', 'PEO', 'OTH', 'NA'] }, status: { type: 'string', enum: ['I', 'H', 'F'] }, mobile: { type: 'string', maxLength: 20 }, email: { type: 'string', maxLength: 125 }, address: { type: 'object', additionalProperties: false, properties: { flat: { type: 'string', maxLength: 50 }, locality: { type: 'string', maxLength: 50 }, city: { type: 'string', maxLength: 50 }, stateCode: { type: 'string', maxLength: 2 }, pin: { type: 'string', maxLength: 6 } } } } },
+      businesses: { type: 'array', maxItems: 20, items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string', maxLength: 75 }, code: { type: 'string', maxLength: 5 }, description: { type: 'string', maxLength: 75 }, turnoverBank: { type: 'number' }, turnoverCash: { type: 'number' }, turnoverOther: { type: 'number' } } } },
+      professions: { type: 'array', maxItems: 20, items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string', maxLength: 75 }, code: { type: 'string', maxLength: 5 }, description: { type: 'string', maxLength: 75 }, receiptsBank: { type: 'number' }, receiptsCash: { type: 'number' }, receiptsOther: { type: 'number' } } } },
+      declaredBusinessProfit: { type: 'number', minimum: 0 },
+      declaredProfessionProfit: { type: 'number', minimum: 0 },
+      salary: { type: 'object', additionalProperties: false, properties: { employers: { type: 'array', maxItems: 10, items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string', maxLength: 125 }, nature: { type: 'string', enum: ['CGOV', 'SGOV', 'PSU', 'PE', 'PESG', 'PEPS', 'PEO', 'OTH', 'NA'] }, tan: { type: 'string', maxLength: 10 }, gross: { type: 'number', minimum: 0 }, perquisites: { type: 'number', minimum: 0 }, profitsInLieu: { type: 'number', minimum: 0 }, address: ADDRESS_LINE } } }, hra: { type: 'object', additionalProperties: false, properties: { metro: { type: 'boolean' }, received: { type: 'number', minimum: 0 }, rentPaid: { type: 'number', minimum: 0 }, salaryForHra: { type: 'number', minimum: 0 } } }, entertainmentAllowance: { type: 'number', minimum: 0 }, gross: { type: 'number', minimum: 0 }, perquisites: { type: 'number', minimum: 0 }, profitsInLieu: { type: 'number', minimum: 0 }, professionalTax: { type: 'number', minimum: 0 }, exemptAllowances: { type: 'array', maxItems: 10, items: { type: 'object', additionalProperties: false, properties: { nature: { type: 'string', maxLength: 10 }, amount: { type: 'number', minimum: 0 } } } } } },
+      otherIncome: { type: 'object', additionalProperties: false, properties: { savingsInterest: { type: 'number' }, depositInterest: { type: 'number' }, taxRefundInterest: { type: 'number' }, familyPension: { type: 'number' }, otherInterest: { type: 'number' }, expenses: { type: 'number' }, dividend: { type: 'number' }, dividendByQuarter: { type: 'array', minItems: 5, maxItems: 5, items: { type: 'number' } }, other: { type: 'number' }, otherNature: { type: 'string', maxLength: 125 } } },
+      houseProperties: { type: 'array', maxItems: 20, items: { type: 'object', additionalProperties: false, properties: { type: { type: 'string', enum: ['S', 'L', 'D'] }, rentReceived: { type: 'number', minimum: 0 }, municipalTax: { type: 'number', minimum: 0 }, interest: { type: 'number', minimum: 0 }, arrearsRent: { type: 'number', minimum: 0 }, sharePercent: { type: 'number', minimum: 0, maximum: 100 }, address: ADDRESS_LINE, interestLoans: { type: 'array', maxItems: 10, items: { type: 'object', additionalProperties: false, properties: { from: { type: 'string', enum: ['B', 'I'] }, lender: { type: 'string', maxLength: 125 }, accountNo: { type: 'string', maxLength: 20 }, date: { type: 'string', maxLength: 10 }, amount: { type: 'number', minimum: 0 }, outstanding: { type: 'number', minimum: 0 }, interest: { type: 'number', minimum: 0 } } } } } } },
+      houseProperty: { type: 'object', additionalProperties: false, properties: { netIncome: { type: 'number' }, type: { type: 'string', enum: ['S', 'L', 'D'] }, rentReceived: { type: 'number', minimum: 0 }, municipalTax: { type: 'number', minimum: 0 }, interest: { type: 'number', minimum: 0 }, arrearsRent: { type: 'number', minimum: 0 } } },
+      deductions: { type: 'object', additionalProperties: false, properties: { c80: { type: 'number' }, d80Self: { type: 'number' }, d80Parents: { type: 'number' }, selfSenior: { type: 'boolean' }, parentsSenior: { type: 'boolean' }, nps1B: { type: 'number' }, employerNps: { type: 'number' }, basicSalary: { type: 'number' }, e80: { type: 'number' }, eeb80: { type: 'number' }, g80: { type: 'number' }, gg80: { type: 'number' }, disability80U: { type: 'string', enum: ['normal', 'severe'] }, disability80DD: { type: 'string', enum: ['normal', 'severe'] }, medical80DDB: { type: 'number' } } },
+      taxesPaid: { type: 'object', additionalProperties: false, properties: { tds: { type: 'number' }, tcs: { type: 'number' }, selfAssessment: { type: 'number' }, advanceTax: { type: 'array', maxItems: 12, items: { type: 'object', additionalProperties: false, properties: { date: { type: 'string', maxLength: 10 }, amount: { type: 'number' } } } }, challans: { type: 'array', maxItems: 40, items: { type: 'object', additionalProperties: false, properties: { bsr: { type: 'string', maxLength: 7 }, date: { type: 'string', maxLength: 10 }, serial: { type: 'integer' }, amount: { type: 'number' } } } }, tdsSalary: { type: 'array', maxItems: 20, items: { type: 'object', additionalProperties: false, properties: { tan: { type: 'string', maxLength: 10 }, name: { type: 'string', maxLength: 125 }, income: { type: 'number' }, tds: { type: 'number' } } } }, tdsOther: { type: 'array', maxItems: 60, items: { type: 'object', additionalProperties: false, properties: { tan: { type: 'string', maxLength: 10 }, section: { type: 'string', maxLength: 5 }, gross: { type: 'number' }, tds: { type: 'number' }, head: { type: 'string', enum: ['BP', 'HP', 'OS', 'EI', 'NA'] } } } } } },
+      bank: { type: 'object', additionalProperties: false, properties: { ifsc: { type: 'string', maxLength: 11 }, name: { type: 'string', maxLength: 125 }, account: { type: 'string', maxLength: 20 }, type: { type: 'string', enum: ['SB', 'CA', 'CC', 'OD', 'NRO'] } } },
+      profitAndLoss: { type: 'object', additionalProperties: false, properties: { turnover: { type: 'number' }, otherIncome: { type: 'number' }, interestIncome: { type: 'number' }, rentIncome: { type: 'number' }, expenses: { type: 'number' }, depreciationBooks: { type: 'number' }, interestExpense: { type: 'number' } } },
+      adjustments: { type: 'object', additionalProperties: false, properties: { depreciationIncomeTax: { type: 'number' }, disallowed37: { type: 'number' }, disallowed40: { type: 'number' }, disallowed40A: { type: 'number' }, disallowed43B: { type: 'number' }, otherAdditions: { type: 'number' }, otherDeductions: { type: 'number' } } },
+      balanceSheet: { type: 'object', additionalProperties: false, properties: { capital: { type: 'number' }, fixedAssetsNet: { type: 'number' }, inventories: { type: 'number' }, debtors: { type: 'number' }, cash: { type: 'number' }, bank: { type: 'number' }, loansAndAdvances: { type: 'number' }, otherCurrentAssets: { type: 'number' }, securedLoans: { type: 'number' }, unsecuredLoans: { type: 'number' }, creditors: { type: 'number' }, otherLiabilities: { type: 'number' }, provisions: { type: 'number' } } },
+      taxAudit: { type: 'boolean' },
+      broughtForwardBusinessLoss: { type: 'number', minimum: 0 },
+      capitalGains: { type: 'object', additionalProperties: false, properties: { shortTerm: { type: 'number' }, longTerm: { type: 'number' }, transactions: { type: 'array', maxItems: 2000, items: { type: 'object', additionalProperties: false, required: ['kind', 'buyDate', 'sellDate'], properties: { name: { type: 'string', maxLength: 125 }, kind: { type: 'string', enum: ['listed-equity', 'equity-mf', 'property', 'unlisted-shares', 'gold', 'debt-mf', 'bond', 'other'] }, isin: { type: 'string', maxLength: 12 }, units: { type: 'number', minimum: 0 }, buyDate: { type: 'string', maxLength: 10 }, sellDate: { type: 'string', maxLength: 10 }, saleValue: { type: 'number', minimum: 0 }, cost: { type: 'number', minimum: 0 }, transferExpenses: { type: 'number', minimum: 0 }, improvementCost: { type: 'number', minimum: 0 }, fmv31Jan2018: { type: 'number', minimum: 0 }, indexedCost: { type: 'number', minimum: 0 }, stt: { type: 'boolean' }, listed: { type: 'boolean' } } } } } },
+      broughtForward: { type: 'object', additionalProperties: false, properties: { shortTermCapitalLoss: { type: 'number', minimum: 0 }, longTermCapitalLoss: { type: 'number', minimum: 0 }, houseProperty: { type: 'number', minimum: 0 } } },
+      residentialStatus: { type: 'string', enum: ['RES', 'NRI', 'NOR'] },
+      foreignAssets: { type: 'boolean' },
+      director: { type: 'boolean' },
+      unlistedShares: { type: 'boolean' },
+      fromBooks: { type: 'boolean' },
+      ltcg112A: { type: 'object', additionalProperties: false, properties: { saleValue: { type: 'number', minimum: 0 }, cost: { type: 'number', minimum: 0 } } },
+      relief89: { type: 'number', minimum: 0 },
+      agriIncome: { type: 'number', minimum: 0 },
+      businessIncome: { type: 'number' },
+      broughtForwardLoss: { type: 'number', minimum: 0 },
+      incomeKind: { type: 'string', enum: ['business', 'profession'] },
+      businessCode: { type: 'string', maxLength: 5 },
+      fixedAssets: { type: 'array', maxItems: 20, items: { type: 'object', additionalProperties: false, properties: { block: { type: 'string', maxLength: 40 }, openingWdv: { type: 'number', minimum: 0 }, sales: { type: 'number', minimum: 0 }, additions: { type: 'array', maxItems: 100, items: { type: 'object', additionalProperties: false, properties: { date: { type: 'string', maxLength: 10 }, amount: { type: 'number', minimum: 0 } } } } } } },
+    },
   },
   tax_plan: {
     type: 'object',
