@@ -10,7 +10,6 @@ import 'package:myca/cloud/cloud_session.dart';
 import 'package:myca/cloud/google_auth.dart';
 import 'package:myca/cloud/token_store.dart';
 import 'package:myca/format.dart';
-import 'package:myca/main.dart' show TestServerBanner;
 import 'package:myca/my/my_codes.dart';
 import 'package:myca/my/my_tools.dart';
 import 'package:myca/my/my_turnover.dart';
@@ -218,8 +217,6 @@ void main() {
         (_) => Scaffold(
           body: Column(
             children: [
-              const TestServerBanner(),
-              const TestServerBanner(sandbox: true),
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.all(16),

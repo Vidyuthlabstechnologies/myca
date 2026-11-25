@@ -769,8 +769,6 @@ const bengali = <String, String>{
   'Overdue by {n} days': '{n} দিন পেরিয়ে গেছে',
   'Statutory rules': 'আইনের নিয়ম',
   'Needs an update: {family}': 'আপডেট দরকার: {family}',
-  'Sandbox mode: nothing is filed with the government yet': 'স্যান্ডবক্স মোড: সরকারের কাছে কিছুই ফাইল হচ্ছে না',
-  'Test environment: nothing is filed, paid or sent': 'টেস্ট এনভায়রনমেন্ট: কিছুই ফাইল, পেমেন্ট বা পাঠানো হচ্ছে না',
   'MyCA is out of reach': 'MyCA-র সাথে যোগাযোগ হচ্ছে না',
   'Due today. Open MyCA to deal with it.': 'আজই শেষ দিন। MyCA খুলে কাজটা সেরে ফেলুন।',
   'What is due': 'কী জমা দিতে হবে',

@@ -61,7 +61,7 @@ test('the committed vectors are what the engine computes today', () => {
   assert.deepEqual(built, committed);
   assert.equal(committed.vectors.length, 300);
   const rates = new Set(committed.vectors.flatMap((vector) => vector.lines.map((line) => line.gstRate)));
-  for (const rate of [0, 0.1, 0.25, 1, 1.5, 3, 5, 6, 12, 18, 28, 40]) assert.ok(rates.has(rate), `rate ${rate} is covered`);
+  for (const rate of [0, 0.1, 0.25, 1.5, 3, 5, 7.5, 12, 18, 40]) assert.ok(rates.has(rate), `rate ${rate} is covered`);
   assert.ok(committed.vectors.some((vector) => vector.partyState === vector.supplierState));
   assert.ok(committed.vectors.some((vector) => vector.partyState !== vector.supplierState));
   assert.ok(committed.vectors.some((vector) => vector.partyGstin));

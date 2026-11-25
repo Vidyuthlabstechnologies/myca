@@ -769,8 +769,6 @@ const marathi = <String, String>{
   'Overdue by {n} days': 'मुदत उलटून {n} दिवस',
   'Statutory rules': 'कायद्याचे नियम',
   'Needs an update: {family}': 'अपडेट हवं: {family}',
-  'Sandbox mode: nothing is filed with the government yet': 'सँडबॉक्स मोड: अजून सरकारकडे काहीही फाइल होत नाही',
-  'Test environment: nothing is filed, paid or sent': 'टेस्ट वातावरण: काहीही फाइल, भरलं किंवा पाठवलं जात नाही',
   'MyCA is out of reach': 'MyCA शी संपर्क होत नाही',
   'Due today. Open MyCA to deal with it.': 'आज देय. हे पूर्ण करायला MyCA उघडा.',
   'What is due': 'काय देय आहे',

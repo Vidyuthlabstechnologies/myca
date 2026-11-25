@@ -769,8 +769,6 @@ const telugu = <String, String>{
   'Overdue by {n} days': '{n} రోజులుగా బాకీ',
   'Statutory rules': 'చట్టపరమైన రూల్స్',
   'Needs an update: {family}': 'అప్‌డేట్ కావాలి: {family}',
-  'Sandbox mode: nothing is filed with the government yet': 'శాండ్‌బాక్స్ మోడ్: ఇంకా ప్రభుత్వానికి ఏదీ ఫైల్ కాదు',
-  'Test environment: nothing is filed, paid or sent': 'టెస్ట్ సర్వర్: ఏదీ ఫైల్, పేమెంట్ లేదా పంపడం జరగదు',
   'MyCA is out of reach': 'MyCAకి కనెక్ట్ కాలేకపోతున్నాం',
   'Due today. Open MyCA to deal with it.': 'ఈరోజే గడువు. చూసుకోవడానికి MyCA తెరవండి.',
   'What is due': 'ఏది కట్టాలి',

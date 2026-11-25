@@ -324,14 +324,6 @@ void main() {
     }
   });
 
-  testWidgets('the sandbox banner shows only when the server is not on live providers', (tester) async {
-    await pumpApp(tester, await hostedOwner(providerMode: 'test'));
-    expect(find.byKey(const Key('test-server-banner')), findsOneWidget);
-    await tester.pumpWidget(MycaApp(key: UniqueKey(), state: await hostedOwner(providerMode: 'live')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('test-server-banner')), findsNothing);
-  });
-
   test('amounts use Indian grouping and plan dates read as day month year', () {
     expect(rupees(100000), '₹1,00,000.00');
     expect(rupees(12345678.5), '₹1,23,45,678.50');

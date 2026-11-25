@@ -238,21 +238,7 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
                 formatLanguage = indiaLang(context);
                 return Stack(
                 children: [
-                  if (widget.state.testServer)
-                    Column(
-                      children: [
-                        TestServerBanner(sandbox: widget.state.sandboxServer),
-                        Expanded(
-                          child: MediaQuery.removePadding(
-                            context: context,
-                            removeTop: true,
-                            child: _Readable(us: widget.state.edition == 'US', child: child ?? const SizedBox.shrink()),
-                          ),
-                        ),
-                      ],
-                    )
-                  else if (child != null)
-                    _Readable(us: widget.state.edition == 'US', child: child),
+                  if (child != null) _Readable(us: widget.state.edition == 'US', child: child),
                   if (_tour.coaching && !widget.state.locked) TourCoach(tour: _tour),
                   if (widget.state.locked) AppScope(state: widget.state, child: const LockScreen()),
                 ],
@@ -336,35 +322,6 @@ class _Readable extends StatelessWidget {
           child: MediaQuery(
             data: media.copyWith(size: Size(widest, media.size.height)),
             child: child,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class TestServerBanner extends StatelessWidget {
-  const TestServerBanner({super.key, this.sandbox = false});
-
-  final bool sandbox;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      key: const Key('test-server-banner'),
-      color: Palette.warn,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: Text(
-            indiaLang(context) != 'en'
-                ? (sandbox ? inText(context, 'Sandbox mode: nothing is filed with the government yet') : inText(context, 'Test environment: nothing is filed, paid or sent'))
-                : sandbox
-                ? myMalayOr(context, UaeStrings.of(context).serverBanner(true), 'Mod kotak pasir: belum ada apa-apa difailkan kepada kerajaan')
-                : myMalayOr(context, UaeStrings.of(context).serverBanner(false), 'Persekitaran ujian: tiada apa difailkan, dibayar atau dihantar'),
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Palette.onInk, fontWeight: FontWeight.w600),
           ),
         ),
       ),

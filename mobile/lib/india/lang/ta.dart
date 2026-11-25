@@ -769,8 +769,6 @@ const tamil = <String, String>{
   'Overdue by {n} days': '{n} நாட்கள் தாமதம்',
   'Statutory rules': 'சட்ட விதிகள்',
   'Needs an update: {family}': 'அப்டேட் தேவை: {family}',
-  'Sandbox mode: nothing is filed with the government yet': 'சாண்ட்பாக்ஸ் மோட்: இன்னும் அரசிடம் எதுவும் ஃபைல் ஆகவில்லை',
-  'Test environment: nothing is filed, paid or sent': 'டெஸ்ட் சூழல்: எதுவும் ஃபைல், கட்டணம் அல்லது அனுப்புதல் நடக்காது',
   'MyCA is out of reach': 'MyCA-வை அணுக முடியவில்லை',
   'Due today. Open MyCA to deal with it.': 'இன்று கடைசி தேதி. கவனிக்க MyCA-வைத் திறங்கள்.',
   'What is due': 'கட்ட வேண்டியவை',

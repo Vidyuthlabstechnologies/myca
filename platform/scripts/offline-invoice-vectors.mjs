@@ -8,7 +8,7 @@ export const VECTOR_COUNT = 300;
 export const VECTOR_DATE = '2026-06-15';
 export const VECTORS_PATH = fileURLToPath(new URL('../test/fixtures/offline-invoice-vectors.json', import.meta.url));
 
-const GST_RATES = [0, 0.1, 0.25, 1, 1.5, 3, 5, 6, 12, 18, 28, 40];
+const GST_RATES = [0, 0.1, 0.25, 1.5, 3, 5, 7.5, 12, 18, 40];
 const SUPPLIER_STATES = ['27', '29', '07', '33', '09', '24', '19', '36'];
 const PARTY_STATES = ['27', '29', '07', '33', '09', '24', '19', '36', '01', '10', '32', '38'];
 const AWKWARD_RATES = [0.01, 0.05, 0.5, 0.99, 1.005, 2.345, 10.005, 33.33, 99.995, 101.01, 999.99, 1234.565, 9999.99, 99999.99];
