@@ -85,7 +85,8 @@ function pruneEmpty(body, paths) {
 
 function mergeInto(target, patch) {
   for (const [key, value] of Object.entries(patch)) {
-    if (value && typeof value === 'object' && !Array.isArray(value) && target[key] && typeof target[key] === 'object' && !Array.isArray(target[key])) {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+    if (value && typeof value === 'object' && !Array.isArray(value) && Object.hasOwn(target, key) && target[key] && typeof target[key] === 'object' && !Array.isArray(target[key])) {
       mergeInto(target[key], value);
     } else {
       target[key] = value;
