@@ -1,5 +1,7 @@
 # Roadmap
 
+> **Original October 2026 roadmap.** Current open work is in [`../HANDOVER.md`](../HANDOVER.md) section 12.
+
 | | |
 |---|---|
 | Version | 1.0, 6 October 2026 |

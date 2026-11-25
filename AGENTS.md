@@ -1,20 +1,22 @@
 # AGENTS.md — MyCA
 
-Guidance for AI coding agents working in this repository. Read this first; also read
-`README.md` (architecture) and `STATUS.md` (what exists).
+Guidance for AI coding agents working in this repository. Read this file first, then
+[`docs/HANDOVER.md`](docs/HANDOVER.md), which is the full operating manual: architecture, every country
+app, toolchain setup, build, test, deploy, release, what only the owner can do, and the open work.
 
 ## What this project is
 
-MyCA is a **Windows-first, local-only** accounting and compliance workbench for Indian
-SMBs and CA firms. A single local server (`platform/src/server.mjs`) serves an Electron
-renderer over `127.0.0.1`. The **tax invoice is the source of truth**; the trial balance
-and GST returns are projections of posted invoices.
+MyCA is a chat-first accounting and tax product sold as **one app per country** (India, US, UK,
+UAE, Malaysia; Canada and Australia planned). The owner talks to the app; the app proposes an
+entry, shows a preview, and posts it only after the owner confirms. The **tax invoice is the
+source of truth**; the trial balance and returns are projections of posted entries.
 
-The Windows app is local-only, and that is a deliberate privacy/data-residency posture.
-The one explicit exception (owner decision, 2026-10-06) is the hosted service for the
-Android app, specified in `docs/superpowers/specs/2026-10-06-cloud-backend-design.md`.
-It will live in its own `cloud/` package, which may depend on the Postgres driver;
-`platform/` stays dependency-free. Do not host anything outside that spec.
+One engine, two hosts (ADR-0006): the dependency-free `platform/src` engines run inside the
+hosted API (`cloud/`, Cloud Run + Cloud SQL) for the Flutter apps in `mobile/`, and inside a local
+server for the older Windows desktop app (`platform/desktop/`). Each country's data stays in that
+country: one deployment per country. The hosted service was an explicit owner decision
+(2026-10-06); `platform/` stays dependency-free and `cloud/` is the only package that may use a
+database driver.
 
 ## Golden rules
 
@@ -52,6 +54,25 @@ It will live in its own `cloud/` package, which may depend on the Postgres drive
 | `deploy/` | Marketing/research static site — not the product. |
 | `vendor/` | Unused reference clones. **Never import from here** (licences). |
 
+## Repository map
+
+| Path | Notes |
+|---|---|
+| `platform/src/` | All runtime engines and tools. Product logic goes here. Zero runtime dependencies. |
+| `platform/src/countries/` | One pack file per country (`india.mjs`, `united-states.mjs`, ...) plus one folder per country engine (`united-states/`, `united-kingdom/`, `uae/`, `malaysia/`), the shared `kit/`, `knowledge/` (sourced per-country facts) and `manifests.mjs`. |
+| `cloud/` | Hosted API: accounts, sign-in, tenancy, billing, jobs, a per-request transaction around the engines. One dependency (`pg`). `cloud/README.md` holds the full environment-variable table. |
+| `mobile/` | Flutter app. Five Android flavors (`india`, `us`, `my`, `uk`, `uae`), iOS and Windows shells. Holds no tax logic: every figure comes from the server. |
+| `design/` | Design tokens (Style Dictionary), generated CSS/JS/Dart, the `myca_design` Flutter package. Edit tokens, then `npm run build` in `design/`. |
+| `platform/desktop/` | Electron shell and offline renderer for the Windows app. `preload.cjs` exposes only `window.myca.saveInvoicePdf`; keep it narrow. |
+| `sprints/sprint-1..6/`, `sprints/statutory-rules` | **Frozen engines** (ledger, GST, TDS, payroll, rules). Read-only unless a task targets them; statutory rule records are the exception (see the rules-watch section of the runbook). |
+| `infra/` | Terraform. `infra/bootstrap` is the one-time owner step. `infra/cloud` is production on Google Cloud (one `countries/*.tfvars` per country). `infra/aws` is the retired AWS deployment: do not build on it. |
+| `deploy/` | The public website (`deploy/public`), its nginx and Cloudflare Pages config, SEO and QA tests. |
+| `email-relay/` | Cloudflare Worker that sends and receives the app's email. |
+| `scripts/` | `check-all.mjs` (every suite), `countries.mjs` (country table and consistency checks), `new-country.mjs`, `rules-watch.mjs`, `play-upload.mjs`, sandbox helpers. |
+| `.github/workflows/` | CI, nightly, CodeQL, Cloud Run deploys, site deploys, Terraform, Android/iOS/Windows builds. |
+| `docs/` | Product, architecture, compliance, release, operations, handover. Index in `docs/HANDOVER.md` section 14. |
+| `vendor/` | Unused reference clones. **Never import from here** (licences). |
+
 ## Countries
 
 Everything that differs by country (tools, prices, filing routes, data region, app flavor, tax
@@ -69,36 +90,26 @@ slice of the book. `node scripts/new-country.mjs` starts a new country.
 
 ## Commands
 
-```bash
-cd platform
-npm test                 # platform suite (must stay green)
-npm run dev              # http://127.0.0.1:4780
-npm start                # Electron (requires: npm i)
-npm run pack             # Windows installer (requires electron-builder)
-
-# a single sprint engine
-cd sprints/sprint-3-gst-recon && npm test
-```
-
-One command runs every suite in the repository (platform, each sprint, the hosted API
-and the Android app) and prints a pass/fail table:
+Node 22 is required (Node 20 cannot expand the quoted test glob). Flutter is pinned to **3.44.9**
+(CI clones that tag). There is no linter or typechecker for the Node packages; the test suites are the
+gate, and `flutter analyze` is the gate for Dart.
 
 ```bash
-node scripts/check-all.mjs            # everything
-node scripts/check-all.mjs platform   # or any of: platform sprints cloud email-relay listing design mobile
-node scripts/rules-watch.mjs          # gaps and records ending soon; exit 1 when a person is needed
+node scripts/check-all.mjs                 # every suite, prints a pass/fail table
+node scripts/check-all.mjs platform        # or any of: platform sprints cloud email-relay listing design mobile
+node scripts/countries.mjs                 # country table; exits 1 on any pack, manifest or knowledge problem
+node scripts/rules-watch.mjs               # statutory gaps and records ending soon; exit 1 when a person is needed
+
+cd platform && npm test                    # platform suite
+cd platform && npm run dev                 # local server on http://127.0.0.1:4780
+cd cloud && npm test                       # needs Postgres: MYCA_TEST_DATABASE_URL=postgres://myca@127.0.0.1:5432/postgres
+cd mobile && flutter analyze && flutter test
+cd design && npm run build && npm test
 ```
 
-GitHub Actions runs on every push and pull request (the repository lives in the
-Vidyuthlabstechnologies enterprise organization since 2026-10-13); this command is still the
-local gate: run it before every push and say in the commit what it reported. The hosted API suite is skipped, and reported as skipped, when no Postgres is
-reachable.
-
-There is **no linter or typechecker**. The `npm test` suites are the gate. Run the
-platform suite plus any sprint suite you touched before committing.
-
-Test script note: suites use `node --test "test/*.test.mjs"` (quoted glob). This needs
-**Node 22**; Node 20 cannot expand the glob. CI pins Node 22 for this reason.
+The hosted API suite is skipped, and reported as skipped, when no Postgres is reachable. Run
+`node scripts/check-all.mjs` before every push and say in the commit and PR what it reported.
+Fresh machines: `docs/HANDOVER.md` section 4 lists every install step.
 
 ## Non-obvious invariants (read before editing)
 
@@ -181,7 +192,7 @@ Test script note: suites use `node --test "test/*.test.mjs"` (quoted glob). This
 5. Route it from `intent.mjs` only if it is safe to trigger from chat.
 6. Add regression tests to `platform/test/edges.test.mjs` (or a new `*.test.mjs`).
 7. Run `npm test` in `platform` (and any touched sprint).
-8. Update `STATUS.md` if the built/not-built picture changed.
+8. Update `docs/HANDOVER.md` (open work, section 12) if the built/not-built picture changed.
 
 ## Style
 
@@ -194,22 +205,29 @@ Test script note: suites use `node --test "test/*.test.mjs"` (quoted glob). This
 
 ## Git & PRs
 
-- `main` is the deploy branch; CI runs on every push.
-- Only commit when the user asks. Stage intended files; never commit `.env*`,
-  `node_modules/`, `.terraform/`, `*.tfstate`, or anything under `%APPDATA%`.
-- Keep commit messages descriptive; note what was verified.
+- **Branches.** Base every branch on `develop` and open the PR into `develop`. `main` is the
+  production branch: a push to `main` deploys the API and the website on its own. Only the owner (or
+  an agent the owner has told to release) merges `develop` into `main`, through a PR, after the
+  release checks in `docs/HANDOVER.md` section 9. Never push to `main` or `develop` directly.
+- Dependabot PRs target `develop`. Do not bump the Node base image past 22 or Flutter past 3.44.9
+  without changing CI in the same PR.
+- Commit only when asked. Stage intended files; never commit `.env*`, `node_modules/`, `.terraform/`,
+  `*.tfstate`, keystores, `key.properties`, or anything under `%APPDATA%`.
+- Keep commit messages descriptive and say what was verified. Rebase or merge `develop` before you
+  merge; other agents work in parallel.
+- Several agents share this repository. Before starting an issue, check open PRs and the
+  `claude/*` branches for the same work.
 
 ## Where to look for context
 
 | Question | Doc |
 |---|---|
-| What must the product do? | `docs/product/PRD.md` (the owner's PRD as numbered requirements) and `docs/product/features/` |
-| How does the system fit together, and why? | `docs/architecture/ARCHITECTURE.md`, `DATA-MODEL.md`, `SECURITY-AND-PRIVACY.md`, `decisions/` |
-| What comes next? | `docs/product/ROADMAP.md` |
-| What is built / missing? | `STATUS.md` |
-| What API surfaces must the desktop product have? | `platform/PRD.md` (REQ-CA-001…015) |
-| How should provider adapters behave? | `platform/INTEGRATION-RECONCILIATION.md` |
-| How do I demo/review the product? | `platform/CA-REVIEW.md` |
-| How do I make an integration live? | `platform/INTEGRATIONS-SETUP.md` |
-| How is it deployed/released? | `DEPLOYMENT.md` |
+| How do I set up, build, test, deploy, release? What is owner-only? What is open? | `docs/HANDOVER.md` |
+| What must the product do? | `docs/product/PRD.md`, `docs/product/features/` |
+| How does the system fit together, and why? | `docs/architecture/` (`ARCHITECTURE.md`, `COUNTRY-PACKS.md`, `COUNTRY-ENGINES.md`, `DATA-MODEL.md`, `SECURITY-AND-PRIVACY.md`, `decisions/`) |
+| Environment variables of the hosted API | `cloud/README.md` |
+| How is it deployed and released? | `DEPLOYMENT.md`, `docs/release/GO-LIVE.md`, `docs/release/PLAY-CONSOLE-STEPS.md`, `docs/operations/RUNBOOK.md` |
+| What is competitive or missing? | `docs/product/COMPETITIVE-GAP-MATRIX.md`, `docs/product/ROADMAP.md`, `docs/handover/OWNER-CHECKLIST.md` |
+| Per-country compliance and launch | `docs/compliance/<in|us|uk|my>/`, `docs/uae/`, `platform/src/countries/knowledge/` |
 | Engine fixtures and expected numbers | `sprints/*/BENCHMARK.md` |
+| Design language | `docs/design/DESIGN-LANGUAGE.md` |

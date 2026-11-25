@@ -1,5 +1,7 @@
 # Developer handover
 
+> **Historical (October 2026).** The current manual is [`../HANDOVER.md`](../HANDOVER.md).
+
 | | |
 |---|---|
 | Product | MyCA (working title Taxmeow): a chat-first tax and accounting app for Indian business owners |
