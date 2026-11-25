@@ -68,7 +68,11 @@ export function computeIncomeTax(input = {}) {
       section80DPaise = capped(claims.healthInsuranceSelfAndFamilyPaise, groupCap(claims.selfAndFamilyIncludesSenior === true))
         + capped(claims.healthInsuranceParentsPaise, groupCap(claims.parentsIncludeSenior === true));
     }
-    const deductions = Math.min(section80CPaise + section80DPaise, grossTotalIncomePaise);
+    // Other Chapter VI-A deductions are capped by the caller (80CCD(1B), 80E, 80G, 80TTA and the like) and count in the old regime only.
+    // The employer's NPS contribution under 80CCD(2) counts in both regimes.
+    const otherViaPaise = regime === 'old' ? Math.max(0, Number(claims.otherChapterViaPaise) || 0) : 0;
+    const employerNpsPaise = Math.max(0, Number(claims.employerNpsPaise) || 0);
+    const deductions = Math.min(section80CPaise + section80DPaise + otherViaPaise + employerNpsPaise, grossTotalIncomePaise);
     const totalIncomePaise = roundToTen(grossTotalIncomePaise - deductions, need('income-tax.rounding.total-income', onDate));
     const slabs = need(regime === 'new' ? 'income-tax.new-regime.slabs' : `income-tax.old-regime.slabs.${ageBand}`, onDate);
     const slabTaxPaise = slabTax(totalIncomePaise, slabs);
@@ -105,6 +109,9 @@ export function computeIncomeTax(input = {}) {
       standardDeductionPaise,
       section80CPaise,
       section80DPaise,
+      otherChapterViaPaise: otherViaPaise,
+      employerNpsPaise,
+      deductionsPaise: deductions,
       totalIncomePaise,
       slabTaxPaise,
       rebatePaise,

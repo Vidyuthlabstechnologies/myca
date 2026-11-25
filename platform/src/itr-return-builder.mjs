@@ -8,7 +8,7 @@ import { booksFigures } from './itr-books.mjs';
 import { depreciationSchedule } from './it-depreciation.mjs';
 
 const PAISE = 100;
-const SCHEMA_AY = { 'ITR-3': '2025', 'ITR-4': '2025' };
+const SCHEMA_AY = { 'ITR-1': '2025', 'ITR-2': '2025', 'ITR-3': '2025', 'ITR-4': '2025' };
 const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const STATE_CODES = new Set(['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '99']);
@@ -216,8 +216,48 @@ function readRegime(args) {
   return regime;
 }
 
-function runTax({ fy, regime, salary, otherIncome, businessIncome, deductions, ageBand }) {
+// Chapter VI-A deductions other than 80C and 80D, each held to its statutory cap.
+// Returns whole rupees per section and the total that counts in the old regime; 80CCD(2) counts in both regimes.
+export function chapterViaExtras(deductions = {}, { ageBand = 'below-60', savingsInterest = 0, depositInterest = 0 } = {}) {
+  const senior = ageBand !== 'below-60';
+  const cap = (value, max) => Math.max(0, Math.min(rupees(value), max));
+  const sections = {};
+  sections.Section80CCD1B = cap(deductions.nps1B, 50000);
+  sections.Section80E = rupees(deductions.e80);
+  sections.Section80EEB = cap(deductions.eeb80, 150000);
+  sections.Section80G = rupees(deductions.g80);
+  sections.Section80GG = cap(deductions.gg80, 60000);
+  const interestBase = rupees(savingsInterest);
+  sections.Section80TTA = senior ? 0 : cap(Math.min(interestBase, 10000), 10000);
+  sections.Section80TTB = senior ? cap(Math.min(interestBase + rupees(depositInterest), 50000), 50000) : 0;
+  const disabilityCap = (kind) => (kind === 'severe' ? 125000 : kind === 'normal' ? 75000 : 0);
+  sections.Section80U = disabilityCap(deductions.disability80U);
+  sections.Section80DD = disabilityCap(deductions.disability80DD);
+  sections.Section80DDB = cap(deductions.medical80DDB, senior ? 100000 : 40000);
+  const totalOld = Object.entries(sections).filter(([key]) => key !== 'Section80EEB').reduce((total, [, value]) => total + value, 0) + sections.Section80EEB;
+  const basic = rupees(deductions.basicSalary);
+  const employerRaw = rupees(deductions.employerNps);
+  const employerCapNew = basic ? Math.floor(basic * 0.14) : employerRaw;
+  const employerCapOld = basic ? Math.floor(basic * 0.10) : employerRaw;
+  return { sections, totalOld, employerNpsNew: Math.min(employerRaw, employerCapNew), employerNpsOld: Math.min(employerRaw, employerCapOld) };
+}
+
+// The Chapter VI-A block of the return: sections that count, and the total after the cap at gross total income.
+export function viaPatch(calc, extras) {
+  const old = calc.otherChapterViaPaise > 0 || calc.section80CPaise > 0 || calc.section80DPaise > 0;
+  const sections = {};
+  if (calc.section80CPaise) sections.Section80C = calc.section80CPaise / PAISE;
+  if (calc.section80DPaise) sections.Section80D = calc.section80DPaise / PAISE;
+  if (old) for (const [key, value] of Object.entries(extras.sections)) if (value) sections[key] = value;
+  if (calc.employerNpsPaise) sections.Section80CCDEmployer = calc.employerNpsPaise / PAISE;
+  const total = calc.deductionsPaise / PAISE;
+  return { block: { ...sections, TotalChapVIADeductions: total }, total };
+}
+
+function runTax({ fy, regime, salary, otherIncome, businessIncome, deductions, ageBand, extras }) {
   const claims = {
+    otherChapterViaPaise: (extras?.totalOld || 0) * PAISE,
+    employerNpsPaise: (regime === 'old' ? extras?.employerNpsOld || 0 : extras?.employerNpsNew || 0) * PAISE,
     section80CPaise: rupees(deductions.c80) * PAISE,
     healthInsuranceSelfAndFamilyPaise: rupees(deductions.d80Self) * PAISE,
     healthInsuranceParentsPaise: rupees(deductions.d80Parents) * PAISE,
@@ -342,7 +382,8 @@ export function buildItr4(args = {}) {
   const ageBand = ageBandOf(personal.DOB, info.fyEnd);
   const businessIncome = declaredBusiness + declaredProfession;
   const deductions = args.deductions || {};
-  const tax = pickRegime(args, { fy: info.fy, salary: salaryGross, otherIncome: otherIncome + housePropertyIncome, businessIncome, deductions, ageBand });
+  const extras = chapterViaExtras(deductions, { ageBand, savingsInterest: args.otherIncome?.savingsInterest, depositInterest: args.otherIncome?.depositInterest });
+  const tax = pickRegime(args, { fy: info.fy, salary: salaryGross, otherIncome: otherIncome + housePropertyIncome, businessIncome, deductions, ageBand, extras });
   if (tax.calc.error) return fail(tax.calc.error, { fy: info.fy, hint: 'No income-tax rules are recorded for this financial year; nothing was computed.' });
   const calc = tax.calc;
   const old = tax.regime === 'old';
@@ -352,14 +393,15 @@ export function buildItr4(args = {}) {
   const incomeFromSalary = Math.max(0, netSalary - standardDeduction);
   const grossTotal = calc.grossTotalIncomePaise / PAISE;
   const totalIncome = calc.totalIncomePaise / PAISE;
-  const chapterVia = old ? calc.section80CPaise / PAISE + calc.section80DPaise / PAISE : 0;
+  const via = viaPatch(calc, extras);
+  const chapterVia = via.total;
   if (!old && (rupees(deductions.c80) || rupees(deductions.d80Self) || rupees(deductions.d80Parents))) {
     warnings.push('Deductions under 80C and 80D are not allowed in the new tax regime, so they were not claimed. Choose the old regime if they should count.');
   }
   const taxPayable = calc.taxPayablePaise / PAISE;
   const slabTax = calc.slabTaxPaise / PAISE;
   const rebate = calc.rebatePaise / PAISE;
-  const cess = calc.cessPaise / PAISE;
+  const cess = taxPayable - (slabTax - rebate);
   if (calc.surchargePaise > 0) problems.push({ path: 'income', message: 'Total income is above Rs 50 lakh, where ITR-4 is not allowed. Use ITR-3.' });
   if (totalIncome > 5000000) problems.push({ path: 'income', message: `Total income ${totalIncome} is above Rs 50 lakh; ITR-4 cannot be used.` });
 
@@ -382,7 +424,7 @@ export function buildItr4(args = {}) {
   const taxesPaid = advanceTotal + tds + tcs + selfAssessment;
   const balance = Math.max(0, totalTaxInterest - taxesPaid);
   const refund = Math.max(0, taxesPaid - totalTaxInterest);
-  if (refund > 0 && !args.bank?.account) problems.push({ path: 'bank', message: 'A refund is due: a bank account in your name, pre-validated on the portal, is needed to receive it.' });
+  if (!args.bank?.account) problems.push({ path: 'bank', message: refund > 0 ? 'A refund is due: a bank account in your name, pre-validated on the portal, is needed to receive it.' : 'The return needs at least one bank account in your name, even when no refund is due.' });
 
   const patch = {
     CreationInfo: {
@@ -420,8 +462,8 @@ export function buildItr4(args = {}) {
       IncomeOthSrc: otherIncome,
       GrossTotIncome: grossTotal,
       GrossTotIncomeIncLTCG112A: grossTotal,
-      UsrDeductUndChapVIA: chapterVia === 0 ? {} : { Section80C: calc.section80CPaise / PAISE, Section80D: calc.section80DPaise / PAISE, TotalChapVIADeductions: chapterVia },
-      DeductUndChapVIA: chapterVia === 0 ? {} : { Section80C: calc.section80CPaise / PAISE, Section80D: calc.section80DPaise / PAISE, TotalChapVIADeductions: chapterVia },
+      UsrDeductUndChapVIA: chapterVia === 0 ? {} : via.block,
+      DeductUndChapVIA: chapterVia === 0 ? {} : via.block,
       TotalIncome: totalIncome,
     },
     TaxComputation: {
@@ -566,20 +608,22 @@ export function buildItr3(args = {}) {
   const taxableBusiness = Math.max(0, businessIncome);
   const setOff = Math.min(lossBF, taxableBusiness);
   if (houseProperty < 0 || args.capitalGains) warnings.push('House property loss, capital gains and loss set-off schedules are not built by this tool. Add them in the portal utility.');
-  const tax = pickRegime(args, { fy: info.fy, salary: salaryGross, otherIncome: otherSources + houseProperty, businessIncome: taxableBusiness - setOff, deductions, ageBand });
+  const extras = chapterViaExtras(deductions, { ageBand, savingsInterest: args.otherIncome?.savingsInterest, depositInterest: args.otherIncome?.depositInterest });
+  const tax = pickRegime(args, { fy: info.fy, salary: salaryGross, otherIncome: otherSources + houseProperty, businessIncome: taxableBusiness - setOff, deductions, ageBand, extras });
   if (tax.calc.error) return fail(tax.calc.error, { fy: info.fy, hint: 'No income-tax rules are recorded for this financial year; nothing was computed.' });
   const calc = tax.calc;
   const old = tax.regime === 'old';
   const grossTotal = calc.grossTotalIncomePaise / PAISE;
   const totalIncome = calc.totalIncomePaise / PAISE;
   const standardDeduction = calc.standardDeductionPaise / PAISE;
-  const chapterVia = old ? (calc.section80CPaise + calc.section80DPaise) / PAISE : 0;
+  const via = viaPatch(calc, extras);
+  const chapterVia = via.total;
   if (!old && (rupees(deductions.c80) || rupees(deductions.d80Self) || rupees(deductions.d80Parents))) warnings.push('80C and 80D are not allowed in the new regime and were not claimed.');
   const slabTax = calc.slabTaxPaise / PAISE;
   const rebate = calc.rebatePaise / PAISE;
   const surcharge = calc.surchargePaise / PAISE;
-  const cess = calc.cessPaise / PAISE;
   const taxPayable = calc.taxPayablePaise / PAISE;
+  const cess = taxPayable - (slabTax - rebate) - surcharge;
 
   const filingDate = DATE_RE.test(String(args.filingDate || '')) ? args.filingDate : `${info.ayStart}-07-31`;
   const audited = args.taxAudit === true;
@@ -599,7 +643,7 @@ export function buildItr3(args = {}) {
   const taxesPaid = advanceTotal + tds + tcs + selfAssessment;
   const balance = Math.max(0, totalTaxInterest - taxesPaid);
   const refund = Math.max(0, taxesPaid - totalTaxInterest);
-  if (refund > 0 && !args.bank?.account) problems.push({ path: 'bank', message: 'A refund is due: a bank account in your name, pre-validated on the portal, is needed to receive it.' });
+  if (!args.bank?.account) problems.push({ path: 'bank', message: refund > 0 ? 'A refund is due: a bank account in your name, pre-validated on the portal, is needed to receive it.' : 'The return needs at least one bank account in your name, even when no refund is due.' });
 
   // Balance sheet: each side must add to the same total, so the capital account is the balancing figure when not given.
   const bs = args.balanceSheet || {};
@@ -793,7 +837,8 @@ function finish({ form, itr, schema, info, notes, problems, warnings, summary, c
   if (ayCode === schemaYear) {
     const { errors, truncated } = validateAgainstSchema(schema, itr);
     validation = { checked: true, valid: errors.length === 0, errors: errors.slice(0, 40), truncated };
-    if (errors.length) problems.push(...errors.slice(0, 40).map((e) => ({ path: e.path, message: `Schema: ${e.message}` })));
+    const bankless = problems.some((p) => p.path === 'bank');
+    if (errors.length) problems.push(...errors.filter((e) => !(bankless && /AddtnlBankDetails$/.test(e.path))).slice(0, 40).map((e) => ({ path: e.path, message: `Schema: ${e.message}` })));
   } else {
     validation = { checked: false, valid: null, errors: [] };
     notes.push(`MyCA holds the CBDT schema for assessment year ${schemaYear}-${String(Number(schemaYear) + 1).slice(2)} only. This return is for AY ${info.ayLabel}, so the JSON was not checked against a schema. Load the official AY ${info.ayLabel} utility from the e-filing portal before uploading.`);
@@ -866,7 +911,7 @@ function withBooks(state, form, args) {
   return { args: merged, notes, books };
 }
 
-export function buildItrReturn(state, args = {}) {
+export function buildItr34Return(state, args = {}) {
   const form = String(args.form || '').replace(/\s|-/g, '').toUpperCase();
   if (form !== 'ITR4' && form !== 'ITR3') return fail('ITR_FORM_NOT_SUPPORTED', { hint: 'build_itr_json prepares ITR-3 and ITR-4. For ITR-1, ITR-2, ITR-5 or ITR-6 use the portal utility and check the JSON with check_itr_json.' });
   let input = args;
@@ -883,7 +928,7 @@ export function buildItrReturn(state, args = {}) {
   return result;
 }
 
-export function buildItrReturnWords(data) {
+export function buildItrReturnWordsInner(data) {
   const lines = [];
   const s = data.summary;
   lines.push(`${data.form} for assessment year ${data.assessmentYear}: total income Rs ${s.totalIncome}, tax Rs ${s.grossTaxLiability}${s.refundDue ? `, refund due Rs ${s.refundDue}` : s.balanceTaxPayable ? `, balance to pay Rs ${s.balanceTaxPayable}` : ''} (${s.regime} regime).`);
@@ -894,3 +939,6 @@ export function buildItrReturnWords(data) {
   for (const note of data.notes.slice(0, 4)) lines.push(note);
   return lines.join('\n');
 }
+
+// Shared with the individual (ITR-1 and ITR-2) builders.
+export const shared = { skeletonFor, mergeInto, pruneEmpty, personalInfo, bankDetails, taxPayments, pickRegime, ageBandOf, finish, rupees, signed, sum, runTax, DATE_RE };

@@ -12,6 +12,7 @@ import { runTool, TOOLS } from '../src/tools.mjs';
 import { validateAssistantToolCall } from '../src/assistant-tools.mjs';
 import { REMOTE_QUERY_TOOLS } from '../src/remote-contract.mjs';
 import { buildItr3, buildItr4, interestAndFee, presumptiveIncome } from '../src/itr-return-builder.mjs';
+import { buildItr1 } from '../src/itr-return-individual.mjs';
 import { checkItrJson } from '../src/itr-json-check.mjs';
 
 const taxpayer = { name: 'Test Person', pan: 'ABCDE1234F', dob: '1985-05-05', fatherName: 'Test Father', mobile: '9876543210', email: 'test@example.com', address: { flat: '12', locality: 'MG Road', city: 'Bengaluru', stateCode: '29', pin: '560001' } };
@@ -111,13 +112,13 @@ test('build_itr_json is a registered, read-only tool with a strict argument sche
   assert.ok(TOOLS.some((t) => t.name === 'build_itr_json'));
   assert.ok(REMOTE_QUERY_TOOLS.has('build_itr_json'));
   assert.equal(validateAssistantToolCall('build_itr_json', { form: 'ITR-4', taxpayer, businesses: [{ name: 'Shop', code: '01001', turnoverBank: 1 }] }).ok, true);
-  assert.equal(validateAssistantToolCall('build_itr_json', { form: 'ITR-1', taxpayer }).ok, false);
+  assert.equal(validateAssistantToolCall('build_itr_json', { form: 'ITR-5', taxpayer }).ok, false);
   assert.equal(validateAssistantToolCall('build_itr_json', { form: 'ITR-4', taxpayer, bogus: 1 }).ok, false);
   const state = createState();
   const out = await runTool(state, 'build_itr_json', { form: 'ITR-4', taxpayer, businesses: [{ name: 'Shop', code: '01001', turnoverBank: 1000000 }], bank, fy: '2024-25' });
   assert.equal(out.ok, true);
   assert.equal(out.data.form, 'ITR-4');
-  const unsupported = await runTool(state, 'build_itr_json', { form: 'ITR-2', taxpayer });
+  const unsupported = await runTool(state, 'build_itr_json', { form: 'ITR-5', taxpayer });
   assert.equal(unsupported.ok, false);
 });
 
@@ -147,13 +148,47 @@ test('books feed the return: demo books for FY 2026-27 give ITR-4 and ITR-3 with
   assert.equal(figures.data.profitAndLoss.netProfit, 780000);
   assert.equal(figures.data.balanceSheet.debtors, 377600);
   const t = { dob: '1985-05-05', fatherName: 'F', mobile: '9876543210', email: 't@example.com', address: { flat: '1', locality: 'L', city: 'Bengaluru', stateCode: '29' } };
-  const four = await runTool(state, 'build_itr_json', { form: 'ITR-4', fy: '2026-27', fromBooks: true, taxpayer: t });
+  const four = await runTool(state, 'build_itr_json', { form: 'ITR-4', fy: '2026-27', fromBooks: true, taxpayer: t, bank });
   assert.equal(four.data.ready, true, JSON.stringify(four.data.problems));
   assert.equal(four.data.summary.presumptiveBusinessIncome, 49200);
   assert.equal(four.data.source, 'books');
-  const three = await runTool(state, 'build_itr_json', { form: 'ITR-3', fy: '2026-27', fromBooks: true, taxpayer: t, fixedAssets: [{ block: 'computers-software', openingWdv: 100000 }] });
+  const three = await runTool(state, 'build_itr_json', { form: 'ITR-3', fy: '2026-27', fromBooks: true, taxpayer: t, bank, fixedAssets: [{ block: 'computers-software', openingWdv: 100000 }] });
   assert.equal(three.data.ready, true, JSON.stringify(three.data.problems));
   assert.equal(three.data.summary.businessIncomeAfterAdjustments, 780000 - 40000);
   const bs = three.data.json.ITR.ITR3.PARTA_BS;
   assert.equal(bs.FundSrc.TotFundSrc, bs.FundApply.TotFundApply);
+});
+
+test('ITR-1: salary, let-out house property, interest, old regime with 80C and 80D, schema-valid', () => {
+  const r = buildItr1({
+    fy: '2024-25', taxpayer, regime: 'old', filingDate: '2025-07-20', bank,
+    salary: { gross: 1200000, professionalTax: 2400, exemptAllowances: [{ nature: '10(10)', amount: 100000 }] },
+    houseProperty: { type: 'L', rentReceived: 240000, municipalTax: 12000, interest: 100000 },
+    otherIncome: { savingsInterest: 12000, depositInterest: 20000 },
+    deductions: { c80: 150000, d80Self: 25000, nps1B: 50000 },
+    taxesPaid: { tdsSalary: [{ tan: 'BLRA12345B', name: 'Employer Pvt Ltd', income: 1200000, tds: 90000 }] },
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.data.ready, true, JSON.stringify(r.data.problems));
+  assert.equal(r.data.validation.valid, true, JSON.stringify(r.data.validation.errors));
+  const body = r.data.json.ITR.ITR1;
+  assert.equal(body.ITR1_IncomeDeductions.NetSalary, 1100000);
+  assert.equal(body.ITR1_IncomeDeductions.IncomeFromSal, 1100000 - 50000 - 2400);
+  // 228,000 net annual value, 30% = 68,400, interest 100,000: income 59,600
+  assert.equal(body.ITR1_IncomeDeductions.TotalIncomeOfHP, 228000 - 68400 - 100000);
+  assert.equal(body.ITR1_IncomeDeductions.IncomeOthSrc, 32000);
+  assert.equal(body.ITR1_IncomeDeductions.DeductUndChapVIA.Section80C, 150000);
+  assert.equal(body.ITR1_IncomeDeductions.DeductUndChapVIA.Section80CCD1B, 50000);
+});
+
+test('ITR-1 refuses what the form does not allow and caps self-occupied interest', () => {
+  const bad = buildItr1({ fy: '2024-25', taxpayer, salary: { gross: 1000000 }, capitalGains: { shortTerm: 1000 }, foreignAssets: true, ltcg112A: { saleValue: 500000, cost: 100000 } });
+  assert.ok(bad.data.problems.length >= 3);
+  const loss = buildItr1({ fy: '2024-25', taxpayer, regime: 'new', salary: { gross: 1000000 }, houseProperty: { type: 'L', rentReceived: 100000, interest: 400000 } });
+  assert.ok(loss.data.problems.some((p) => p.path === 'houseProperty'));
+  const self = buildItr1({ fy: '2024-25', taxpayer, regime: 'old', salary: { gross: 1000000 }, houseProperty: { type: 'S', interest: 500000 } });
+  assert.equal(self.data.json.ITR.ITR1.ITR1_IncomeDeductions.TotalIncomeOfHP, -200000);
+  const auto = buildItr1({ fy: '2024-25', taxpayer, bank, regime: 'auto', salary: { gross: 1500000 }, deductions: { c80: 150000, d80Self: 25000 }, houseProperty: { type: 'S', interest: 200000 } });
+  assert.ok(auto.data.summary.comparedRegimes.oldTax >= 0);
+  assert.equal(auto.data.validation.valid, true, JSON.stringify(auto.data.validation.errors));
 });

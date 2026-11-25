@@ -68,7 +68,7 @@ import { incomeTaxInterestWords, tdsInterestWords } from './it-interest.mjs';
 import { askTaxWords, reviewWords, taxModulesWords, taxPlanWords } from './tax-assistant.mjs';
 import { itrKnowledgeWords } from './itr-knowledge.mjs';
 import { checkItrJsonWords } from './itr-json-check.mjs';
-import { buildItrReturnWords } from './itr-return-builder.mjs';
+import { buildItrReturnWords } from './itr-return.mjs';
 import { supplierPayoutWords } from './supplier-bank.mjs';
 import { reportWords } from './reports.mjs';
 import { auditTrailWords } from './audit-trail.mjs';
