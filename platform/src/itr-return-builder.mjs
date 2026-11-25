@@ -244,13 +244,13 @@ export function chapterViaExtras(deductions = {}, { ageBand = 'below-60', saving
 
 // The Chapter VI-A block of the return: sections that count, and the total after the cap at gross total income.
 export function viaPatch(calc, extras) {
-  const old = calc.otherChapterViaPaise > 0 || calc.section80CPaise > 0 || calc.section80DPaise > 0;
+  const old = (calc.otherChapterViaPaise || 0) > 0 || calc.section80CPaise > 0 || calc.section80DPaise > 0;
   const sections = {};
   if (calc.section80CPaise) sections.Section80C = calc.section80CPaise / PAISE;
   if (calc.section80DPaise) sections.Section80D = calc.section80DPaise / PAISE;
   if (old) for (const [key, value] of Object.entries(extras.sections)) if (value) sections[key] = value;
   if (calc.employerNpsPaise) sections.Section80CCDEmployer = calc.employerNpsPaise / PAISE;
-  const total = calc.deductionsPaise / PAISE;
+  const total = Math.min(calc.section80CPaise + calc.section80DPaise + (calc.otherChapterViaPaise || 0) + (calc.employerNpsPaise || 0), calc.grossTotalIncomePaise) / PAISE;
   return { block: { ...sections, TotalChapVIADeductions: total }, total };
 }
 
