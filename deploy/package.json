@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "devDependencies": {
-    "wrangler": "^4.123.0"
+    "wrangler": "^4.166.0"
   },
   "scripts": {
     "build:pages": "node pages/build.mjs",
