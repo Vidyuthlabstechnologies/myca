@@ -4,6 +4,8 @@
 import { loadItrForm } from './itr-knowledge.mjs';
 import { validateAgainstSchema } from './itr-json-check.mjs';
 import { incomeTax, rules } from './sprint-load.mjs';
+import { booksFigures } from './itr-books.mjs';
+import { depreciationSchedule } from './it-depreciation.mjs';
 
 const PAISE = 100;
 const SCHEMA_AY = { 'ITR-3': '2025', 'ITR-4': '2025' };
@@ -814,11 +816,71 @@ function finish({ form, itr, schema, info, notes, problems, warnings, summary, c
   };
 }
 
+// Fills what the caller left out from the books: profit and loss, balance sheet, taxes paid, depreciation, name and PAN.
+// Anything the caller gave explicitly wins over the books.
+function withBooks(state, form, args) {
+  const fy = args.fy || '2024-25';
+  const figures = booksFigures(state, { fy });
+  if (!figures.ok) return { error: figures };
+  const books = figures.data;
+  const merged = { ...args, fy };
+  const notes = [...books.notes];
+  const company = state.company || {};
+  const given = Object.fromEntries(Object.entries(args.taxpayer || {}).filter(([, value]) => value !== undefined && value !== null && value !== ''));
+  merged.taxpayer = { ...(company.name ? { name: company.name } : {}), ...(company.pan ? { pan: company.pan } : {}), ...given };
+  const advance = args.taxesPaid?.advanceTax ?? books.taxesPaid.advanceTax;
+  merged.taxesPaid = { ...(args.taxesPaid || {}), advanceTax: advance };
+  if (args.taxesPaid?.tds == null && !(args.taxesPaid?.tdsOther || []).length) {
+    merged.taxesPaid.tds = books.taxesPaid.tds;
+    merged.taxesPaid.tdsOther = books.taxesPaid.tdsOther;
+  }
+  let schedule = null;
+  if (Array.isArray(args.fixedAssets) && args.fixedAssets.length) {
+    const result = depreciationSchedule({ blocks: args.fixedAssets, fyEnd: books.to });
+    if (!result.ok) return { error: result };
+    schedule = result.data;
+    notes.push(...schedule.notes);
+  }
+  if (form === 'ITR4') {
+    const split = books.turnoverSplit;
+    if (!(args.businesses || []).length && !(args.professions || []).length) {
+      if (args.incomeKind === 'profession') {
+        merged.professions = [{ name: String(company.name || 'Profession').slice(0, 75), code: String(args.businessCode || '14001'), receiptsBank: split.bank, receiptsCash: split.cash }];
+      } else {
+        merged.businesses = [{ name: String(company.name || 'Business').slice(0, 75), code: String(args.businessCode || '01001'), turnoverBank: split.bank, turnoverCash: split.cash }];
+      }
+      notes.push('Turnover is the sales in the books for the year. Cash receipts are the receipts recorded in cash; the rest is counted as received by bank or electronic mode, the 6% slab. If some receipts came in other ways, give businesses yourself.');
+    }
+  } else {
+    merged.profitAndLoss = { ...books.profitAndLoss, ...(args.profitAndLoss || {}) };
+    delete merged.profitAndLoss.netProfit;
+    const balanceSheet = { ...books.balanceSheet, ...(args.balanceSheet || {}) };
+    if (schedule) {
+      merged.adjustments = { depreciationIncomeTax: schedule.totalDepreciation, ...(args.adjustments || {}) };
+      if (args.balanceSheet?.fixedAssetsNet == null) balanceSheet.fixedAssetsNet = schedule.closingWdv;
+      // Books carry no depreciation line: the income-tax depreciation is charged in the profit and loss too, so it is not allowed twice.
+      if (!books.profitAndLoss.depreciationBooks && args.profitAndLoss?.depreciationBooks == null) merged.profitAndLoss.depreciationBooks = schedule.totalDepreciation;
+    }
+    merged.balanceSheet = balanceSheet;
+  }
+  return { args: merged, notes, books };
+}
+
 export function buildItrReturn(state, args = {}) {
   const form = String(args.form || '').replace(/\s|-/g, '').toUpperCase();
-  if (form === 'ITR4') return buildItr4(args);
-  if (form === 'ITR3') return buildItr3(args);
-  return fail('ITR_FORM_NOT_SUPPORTED', { hint: 'build_itr_json prepares ITR-3 and ITR-4. For ITR-1, ITR-2, ITR-5 or ITR-6 use the portal utility and check the JSON with check_itr_json.' });
+  if (form !== 'ITR4' && form !== 'ITR3') return fail('ITR_FORM_NOT_SUPPORTED', { hint: 'build_itr_json prepares ITR-3 and ITR-4. For ITR-1, ITR-2, ITR-5 or ITR-6 use the portal utility and check the JSON with check_itr_json.' });
+  let input = args;
+  let booksNotes = [];
+  if (args.fromBooks === true) {
+    const prepared = withBooks(state, form, args);
+    if (prepared.error) return prepared.error;
+    input = prepared.args;
+    booksNotes = prepared.notes;
+  }
+  const result = form === 'ITR4' ? buildItr4(input) : buildItr3(input);
+  if (result.ok && booksNotes.length) result.data.notes.unshift(...booksNotes);
+  if (result.ok && args.fromBooks === true) result.data.source = 'books';
+  return result;
 }
 
 export function buildItrReturnWords(data) {

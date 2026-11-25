@@ -354,6 +354,10 @@ export const TAX_TOOL_SCHEMAS = {
       foreignAssets: { type: 'boolean' },
       director: { type: 'boolean' },
       unlistedShares: { type: 'boolean' },
+      fromBooks: { type: 'boolean' },
+      incomeKind: { type: 'string', enum: ['business', 'profession'] },
+      businessCode: { type: 'string', maxLength: 5 },
+      fixedAssets: { type: 'array', maxItems: 20, items: { type: 'object', additionalProperties: false, properties: { block: { type: 'string', maxLength: 40 }, openingWdv: { type: 'number', minimum: 0 }, sales: { type: 'number', minimum: 0 }, additions: { type: 'array', maxItems: 100, items: { type: 'object', additionalProperties: false, properties: { date: { type: 'string', maxLength: 10 }, amount: { type: 'number', minimum: 0 } } } } } } },
     },
   },
   tax_plan: {

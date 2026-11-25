@@ -120,3 +120,40 @@ test('build_itr_json is a registered, read-only tool with a strict argument sche
   const unsupported = await runTool(state, 'build_itr_json', { form: 'ITR-2', taxpayer });
   assert.equal(unsupported.ok, false);
 });
+
+import { depreciationSchedule } from '../src/it-depreciation.mjs';
+import { booksFigures } from '../src/itr-books.mjs';
+
+test('depreciation by block: half rate under 180 days, section 50 gain when sales exceed the block', () => {
+  const r = depreciationSchedule({ fyEnd: '2025-03-31', blocks: [
+    { block: 'computers-software', openingWdv: 100000, additions: [{ date: '2024-06-01', amount: 50000 }, { date: '2025-02-01', amount: 20000 }] },
+    { block: 'plant-machinery', openingWdv: 10000, sales: 30000 },
+  ] });
+  assert.equal(r.ok, true);
+  // 40% on 150,000 full-year value plus 20% on the 20,000 added late
+  assert.equal(r.data.rows[0].depreciation, 60000 + 4000 - 0);
+  assert.equal(r.data.rows[1].shortTermGain, 20000);
+  assert.equal(r.data.rows[1].depreciation, 0);
+  assert.equal(depreciationSchedule({ fyEnd: '2025-03-31', blocks: [{ block: 'rocket' }] }).ok, false);
+});
+
+test('books feed the return: demo books for FY 2026-27 give ITR-4 and ITR-3 without typed figures', async () => {
+  const state = createState();
+  await runTool(state, 'seed_demo', {});
+  state.company.name = 'Nalanda Textiles';
+  state.company.pan = 'ABCDE1234F';
+  const figures = booksFigures(state, { fy: '2026-27' });
+  assert.equal(figures.data.profitAndLoss.turnover, 820000);
+  assert.equal(figures.data.profitAndLoss.netProfit, 780000);
+  assert.equal(figures.data.balanceSheet.debtors, 377600);
+  const t = { dob: '1985-05-05', fatherName: 'F', mobile: '9876543210', email: 't@example.com', address: { flat: '1', locality: 'L', city: 'Bengaluru', stateCode: '29' } };
+  const four = await runTool(state, 'build_itr_json', { form: 'ITR-4', fy: '2026-27', fromBooks: true, taxpayer: t });
+  assert.equal(four.data.ready, true, JSON.stringify(four.data.problems));
+  assert.equal(four.data.summary.presumptiveBusinessIncome, 49200);
+  assert.equal(four.data.source, 'books');
+  const three = await runTool(state, 'build_itr_json', { form: 'ITR-3', fy: '2026-27', fromBooks: true, taxpayer: t, fixedAssets: [{ block: 'computers-software', openingWdv: 100000 }] });
+  assert.equal(three.data.ready, true, JSON.stringify(three.data.problems));
+  assert.equal(three.data.summary.businessIncomeAfterAdjustments, 780000 - 40000);
+  const bs = three.data.json.ITR.ITR3.PARTA_BS;
+  assert.equal(bs.FundSrc.TotFundSrc, bs.FundApply.TotFundApply);
+});
