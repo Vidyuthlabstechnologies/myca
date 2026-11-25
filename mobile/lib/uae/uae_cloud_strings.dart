@@ -369,9 +369,6 @@ extension UaeCloudStrings on UaeStrings {
     _ => _f('Could not sign in ({code}).', {'code': code}, 'تعذّر تسجيل الدخول (\u2066$code\u2069).'),
   };
 
-  String serverBanner(bool sandbox) => sandbox
-      ? _t('Sandbox mode: nothing is filed with the government yet', 'الوضع التجريبي: لا يُقدَّم أي شيء إلى الجهات الحكومية بعد')
-      : _t('Test environment: nothing is filed, paid or sent', 'بيئة الاختبار: لا يُقدَّم أو يُدفع أو يُرسل أي شيء');
   String get outOfReach => _t('MyCA is out of reach', 'تعذّر الوصول إلى MyCA');
 
   String get lockedTitle => _t('MyCA is locked', 'MyCA مقفل');

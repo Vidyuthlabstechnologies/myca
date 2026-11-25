@@ -17,57 +17,6 @@ Future<AppState> ownerOn(FakeCloud cloud, {bool business = true}) async {
 }
 
 void main() {
-  testWidgets('a staging server shows the test banner on every screen', (tester) async {
-    final cloud = FakeCloud()
-      ..userName = 'Asha'
-      ..serverEnvironment = 'staging';
-    await tester.pumpWidget(MycaApp(state: await ownerOn(cloud)));
-    await tester.pumpAndSettle();
-    expect(find.text('Test environment: nothing is filed, paid or sent'), findsOneWidget);
-    await tester.tap(find.byTooltip('Your business'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('test-server-banner')), findsOneWidget);
-  });
-
-  testWidgets('a production server shows no banner', (tester) async {
-    final cloud = FakeCloud()
-      ..userName = 'Asha'
-      ..serverEnvironment = 'production';
-    await tester.pumpWidget(MycaApp(state: await ownerOn(cloud)));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('test-server-banner')), findsNothing);
-  });
-
-  testWidgets('the production server on sandbox keys says so on every screen', (tester) async {
-    final cloud = FakeCloud()
-      ..userName = 'Asha'
-      ..serverEnvironment = 'production'
-      ..providerMode = 'test';
-    await tester.pumpWidget(MycaApp(state: await ownerOn(cloud)));
-    await tester.pumpAndSettle();
-    expect(find.text('Sandbox mode: nothing is filed with the government yet'), findsOneWidget);
-    await tester.tap(find.byTooltip('Your business'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('test-server-banner')), findsOneWidget);
-  });
-
-  testWidgets('switching the server to live keys takes the sandbox banner away', (tester) async {
-    final cloud = FakeCloud()
-      ..userName = 'Asha'
-      ..serverEnvironment = 'production'
-      ..providerMode = 'live';
-    await tester.pumpWidget(MycaApp(state: await ownerOn(cloud)));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('test-server-banner')), findsNothing);
-  });
-
-  testWidgets('a server that does not say where it runs shows no banner', (tester) async {
-    final cloud = FakeCloud()..userName = 'Asha';
-    await tester.pumpWidget(MycaApp(state: await ownerOn(cloud)));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('test-server-banner')), findsNothing);
-  });
-
   testWidgets('a new owner can try a demo business from setup, and it is marked as a demo', (tester) async {
     final cloud = FakeCloud()..userName = 'Asha';
     await tester.pumpWidget(MycaApp(state: await ownerOn(cloud, business: false)));

@@ -21,6 +21,25 @@ function badGstin(value) {
   return structural.length ? { ok: false, error: 'INVALID_GSTIN', gstin: said.toUpperCase(), errors: structural } : null;
 }
 
+const PLAIN_NUMBER = /^-?\d+(\.\d+)?$/;
+
+function plainNumber(value) {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && PLAIN_NUMBER.test(value.trim())) return Number(value);
+  return Number.NaN;
+}
+
+function roundPaise(amount) {
+  return Math.round(Number((amount * 100).toPrecision(15)));
+}
+
+function gstRateProblem(specs, date) {
+  const found = rules.rule('gst.rates.valid', date);
+  if (!found.ok) return null;
+  const line = specs.findIndex((s) => s.gstRate !== 0 && !found.value.includes(s.gstRate));
+  return line < 0 ? null : { ok: false, error: 'GST_RATE_NOT_IN_FORCE', line: line + 1, gstRate: specs[line].gstRate, valid: found.value, date };
+}
+
 export const ZERO_RATE_SUPPLY = ['nil', 'exempt', 'non-gst'];
 export const FOREIGN_POS = '96';
 const CURRENCY = /^[A-Z]{3}$/;
@@ -219,7 +238,7 @@ export function invoiceFigures(rawLines, specs, { supplierState, pos, exportSale
   const lines = rawLines.map((l, i) => {
     const { qty, rate: foreignRate, gstRate } = specs[i];
     const rateAmt = rateOf(i);
-    const grossTaxable = Math.round(qty * rateAmt * 100) / 100;
+    const grossTaxable = (exportSale ? roundPaise(qty * foreignRate * exportSale.exchangeRate) : Math.round(qty * rateAmt * 100)) / 100;
     const loyaltyDiscount = pointsOff[i] / 100;
     const taxable = Math.round((grossTaxable - loyaltyDiscount) * 100) / 100;
     const computed = gstSplit({
@@ -280,13 +299,15 @@ export function planInvoice(state, input) {
   const unrated = rawLines.findIndex((l) => l.gstRate == null || l.gstRate === '');
   if (unrated >= 0) return { ok: false, error: 'RATE_REQUIRED', line: unrated + 1 };
   const specs = rawLines.map((l) => ({
-    qty: Number(l.qty == null || l.qty === '' ? 1 : l.qty),
-    rate: Number(l.rate),
-    gstRate: Number(l.gstRate),
+    qty: plainNumber(l.qty == null || l.qty === '' ? 1 : l.qty),
+    rate: plainNumber(l.rate),
+    gstRate: plainNumber(l.gstRate),
   }));
   if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate) || s.gstRate < 0)) {
     return { ok: false, error: 'BAD_LINE' };
   }
+  const rateProblem = gstRateProblem(specs, date);
+  if (rateProblem) return rateProblem;
   if (company?.composition === true) {
     const taxed = specs.findIndex((s) => s.gstRate !== 0);
     if (taxed >= 0) return { ok: false, error: 'COMPOSITION_NO_TAX', line: taxed + 1, hint: 'A composition dealer issues a bill of supply and cannot collect GST from the buyer (section 10(4)); give each line a GST rate of 0.' };
@@ -507,13 +528,15 @@ export function createPurchase(state, input) {
   const unrated = rawLines.findIndex((l) => l.gstRate == null || l.gstRate === '');
   if (unrated >= 0) return { ok: false, error: 'RATE_REQUIRED', line: unrated + 1 };
   const specs = rawLines.map((l) => ({
-    qty: Number(l.qty == null || l.qty === '' ? 1 : l.qty),
-    rate: Number(l.rate),
-    gstRate: Number(l.gstRate),
+    qty: plainNumber(l.qty == null || l.qty === '' ? 1 : l.qty),
+    rate: plainNumber(l.rate),
+    gstRate: plainNumber(l.gstRate),
   }));
   if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate) || s.gstRate < 0)) {
     return { ok: false, error: 'BAD_LINE' };
   }
+  const rateProblem = gstRateProblem(specs, date);
+  if (rateProblem) return rateProblem;
   const grossTaxable = specs.reduce((sum, s) => sum + Math.round(s.qty * s.rate * 100) / 100, 0);
   if (grossTaxable <= 0) return { ok: false, error: 'ZERO_AMOUNT' };
   const billCessProblem = cessProblem(rawLines, date);

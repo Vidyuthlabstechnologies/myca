@@ -769,8 +769,6 @@ const kannada = <String, String>{
   'Overdue by {n} days': '{n} ದಿನದಿಂದ ಬಾಕಿ',
   'Statutory rules': 'ಕಾನೂನು ನಿಯಮಗಳು',
   'Needs an update: {family}': 'ಅಪ್‌ಡೇಟ್ ಬೇಕು: {family}',
-  'Sandbox mode: nothing is filed with the government yet': 'ಸ್ಯಾಂಡ್‌ಬಾಕ್ಸ್ ಮೋಡ್: ಇನ್ನೂ ಸರ್ಕಾರಕ್ಕೆ ಏನೂ ಫೈಲ್ ಆಗುವುದಿಲ್ಲ',
-  'Test environment: nothing is filed, paid or sent': 'ಟೆಸ್ಟ್ ಸರ್ವರ್: ಏನೂ ಫೈಲ್, ಪಾವತಿ ಅಥವಾ ಕಳುಹಿಸಲಾಗುವುದಿಲ್ಲ',
   'MyCA is out of reach': 'MyCA ಸಂಪರ್ಕಕ್ಕೆ ಸಿಗುತ್ತಿಲ್ಲ',
   'Due today. Open MyCA to deal with it.': 'ಇಂದು ಗಡುವು. ಇದನ್ನು ಮುಗಿಸಲು MyCA ತೆರೆಯಿರಿ.',
   'What is due': 'ಏನು ಗಡುವು ಇದೆ',

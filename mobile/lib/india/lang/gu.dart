@@ -769,8 +769,6 @@ const gujarati = <String, String>{
   'Overdue by {n} days': '{n} દિવસથી બાકી',
   'Statutory rules': 'કાયદાના નિયમો',
   'Needs an update: {family}': 'અપડેટ જોઈએ: {family}',
-  'Sandbox mode: nothing is filed with the government yet': 'સેન્ડબૉક્સ મોડ: હજુ સરકારમાં કશું ફાઇલ થતું નથી',
-  'Test environment: nothing is filed, paid or sent': 'ટેસ્ટ સર્વર: કશું ફાઇલ, જમા કે મોકલાતું નથી',
   'MyCA is out of reach': 'MyCA સાથે જોડાઈ શકાતું નથી',
   'Due today. Open MyCA to deal with it.': 'આજે ભરવાનું છે. પતાવવા માટે MyCA ખોલો.',
   'What is due': 'શું ભરવાનું છે',

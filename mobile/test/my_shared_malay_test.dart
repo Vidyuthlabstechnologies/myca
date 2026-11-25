@@ -163,13 +163,6 @@ void main() {
     expect(find.text('Tolak'), findsNWidgets(2));
   });
 
-  testWidgets('the test and sandbox banners read in Malay', (tester) async {
-    await tester.pumpWidget(myApp(hostedState(FakeCloud()), const Scaffold(body: Column(children: [TestServerBanner(), TestServerBanner(sandbox: true)])), language: 'ms'));
-    await settle(tester);
-    expect(find.text('Persekitaran ujian: tiada apa difailkan, dibayar atau dihantar'), findsOneWidget);
-    expect(find.text('Mod kotak pasir: belum ada apa-apa difailkan kepada kerajaan'), findsOneWidget);
-  });
-
   testWidgets('reporting an answer reads in Malay and still sends the reason in English', (tester) async {
     final reports = <Map<String, Object?>>[];
     final state = AppState(

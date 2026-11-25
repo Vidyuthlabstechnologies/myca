@@ -188,7 +188,7 @@ in `platform/`). Shape:
 ```
 
 300 cases from a seeded generator: intra and inter-state, B2C and B2B (valid GSTINs), GST rates 0, 0.1,
-0.25, 1, 1.5, 3, 5, 6, 12, 18, 28 and 40, quantities to three decimals, rates such as 0.01, 10.005 and
+0.25, 1.5, 3, 5, 7.5, 12, 18 and 40 (the rates in force on the vector date), quantities to three decimals, rates such as 0.01, 10.005 and
 99999.99, one to six lines. Intra-state when `partyState == supplierState`. `platform/test/offline-sales.test.mjs`
 fails if the engine's figures move away from the file.
 

@@ -21,12 +21,19 @@ function quietBooks() {
   return state;
 }
 
-test('queue: an invoice GSTR-1 cannot report becomes an exception carrying its value', () => {
+function booksWithLegacyRateInvoice() {
   const state = quietBooks();
-  createInvoice(state, {
-    id: 'INV-BAD', date: '2026-08-20', partyName: 'Auto Parts Co', partyGstin: '12ABCPM1634M1ZV',
+  const made = createInvoice(state, {
+    id: 'INV-BAD', date: '2025-08-20', partyName: 'Auto Parts Co', partyGstin: '12ABCPM1634M1ZV',
     lines: [{ description: 'Oil', hsn: '2710', qty: 1, rate: 120000, gstRate: 28 }],
   });
+  assert.equal(made.ok, true, JSON.stringify(made));
+  state.invoices.find((invoice) => invoice.id === 'INV-BAD').date = '2026-08-20';
+  return state;
+}
+
+test('queue: an invoice GSTR-1 cannot report becomes an exception carrying its value', () => {
+  const state = booksWithLegacyRateInvoice();
   refreshExceptions(state, {}, { clientId: 'SELF' });
   const rows = listExceptions(state);
   const held = rows.find((r) => r.code === 'RATE_NOT_IN_FORCE');
@@ -38,11 +45,7 @@ test('queue: an invoice GSTR-1 cannot report becomes an exception carrying its v
 });
 
 test('queue: refreshing twice keeps one record, and fixing the cause resolves it', () => {
-  const state = quietBooks();
-  createInvoice(state, {
-    id: 'INV-BAD', date: '2026-08-20', partyName: 'Auto Parts Co', partyGstin: '12ABCPM1634M1ZV',
-    lines: [{ description: 'Oil', hsn: '2710', qty: 1, rate: 120000, gstRate: 28 }],
-  });
+  const state = booksWithLegacyRateInvoice();
   refreshExceptions(state, {}, { clientId: 'SELF' });
   const first = listExceptions(state).find((r) => r.code === 'RATE_NOT_IN_FORCE');
   const second = refreshExceptions(state, {}, { clientId: 'SELF' });

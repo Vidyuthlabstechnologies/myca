@@ -325,8 +325,6 @@ const hiShared = <String, String>{
   'Overdue by {n} days': '{n} दिन से बकाया',
   'Statutory rules': 'क़ानूनी नियम',
   'Needs an update: {family}': 'अपडेट चाहिए: {family}',
-  'Sandbox mode: nothing is filed with the government yet': 'सैंडबॉक्स मोड: अभी सरकार के पास कुछ भी दाखिल नहीं होता',
-  'Test environment: nothing is filed, paid or sent': 'टेस्ट सर्वर: कुछ भी दाखिल, जमा या भेजा नहीं जाता',
   'MyCA is out of reach': 'MyCA से जुड़ नहीं पा रहे',
   'Due today. Open MyCA to deal with it.': 'आज देय है। इसे निपटाने के लिए MyCA खोलें।',
   'What is due': 'क्या देय है',
