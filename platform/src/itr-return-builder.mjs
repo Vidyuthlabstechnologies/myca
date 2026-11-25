@@ -6,6 +6,7 @@ import { depreciationSchedule } from './it-depreciation.mjs';
 import { rupees, signed, sum, mergeInto, layer, DATE_RE } from './itr-util.mjs';
 import { computeCapitalGains } from './capital-gains.mjs';
 import { houseBlocks } from './it-house-property.mjs';
+import { runItrRules } from './itr-rules.mjs';
 import { gainSchedules, houseSchedule } from './itr-gain-schedules.mjs';
 
 const PAISE = 100;
@@ -840,7 +841,7 @@ export function buildItr3(args = {}) {
   };
   let gainSummary = {};
   if (withGains) {
-    const gains = gainSchedules({ form: 'ITR-3', cg, skeleton, args, problems, calc });
+    const gains = gainSchedules({ form: 'ITR-3', cg, skeleton, args, problems, notes, calc });
     const hpPositive = Math.max(0, gainRun.hpForTax);
     const hpLossUsed = Math.max(0, -gainRun.hpForTax);
     const salariesRow = Math.max(0, salaryGross - standardDeduction);
@@ -913,6 +914,8 @@ function finish({ form, itr, schema, info, notes, problems, warnings, summary, c
     validation = { checked: false, valid: null, errors: [] };
     notes.push(`MyCA holds the CBDT schema for assessment year ${schemaYear}-${String(Number(schemaYear) + 1).slice(2)} only. This return is for AY ${info.ayLabel}, so the JSON was not checked against a schema. Load the official AY ${info.ayLabel} utility from the e-filing portal before uploading.`);
   }
+  const ruleRun = runItrRules(form, itr.ITR[`ITR${form.slice(4)}`], { regime: summary?.regime });
+  for (const failure of ruleRun.failures) problems.push({ path: failure.cbdt || failure.id, message: `Portal rule would fail: ${failure.message}` });
   return {
     ok: true,
     data: {
@@ -923,7 +926,8 @@ function finish({ form, itr, schema, info, notes, problems, warnings, summary, c
       warnings,
       notes,
       summary,
-      businessRuleFindings: checks,
+      businessRuleFindings: [...checks, ...ruleRun.failures],
+      ruleChecks: { ran: ruleRun.ran, failed: ruleRun.failures.length },
       validation,
       json: itr,
       next: 'Review the figures with your CA, then upload this JSON in the e-filing portal (e-File > Income Tax Returns > File Income Tax Return > Offline > Upload JSON), preview, verify and e-verify.',

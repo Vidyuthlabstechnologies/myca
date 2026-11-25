@@ -1,3 +1,4 @@
+import { runItrRules } from './itr-rules.mjs';
 import { loadItrForm, searchItrKnowledge } from './itr-knowledge.mjs';
 
 const MAX_ERRORS = 200;
@@ -150,6 +151,7 @@ export function checkItrJson(state, args = {}) {
   const meta = body[`Form_ITR${form.slice(4)}`] || {};
   const notes = [];
   if (meta.AssessmentYear && meta.AssessmentYear !== '2025') notes.push(`The return is for assessment year ${meta.AssessmentYear}; MyCA holds the AY 2025-26 schema, so differences may be from a newer or older schema.`);
+  const ruleRun = runItrRules(form, body, { regime: body.PartA_GEN1?.FilingStatus?.OptOutNewTaxRegime === 'Y' || body.FilingStatus?.OptOutNewTaxRegime === 'Y' ? 'old' : 'new' });
   const counts = {};
   for (const error of errors) counts[error.code] = (counts[error.code] || 0) + 1;
   const rulesDoc = loadItrForm(form, 'rules');
@@ -160,14 +162,16 @@ export function checkItrJson(state, args = {}) {
       form,
       assessmentYear: meta.AssessmentYear || '',
       schemaVersion: meta.SchemaVer || '',
-      valid: errors.length === 0,
+      valid: errors.length === 0 && ruleRun.failures.length === 0,
+      schemaValid: errors.length === 0,
       errors,
       truncated,
       counts,
       ruleHints: ruleHintsFor(form, errors),
+      ruleChecks: { ran: ruleRun.ran, failed: ruleRun.failures },
       remindersBAndD: reminders,
       notes,
-      checked: 'Structure, required fields, types, allowed values, formats and limits from the CBDT schema. The portal also runs the validation rules (Category A blocks the upload); MyCA does not run those arithmetic rules yet.',
+      checked: `Structure, required fields, types, allowed values, formats and limits from the CBDT schema, and ${ruleRun.ran} of the portal's arithmetic validation rules for ${form}. The portal runs many more (Category A blocks the upload), including checks against the PAN and Aadhaar databases.`,
     },
   };
 }
@@ -179,6 +183,7 @@ export function checkItrJsonWords(data) {
   const lines = [head];
   for (const error of data.errors.slice(0, 8)) lines.push(`· ${error.path}: ${error.message}`);
   if (data.errors.length > 8) lines.push(`and ${data.errors.length - 8} more.`);
+  for (const failure of data.ruleChecks.failed.slice(0, 8)) lines.push(`· Rule ${failure.cbdt || failure.id} would fail: ${failure.message}`);
   for (const hint of data.ruleHints.slice(0, 3)) lines.push(`Related rule ${hint.rule}: ${hint.text}`);
   for (const note of data.notes) lines.push(note);
   if (data.remindersBAndD.length) lines.push(`Before filing, also check the ${data.remindersBAndD.length} Category B and D rules for ${data.form} (supporting forms such as 10E, 10BA or 67), which the portal raises after upload.`);

@@ -186,7 +186,7 @@ export function currYrLosses(cg) {
 }
 
 
-export function gainSchedules({ form, cg, skeleton, args, problems, calc, incomeBase }) {
+export function gainSchedules({ form, cg, skeleton, args, problems, notes = [], calc }) {
   const patch = {};
   const sections = capitalGainsPatch(cg, cg.rows, form);
   const columnsAfterYear = Object.fromEntries(Object.keys(COLUMNS).map((column) => [column, fromBuckets(cg.afterYearLosses, column)]));
@@ -213,20 +213,27 @@ export function gainSchedules({ form, cg, skeleton, args, problems, calc, income
       const isin = String(source.isin || '').toUpperCase();
       if (!/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(isin)) problems.push({ path: 'capitalGains.transactions', message: `Schedule 112A needs the ISIN of ${row.name}.` });
       const item = skeleton.itemAt(['Schedule112A', 'Schedule112ADtls']);
+      const before2018 = row.buyDate < '2018-02-01';
+      const actualCost = rupees(source.cost) + row.improvement;
+      const fmv = before2018 && source.fmv31Jan2018 != null ? rupees(source.fmv31Jan2018) : 0;
+      const lower = before2018 && source.fmv31Jan2018 != null ? Math.min(row.sale, fmv) : 0;
+      const costWithoutIndex = Math.max(actualCost, lower);
+      const units = Number(source.units) > 0 ? Number(source.units) : 0;
+      if (!units) notes.push(`${row.name}: the number of units was not given, so units and price per unit are left blank in Schedule 112A.`);
       return mergeInto(item, {
-        ShareOnOrBefore: row.buyDate < '2018-02-01' ? 'BE' : 'AE',
+        ShareOnOrBefore: before2018 ? 'BE' : 'AE',
         ShareTransferredOnOrBefore: row.after ? 'AE' : 'BE',
         ISINCode: isin,
         ShareUnitName: String(row.name).slice(0, 125),
+        ...(units ? { NumSharesUnits: units, SalePricePerShareUnit: row.sale / units, FairMktValuePerShareunit: fmv / units } : { FairMktValuePerShareunit: 0 }),
         TotSaleValue: row.sale,
-        CostAcqWithoutIndx: rupees(source.cost),
-        AcquisitionCost: row.cost,
-        [lowerKey]: Math.max(0, row.sale - rupees(source.cost)),
-        FairMktValuePerShareunit: 0,
-        TotFairMktValueCapAst: source.fmv31Jan2018 != null ? rupees(source.fmv31Jan2018) : 0,
+        CostAcqWithoutIndx: costWithoutIndex,
+        AcquisitionCost: actualCost,
+        [lowerKey]: lower,
+        TotFairMktValueCapAst: fmv,
         ExpExclCnctTransfer: row.expenses,
-        TotalDeductions: row.cost + row.expenses + row.improvement,
-        Balance: row.gain,
+        TotalDeductions: costWithoutIndex + row.expenses,
+        Balance: row.sale - costWithoutIndex - row.expenses,
       });
     });
     const total = (key) => details.reduce((acc, item) => acc + (Number(item[key]) || 0), 0);

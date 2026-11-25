@@ -212,7 +212,7 @@ export function buildItr2(args = {}) {
   if (run.hpLossCarried > 0 && old) notes.push(`A house property loss of Rs ${run.hpLossCarried} is carried forward (set-off against other heads is limited to Rs 2 lakh and to the income available).`);
 
   const patch = {};
-  const gains = gainSchedules({ form: 'ITR-2', cg, skeleton, args, problems, calc });
+  const gains = gainSchedules({ form: 'ITR-2', cg, skeleton, args, problems, notes, calc });
 
   patch.CreationInfo = { SWVersionNo: '1.0', SWCreatedBy: 'SW00000001', JSONCreatedBy: 'SW00000001', JSONCreationDate: filingDate, IntermediaryCity: 'Bengaluru', Digest: '-' };
   patch.Form_ITR2 = { FormName: 'ITR-2', Description: 'For Indls and HUFs not having income from business or profession', AssessmentYear: String(info.ayStart), SchemaVer: 'Ver1.0', FormVer: 'Ver1.0' };
