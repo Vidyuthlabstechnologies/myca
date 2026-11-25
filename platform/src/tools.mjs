@@ -27,6 +27,7 @@ import { askKnowledge } from './knowledge.mjs';
 import { askTax, reviewIncomeTaxReturn, taxModules, taxPlan } from './tax-assistant.mjs';
 import { itrKnowledge } from './itr-knowledge.mjs';
 import { checkItrJson } from './itr-json-check.mjs';
+import { buildItrReturn } from './itr-return-builder.mjs';
 import { pushZohoInvoices } from './zoho-push.mjs';
 import { booksAuditLedger } from './audit-ledger.mjs';
 import { salaryPrivate } from './employees.mjs';
@@ -3221,6 +3222,13 @@ export const TOOLS = [
     description: 'Check an income tax return JSON (ITR-1 to ITR-6, as generated for upload) against the CBDT schema for AY 2025-26: missing required fields, wrong types, values outside the allowed list, wrong formats (PAN, dates, IFSC) and amounts over the limits, with the validation rule each problem relates to and a reminder of the Category B and D rules. Does not upload anything. Read-only.',
     args: ['json', 'form'],
     run: (state, args = {}) => checkItrJson(state, args),
+  },
+  {
+    name: 'build_itr_json',
+    title: 'Prepare an ITR-3 or ITR-4 return JSON',
+    description: 'Prepare an income tax return JSON for upload to the e-filing portal: ITR-4 (Sugam, presumptive income under 44AD and 44ADA) or ITR-3 (business or profession with books). Works out presumptive or book-based business income, salary and other income, the better of the old and new regime, tax, rebate, cess, interest under 234A/B/C, the late fee, taxes paid and the refund or balance, then checks the JSON against the official CBDT schema. Reports blocking problems (ITR-4 limits, missing PAN or address, unbalanced balance sheet) before anything is filed. A CA reviews it before upload.',
+    args: ['form', 'fy', 'taxpayer', 'regime', 'filingDate', 'returnSection', 'businesses', 'professions', 'declaredBusinessProfit', 'declaredProfessionProfit', 'salary', 'otherIncome', 'houseProperty', 'deductions', 'taxesPaid', 'bank', 'profitAndLoss', 'adjustments', 'balanceSheet', 'taxAudit', 'broughtForwardBusinessLoss', 'capitalGains', 'foreignAssets', 'director', 'unlistedShares'],
+    run: (state, args = {}) => buildItrReturn(state, args),
   },
   {
     name: 'tax_plan',

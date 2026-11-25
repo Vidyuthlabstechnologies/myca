@@ -1,0 +1,122 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+process.env.APPDATA = mkdtempSync(join(tmpdir(), 'myca-itr-builder-'));
+process.env.HOME = process.env.APPDATA;
+process.env.MYCA_MOCK_MODE = '1';
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createState } from '../src/store.mjs';
+import { runTool, TOOLS } from '../src/tools.mjs';
+import { validateAssistantToolCall } from '../src/assistant-tools.mjs';
+import { REMOTE_QUERY_TOOLS } from '../src/remote-contract.mjs';
+import { buildItr3, buildItr4, interestAndFee, presumptiveIncome } from '../src/itr-return-builder.mjs';
+import { checkItrJson } from '../src/itr-json-check.mjs';
+
+const taxpayer = { name: 'Test Person', pan: 'ABCDE1234F', dob: '1985-05-05', fatherName: 'Test Father', mobile: '9876543210', email: 'test@example.com', address: { flat: '12', locality: 'MG Road', city: 'Bengaluru', stateCode: '29', pin: '560001' } };
+const bank = { ifsc: 'SBIN0000001', name: 'SBI', account: '123456789' };
+
+test('ITR-4: presumptive income at 6% digital and 8% other, tax, and a JSON that matches the CBDT schema', () => {
+  const r = buildItr4({ fy: '2024-25', taxpayer, regime: 'new', filingDate: '2025-07-20', businesses: [{ name: 'Shop', code: '01001', turnoverBank: 80_00_000, turnoverCash: 20_00_000 }], otherIncome: { savingsInterest: 20000 }, bank });
+  assert.equal(r.ok, true);
+  assert.equal(r.data.ready, true, JSON.stringify(r.data.problems));
+  assert.equal(r.data.validation.valid, true);
+  const body = r.data.json.ITR.ITR4;
+  assert.equal(body.ScheduleBP.PersumptiveInc44AD.PersumptiveInc44AD6Per, 480000);
+  assert.equal(body.ScheduleBP.PersumptiveInc44AD.PersumptiveInc44AD8Per, 160000);
+  assert.equal(body.IncomeDeductions.IncomeFromBusinessProf, 640000);
+  assert.equal(body.IncomeDeductions.TotalIncome, 660000);
+  assert.equal(body.TaxComputation.GrossTaxLiability, 0, 'rebate covers Rs 6.6 lakh in the new regime');
+  // the shipped JSON passes MyCA's own checker too
+  assert.equal(checkItrJson(createState(), { json: JSON.stringify(r.data.json) }).data.valid, true);
+});
+
+test('ITR-4: profession at 50%, tax above the rebate, refund when TDS exceeds tax', () => {
+  const r = buildItr4({ fy: '2024-25', taxpayer, regime: 'new', filingDate: '2025-07-20', professions: [{ name: 'Consultant', code: '14001', receiptsBank: 40_00_000 }], taxesPaid: { tds: 300000 }, bank });
+  assert.equal(r.data.summary.presumptiveProfessionIncome, 2000000);
+  assert.equal(r.data.summary.totalIncome, 2000000);
+  assert.equal(r.data.summary.grossTaxLiability, 301600, 'slabs to 20 lakh = 2,90,000 plus 4% cess');
+  assert.equal(r.data.summary.balanceTaxPayable, 1600, 'TDS of 3 lakh leaves Rs 1,600');
+  const refund = buildItr4({ fy: '2024-25', taxpayer, regime: 'new', filingDate: '2025-07-20', professions: [{ name: 'Consultant', code: '14001', receiptsBank: 40_00_000 }], taxesPaid: { tds: 350000 }, bank });
+  assert.equal(refund.data.summary.refundDue, 48400);
+  const noBank = buildItr4({ fy: '2024-25', taxpayer, professions: [{ name: 'C', code: '14001', receiptsBank: 40_00_000 }], taxesPaid: { tds: 350000 } });
+  assert.ok(noBank.data.problems.some((p) => p.path === 'bank'));
+  assert.equal(r.data.validation.valid, true);
+});
+
+test('ITR-4 refuses what the form does not allow', () => {
+  const over = buildItr4({ fy: '2024-25', taxpayer, businesses: [{ name: 'Big', code: '01001', turnoverCash: 5_00_00_000 }] });
+  assert.equal(over.data.ready, false);
+  assert.ok(over.data.problems.some((p) => /44AD limit/.test(p.message)));
+  const lower = buildItr4({ fy: '2024-25', taxpayer, businesses: [{ name: 'Shop', code: '01001', turnoverBank: 1000000 }], declaredBusinessProfit: 10000 });
+  assert.ok(lower.data.problems.some((p) => /cannot be below 60000/.test(p.message)));
+  const loss = buildItr4({ fy: '2024-25', taxpayer, businesses: [{ name: 'Shop', code: '01001', turnoverBank: 1000000 }], capitalGains: { shortTerm: 5000 }, foreignAssets: true, houseProperty: { netIncome: -10000 } });
+  assert.ok(loss.data.problems.length >= 3);
+  const noPan = buildItr4({ fy: '2024-25', taxpayer: { ...taxpayer, pan: 'bad' }, businesses: [{ name: 'Shop', code: '01001', turnoverBank: 100000 }] });
+  assert.ok(noPan.data.problems.some((p) => p.path === 'taxpayer.pan'));
+});
+
+test('lower cash share lifts the 44AD cap to Rs 3 crore', () => {
+  const p = presumptiveIncome({ fy: '2024-25', businesses: [{ turnoverBank: 2_80_00_000, turnoverCash: 10_00_000 }] });
+  assert.equal(p.overBusinessCap, false);
+  const q = presumptiveIncome({ fy: '2024-25', businesses: [{ turnoverBank: 1_00_00_000, turnoverCash: 1_10_00_000 }] });
+  assert.equal(q.overBusinessCap, true);
+});
+
+test('interest: 234B and 234C worked by hand (tax Rs 1.3 lakh, nothing paid, filed 20 Jul 2025)', () => {
+  const i = interestAndFee({ ayStart: 2025, dueDate: '2025-07-31', filingDate: '2025-07-20', taxLiability: 130000, tdsAndTcs: 0, totalIncome: 1425000 });
+  assert.equal(i.us234A, 0);
+  assert.equal(i.us234B, 5200); // 1% x 4 months x 130,000
+  assert.equal(i.us234C, 585 + 1755 + 2925 + 1300);
+  assert.equal(i.fee234F, 0);
+  const late = interestAndFee({ ayStart: 2025, dueDate: '2025-07-31', filingDate: '2025-09-05', taxLiability: 130000, tdsAndTcs: 0, advancePayments: [{ date: '2025-03-10', amount: 130000 }], totalIncome: 1425000 });
+  assert.equal(late.us234A, 0, 'advance tax paid in full leaves nothing for 234A');
+  assert.equal(late.fee234F, 5000);
+  const small = interestAndFee({ ayStart: 2025, dueDate: '2025-07-31', filingDate: '2025-12-31', taxLiability: 20000, tdsAndTcs: 0, totalIncome: 400000 });
+  assert.equal(small.fee234F, 1000);
+  const presumptive = interestAndFee({ ayStart: 2025, dueDate: '2025-07-31', filingDate: '2025-07-20', taxLiability: 50000, tdsAndTcs: 0, presumptive: true, totalIncome: 900000, advancePayments: [{ date: '2025-03-14', amount: 50000 }] });
+  assert.equal(presumptive.us234C, 0);
+});
+
+test('ITR-3: books profit to business income, balanced balance sheet, schema-valid JSON', () => {
+  const r = buildItr3({
+    fy: '2024-25', taxpayer, regime: 'auto', filingDate: '2025-07-20', bank,
+    profitAndLoss: { turnover: 6000000, interestIncome: 5000, expenses: 4500000, depreciationBooks: 50000, interestExpense: 30000 },
+    adjustments: { depreciationIncomeTax: 60000, disallowed40A: 10000 },
+    balanceSheet: { fixedAssetsNet: 300000, inventories: 500000, debtors: 400000, cash: 50000, bank: 200000, creditors: 300000, securedLoans: 100000 },
+  });
+  assert.equal(r.data.ready, true, JSON.stringify(r.data.problems));
+  assert.equal(r.data.summary.profitBeforeTaxPerBooks, 1425000);
+  assert.equal(r.data.summary.businessIncomeAfterAdjustments, 1420000);
+  assert.equal(r.data.validation.valid, true);
+  const bs = r.data.json.ITR.ITR3.PARTA_BS;
+  assert.equal(bs.FundSrc.TotFundSrc, bs.FundApply.TotFundApply);
+  assert.equal(r.data.summary.regime, 'new');
+});
+
+test('ITR-3 flags a balance sheet that does not balance', () => {
+  const r = buildItr3({ fy: '2024-25', taxpayer, profitAndLoss: { turnover: 100000, expenses: 50000 }, balanceSheet: { capital: 1, fixedAssetsNet: 500 } });
+  assert.ok(r.data.problems.some((p) => p.path === 'balanceSheet'));
+});
+
+test('a financial year without a held schema is built but marked unchecked', () => {
+  const r = buildItr4({ fy: '2025-26', taxpayer, businesses: [{ name: 'Shop', code: '01001', turnoverBank: 1000000 }], bank });
+  assert.equal(r.data.validation.checked, false);
+  assert.match(r.data.notes.join(' '), /AY 2026-27/);
+  assert.equal(r.data.json.ITR.ITR4.Form_ITR4.AssessmentYear, '2026');
+});
+
+test('build_itr_json is a registered, read-only tool with a strict argument schema', async () => {
+  assert.ok(TOOLS.some((t) => t.name === 'build_itr_json'));
+  assert.ok(REMOTE_QUERY_TOOLS.has('build_itr_json'));
+  assert.equal(validateAssistantToolCall('build_itr_json', { form: 'ITR-4', taxpayer, businesses: [{ name: 'Shop', code: '01001', turnoverBank: 1 }] }).ok, true);
+  assert.equal(validateAssistantToolCall('build_itr_json', { form: 'ITR-1', taxpayer }).ok, false);
+  assert.equal(validateAssistantToolCall('build_itr_json', { form: 'ITR-4', taxpayer, bogus: 1 }).ok, false);
+  const state = createState();
+  const out = await runTool(state, 'build_itr_json', { form: 'ITR-4', taxpayer, businesses: [{ name: 'Shop', code: '01001', turnoverBank: 1000000 }], bank, fy: '2024-25' });
+  assert.equal(out.ok, true);
+  assert.equal(out.data.form, 'ITR-4');
+  const unsupported = await runTool(state, 'build_itr_json', { form: 'ITR-2', taxpayer });
+  assert.equal(unsupported.ok, false);
+});
