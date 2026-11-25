@@ -179,7 +179,7 @@ export function razorpayReconToCsv(rows, { from, to }) {
   const out = [['settlement-id', 'transaction-type', 'order-id', 'amount-type', 'amount-description', 'amount', 'posted-date']];
   for (const item of rows) {
     const settlementId = item.settlement_id ? `razorpay-${item.settlement_id}` : `razorpay-${from}-${to}`;
-    const date = item.settled_at ? isoDate(new Date(Number(item.settled_at) * 1000).toISOString().slice(0, 10)) : (item.created_at ? isoDate(new Date(Number(item.created_at) * 1000).toISOString().slice(0, 10)) : to);
+    const date = item.settled_at ? localToday(new Date(Number(item.settled_at) * 1000)) : (item.created_at ? localToday(new Date(Number(item.created_at) * 1000)) : to);
     const order = String(item.order_id || item.entity_id || '');
     const amount = round2(Number(item.amount || 0) / 100);
     const fee = round2(Number(item.fee || 0) / 100);

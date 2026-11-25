@@ -115,6 +115,8 @@ export function planEmployee(state, args = {}) {
   if (!pay.ok) return pay;
   const more = detailsOf(args);
   if (!more.ok) return more;
+  const companyState = String(state.company?.state || '').trim();
+  if (args.ptState === undefined && /^[0-9]{2}$/.test(companyState)) more.details.ptState = companyState;
   const same = (state.employees || []).find((item) => item.name.toLowerCase() === name.toLowerCase() && !item.leftOn);
   if (same) return fail('ALREADY_EMPLOYED', { id: same.id, name: same.name });
   return { ok: true, employee: { name, joinedOn, ...more.details, salary: [{ from: joinedOn, components: pay.components, monthly: pay.monthly }] } };

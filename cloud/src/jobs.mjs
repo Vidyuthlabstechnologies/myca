@@ -28,7 +28,7 @@ export function mondayOf(day) {
   return date.toISOString().slice(0, 10);
 }
 
-export function createJobs({ db, secret = '', rateLimits = null, withBooks, readBooks = null, connectors = null, syncChannels = null, pullsEnabled = () => false, sender = null, vault = null, billing = null, now = () => Date.now(), log = () => {} }) {
+export function createJobs({ db, secret = '', rateLimits = null, withBooks, readBooks = null, connectors = null, syncChannels = null, pullsEnabled = () => false, dailyBudgetMs = 45000, clock = () => Date.now(), sender = null, vault = null, billing = null, now = () => Date.now(), log = () => {} }) {
   async function recordsHeldUntil(businessId, requestId) {
     if (!readBooks) return null;
     try {
@@ -123,7 +123,13 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, read
   async function daily(requestId) {
     const found = await db.query('select b.business_id from books b join businesses x on x.id = b.business_id where x.deletion_requested_at is null order by b.business_id');
     const summary = { ok: true, businesses: found.rowCount, ran: 0, skipped: 0, reminders: 0, warnings: 0, pulled: 0, storeOrdersPruned: 0, failed: [] };
-    for (const row of found.rows) {
+    const startedAt = clock();
+    for (const [position, row] of found.rows.entries()) {
+      if (clock() - startedAt > dailyBudgetMs) {
+        summary.partial = true;
+        summary.remaining = found.rowCount - position;
+        break;
+      }
       const businessId = row.business_id;
       try {
         const out = await withBooks(businessId, { requestId, userId: null, deviceId: null }, async (session) => {
@@ -163,6 +169,10 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, read
         summary.failed.push({ businessId, error: String(err && err.message ? err.message : err) });
         log({ requestId, job: 'daily', businessId, error: String(err && err.stack ? err.stack : err) });
       }
+    }
+    if (summary.partial) {
+      log({ requestId, job: 'daily', ...summary, failed: summary.failed.length });
+      return summary;
     }
     try {
       summary.billing = billing && billing.refreshDue ? await billing.refreshDue() : { checked: 0, changed: 0, failed: 0 };

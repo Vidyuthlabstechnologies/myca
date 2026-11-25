@@ -678,7 +678,9 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     }
     if (parts[1] === 'jobs' && parts[2] === 'daily' && parts.length === 3 && method === 'POST') {
       if (!jobTokenMatches(jobToken, req.headers[JOB_HEADER])) throw httpError(404, 'NOT_FOUND');
-      return jobs.daily(requestId);
+      const daily = await jobs.daily(requestId);
+      if (daily.partial) throw httpError(503, 'DAILY_PARTIAL', { remaining: daily.remaining, ran: daily.ran, skipped: daily.skipped });
+      return daily;
     }
 
     const user = await signedIn(req);
