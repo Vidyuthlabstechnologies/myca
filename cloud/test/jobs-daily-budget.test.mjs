@@ -27,14 +27,16 @@ function fixture({ businesses, budget, step }) {
   return { jobs, processed, queries };
 }
 
-test('a daily run that outlasts its time budget stops cleanly, says how many are left, and skips the purge', async () => {
+test('a daily run that outlasts its time budget stops cleanly, says how many are left, and still runs billing and the purge', async () => {
   const { jobs, processed, queries } = fixture({ businesses: 5, budget: 45000, step: 30000 });
   const summary = await jobs.daily('req-1');
   assert.equal(summary.partial, true);
   assert.equal(summary.ran, processed.length);
   assert.equal(summary.remaining, 5 - processed.length);
   assert.ok(processed.length >= 1 && processed.length < 5);
-  assert.equal(queries.some((sql) => sql.includes('delete from access_log')), false, 'the purge waits for the run that finishes');
+  assert.equal(queries.some((sql) => sql.includes('delete from access_log')), true, 'erasure and retention are never starved by a long business list');
+  assert.deepEqual(summary.billing, { checked: 0, changed: 0, failed: 0 });
+  assert.ok(summary.purge, 'the purge result is reported');
 });
 
 test('a daily run inside its budget finishes every business and does the purge', async () => {

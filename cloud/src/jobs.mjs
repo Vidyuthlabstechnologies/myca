@@ -124,6 +124,13 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, read
     const found = await db.query('select b.business_id from books b join businesses x on x.id = b.business_id where x.deletion_requested_at is null order by b.business_id');
     const summary = { ok: true, businesses: found.rowCount, ran: 0, skipped: 0, reminders: 0, warnings: 0, pulled: 0, storeOrdersPruned: 0, failed: [] };
     const startedAt = clock();
+    try {
+      summary.billing = billing && billing.refreshDue ? await billing.refreshDue() : { checked: 0, changed: 0, failed: 0 };
+    } catch (err) {
+      summary.billing = { checked: 0, changed: 0, failed: 1 };
+      log({ requestId, job: 'daily', billing: String(err && err.stack ? err.stack : err) });
+    }
+    summary.purge = await purge(requestId);
     for (const [position, row] of found.rows.entries()) {
       if (clock() - startedAt > dailyBudgetMs) {
         summary.partial = true;
@@ -170,17 +177,6 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, read
         log({ requestId, job: 'daily', businessId, error: String(err && err.stack ? err.stack : err) });
       }
     }
-    if (summary.partial) {
-      log({ requestId, job: 'daily', ...summary, failed: summary.failed.length });
-      return summary;
-    }
-    try {
-      summary.billing = billing && billing.refreshDue ? await billing.refreshDue() : { checked: 0, changed: 0, failed: 0 };
-    } catch (err) {
-      summary.billing = { checked: 0, changed: 0, failed: 1 };
-      log({ requestId, job: 'daily', billing: String(err && err.stack ? err.stack : err) });
-    }
-    summary.purge = await purge(requestId);
     log({ requestId, job: 'daily', ...summary, failed: summary.failed.length });
     return summary;
   }
