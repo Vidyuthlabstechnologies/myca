@@ -15,26 +15,25 @@ Winman sells to CA and audit firms who file for many clients. ClearTax sells to 
 
 ## Does the India app support ITR-3 and ITR-4?
 
-Before this change: **no**. The app compared the old and new regime (`prepare_itr`), answered ITR questions from a 37-source knowledge base (`itr_knowledge`) and checked any ITR-1 to ITR-6 JSON against the CBDT schema (`check_itr_json`). It did not build an ITR-3 or ITR-4 return.
+Before 2026-11-25: **no**. The app compared the old and new regime (`prepare_itr`), answered ITR questions from a 37-source knowledge base (`itr_knowledge`) and checked any ITR-1 to ITR-6 JSON against the CBDT schema (`check_itr_json`). It did not build a return.
 
-After this change (tool `build_itr_json`, `platform/src/itr-return-builder.mjs`):
+Now: **yes for ITR-1, ITR-2, ITR-3 and ITR-4** (tool `build_itr_json`). The full description of what each form covers, the inputs, the rules used and every open point is in `docs/product/INDIA-ITR-BUILDER.md`. In short:
 
-| | ITR-4 (Sugam) | ITR-3 |
-|---|---|---|
-| Who | Resident individual or HUF, income up to ₹50 lakh, presumptive 44AD or 44ADA | Individual or HUF with books of account (proprietor) |
-| Income | 44AD at 6% digital and 8% other receipts, 44ADA at 50%, salary, interest and dividend, house property (not a loss) | Books profit to business income through disallowances and income-tax depreciation, salary, other sources, brought-forward business loss |
-| Tax | Old or new regime (or the cheaper), rebate, cess, 234A, 234B, 234C, 234F, taxes paid, refund or balance | Same, plus surcharge |
-| Form | Schedule BP, taxes paid, TDS lines, challans | Balance sheet, profit and loss, Schedule BP, Part B-TI and TTI, challans |
-| Checks | Refuses turnover over the 44AD limit (₹2 crore, ₹3 crore when cash is within 5%), profit below the presumptive minimum, capital gains, foreign assets, directors, a house property loss, income over ₹50 lakh | Refuses a balance sheet that does not balance |
-| Output | JSON checked against the CBDT schema for AY 2025-26 | Same |
+| | ITR-1 | ITR-2 | ITR-3 | ITR-4 |
+|---|---|---|---|---|
+| Income | Salary, one house property, other sources, 112A up to ₹1.25 lakh | Salary (several employers, HRA), any number of house properties, capital gains of every kind, other sources | Books profit to business income, depreciation by block, salary, other sources, brought-forward business loss | 44AD and 44ADA, salary, interest, dividend |
+| Books feed | n/a | n/a | Yes (`fromBooks`) | Yes (`fromBooks`) |
+| Capital gains | 112A only | Full: holding periods, grandfathering, 23 July 2024 rates, section 50AA, indexation choice, losses | Not yet | Refused |
+| Loss set-off | Refused | Year and brought-forward, house property loss, carry-forward | Brought-forward business loss | Refused |
+| Tax | Regime choice, rebate, cess, 234A/B/C/F | Plus special-rate tax and surcharge | Same | Same |
+| Checked against the CBDT schema | AY 2025-26 | AY 2025-26 | AY 2025-26 | AY 2025-26 |
 
 Limits that remain, said plainly:
 
 - The schema held is **AY 2025-26** only. For other years the JSON is built but marked unchecked; the official AY 2026-27 utility or schema must be loaded (owner or CA: download from the e-filing portal into `platform/src/itr-knowledge/forms`).
-- The portal also runs its Category A and B validation rules. ITR-4 has six of them encoded here; the other rules, and every ITR-3 rule, are not run.
-- ITR-3 does not build capital gains, house property loss, loss set-off schedules, Schedule 112A, Schedule FA, Schedule AL, 80G donations, manufacturing or trading accounts, partner-firm schedules, or the tax audit report data. Those go through the portal utility.
-- Inputs are typed or supplied by the caller. Reading the trial balance and balance sheet straight from MyCA's books into this tool is the next step (see the backlog).
-- 234C ignores capital gains and lottery income exceptions in ITR-3 inputs, and 234B/234A treat tax paid at filing as paid on the filing date.
+- The portal also runs its Category A and B validation rules. ITR-4 has six of them encoded here; the other rules are not run.
+- Not built: Schedule FA and FSI (foreign assets), Schedule AL (income above ₹50 lakh), Schedule 54 and 54F claims, ESOP schedule, partner-firm and tax-audit data, capital gains inside ITR-3, and the carry-forward loss schedule.
+- Surcharge marginal relief is not computed when special-rate income is present.
 - Not CA-reviewed. A CA must check the figures before upload.
 
 ## Gap matrix
@@ -44,15 +43,15 @@ Status: **Ahead** = MyCA does it and the rival does not or does it worse. **Pari
 | Capability | Winman | ClearTax | MyCA | Status |
 |---|---|---|---|---|
 | ITR-4 (presumptive) JSON | Yes (assumed) | Not on home page | `build_itr_json` | Built now |
-| ITR-3 (books) JSON | Yes (assumed) | ITR-3 page linked | `build_itr_json`, basic | Built now, narrower than rivals |
-| ITR-1, ITR-2 build | Assumed | Yes (ITR-2 page) | Knowledge and JSON check only | Gap |
+| ITR-3 (books) JSON | Yes (assumed) | ITR-3 page linked | `build_itr_json`, books feed and depreciation | Built now, no capital gains yet |
+| ITR-1, ITR-2 build | Assumed | Yes (ITR-2 page) | `build_itr_json`, ITR-2 with capital gains and loss set-off | Built now |
 | ITR-5, ITR-6, ITR-7 build | Assumed | Not stated | Knowledge and JSON check only | Gap |
 | Schema check of the upload JSON | Not stated | Not stated | Yes (`check_itr_json`, ITR-1 to 6) | Ahead |
 | Plain-language ITR rules (A/B/D defects) | "300+ warnings" | "100% accuracy" claim | 363 ITR-4 rules readable, 6 run | Parity at best |
 | Regime comparison | Not stated | Auto regime | `prepare_itr` and `build_itr_json` regime "auto" | Parity |
 | Form 16, AIS, 26AS import | Customer quote: AIS to Excel and compare | Pulled and pre-filled | 26AS credits, AIS text, TDS credit check | Parity |
 | Capital gains import from brokers | Not stated | 80+ brokers | Quicko APIs wired; no broker file import | Gap |
-| Trial balance to ITR and balance sheet | Headline feature | Not stated | Books exist; not yet wired into the builder | Gap (next) |
+| Trial balance to ITR and balance sheet | Headline feature | Not stated | `fromBooks` reads the P&L, balance sheet, advance tax and TDS | Built now |
 | Income-tax computation to Form 3CD / tax audit | Headline feature | Not stated | Not built | Gap |
 | Tally import | 1-click | Not stated | `import_tally`, `import_tally_xml` | Parity |
 | Delegate to juniors / many clients | Yes | n/a | Client list, CA requests and approvals | Parity |
@@ -69,16 +68,19 @@ Status: **Ahead** = MyCA does it and the rival does not or does it worse. **Pari
 
 ## Backlog, by impact
 
-1. **Wire the books into `build_itr_json`** (profit and loss, balance sheet, depreciation register, 40A/43B items) so a MyCA user gets the ITR-3 with one command. This is Winman's headline flow.
+Done: books into the builder, ITR-1, ITR-2, income-tax depreciation, capital gains engine.
+
+1. **Capital gains, house property and loss set-off inside ITR-3.**
 2. **Load the AY 2026-27 schema and rules** so returns for the current year are checked.
-3. **Form 3CD / 44AB audit data** from the books and the income-tax computation, for CA firms.
-4. **ITR-1 and ITR-2 builders** for salaried clients of CA firms and for ClearTax's individual customers, including capital gains from broker statements (Quicko).
-5. **Run all ITR-4 and ITR-3 Category A rules** in the checker instead of six.
+3. **Run the portal's Category A rules** for every form, not six for ITR-4.
+4. **Form 3CD / 44AB audit data** from the books, for CA firms.
+5. **Broker capital gains import** (contract notes and statements) into `capitalGains.transactions`.
 6. **Notice workflow** (read the notice, find the section, draft the reply, deadline).
 7. **PAN status and challan verification in bulk** for TDS.
+8. **Schedule FA, AL, 54/54F, ESOP, carry-forward loss schedule.**
 
 ## Needs the owner or a CA
 
 - Official AY 2026-27 JSON schema and Excel utility files.
-- A CA to review the ITR-3 and ITR-4 outputs on real returns, in particular the 234B/234C working and the ITR-3 depreciation and disallowance fields.
+- A CA to review the outputs on real returns, in particular 234B/234C, depreciation, the capital gains rules and the order in which the ₹1.25 lakh 112A exemption is applied.
 - Competitor pages beyond the home pages (Winman product pages, ClearTax plan details) before any public comparison.
