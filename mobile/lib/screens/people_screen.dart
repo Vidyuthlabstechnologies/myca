@@ -12,6 +12,7 @@ import '../uae/uae_cloud_strings.dart';
 import '../uae/uae_edition.dart';
 import '../uae/uae_strings.dart';
 import '../us/us_share_consent.dart';
+import '../widgets/glass.dart';
 
 const _roleHelp = {
   'staff': 'Records sales, bills, payments and expenses.',
@@ -208,7 +209,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
 
   Future<void> _invite() async {
     final cloud = AppScope.of(context).cloud!;
-    final sent = await showModalBottomSheet<bool>(
+    final sent = await showMycaSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (_) => _InviteSheet(cloud: cloud),
@@ -234,7 +235,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
   Future<void> _changeRole(MemberRef member) async {
     final cloud = AppScope.of(context).cloud!;
     final s = UaeStrings.of(context);
-    final chosen = await showModalBottomSheet<String>(
+    final chosen = await showMycaSheet<String>(
       context: context,
       isScrollControlled: true,
       builder: (sheet) => SafeArea(

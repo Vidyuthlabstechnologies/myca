@@ -12,6 +12,7 @@ import '../uae/uae_edition.dart';
 import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'audit_trail_screen.dart';
+import '../widgets/glass.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -99,7 +100,7 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
   }
 
   Future<void> _add() async {
-    final draft = await showModalBottomSheet<_ReportDraft>(
+    final draft = await showMycaSheet<_ReportDraft>(
       context: context,
       isScrollControlled: true,
       builder: (_) => const _ReportForm(),

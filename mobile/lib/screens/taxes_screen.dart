@@ -22,6 +22,7 @@ import 'quicko_screen.dart';
 import 'tds_credit_screen.dart';
 import 'tds_screen.dart';
 import 'review_screen.dart';
+import '../widgets/glass.dart';
 
 const _heldReasons = {
   'INVALID_GSTIN': 'the buyer GSTIN is not valid',
@@ -421,7 +422,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
   }
 
   void _explain(ExceptionItem item) {
-    showModalBottomSheet<void>(
+    showMycaSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (sheet) {

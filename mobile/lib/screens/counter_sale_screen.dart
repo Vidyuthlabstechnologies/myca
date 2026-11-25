@@ -15,6 +15,7 @@ import '../registers.dart';
 import 'offline_bills_screen.dart';
 import 'loyalty_screen.dart';
 import 'stock_alerts_screen.dart';
+import '../widgets/glass.dart';
 
 const counterUnits = ['NOS', 'PCS', 'KGS', 'GMS', 'LTR', 'MLT', 'MTR', 'BOX', 'PAC', 'BTL', 'TBS', 'DOZ', 'SET', 'BAG', 'CTN', 'PRS'];
 
@@ -155,7 +156,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
   }
 
   Future<void> _newItem(String code, {String sku = '', String name = ''}) async {
-    final item = await showModalBottomSheet<NewItem>(
+    final item = await showMycaSheet<NewItem>(
       context: context,
       isScrollControlled: true,
       builder: (_) => NewItemSheet(code: code, sku: sku, name: name),
@@ -285,7 +286,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
         setState(() => _message = inText(context, 'Allow Nearby devices for MyCA and pair the receipt printer in Android Bluetooth settings, then print again.'));
         return;
       }
-      printer = await showModalBottomSheet<PrinterChoice>(
+      printer = await showMycaSheet<PrinterChoice>(
         context: context,
         builder: (sheet) => SafeArea(
           child: ListView(

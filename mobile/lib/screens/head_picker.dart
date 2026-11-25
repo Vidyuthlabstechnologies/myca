@@ -5,6 +5,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../theme.dart';
 import '../uae/uae_strings.dart';
+import '../widgets/glass.dart';
 
 Future<ExpenseHead?> showHeadPicker(
   BuildContext context, {
@@ -19,7 +20,7 @@ Future<ExpenseHead?> showHeadPicker(
     heads = const [];
   }
   if (!context.mounted) return null;
-  return showModalBottomSheet<ExpenseHead>(
+  return showMycaSheet<ExpenseHead>(
     context: context,
     isScrollControlled: true,
     builder: (sheet) {

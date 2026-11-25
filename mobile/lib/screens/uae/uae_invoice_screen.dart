@@ -11,6 +11,7 @@ import '../../uae/uae_strings.dart';
 import '../../widgets.dart';
 import 'uae_widgets.dart';
 import 'uae_write.dart';
+import '../../widgets/glass.dart';
 
 /// Shows a UAE invoice or credit note exactly as the platform engine lays it out
 /// (the shared `invoice_document` tool), rather than rebuilding it from the snapshot.
@@ -94,7 +95,7 @@ class _UaeInvoiceScreenState extends State<UaeInvoiceScreen> with UaeWriteFlow {
 
   Future<void> _issueCreditNote(num left) async {
     final s = UaeStrings.of(context);
-    final picked = await showModalBottomSheet<(num?, String)>(
+    final picked = await showMycaSheet<(num?, String)>(
       context: context,
       isScrollControlled: true,
       builder: (_) => _CreditNoteSheet(left: left),

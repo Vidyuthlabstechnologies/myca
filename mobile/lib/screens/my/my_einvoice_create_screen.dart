@@ -15,6 +15,7 @@ import 'my_consolidated_screen.dart';
 import 'my_einvoice_detail_screen.dart';
 import 'my_line_editor.dart';
 import 'my_widgets.dart';
+import '../../widgets/glass.dart';
 
 class MyEinvoiceCreateScreen extends StatefulWidget {
   const MyEinvoiceCreateScreen({super.key, this.type = 'invoice', this.original});
@@ -248,7 +249,7 @@ class _MyEinvoiceCreateScreenState extends State<MyEinvoiceCreateScreen> {
   Future<bool?> _confirmSheet(MyStrings t, MyCheck check) {
     final totals = check.totals;
     String money(num value) => currencyAmount(_currency, value);
-    return showModalBottomSheet<bool>(
+    return showMycaSheet<bool>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,

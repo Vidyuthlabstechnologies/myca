@@ -15,6 +15,7 @@ import 'my_einvoice_detail_screen.dart';
 import 'my_line_editor.dart';
 import 'my_profile_screens.dart';
 import 'my_widgets.dart';
+import '../../widgets/glass.dart';
 
 const mySelfBilledTypes = ['self-billed-invoice', 'self-billed-credit-note', 'self-billed-debit-note', 'self-billed-refund-note'];
 
@@ -288,7 +289,7 @@ class _MySelfBilledScreenState extends State<MySelfBilledScreen> {
     final totals = check.totals;
     final money = _money;
     final rate = parseMyAmount(_rate.text);
-    return showModalBottomSheet<bool>(
+    return showMycaSheet<bool>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,

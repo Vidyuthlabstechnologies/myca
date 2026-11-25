@@ -13,6 +13,7 @@ import '../uae/uae_edition.dart';
 import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import '../widgets/utf16_limit.dart';
+import '../widgets/glass.dart';
 
 Future<String> askMyCa(
   BuildContext context, {
@@ -23,7 +24,7 @@ Future<String> askMyCa(
   final api = state.api;
   final ae = uaeEdition(context);
   final s = UaeStrings.of(context);
-  final asked = await showModalBottomSheet<_Ask>(
+  final asked = await showMycaSheet<_Ask>(
     context: context,
     isScrollControlled: true,
     builder: (sheet) => _AskSheet(about: about, pickFile: state.pickAnyFile, upload: api.upload),

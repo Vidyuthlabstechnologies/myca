@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:myca_design/myca_design.dart' show MycaPalette, MycaSurfaceColors, mycaCountryLooks;
 
@@ -180,7 +181,10 @@ ThemeData mycaTheme([Brightness brightness = Brightness.light]) {
     scaffoldBackgroundColor: p.canvas,
     splashFactory: InkSparkle.splashFactory,
     pageTransitionsTheme: const PageTransitionsTheme(
-      builders: {TargetPlatform.android: FadeForwardsPageTransitionsBuilder()},
+      builders: {
+        TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      },
     ),
     textTheme: text.copyWith(
       displaySmall: text.displaySmall?.copyWith(

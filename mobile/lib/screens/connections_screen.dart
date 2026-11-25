@@ -10,6 +10,7 @@ import '../theme.dart';
 import '../uae/uae_cloud_strings.dart';
 import '../uae/uae_strings.dart';
 import '../widgets.dart';
+import '../widgets/glass.dart';
 
 const _sourceHelp = {
   'pos': 'A billing counter or POS posts each sale straight into the books. No confirmation per sale; you see the day\'s total here.',
@@ -44,7 +45,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
 
   Future<void> _add() async {
     final cloud = AppScope.of(context).cloud!;
-    final made = await showModalBottomSheet<bool>(
+    final made = await showMycaSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (_) => _NewKeySheet(cloud: cloud),

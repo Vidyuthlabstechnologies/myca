@@ -23,6 +23,7 @@ import 'migration_flow.dart';
 import 'people_screen.dart';
 import 'plan_screen.dart';
 import 'security_screen.dart';
+import '../widgets/glass.dart';
 
 Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
   final navigator = Navigator.of(context);
@@ -31,7 +32,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
   final user = snapshot.activeUser;
   final ae = uaeEdition(context) ? UaeStrings.of(context) : null;
   final aeTrn = '${uaeProfile.value?['trn'] ?? ''}';
-  return showModalBottomSheet<void>(
+  return showMycaSheet<void>(
     context: context,
     isScrollControlled: true,
     builder: (sheet) {

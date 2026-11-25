@@ -6,6 +6,7 @@ import '../../app_state.dart';
 import '../../my/my_strings.dart';
 import '../../my/my_tools.dart';
 import '../../tour/tour.dart';
+import '../../widgets/glass.dart';
 
 String myErrorMessage(MyStrings t, Object error) {
   if (error is MyToolFailure) return t.errorText(error.code);
@@ -321,7 +322,7 @@ Future<void> showLanguageSheet(BuildContext context) async {
   final state = AppScope.of(context);
   final t = MyStrings.of(context);
   final current = Localizations.localeOf(context).languageCode;
-  final picked = await showModalBottomSheet<String>(
+  final picked = await showMycaSheet<String>(
     context: context,
     showDragHandle: true,
     builder: (context) => SafeArea(

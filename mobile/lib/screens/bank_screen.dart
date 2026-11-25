@@ -16,6 +16,7 @@ import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'head_picker.dart';
 import 'party_picker.dart';
+import '../widgets/glass.dart';
 
 const _filters = {'all': 'All', 'unmatched': 'Not matched yet', 'matched': 'Matched', 'booked': 'Booked', 'ignored': 'Ignored'};
 
@@ -109,7 +110,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
   Future<void> _match(BankLine line, String words, Map<String, Object?> args) =>
       propose('${line.id}: $words', 'match_bank_line', {'lineId': line.id, ...args});
 
-  Future<OwnAccount?> _pickAccount(List<OwnAccount> accounts, String title) => showModalBottomSheet<OwnAccount>(
+  Future<OwnAccount?> _pickAccount(List<OwnAccount> accounts, String title) => showMycaSheet<OwnAccount>(
     context: context,
     builder: (sheet) => _ChipSheet(
       title: title,
@@ -121,7 +122,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
   );
 
   Future<void> _openLine(BankLine line, BankReconciliation recon) async {
-    final choice = await showModalBottomSheet<_LineChoice>(
+    final choice = await showMycaSheet<_LineChoice>(
       context: context,
       isScrollControlled: true,
       builder: (_) => _LineSheet(line: line),
@@ -159,7 +160,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
         if (other == null || !mounted) return;
         await _match(line, s.bankMatchSaid('transfer', account: s.accountLabel(other.label), isIn: line.isIn), {'kind': 'transfer', 'otherAccount': other.id, ...remember});
       case 'ignore':
-        final note = await showModalBottomSheet<String>(context: context, isScrollControlled: true, builder: (_) => const _NoteSheet());
+        final note = await showMycaSheet<String>(context: context, isScrollControlled: true, builder: (_) => const _NoteSheet());
         if (note == null || !mounted) return;
         await _match(line, s.bankMatchSaid('ignore', note: note), {'kind': 'ignore', if (note.isNotEmpty) 'note': note, ...remember});
     }
@@ -191,7 +192,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
     final accounts = await _accounts(recon);
     if (!mounted) return;
     final today = isoDate(AppScope.of(context).now());
-    final draft = await showModalBottomSheet<_TransferDraft>(
+    final draft = await showMycaSheet<_TransferDraft>(
       context: context,
       isScrollControlled: true,
       builder: (_) => _TransferSheet(accounts: accounts, from: _account, today: today),
@@ -211,7 +212,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
   Future<void> _rules(BankReconciliation? recon) async {
     final accounts = await _accounts(recon);
     if (!mounted) return;
-    final action = await showModalBottomSheet<_RuleAction>(
+    final action = await showMycaSheet<_RuleAction>(
       context: context,
       isScrollControlled: true,
       builder: (_) => _RulesSheet(rules: recon?.rules ?? const [], accounts: accounts.where((a) => a.id != _account).toList()),
@@ -224,7 +225,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
   }
 
   Future<void> _addAccount() async {
-    final draft = await showModalBottomSheet<Map<String, Object?>>(
+    final draft = await showMycaSheet<Map<String, Object?>>(
       context: context,
       isScrollControlled: true,
       builder: (_) => const _AccountSheet(),

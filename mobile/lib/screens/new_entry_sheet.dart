@@ -13,6 +13,7 @@ import 'bill_capture_screen.dart';
 import 'counter_sale_screen.dart';
 import 'expense_screen.dart';
 import 'party_picker.dart';
+import '../widgets/glass.dart';
 
 Future<void> showNewEntrySheet(BuildContext context) {
   final navigator = Navigator.of(context);
@@ -30,7 +31,7 @@ Future<void> showNewEntrySheet(BuildContext context) {
   final s = UaeStrings.of(context);
   final scope = AppScope.of(context);
   final india = scope.edition == 'IN' && (scope.snapshot?.company.country ?? 'IN') == 'IN';
-  return showModalBottomSheet<void>(
+  return showMycaSheet<void>(
     context: context,
     isScrollControlled: true,
     builder: (sheet) => SafeArea(

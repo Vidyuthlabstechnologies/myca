@@ -7,6 +7,7 @@ import '../format.dart';
 import '../india/india_strings.dart';
 import '../india/loyalty_points.dart';
 import '../widgets.dart';
+import '../widgets/glass.dart';
 
 String _plain(num value) => value == value.roundToDouble() ? value.toInt().toString() : value.toString();
 
@@ -156,7 +157,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
   }
 
   Future<void> _openCustomer(LoyaltyCustomer row) async {
-    await showModalBottomSheet<void>(
+    await showMycaSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (_) => AppScope(state: AppScope.of(context), child: _CustomerSheet(partyName: row.partyName)),

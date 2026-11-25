@@ -12,6 +12,7 @@ import '../us/us_ai_permission.dart';
 import '../uae/uae_edition.dart';
 import '../uae/uae_strings.dart';
 import '../widgets.dart';
+import '../widgets/glass.dart';
 
 class AskScreen extends StatefulWidget {
   const AskScreen({super.key, this.first});
@@ -235,7 +236,7 @@ Future<void> reportAnswer(BuildContext context, String answer) async {
   String w(String english, String malay) => myMalayOr(context, english, malay);
   final thanks = w(inText(context, 'Thank you. The answer was reported for review.'), 'Terima kasih. Jawapan ini telah dilaporkan untuk disemak.');
   final failed = w(inText(context, 'Could not send the report. Try again when you are online.'), 'Laporan tidak dapat dihantar. Cuba lagi apabila anda dalam talian.');
-  final reason = await showModalBottomSheet<String>(
+  final reason = await showMycaSheet<String>(
     context: context,
     showDragHandle: true,
     builder: (context) => SafeArea(

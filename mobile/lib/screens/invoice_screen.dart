@@ -14,6 +14,7 @@ import 'ca_screen.dart';
 import 'reminders_screen.dart';
 import '../theme.dart';
 import '../uae/uae_strings.dart';
+import '../widgets/glass.dart';
 
 String _missingWord(String lang, String code) => switch (code) {
   'SELLER_GSTIN' => inLine(lang, 'your GSTIN'),
@@ -124,7 +125,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
   }
 
   Future<void> _creditNote(InvoiceDocument doc) async {
-    final result = await showModalBottomSheet<(num?, String, bool)>(
+    final result = await showMycaSheet<(num?, String, bool)>(
       context: context,
       isScrollControlled: true,
       builder: (sheet) => _CreditNoteSheet(doc: doc),
@@ -147,7 +148,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
   }
 
   Future<void> _amend(InvoiceDocument doc) async {
-    final result = await showModalBottomSheet<Map<String, Object?>>(
+    final result = await showMycaSheet<Map<String, Object?>>(
       context: context,
       isScrollControlled: true,
       builder: (sheet) => _AmendSheet(doc: doc),
@@ -157,7 +158,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
   }
 
   Future<void> _transport(InvoiceDocument doc) async {
-    final result = await showModalBottomSheet<Map<String, Object?>>(
+    final result = await showMycaSheet<Map<String, Object?>>(
       context: context,
       isScrollControlled: true,
       builder: (sheet) => _TransportSheet(doc: doc),
@@ -218,7 +219,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
   }
 
   Future<void> _debitNote(InvoiceDocument doc) async {
-    final result = await showModalBottomSheet<(num?, String, bool)>(
+    final result = await showMycaSheet<(num?, String, bool)>(
       context: context,
       isScrollControlled: true,
       builder: (sheet) => _CreditNoteSheet(doc: doc, debit: true),
@@ -261,7 +262,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
   }
 
   Future<void> _cancel(InvoiceDocument doc) async {
-    final reason = await showModalBottomSheet<String>(
+    final reason = await showMycaSheet<String>(
       context: context,
       isScrollControlled: true,
       builder: (sheet) => _CancelSheet(doc: doc),

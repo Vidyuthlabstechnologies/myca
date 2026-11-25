@@ -10,6 +10,7 @@ import '../proposal_flow.dart';
 import '../registers.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../widgets/glass.dart';
 
 const _channels = ['amazon', 'flipkart', 'myntra', 'nykaa', 'meesho', 'shopify', 'razorpay', 'quick-commerce'];
 
@@ -87,7 +88,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with ProposalFlow
     await _importFile('import_marketplace_orders', inFormat(context, 'Import {channel} orders', {'channel': channel}), extra: {'channel': channel});
   }
 
-  Future<String?> _pickChannel(String title) => showModalBottomSheet<String>(
+  Future<String?> _pickChannel(String title) => showMycaSheet<String>(
         context: context,
         builder: (sheet) => SafeArea(
           child: ListView(
@@ -107,7 +108,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with ProposalFlow
     final data = toolData(await api.query('stock_moves', {'sku': sku, 'location': location}));
     if (!mounted) return;
     final moves = _maps(data['moves']);
-    await showModalBottomSheet<void>(
+    await showMycaSheet<void>(
       context: context,
       builder: (sheet) {
         final text = Theme.of(sheet).textTheme;
@@ -135,19 +136,19 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with ProposalFlow
   }
 
   Future<void> _addRegistration() async {
-    final draft = await showModalBottomSheet<_RegistrationDraft>(context: context, isScrollControlled: true, builder: (_) => const _RegistrationSheet());
+    final draft = await showMycaSheet<_RegistrationDraft>(context: context, isScrollControlled: true, builder: (_) => const _RegistrationSheet());
     if (draft == null || !mounted) return;
     await propose(inFormat(context, 'Add registration {gstin}', {'gstin': draft.gstin}), 'set_registration', {'gstin': draft.gstin, 'kind': draft.kind, if (draft.label.isNotEmpty) 'label': draft.label});
   }
 
   Future<void> _setCost() async {
-    final draft = await showModalBottomSheet<_CostDraft>(context: context, isScrollControlled: true, builder: (_) => const _CostSheet());
+    final draft = await showMycaSheet<_CostDraft>(context: context, isScrollControlled: true, builder: (_) => const _CostSheet());
     if (draft == null || !mounted) return;
     await propose(inFormat(context, 'Cost of {sku} is ₹{cost}', {'sku': draft.sku, 'cost': draft.cost}), 'set_sku_cost', {'sku': draft.sku, 'cost': draft.cost, if (draft.gstRate != null) 'gstRate': draft.gstRate, if (draft.hsn.isNotEmpty) 'hsn': draft.hsn});
   }
 
   Future<void> _stockIn(List<Map<String, dynamic>> registrations) async {
-    final draft = await showModalBottomSheet<_StockDraft>(context: context, isScrollControlled: true, builder: (_) => _StockSheet(registrations: registrations));
+    final draft = await showMycaSheet<_StockDraft>(context: context, isScrollControlled: true, builder: (_) => _StockSheet(registrations: registrations));
     if (draft == null || !mounted) return;
     if (draft.toGstin.isEmpty) {
       await propose(inFormat(context, 'Stock in {qty} of {sku} at {location}', {'qty': draft.qty, 'sku': draft.sku, 'location': draft.location}), 'record_stock', {'sku': draft.sku, 'qty': draft.qty, 'location': draft.location});

@@ -11,6 +11,7 @@ import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'party_screen.dart';
 import 'uae/uae_document_screen.dart';
+import '../widgets/glass.dart';
 
 typedef PickedParty = ({String name, String gstin});
 
@@ -40,7 +41,7 @@ Widget uaeEntryScreen(RegisterKind kind, PickedParty party) => kind == RegisterK
     : UaePurchaseScreen(partyName: party.name, partyTrn: party.gstin);
 
 Future<PickedParty?> showPartyPicker(BuildContext context, RegisterKind kind) {
-  return showModalBottomSheet<PickedParty>(
+  return showMycaSheet<PickedParty>(
     context: context,
     isScrollControlled: true,
     builder: (_) => _PartyPicker(kind: kind),
@@ -52,7 +53,7 @@ Future<PickedParty?> showNewPartySheet(
   RegisterKind kind, {
   String initialName = '',
 }) {
-  return showModalBottomSheet<PickedParty>(
+  return showMycaSheet<PickedParty>(
     context: context,
     isScrollControlled: true,
     builder: (_) => _NewPartySheet(kind: kind, initialName: initialName),

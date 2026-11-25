@@ -9,6 +9,7 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'ims_screen.dart';
 import 'remind_supplier_screen.dart';
+import '../widgets/glass.dart';
 
 class CreditCard extends StatefulWidget {
   const CreditCard({super.key, required this.period});
@@ -118,7 +119,7 @@ class _CreditCardState extends State<CreditCard> {
               (supplier.gstin.isEmpty ? supplier.supplier : supplier.gstin),
         )
         .toList();
-    showModalBottomSheet<void>(
+    showMycaSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (sheet) {
