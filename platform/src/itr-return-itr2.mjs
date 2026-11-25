@@ -146,6 +146,7 @@ export function buildItr2(args = {}) {
         parentsIncludeSenior: deductions.parentsSenior === true,
       },
       special: specialPaise,
+      exemption112APaise: cg.exemption112A * PAISE,
     });
     return { regime, rows, hpTotal, hpForTax, hpLossSetoff, hpLossCarried, bfHpSetoff, bfHpCarried, professionalTax, netSalary, calc };
   };
@@ -274,7 +275,7 @@ export function buildItr2(args = {}) {
     Salary: { IncBFLA: { IncOfCurYrUndHeadFromCYLA: incomeFromSalary, IncOfCurYrAfterSetOffBFLosses: incomeFromSalary } },
     ...gains.bflaRows,
     TotalBFLossSetOff: { TotBFLossSetoff: gains.bfTotal },
-    IncomeOfCurrYrAftCYLABFLA: incomeFromSalary + gains.gainsAfterSetOff - gains.bfTotal,
+    IncomeOfCurrYrAftCYLABFLA: 0,
   };
 
   const otherDetails = [];
@@ -307,10 +308,12 @@ export function buildItr2(args = {}) {
     patch.ScheduleOS.DividendQuarters = dividendQuarters;
   }
 
-  const hpIncomeRow = Math.max(0, run.hpForTax);
+  const hpIncomeRow = Math.max(0, run.hpForTax + run.bfHpSetoff);
   const { ShortTerm: stRows, LongTerm: ltRows, TotalCapGains: capTotal } = gains.capGain;
   const totalTI = incomeFromSalary + hpIncomeRow + capTotal + other.net;
   const hpLossUsed = Math.max(0, -run.hpForTax);
+  const broughtForwardSetoff = gains.bfTotal + run.bfHpSetoff;
+  const grossTotalRow = Math.max(0, totalTI - hpLossUsed - broughtForwardSetoff);
   patch['PartB-TI'] = {
     Salaries: incomeFromSalary,
     IncomeFromHP: hpIncomeRow,
@@ -319,18 +322,19 @@ export function buildItr2(args = {}) {
     TotalTI: totalTI,
     CurrentYearLoss: hpLossUsed,
     BalanceAfterSetoffLosses: Math.max(0, totalTI - hpLossUsed),
-    BroughtFwdLossesSetoff: 0,
-    GrossTotalIncome: Math.max(0, totalTI - hpLossUsed),
+    BroughtFwdLossesSetoff: broughtForwardSetoff,
+    GrossTotalIncome: grossTotalRow,
     IncChargeTaxSplRate111A112: specialTotal,
     DeductionsUnderScheduleVIA: via.total,
     TotalIncome: totalIncome,
     IncChargeableTaxSplRates: specialTotal,
     NetAgricultureIncomeOrOtherIncomeForRate: agri,
-    AggregateIncome: totalIncome,
+    AggregateIncome: Math.max(0, totalIncome - specialTotal),
     LossesOfCurrentYearCarriedFwd: carry.shortTermCapitalLoss + carry.longTermCapitalLoss + carry.houseProperty,
     DeemedIncomeUs115JC: 0,
   };
-  const grossForSummary = Math.max(0, totalTI - hpLossUsed);
+  const grossForSummary = grossTotalRow;
+  patch.ScheduleBFLA.IncomeOfCurrYrAftCYLABFLA = grossTotalRow;
 
   patch.PartB_TTI = {
     ComputationOfTaxLiability: {

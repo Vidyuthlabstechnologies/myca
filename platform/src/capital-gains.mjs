@@ -137,15 +137,14 @@ export function computeCapitalGains({ transactions = [], broughtForward = {} } =
 
   let exemption = EXEMPT_112A;
   const exempted = {};
-  for (const key of ['ltcg112A_BE', 'ltcg112A_AE']) {
+  for (const key of ['ltcg112A_AE', 'ltcg112A_BE']) {
     const take = Math.min(exemption, buckets[key]);
     exempted[key] = take;
-    buckets[key] -= take;
     exemption -= take;
   }
   const notes = [];
-  if (rows.some((row) => row.bucket.startsWith('ltcg112A') && original.ltcg112A_BE > 0 && original.ltcg112A_AE > 0)) {
-    notes.push('The Rs 1.25 lakh section 112A exemption was applied first to gains from transfers before 23 July 2024 (taxed at 10%), which gives the higher tax. A CA should confirm the order the portal applies.');
+  if (original.ltcg112A_BE > 0 && original.ltcg112A_AE > 0) {
+    notes.push('The Rs 1.25 lakh section 112A relief was applied first to gains from transfers on or after 23 July 2024 (taxed at 12.5%), as in the CBDT sample return. The gain stays in total income; only the tax is reduced.');
   }
   const specialIncome = {
     stcg111A_BE: buckets.stcg111A_BE, stcg111A_AE: buckets.stcg111A_AE,

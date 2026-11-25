@@ -18,15 +18,18 @@ test('112A: Rs 1.25 lakh exempt, 12.5% after 23 July 2024', () => {
   const r = computeCapitalGains({ transactions: [eq({})] });
   assert.equal(r.original.ltcg112A_AE, 300000);
   assert.equal(r.exemption112A, 125000);
-  assert.equal(r.specialIncome.ltcg112A_AE, 175000);
+  assert.equal(r.specialIncome.ltcg112A_AE, 300000);
+  assert.equal(r.exempted.ltcg112A_AE, 125000);
 });
 
-test('112A exemption applies first to the gains taxed at 10%', () => {
+test('112A exemption applies first to the gains taxed at 12.5%', () => {
   const r = computeCapitalGains({ transactions: [eq({ sellDate: '2024-05-01', saleValue: 300000 }), eq({ saleValue: 200000 })] });
   assert.equal(r.original.ltcg112A_BE, 200000);
   assert.equal(r.original.ltcg112A_AE, 100000);
-  assert.equal(r.specialIncome.ltcg112A_BE, 75000);
+  assert.equal(r.specialIncome.ltcg112A_BE, 200000);
   assert.equal(r.specialIncome.ltcg112A_AE, 100000);
+  assert.equal(r.exempted.ltcg112A_AE, 100000);
+  assert.equal(r.exempted.ltcg112A_BE, 25000);
 });
 
 test('losses: short-term loss absorbs gains, long-term loss cannot touch short-term gain and carries forward', () => {

@@ -280,9 +280,9 @@ export function gainSchedules({ form, cg, skeleton, args, problems, notes = [], 
   }
   if (siRows.length) patch.ScheduleSI = { SplCodeRateTax: siRows, TotSplRateInc: specialTotal, TotSplRateIncTax: siRows.reduce((total, row) => total + row.SplRateIncTax, 0) };
 
-  const stRows = { ShortTerm15Per: columnsFinal.STCG15Per, ShortTerm20Per: columnsFinal.STCG20Per, ShortTerm30Per: 0, ShortTermAppRate: columnsFinal.STCGAppRate, ShortTermSplRateDTAA: 0 };
+  const stRows = { ShortTerm15Per: columnsAfterYear.STCG15Per, ShortTerm20Per: columnsAfterYear.STCG20Per, ShortTerm30Per: 0, ShortTermAppRate: columnsAfterYear.STCGAppRate, ShortTermSplRateDTAA: 0 };
   stRows.TotalShortTerm = Object.values(stRows).reduce((a, b) => a + b, 0);
-  const ltRows = { LongTerm10Per: columnsFinal.LTCG10Per, LongTerm12_5Per: columnsFinal.LTCG12_5Per, LongTerm20Per: columnsFinal.LTCG20Per, LongTermSplRateDTAA: 0 };
+  const ltRows = { LongTerm10Per: columnsAfterYear.LTCG10Per, LongTerm12_5Per: columnsAfterYear.LTCG12_5Per, LongTerm20Per: columnsAfterYear.LTCG20Per, LongTermSplRateDTAA: 0 };
   ltRows.TotalLongTerm = Object.values(ltRows).reduce((a, b) => a + b, 0);
   const capGain = { ShortTerm: stRows, LongTerm: ltRows, ShortTermLongTermTotal: stRows.TotalShortTerm + ltRows.TotalLongTerm, CapGains30Per115BBH: 0, TotalCapGains: stRows.TotalShortTerm + ltRows.TotalLongTerm };
 

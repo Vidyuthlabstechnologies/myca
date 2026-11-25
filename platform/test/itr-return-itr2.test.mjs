@@ -63,7 +63,7 @@ test('brought-forward capital losses and house property loss are used', () => {
     ] },
   });
   assert.equal(result.data.validation.valid, true, JSON.stringify(result.data.problems));
-  assert.equal(result.data.summary.grossTotalIncome, 947600 + 180000 + 295000 + 90000);
+  assert.equal(result.data.summary.grossTotalIncome, 947600 + 180000 + 295000 + 90000 + 125000);
   assert.equal(result.data.json.ITR.ITR2.ScheduleBFLA.TotalBFLossSetOff.TotBFLossSetoff, 90000);
 });
 

@@ -68,7 +68,7 @@ const gainRules = [
       && num(lt.TotalLongTerm) === num(lt.LongTerm10Per) + num(lt['LongTerm12_5Per']) + num(lt.LongTerm20Per) + num(lt.LongTermSplRateDTAA)
       && num(cap.TotalCapGains) === num(st.TotalShortTerm) + num(lt.TotalLongTerm) + num(cap.CapGains30Per115BBH);
   } },
-  { id: 'SI-TOTAL', cbdt: '', text: 'Schedule SI income and tax equal the sum of the rows, and the tax matches the rates.', test: (b) => !b.ScheduleSI || (num(b.ScheduleSI.TotSplRateInc) === sumOf(b.ScheduleSI.SplCodeRateTax, (row) => row.SplRateInc) && num(b.ScheduleSI.TotSplRateIncTax) === sumOf(b.ScheduleSI.SplCodeRateTax, (row) => row.SplRateIncTax) && list(b.ScheduleSI.SplCodeRateTax).every((row) => Math.abs(num(row.SplRateIncTax) - num(row.SplRateInc) * num(row.SplRatePercent) / 100) <= 1)) },
+  { id: 'SI-TOTAL', cbdt: '', text: 'Schedule SI income and tax equal the sum of the rows.', test: (b) => !b.ScheduleSI || (num(b.ScheduleSI.TotSplRateInc) === sumOf(b.ScheduleSI.SplCodeRateTax, (row) => row.SplRateInc) && num(b.ScheduleSI.TotSplRateIncTax) === sumOf(b.ScheduleSI.SplCodeRateTax, (row) => row.SplRateIncTax)) },
 ];
 
 const partBRules = [

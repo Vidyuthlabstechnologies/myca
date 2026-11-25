@@ -14,6 +14,7 @@ The tool `build_itr_json` prepares an income tax return JSON for upload to the e
 | `platform/src/it-house-property.mjs`, `itr-util.mjs` | House property rule; small shared helpers (`layer` fills required fields of optional sections). |
 | `platform/src/itr-books.mjs` | `booksFigures`: reads a financial year's profit and loss, balance sheet, receipts, advance tax and TDS from the ledger. |
 | `platform/src/it-depreciation.mjs` | Income-tax depreciation by block (WDV, half rate under 180 days). |
+| `platform/src/itr-rules.mjs` | Portal arithmetic rules checked on every built or uploaded JSON (33 for ITR-2; CBDT ids attached for ITR-2). |
 | `platform/src/capital-gains.mjs` | Classifies each sale, sets off losses, applies the 112A exemption. |
 | `sprints/sprint-5-filing-assistant/src/income-tax.mjs` | `computeIncomeTax` and `computeIncomeTaxSpecial` (special-rate income). |
 | `platform/src/tool-schemas-tax.mjs` | Strict argument schema for `build_itr_json`. A new input needs an entry here, in `tools.mjs` (`args`) and a test. |
@@ -52,8 +53,8 @@ These were written from the Income-tax Act as amended and the CBDT schema. None 
 
 ## Choices a CA should confirm
 
-1. **Order of the ₹1.25 lakh 112A exemption.** It is applied first to gains at 10% (before 23 July 2024), then at 12.5%. That gives the higher tax. The CBDT utility may order it differently.
-2. **Where the exemption shows in Part B-TI.** The ITR-2 output reports long-term rows net of the exemption and sets brought-forward losses to zero in Part B-TI (they appear in Schedule BFLA). Check against the utility.
+1. **Order of the ₹1.25 lakh 112A exemption.** Applied first to gains at 12.5% (transfers from 23 July 2024), then at 10%, as in the CBDT sample return. Settled by the sample; no longer a CA question.
+2. **Where the exemption shows.** The exempt gain stays in total income and Schedule SI; only the tax falls. Part B-TI is before brought-forward set-off, which is shown in Schedule BFLA. Both follow the sample return.
 3. **234C with capital gains**, as above.
 4. **Surcharge** for income above ₹50 lakh with special-rate gains.
 5. **Dividend by quarter** defaults to the first quarter when not given.

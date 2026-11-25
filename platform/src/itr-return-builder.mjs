@@ -239,7 +239,7 @@ function withGainsInput(args) {
   return (Array.isArray(args.capitalGains?.transactions) && args.capitalGains.transactions.length > 0) || (Array.isArray(args.houseProperties) && args.houseProperties.length > 0);
 }
 
-function runTaxSpecial({ fy, regime, salary, otherIncome, deductions, ageBand, extras, special }) {
+function runTaxSpecial({ fy, regime, salary, otherIncome, deductions, ageBand, extras, special, exemption112A = 0 }) {
   const claims = {
     otherChapterViaPaise: (extras?.totalOld || 0) * PAISE,
     employerNpsPaise: (regime === 'old' ? extras?.employerNpsOld || 0 : extras?.employerNpsNew || 0) * PAISE,
@@ -258,6 +258,7 @@ function runTaxSpecial({ fy, regime, salary, otherIncome, deductions, ageBand, e
     otherIncomePaise: signed(otherIncome) * PAISE,
     claims,
     special: Object.fromEntries(Object.entries(special || {}).map(([key, value]) => [key, Math.max(0, value) * PAISE])),
+    exemption112APaise: exemption112A * PAISE,
   });
   if (result.error) return result;
   return { ...result, slabTaxPaise: result.normalTaxPaise + result.specialTaxPaise, grossTotalIncomePaise: result.grossNormalIncomePaise + result.specialIncomePaise };
@@ -632,8 +633,8 @@ export function buildItr3(args = {}) {
       } else hpLossCarried = -hpTotal;
       const bfSetoff = Math.min(bfHp, Math.max(0, hpForTax));
       hpForTax -= bfSetoff;
-      const calc = runTaxSpecial({ fy: info.fy, regime, salary: salaryGross, otherIncome: otherSources + hpForTax + (taxableBusiness - setOff) + cg.normalRateGain, deductions, ageBand, extras, special: cg.specialIncome });
-      return { regime, rows, hpTotal, hpForTax, hpLossSetoff, hpLossCarried, bfHpCarried: bfHp - bfSetoff, calc };
+      const calc = runTaxSpecial({ fy: info.fy, regime, salary: salaryGross, otherIncome: otherSources + hpForTax + (taxableBusiness - setOff) + cg.normalRateGain, deductions, ageBand, extras, special: cg.specialIncome, exemption112A: cg.exemption112A });
+      return { regime, rows, hpTotal, hpForTax, hpLossSetoff, hpLossCarried, bfHpSetoff: bfSetoff, bfHpCarried: bfHp - bfSetoff, calc };
     };
     const wanted = readRegime(args);
     const candidates = wanted === 'auto' ? [runFor('new'), runFor('old')] : [runFor(wanted)];
@@ -800,10 +801,10 @@ export function buildItr3(args = {}) {
     'PartB-TI': {
       Salaries: Math.max(0, salaryGross - standardDeduction),
       IncomeFromHP: houseProperty,
-      ProfBusGain: { ProfGainNoSpecBus: taxableBusiness - setOff, TotProfBusGain: taxableBusiness - setOff },
+      ProfBusGain: { ProfGainNoSpecBus: taxableBusiness, TotProfBusGain: taxableBusiness },
       IncFromOS: { OtherSrcThanOwnRaceHorse: otherSources, TotIncFromOS: otherSources },
-      TotalTI: grossTotal,
-      BalanceAfterSetoffLosses: grossTotal,
+      TotalTI: grossTotal + setOff,
+      BalanceAfterSetoffLosses: grossTotal + setOff,
       BroughtFwdLossesSetoff: setOff,
       GrossTotalIncome: grossTotal,
       DeductionsUndSchVIADtl: { PartBchapterVIA: chapterVia, TotDeductUndSchVIA: chapterVia },
@@ -845,17 +846,22 @@ export function buildItr3(args = {}) {
     const hpPositive = Math.max(0, gainRun.hpForTax);
     const hpLossUsed = Math.max(0, -gainRun.hpForTax);
     const salariesRow = Math.max(0, salaryGross - standardDeduction);
-    const businessRow = taxableBusiness - setOff;
-    const totalTI = salariesRow + hpPositive + businessRow + gains.capGain.TotalCapGains + otherSources;
+    const businessRow = taxableBusiness;
+    const hpIncomeRow = Math.max(0, gainRun.hpForTax + gainRun.bfHpSetoff);
+    const totalTI = salariesRow + hpIncomeRow + businessRow + gains.capGain.TotalCapGains + otherSources;
+    const broughtForwardSetoff = setOff + gains.bfTotal + gainRun.bfHpSetoff;
+    const grossTotalRow = Math.max(0, totalTI - hpLossUsed - broughtForwardSetoff);
     patch['PartB-TI'] = {
       ...patch['PartB-TI'],
-      IncomeFromHP: hpPositive,
+      IncomeFromHP: hpIncomeRow,
       CapGain: gains.capGain,
       TotalTI: totalTI,
       CurrentYearLoss: hpLossUsed,
       BalanceAfterSetoffLosses: Math.max(0, totalTI - hpLossUsed),
-      GrossTotalIncome: Math.max(0, totalTI - hpLossUsed),
+      BroughtFwdLossesSetoff: broughtForwardSetoff,
+      GrossTotalIncome: grossTotalRow,
       IncChargeTaxSplRate111A112: gains.specialTotal,
+      AggregateIncome: Math.max(0, totalIncome - gains.specialTotal),
     };
     patch.PartB_TTI.ComputationOfTaxLiability.TaxPayableOnTI = { ...patch.PartB_TTI.ComputationOfTaxLiability.TaxPayableOnTI, TaxAtNormalRatesOnAggrInc: calc.normalTaxPaise / PAISE, TaxAtSpecialRates: calc.specialTaxPaise / PAISE };
     const hpSchedule = houseSchedule({ rows: gainRun.rows, skeleton, taxpayer, total: gainRun.hpTotal });

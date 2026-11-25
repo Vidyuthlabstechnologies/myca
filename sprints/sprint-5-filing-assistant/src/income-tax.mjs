@@ -169,6 +169,13 @@ export function computeIncomeTaxSpecial(input = {}) {
     const exemptionLimit = slabs.find((slab) => slab.ratePercent === 0)?.toPaise || 0;
     let shortfall = Math.max(0, exemptionLimit - normalIncomePaise);
     const adjusted = { ...special };
+    let exemptionLeft = Math.max(0, Number(input.exemption112APaise) || 0);
+    for (const key of ['ltcg112A_AE', 'ltcg112A_BE']) {
+      const take = Math.min(exemptionLeft, adjusted[key]);
+      adjusted[key] -= take;
+      exemptionLeft -= take;
+    }
+    const exemption112AAppliedPaise = Math.max(0, Number(input.exemption112APaise) || 0) - exemptionLeft;
     for (const key of Object.keys(SPECIAL_RATE_PERCENT).sort((a, b) => SPECIAL_RATE_PERCENT[b] - SPECIAL_RATE_PERCENT[a])) {
       const take = Math.min(shortfall, adjusted[key]);
       adjusted[key] -= take;
@@ -214,7 +221,8 @@ export function computeIncomeTaxSpecial(input = {}) {
       normalTaxPaise,
       specialTaxPaise,
       specialTaxByKey,
-      basicExemptionAdjustedPaise: specialTotal - Object.values(adjusted).reduce((a, b) => a + b, 0),
+      exemption112AAppliedPaise,
+      basicExemptionAdjustedPaise: specialTotal - exemption112AAppliedPaise - Object.values(adjusted).reduce((a, b) => a + b, 0),
       rebatePaise,
       surchargePaise,
       surchargeMarginalReliefComputed: false,
