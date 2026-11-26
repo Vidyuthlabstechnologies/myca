@@ -161,7 +161,8 @@ export const RULES = [
     section: 'Rule 37A, CGST Rules 2017',
     source: 'Notification 26/2022-Central Tax dated 26.12.2022 inserting rule 37A: where the supplier has not furnished FORM GSTR-3B for the period by the 30th day of September following the end of the financial year in which the credit was availed, the recipient reverses it in FORM GSTR-3B on or before the 30th day of November following the end of that financial year',
     attestations: []
-  },
+  }
+,
   {
     id: 'gst.setoff.order',
     value: { ownHeadFirst: true, igstCreditExhaustedFirst: false, igstRemainder: 'any-order', crossHeads: { cgst: ['cgst', 'igst'], sgst: ['sgst', 'igst'] } },
@@ -395,6 +396,17 @@ export const RULES = [
     act: 'CGST',
     section: '34(2)',
     source: 'CGST Act 2017 s.34(2) as amended by the Finance Act, 2022 ("November" for "September") w.e.f. 01.10.2022 by Notification No. 18/2022-Central Tax dated 28.09.2022: the credit note is declared in the return for the month of issue but not later than the thirtieth day of November following the end of the financial year in which such supply was made, or the date of furnishing of the relevant annual return, whichever is earlier (CBIC tax information portal, CGST Act chapter VII section 34, footnote 3); s.34(3) and (4) set no such time limit for debit notes',
+    attestations: []
+  },
+  {
+    id: 'gst.itc.time-limit',
+    value: { month: 11, day: 30, after: 'end_of_financial_year_of_the_invoice', orAnnualReturnIfEarlier: true },
+    basis: 'date_of_the_invoice_or_debit_note',
+    effectiveFrom: '2022-10-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: '16(4)',
+    source: 'CGST Act 2017 s.16(4) as amended by the Finance Act, 2022 ("November" for "September") w.e.f. 01.10.2022 by Notification No. 18/2022-Central Tax dated 28.09.2022: input tax credit on an invoice or debit note cannot be taken after the thirtieth day of November following the end of the financial year to which the invoice or debit note pertains, or the date of furnishing the relevant annual return, whichever is earlier; s.16(5) and (6) carry separate extensions for particular years and are not modelled',
     attestations: []
   },
   {

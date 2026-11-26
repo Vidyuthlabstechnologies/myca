@@ -16,6 +16,7 @@ import '../offline/gstin.dart';
 import '../registers.dart';
 import 'offline_bills_screen.dart';
 import 'loyalty_screen.dart';
+import 'counter_draft.dart';
 import 'counter_items.dart';
 import 'stock_alerts_screen.dart';
 import '../widgets/glass.dart';
@@ -75,8 +76,9 @@ String payModeWords(BuildContext context, String mode) => switch (mode) {
 };
 
 class CounterSaleScreen extends StatefulWidget {
-  const CounterSaleScreen({super.key, this.scan = scanBarcodeWithCamera, this.printer = const BluetoothReceiptPrinter()});
+  const CounterSaleScreen({super.key, this.scan = scanBarcodeWithCamera, this.printer = const BluetoothReceiptPrinter(), this.drafts = const PreferencesDraftStore()});
 
+  final CounterDraftStore drafts;
   final BarcodeScan scan;
   final ReceiptPrinter printer;
 
@@ -102,11 +104,15 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
   Timer? _debounce;
   int _searchSeq = 0;
   bool _searched = false;
+  DraftShelf _shelf = const DraftShelf();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadFavourites());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadFavourites();
+      _restoreDraft();
+    });
   }
 
   MycaApi get api => AppScope.of(context).api;
@@ -123,6 +129,88 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
     _address.dispose();
     _gstin.dispose();
     super.dispose();
+  }
+
+  String get _businessKey {
+    final company = AppScope.of(context).snapshot?.company;
+    return '${company?.name ?? ''}|${company?.gstin ?? ''}';
+  }
+
+  CounterDraft _draftNow() => CounterDraft(
+    lines: [for (final line in cart) DraftLine(sku: line.sku, name: line.name, price: line.price, listPrice: line.listPrice, gstRate: line.gstRate, qty: line.qty, hsn: line.hsn, unit: line.unit)],
+    customer: _customer.text,
+    address: _address.text,
+    gstin: _gstin.text,
+    pay: _pay,
+  );
+
+  void _persist() {
+    if (!mounted) return;
+    final current = cart.isEmpty ? null : _draftNow();
+    _shelf = DraftShelf(current: current, parked: _shelf.parked);
+    unawaited(widget.drafts.save(_businessKey, _shelf));
+  }
+
+  void _applyDraft(CounterDraft draft) {
+    cart
+      ..clear()
+      ..addAll([
+        for (final saved in draft.lines)
+          CartLine(sku: saved.sku, name: saved.name, price: saved.listPrice, gstRate: saved.gstRate, hsn: saved.hsn, unit: saved.unit, qty: saved.qty)..price = saved.price,
+      ]);
+    _customer.text = draft.customer;
+    _address.text = draft.address;
+    _gstin.text = draft.gstin;
+    _pay = draft.pay;
+    _preview = null;
+    _posted = null;
+  }
+
+  Future<void> _restoreDraft() async {
+    if (!mounted) return;
+    final shelf = await widget.drafts.load(_businessKey);
+    if (!mounted) return;
+    setState(() {
+      _shelf = DraftShelf(current: cart.isEmpty ? shelf.current : null, parked: shelf.parked);
+      if (cart.isEmpty && shelf.current != null) _applyDraft(shelf.current!);
+    });
+  }
+
+  void _park() {
+    if (cart.isEmpty || _shelf.parked.length >= maxParkedBills) return;
+    final parked = [..._shelf.parked, _draftNow()];
+    setState(() {
+      cart.clear();
+      _customer.clear();
+      _address.clear();
+      _gstin.clear();
+      _redeem = null;
+      _pay = 'cash';
+      _preview = null;
+      _posted = null;
+      _shelf = DraftShelf(parked: parked);
+    });
+    unawaited(widget.drafts.save(_businessKey, _shelf));
+  }
+
+  void _resume(int index) {
+    final parked = [..._shelf.parked];
+    final picked = parked.removeAt(index);
+    if (cart.isNotEmpty) {
+      if (parked.length >= maxParkedBills) return;
+      parked.add(_draftNow());
+    }
+    setState(() {
+      _applyDraft(picked);
+      _redeem = null;
+      _shelf = DraftShelf(current: picked, parked: parked);
+    });
+    unawaited(widget.drafts.save(_businessKey, _shelf));
+  }
+
+  String _parkedLabel(CounterDraft draft) {
+    final who = draft.customer.trim().isEmpty ? inText(context, 'Bill') : draft.customer.trim();
+    return '$who · ${inCount(context, draft.lines.length, '1 item', '{n} items')}';
   }
 
   Future<List<ItemHit>> _lookup(String query) async {
@@ -209,6 +297,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
       _preview = null;
       _posted = null;
     });
+    _persist();
   }
 
   Future<void> _scan() async {
@@ -260,6 +349,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
       _preview = null;
       _posted = null;
     });
+    _persist();
   }
 
   Future<void> _newItem(String code, {String sku = '', String name = ''}) async {
@@ -296,6 +386,10 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
     final gstinIssue = gstinProblem(_gstin.text);
     if (gstinIssue != null) {
       setState(() => _message = gstinIssue);
+      return;
+    }
+    if (_pay == 'credit' && _customer.text.trim().isEmpty) {
+      setState(() => _message = inText(context, 'Pay later needs a customer name, so you know who owes you.'));
       return;
     }
     if (needsBuyerDetails(cart) && _gstin.text.trim().isEmpty && (_customer.text.trim().isEmpty || _address.text.trim().isEmpty)) {
@@ -352,7 +446,10 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
           _redeem = null;
         }
       });
-      if (reply.posted) await AppScope.of(context).refresh();
+      if (reply.posted) {
+        _persist();
+        await AppScope.of(context).refresh();
+      }
     } on MycaApiException catch (err) {
       if (mounted) setState(() => _message = err.message);
     } finally {
@@ -482,6 +579,18 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
               IconButton.filled(key: const Key('counter-scan'), tooltip: inText(context, 'Scan'), onPressed: _busy ? null : _scan, icon: const Icon(Icons.qr_code_scanner)),
             ],
           ),
+          if (_shelf.parked.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Wrap(
+                key: const Key('counter-parked'),
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final (index, draft) in _shelf.parked.indexed) ActionChip(key: Key('counter-parked-$index'), avatar: const Icon(Icons.pause_circle_outline, size: 18), label: Text(_parkedLabel(draft)), onPressed: () => _resume(index)),
+                ],
+              ),
+            ),
           if (_composition)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -545,11 +654,13 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
                       line.qty -= 1;
                       if (line.qty <= 0) cart.remove(line);
                       _preview = null;
+                      _persist();
                     })),
                     InkWell(key: Key('counter-qty-${line.sku}'), onTap: () => _editLine(line), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8), child: Text(qtyText(line.qty), style: text.titleMedium))),
                     IconButton(tooltip: inText(context, 'One more'), icon: const Icon(Icons.add_circle_outline), onPressed: () => setState(() {
                       line.qty += 1;
                       _preview = null;
+                      _persist();
                     })),
                   ],
                 ),
@@ -559,9 +670,15 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
             const SizedBox(height: 8),
             Text(inFormat(context, 'Before GST: {amount}', {'amount': rupees(subtotal)}), style: text.titleMedium, key: const Key('counter-subtotal')),
             const SizedBox(height: 8),
-            TextField(key: const Key('counter-customer'), controller: _customer, onChanged: (_) => setState(() => _preview = null), decoration: InputDecoration(labelText: needsBuyerDetails(cart) ? inText(context, 'Customer name') : inText(context, 'Customer (optional)'), hintText: needsBuyerDetails(cart) ? null : inText(context, 'Walk-in customer'))),
+            TextField(key: const Key('counter-customer'), controller: _customer, onChanged: (_) {
+              setState(() => _preview = null);
+              _persist();
+            }, decoration: InputDecoration(labelText: needsBuyerDetails(cart) || _pay == 'credit' ? inText(context, 'Customer name') : inText(context, 'Customer (optional)'), hintText: needsBuyerDetails(cart) || _pay == 'credit' ? null : inText(context, 'Walk-in customer'))),
             const SizedBox(height: 8),
-            TextField(key: const Key('counter-gstin'), controller: _gstin, onChanged: (_) => setState(() => _preview = null), textCapitalization: TextCapitalization.characters, maxLength: 15, decoration: InputDecoration(labelText: inText(context, 'Customer GSTIN (optional)'), helperText: inText(context, 'For a business buyer who claims input tax credit'))),
+            TextField(key: const Key('counter-gstin'), controller: _gstin, onChanged: (_) {
+              setState(() => _preview = null);
+              _persist();
+            }, textCapitalization: TextCapitalization.characters, maxLength: 15, decoration: InputDecoration(labelText: inText(context, 'Customer GSTIN (optional)'), helperText: inText(context, 'For a business buyer who claims input tax credit'))),
             if (needsBuyerDetails(cart) && _gstin.text.trim().isEmpty) ...[
               const SizedBox(height: 8),
               TextField(key: const Key('counter-address'), controller: _address, onChanged: (_) => setState(() => _preview = null), maxLength: 200, decoration: InputDecoration(labelText: inText(context, 'Customer address with state'), helperText: inText(context, 'Needed on bills of ₹50,000 or more before GST'))),
@@ -580,11 +697,15 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
               spacing: 8,
               children: [
                 for (final mode in counterPayModes)
-                  ChoiceChip(key: Key('counter-pay-$mode'), label: Text(payModeWords(context, mode)), selected: _pay == mode, onSelected: (_) => setState(() => _pay = mode)),
+                  ChoiceChip(key: Key('counter-pay-$mode'), label: Text(payModeWords(context, mode)), selected: _pay == mode, onSelected: (_) {
+                    setState(() => _pay = mode);
+                    _persist();
+                  }),
               ],
             ),
             const SizedBox(height: 12),
             if (_preview == null) FilledButton(key: const Key('counter-make'), onPressed: _busy ? null : _makeBill, child: Text(inText(context, 'Make bill'))),
+            if (_preview == null && _shelf.parked.length < maxParkedBills) TextButton.icon(key: const Key('counter-park'), onPressed: _busy ? null : _park, icon: const Icon(Icons.pause_circle_outline), label: Text(inText(context, 'Park this bill and serve the next customer'))),
           ],
           if (_preview != null) ...[
             Card(

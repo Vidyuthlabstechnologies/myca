@@ -9,6 +9,7 @@ import 'package:myca/offline/offline_files.dart';
 import 'package:myca/offline/offline_first_api.dart';
 import 'package:myca/pos/escpos.dart';
 import 'package:myca/pos/printer.dart';
+import 'package:myca/screens/counter_draft.dart';
 import 'package:myca/screens/counter_items.dart';
 import 'package:myca/screens/counter_sale_screen.dart';
 
@@ -267,6 +268,117 @@ void main() {
       expect(find.byKey(const Key('line-error')), findsOneWidget, reason: 'price "$bad"');
     }
     expect(find.byKey(const Key('line-qty')), findsOneWidget);
+  });
+
+  group('drafts and parked bills', () {
+    Future<(ShopApi, MemoryDraftStore)> openWith(WidgetTester tester, MemoryDraftStore store) async {
+      final api = ShopApi();
+      await tester.pumpWidget(MaterialApp(home: AppScope(state: testState(api), child: CounterSaleScreen(scan: (_) async => null, printer: _NoPrinter(), drafts: store))));
+      await tester.pumpAndSettle();
+      return (api, store);
+    }
+
+    testWidgets('a half-built bill is still there after the screen is closed and opened again', (tester) async {
+      final store = MemoryDraftStore();
+      await openWith(tester, store);
+      await tester.tap(find.byKey(const Key('counter-fav-SUGAR')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('counter-qty-SUGAR')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('line-qty')), '2.5');
+      await tester.tap(find.byKey(const Key('line-save')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('counter-customer')), 'Raju');
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+      await openWith(tester, store);
+      expect(find.byKey(const Key('counter-qty-SUGAR')), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const Key('counter-qty-SUGAR')), matching: find.text('2.5')), findsOneWidget);
+      expect(tester.widget<TextField>(find.byKey(const Key('counter-customer'))).controller!.text, 'Raju');
+    });
+
+    testWidgets('a posted bill leaves nothing to restore', (tester) async {
+      final store = MemoryDraftStore();
+      await openWith(tester, store);
+      await tester.tap(find.byKey(const Key('counter-fav-SUGAR')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('counter-make')));
+      await tester.tap(find.byKey(const Key('counter-make')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('counter-post')));
+      await tester.tap(find.byKey(const Key('counter-post')));
+      await tester.pumpAndSettle();
+      expect(store.shelves.values.every((shelf) => shelf.isEmpty), isTrue);
+    });
+
+    testWidgets('park a bill, serve someone else, and come back to the first', (tester) async {
+      final store = MemoryDraftStore();
+      await openWith(tester, store);
+      await tester.tap(find.byKey(const Key('counter-fav-SUGAR')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('counter-customer')), 'Raju');
+      await tester.ensureVisible(find.byKey(const Key('counter-park')));
+      await tester.tap(find.byKey(const Key('counter-park')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('counter-qty-SUGAR')), findsNothing);
+      expect(find.byKey(const Key('counter-parked-0')), findsOneWidget);
+      expect(find.textContaining('Raju'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('counter-fav-SAKHAR')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('counter-qty-SAKHAR')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('counter-parked-0')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('counter-qty-SUGAR')), findsOneWidget);
+      expect(find.byKey(const Key('counter-qty-SAKHAR')), findsNothing);
+      expect(find.byKey(const Key('counter-parked-0')), findsOneWidget, reason: 'the second bill is now the parked one');
+    });
+
+    test('a damaged or foreign draft is ignored, not trusted', () {
+      expect(CounterDraft.fromJson({'lines': 'no'}).isEmpty, isTrue);
+      expect(CounterDraft.fromJson({'lines': [{'sku': 'A'}, 'x', {'sku': 'B', 'name': 'B', 'price': 0, 'gstRate': 5, 'qty': 1}]}).isEmpty, isTrue);
+      final ok = CounterDraft.fromJson({'pay': 'bitcoin', 'lines': [{'sku': 'A', 'name': 'A', 'price': 10, 'gstRate': 5, 'qty': 1.5}]});
+      expect(ok.lines.single.qty, 1.5);
+      expect(ok.pay, 'cash');
+    });
+
+    test('a draft belongs to one business', () async {
+      final store = MemoryDraftStore();
+      await store.save('a|1', DraftShelf(current: CounterDraft.fromJson({'lines': [{'sku': 'A', 'name': 'A', 'price': 10, 'gstRate': 5, 'qty': 1}]})));
+      expect((await store.load('a|1')).current, isNotNull);
+      expect((await store.load('b|2')).isEmpty, isTrue);
+    });
+  });
+
+  group('pay later', () {
+    testWidgets('a pay-later bill without a customer name is stopped and explained, and goes through once named', (tester) async {
+      final api = await open(tester);
+      await tester.tap(find.byKey(const Key('counter-fav-SUGAR')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('counter-pay-credit')));
+      await tester.tap(find.byKey(const Key('counter-pay-credit')));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextField, 'Customer name'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('counter-make')));
+      await tester.tap(find.byKey(const Key('counter-make')));
+      await tester.pumpAndSettle();
+      expect(find.text('Pay later needs a customer name, so you know who owes you.'), findsOneWidget);
+      expect(api.proposals.where((p) => p.tool == 'create_invoice'), isEmpty);
+      await tester.enterText(find.byKey(const Key('counter-customer')), 'Raju Kirana');
+      await tester.ensureVisible(find.byKey(const Key('counter-make')));
+      await tester.tap(find.byKey(const Key('counter-make')));
+      await tester.pumpAndSettle();
+      expect(api.proposals.last.args['partyName'], 'Raju Kirana');
+    });
+
+    testWidgets('cash and UPI bills still need no name', (tester) async {
+      final api = await open(tester);
+      await tester.tap(find.byKey(const Key('counter-fav-SUGAR')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('counter-make')));
+      await tester.tap(find.byKey(const Key('counter-make')));
+      await tester.pumpAndSettle();
+      expect(api.proposals.last.args['partyName'], 'Walk-in customer');
+    });
   });
 
   group('composition dealer', () {

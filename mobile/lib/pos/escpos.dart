@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'latinize.dart';
+
 enum PaperWidth { mm58, mm80 }
 
 extension PaperColumns on PaperWidth {
@@ -21,7 +23,7 @@ class EscPos {
   List<int> get bytes => List.unmodifiable(_bytes);
 
   static String printable(String text) {
-    final swapped = text.replaceAll('₹', 'Rs.').replaceAll('–', '-').replaceAll('—', '-').replaceAll('’', "'").replaceAll('‘', "'").replaceAll('“', '"').replaceAll('”', '"');
+    final swapped = latinizeDevanagari(text).replaceAll('₹', 'Rs.').replaceAll('–', '-').replaceAll('—', '-').replaceAll('’', "'").replaceAll('‘', "'").replaceAll('“', '"').replaceAll('”', '"');
     return String.fromCharCodes(swapped.runes.map((code) => code >= 0x20 && code < 0x7F ? code : 0x3F));
   }
 

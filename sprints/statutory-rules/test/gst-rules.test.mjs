@@ -264,7 +264,7 @@ test('the 30-day IRP reporting window is AATO Rs 100 crore from 1-Nov-2023 and R
 });
 
 test('credit notes and GSTR-1 amendments close on 30 November after the year or the annual return, whichever is earlier', () => {
-  for (const id of ['gst.credit-note.declaration-deadline', 'gst.gstr1.amendment-deadline']) {
+  for (const id of ['gst.credit-note.declaration-deadline', 'gst.gstr1.amendment-deadline', 'gst.itc.time-limit']) {
     const found = rule(id, '2026-11-21');
     assert.equal(found.value.month, 11, id);
     assert.equal(found.value.day, 30, id);

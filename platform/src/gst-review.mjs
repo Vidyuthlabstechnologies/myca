@@ -1,6 +1,7 @@
 import { regArg, scopeKey } from './registrations.mjs';
 import { createHash } from 'node:crypto';
 import { localToday } from './dates.mjs';
+import { gstCorrectionDeadline, gstCorrectionDeadlineWhy } from './credit-notes.mjs';
 import { periodSummary } from './period-summary.mjs';
 import { paymentFor } from './gst-payment.mjs';
 
@@ -71,7 +72,7 @@ function payLines(payment) {
   return lines;
 }
 
-function stepsFor(summary, payment) {
+function stepsFor(summary, payment, limit = null) {
   const month = monthName(summary.period);
   const file = summary.gstr1;
   const steps = [];
@@ -114,7 +115,8 @@ function stepsFor(summary, payment) {
       ...heads(summary.inputCredit).map((head) => ({ label: `${head.label} credit`, amount: head.amount })),
       { label: 'Input credit', amount: round2(summary.inputCredit.total), strong: true },
     ],
-    note: 'This is the credit shown on your bills. It has not been checked against GSTR-2B, so a supplier who has not filed can still reduce it.',
+    note: ['This is the credit shown on your bills. It has not been checked against GSTR-2B, so a supplier who has not filed can still reduce it.', limit ? itcLimitNote(limit, summary.inputCredit.total) : ''].filter(Boolean).join(' '),
+    ...(limit && limit.passed && summary.inputCredit.total > 0 ? { timeBarred: true } : {}),
     question: 'Is this information correct?',
     yes: 'Yes, correct',
     no: 'Something is wrong',
@@ -154,6 +156,22 @@ function recordFor(state, period, gstin) {
   return Object.hasOwn(all, key) ? all[key] : null;
 }
 
+const DAY_MS = 86400000;
+
+export function itcTimeLimit(state, period, gstin, today = localToday()) {
+  const firstDay = `${String(period || '').slice(0, 7)}-01`;
+  const last = gstCorrectionDeadline(firstDay, { state, gstin, ruleId: 'gst.itc.time-limit', onDate: firstDay < '2022-10-01' ? today : firstDay });
+  const daysLeft = Math.round((Date.parse(`${last}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY_MS);
+  return { last, daysLeft, passed: daysLeft < 0, why: gstCorrectionDeadlineWhy(firstDay, last) };
+}
+
+export function itcLimitNote(limit, credit) {
+  if (!(credit > 0)) return '';
+  if (limit.passed) return `Time limit: credit on bills of this financial year could be taken only until ${limit.why} (section 16(4)). That date has passed, so this credit may be disallowed. Check with your CA before you claim it.`;
+  if (limit.daysLeft <= 45) return `Time limit: claim this credit by ${limit.why} (section 16(4)); after that it is lost${limit.daysLeft <= 7 ? `, and that is ${limit.daysLeft === 0 ? 'today' : limit.daysLeft === 1 ? 'tomorrow' : `in ${limit.daysLeft} days`}` : ''}.`;
+  return '';
+}
+
 export function reviewOf(state, period, gstin) {
   const regd = regArg(state, gstin);
   if (!regd.ok) return regd;
@@ -166,7 +184,8 @@ export function reviewOf(state, period, gstin) {
   const record = recordFor(state, summary.period, regd.gstin);
   const current = record && record.draftHash === draftHash ? record : null;
   const changed = Boolean(record && !current && Object.keys(record.answers || {}).length);
-  const steps = stepsFor(summary, payment).map((step) => {
+  const limit = itcTimeLimit(state, summary.period, regd.gstin);
+  const steps = stepsFor(summary, payment, limit).map((step) => {
     const answer = current?.answers?.[step.id] || null;
     return { ...step, status: answer ? (answer.answer === 'wrong' ? 'wrong' : 'confirmed') : 'open', answer };
   });
@@ -184,6 +203,7 @@ export function reviewOf(state, period, gstin) {
       toPay: payment ? payment.toPay : null,
       changed,
       steps: steps.map((step) => ({ ...step, waitingFor: blockedBy(step)?.id || null })),
+      itcLimit: limit,
       next: next ? next.id : null,
       approved: Boolean(current?.approval),
       approval: current?.approval || null,
