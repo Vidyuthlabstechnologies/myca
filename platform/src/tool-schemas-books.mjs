@@ -515,6 +515,14 @@ export const BOOKS_TOOL_SCHEMAS = {
     required: ['code'],
     properties: { code: { type: 'string', minLength: 1, maxLength: 64 } },
   },
+  search_items: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      query: { type: 'string', maxLength: 64 },
+      limit: { type: 'integer', minimum: 1, maximum: 30 },
+    },
+  },
   loyalty_settings: {
     type: 'object',
     additionalProperties: false,

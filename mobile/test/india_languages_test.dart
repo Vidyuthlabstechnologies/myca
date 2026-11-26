@@ -144,9 +144,9 @@ void main() {
     });
   }
 
-  test('India launches with English and Hindi, and a regional language is offered only once it is marked reviewed', () {
-    expect([for (final language in indiaOfferedLanguages) language.code], ['en', 'hi']);
-    for (final language in indiaLanguages.where((language) => !['en', 'hi'].contains(language.code))) {
+  test('India launches with English, Hindi and Marathi, and another regional language is offered only once it is marked reviewed', () {
+    expect([for (final language in indiaOfferedLanguages) language.code], ['en', 'hi', 'mr']);
+    for (final language in indiaLanguages.where((language) => !['en', 'hi', 'mr'].contains(language.code))) {
       expect(language.table, isNotEmpty, reason: language.englishName);
       expect(language.offered, language.reviewed, reason: language.englishName);
       expect(indiaChosenLocale(language.code), language.reviewed ? language.locale : isNull, reason: language.englishName);
@@ -155,6 +155,13 @@ void main() {
     expect(reviewedTamil.offered, isTrue);
     const unreviewedTamil = IndiaLanguage('ta', 'தமிழ்', 'Tamil', {'Sales': 'விற்பனை'}, reviewed: false);
     expect(unreviewedTamil.offered, isFalse);
+  });
+
+  test('a Marathi phone gets Marathi, and Marathi has every line Hindi has', () {
+    final supported = [for (final language in indiaOfferedLanguages) language.locale];
+    expect(indiaResolveLocale(const Locale('mr', 'IN'), supported), const Locale('mr', 'IN'));
+    expect(indiaChosenLocale('mr'), const Locale('mr', 'IN'));
+    expect(hindi.keys.toSet().difference(indiaLanguage('mr').table.keys.toSet()), isEmpty);
   });
 
   testWidgets('a Tamil phone opens the India app in English until Tamil is reviewed', (tester) async {
@@ -166,7 +173,8 @@ void main() {
     await tester.tap(find.byKey(const Key('in.language')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('in.language.hi')), findsOneWidget);
-    for (final code in ['mr', 'gu', 'ta', 'te', 'kn', 'bn']) {
+    expect(find.byKey(const Key('in.language.mr')), findsOneWidget);
+    for (final code in ['gu', 'ta', 'te', 'kn', 'bn']) {
       expect(find.byKey(Key('in.language.$code')), findsNothing);
     }
     expect(tester.takeException(), isNull);

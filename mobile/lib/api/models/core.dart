@@ -1,7 +1,7 @@
 part of '../models.dart';
 
 class Company {
-  const Company({required this.name, required this.gstin, this.tdsDeductor = false, this.country = 'IN', this.gstFrequency = 'monthly', this.entityType = ''});
+  const Company({required this.name, required this.gstin, this.tdsDeductor = false, this.country = 'IN', this.gstFrequency = 'monthly', this.entityType = '', this.composition = false});
 
   factory Company.fromJson(Object? json) {
     final map = _map(json);
@@ -12,10 +12,12 @@ class Company {
       country: _text(map['country']).isEmpty ? 'IN' : _text(map['country']).toUpperCase(),
       gstFrequency: _text(map['gstFrequency']).toLowerCase() == 'quarterly' ? 'quarterly' : 'monthly',
       entityType: _text(map['entityType']).toLowerCase(),
+      composition: map['composition'] == true,
     );
   }
 
   final String entityType;
+  final bool composition;
 
   bool get household => country == 'US' && entityType == 'household';
   final String name;

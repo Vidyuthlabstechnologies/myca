@@ -95,6 +95,12 @@ const GST_RULES = [
     'CGST Rules 2017 rule 66(1): FORM GSTR-7 on or before the tenth day of the month succeeding the calendar month, inserted w.e.f. 01.11.2024 by Notification No. 20/2024-Central Tax dated 08.10.2024 after s.39(3) was amended to leave the time to the rules; required only of persons deducting GST TDS under s.51'
   ),
   record(
+    'due-date.gst.cmp-08',
+    { period: 'quarter', monthsAfterPeriodEnd: 1, day: 18 },
+    '2021-01-01', IN_FORCE, 'CGST', '10',
+    'CGST Rules 2017 rule 62(1) (CBIC tax portal, rule 62): a person paying tax under s.10 furnishes FORM GST CMP-08 for every quarter, and the GST portal FAQ on filing Form GST CMP-08 gives the eighteenth day of the month succeeding the quarter, or as extended by notification. GSTR-4 is not in the registry: sources disagree on whether its annual date is 30 April or 30 June and no notification was found'
+  ),
+  record(
     'due-date.gst.gstr-9',
     { period: 'year', monthsAfterPeriodEnd: 9, day: 31 },
     '2021-08-01', IN_FORCE, 'CGST', '44',

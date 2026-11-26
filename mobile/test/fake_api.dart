@@ -307,6 +307,7 @@ class FakeMycaApi implements MycaApi {
   Map<String, Object?>? transport;
   String buyerAddress = '';
   bool tdsDeductor = false;
+  bool composition = false;
   String country = 'IN';
   final salesTaxStates = <Map<String, Object?>>[];
   bool salesTaxPaid = false;
@@ -642,7 +643,7 @@ class FakeMycaApi implements MycaApi {
 
   @override
   Future<Snapshot> snapshot() async => Snapshot.fromJson({
-    'company': {'name': companyName, 'gstin': country == 'US' ? '' : '27AABCU9603R1ZN', 'tdsDeductor': tdsDeductor, 'country': country, 'gstFrequency': quarterlyGst ? 'quarterly' : 'monthly'},
+    'company': {'name': companyName, 'gstin': country == 'US' ? '' : '27AABCU9603R1ZN', 'tdsDeductor': tdsDeductor, 'composition': composition, 'country': country, 'gstFrequency': quarterlyGst ? 'quarterly' : 'monthly'},
     'invoices': invoices,
     'purchases': purchases,
     'expenses': expenses,

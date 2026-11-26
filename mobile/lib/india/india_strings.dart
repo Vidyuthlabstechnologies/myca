@@ -34,7 +34,7 @@ class IndiaLanguage {
 final indiaLanguages = <IndiaLanguage>[
   const IndiaLanguage('en', 'English', 'English', <String, String>{}, reviewed: true),
   IndiaLanguage('hi', 'हिन्दी', 'Hindi', hindi, reviewed: false, launch: true, script: RegExp(r'[ऀ-ॿ]')),
-  IndiaLanguage('mr', 'मराठी', 'Marathi', marathi, reviewed: false, script: RegExp(r'[ऀ-ॿ]')),
+  IndiaLanguage('mr', 'मराठी', 'Marathi', marathi, reviewed: false, launch: true, script: RegExp(r'[ऀ-ॿ]')),
   IndiaLanguage('gu', 'ગુજરાતી', 'Gujarati', gujarati, reviewed: false, script: RegExp(r'[઀-૿]')),
   IndiaLanguage('ta', 'தமிழ்', 'Tamil', tamil, reviewed: false, script: RegExp(r'[஀-௿]')),
   IndiaLanguage('te', 'తెలుగు', 'Telugu', telugu, reviewed: false, script: RegExp(r'[ఀ-౿]')),

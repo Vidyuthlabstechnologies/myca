@@ -23,12 +23,13 @@ function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
 }
 
-async function openingBooks({ name, gstin, state, country, address, city, pin, entityType }, today) {
+async function openingBooks({ name, gstin, state, country, address, city, pin, entityType, composition = false }, today) {
   if (entityType && !['household', 'business'].includes(entityType)) return fail('UNKNOWN_KIND');
   if (entityType === 'household' && String(country).toUpperCase() !== 'US') return fail('HOUSEHOLD_US_ONLY');
+  if (composition && !String(gstin || '').trim()) return fail('COMPOSITION_NEEDS_GSTIN', { hint: 'A composition dealer is registered under GST. Add the GSTIN, or leave composition off.' });
   const books = createState();
   books.company = { name: '', gstin: '', state: '', pan: '', fy: financialYear(today), address: '' };
-  const set = await runTool(books, 'set_company', { name, ...(country ? { country } : {}), gstin, ...(state ? { state } : {}), ...(entityType === 'household' ? { entityType: 'household' } : {}) });
+  const set = await runTool(books, 'set_company', { name, ...(country ? { country } : {}), gstin, ...(state ? { state } : {}), ...(entityType === 'household' ? { entityType: 'household' } : {}), ...(composition ? { composition: true } : {}) });
   if (set.ok && String(address || '').trim()) {
     const placed = await runTool(books, 'set_business_address', { address, city, pin });
     if (!placed.ok) return placed;
@@ -43,7 +44,7 @@ async function openingBooks({ name, gstin, state, country, address, city, pin, e
 import { storedState } from './books-seal.mjs';
 export function createBusinesses({ db, now = () => Date.now(), booksKey = '' }) {
   return {
-    async create(userId, { name, gstin = '', state = '', country = '', address = '', city = '', pin = '', kind = '' } = {}, { demo = false } = {}) {
+    async create(userId, { name, gstin = '', state = '', country = '', address = '', city = '', pin = '', kind = '', composition = false } = {}, { demo = false } = {}) {
       if (demo) {
         name = DEMO_NAME;
         gstin = DEMO_GSTIN;
@@ -53,8 +54,10 @@ export function createBusinesses({ db, now = () => Date.now(), booksKey = '' }) 
         city = 'Bengaluru';
         pin = '560041';
         kind = '';
+        composition = false;
       }
-      const opening = await openingBooks({ name: String(name ?? ''), gstin: String(gstin ?? ''), state: String(state ?? ''), country: String(country ?? ''), address: String(address ?? ''), city: String(city ?? ''), pin: String(pin ?? ''), entityType: String(kind ?? '').trim().toLowerCase() }, new Date(now()));
+      if (composition !== false && composition !== true) return fail('BAD_COMPOSITION', { hint: 'true or false' });
+      const opening = await openingBooks({ name: String(name ?? ''), gstin: String(gstin ?? ''), state: String(state ?? ''), country: String(country ?? ''), address: String(address ?? ''), city: String(city ?? ''), pin: String(pin ?? ''), entityType: String(kind ?? '').trim().toLowerCase(), composition }, new Date(now()));
       if (!opening.ok) return opening;
       return db.tx(async (q) => {
         const business = await q('insert into businesses (name, gstin, created_by, created_at, demo, kind) values ($1, $2, $3, $4, $5, $6) returning id', [

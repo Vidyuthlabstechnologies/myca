@@ -495,9 +495,11 @@ class FakeCloud {
       if (body['kind'] == 'household') return _json(400, {'ok': false, 'error': 'HOUSEHOLD_US_ONLY'});
       if (gstin.isEmpty && body['state'] == null) return _json(400, {'ok': false, 'error': 'STATE_REQUIRED'});
       if (gstin == '27AABCU9603R1ZX') return _json(400, {'ok': false, 'error': 'INVALID_GSTIN'});
-      company = {'name': body['name'], 'gstin': gstin, 'state': body['state'] ?? gstin.substring(0, 2)};
+      if (body['composition'] == true && gstin.isEmpty) return _json(400, {'ok': false, 'error': 'COMPOSITION_NEEDS_GSTIN'});
+      company = {'name': body['name'], 'gstin': gstin, 'state': body['state'] ?? gstin.substring(0, 2), if (body['composition'] == true) 'composition': true};
       final created = {'id': businessId, 'name': body['name'], 'gstin': gstin, 'role': 'owner'};
       businesses.add(created);
+      createdBodies.add(Map<String, Object?>.from(body));
       return _json(200, {'ok': true, 'business': created});
     }
     if (path == '/v1/reference/states') {

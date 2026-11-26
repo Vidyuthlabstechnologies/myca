@@ -11,7 +11,7 @@ import { setChannelIdentity, importTcsStatement, import26asCredits, marketplaceC
 import { recordTdsWithheld, tdsCreditCheck } from './tds-credits.mjs';
 import { offlineKit, registerOfflineDevice, postOfflineSales } from './offline-sales.mjs';
 import { loyaltyInvoice, loyaltyAfterInvoice, loyaltyAfterCreditNote, setLoyaltySettings, loyaltyBalance, loyaltyAdjust } from './loyalty.mjs';
-import { findItem, setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins, stockMoves } from './sku-margins.mjs';
+import { findItem, searchItems, setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins, stockMoves } from './sku-margins.mjs';
 import { dailyClose } from './daily-close.mjs';
 import { setCatalogueSettings, setCatalogueItems, catalogueView, storeOrders, storeOrderAction } from './catalogue.mjs';
 import { setCostingMethod, inventoryCosting, stockAlerts } from './inventory-costing.mjs';
@@ -2323,6 +2323,13 @@ export const TOOLS = [
     description: 'Look up a product by its scanned barcode or its SKU: name, selling price, HSN, GST rate and stock on hand, for counter billing. Read-only.',
     args: ['code'],
     run: (state, args = {}) => findItem(state, args),
+  },
+  {
+    name: 'search_items',
+    title: 'Search items by name',
+    description: 'Search saved products by name, SKU or barcode as you type, in any script. With no query it lists the items sold most in the last 90 days, for a quick-tap grid at the counter. Read-only.',
+    args: ['query', 'limit'],
+    run: (state, args = {}) => searchItems(state, args),
   },
   {
     name: 'offline_kit',

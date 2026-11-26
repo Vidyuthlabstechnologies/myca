@@ -1319,6 +1319,7 @@ class CloudSession {
     String state = '',
     String country = '',
     String kind = '',
+    bool composition = false,
   }) async {
     final body = await call('POST', '/v1/businesses', {
       'name': name,
@@ -1326,6 +1327,7 @@ class CloudSession {
       if (state.isNotEmpty) 'state': state,
       if (country.isNotEmpty) 'country': country,
       if (kind.isNotEmpty) 'kind': kind,
+      if (composition) 'composition': true,
     });
     final business = body['business'];
     if (business is! Map) {

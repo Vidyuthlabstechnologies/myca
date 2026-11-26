@@ -22,6 +22,7 @@ const BASE_DUE_DATE_IDS = [
   'due-date.gst.gstr-3b.monthly',
   'due-date.gst.gstr-3b.quarterly',
   'due-date.gst.pmt-06',
+  'due-date.gst.cmp-08',
   'due-date.gst.gstr-7',
   'due-date.gst.gstr-9',
   'due-date.tds.deposit',

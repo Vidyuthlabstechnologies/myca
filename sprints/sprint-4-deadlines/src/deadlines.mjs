@@ -58,7 +58,7 @@ export function auditRequired(profile, fyStart) {
 }
 
 function gstr9Required(profile, fyStart) {
-  if (!profile.hasGst) return false;
+  if (!profile.hasGst || profile.composition) return false;
   const found = rule('gst.gstr9.exemption-threshold', fyStart);
   if (!found.ok) return true;
   return profile.turnover * PAISE > found.value;
@@ -68,7 +68,8 @@ export function profileOf(raw) {
   const turnover = Number(raw.turnover) || 0;
   const entity = String(raw.entity || '').trim().toLowerCase();
   const hasGst = truthy(raw.gst);
-  const gstQuarterly = hasGst && truthy(raw.qrmp);
+  const composition = hasGst && truthy(raw.composition);
+  const gstQuarterly = hasGst && !composition && truthy(raw.qrmp);
   const profile = {
     clientId: String(raw.clientId).trim(),
     name: String(raw.name || '').trim(),
@@ -80,7 +81,8 @@ export function profileOf(raw) {
     cashReceiptsPercent: percent(raw.cashReceiptsPercent),
     cashPaymentsPercent: percent(raw.cashPaymentsPercent),
     hasGst,
-    gstMonthly: hasGst && !gstQuarterly,
+    composition,
+    gstMonthly: hasGst && !composition && !gstQuarterly,
     gstQuarterly,
     gstTdsDeductor: truthy(raw.gstTds),
     tdsDeductor: truthy(raw.tdsDeductor),
@@ -122,6 +124,7 @@ function quarterlySpecs(profile) {
     specs.push({ returnType: 'GSTR-1', label: 'GSTR-1 QRMP', rule: 'due-date.gst.gstr-1.quarterly' });
     specs.push({ returnType: 'GSTR-3B', label: 'GSTR-3B QRMP', rule: 'due-date.gst.gstr-3b.quarterly', byState: true });
   }
+  if (profile.composition) specs.push({ returnType: 'CMP-08', label: 'CMP-08 (composition, quarterly tax)', rule: 'due-date.gst.cmp-08' });
   if (profile.tdsDeductor) specs.push({ returnType: 'TDS_QUARTERLY', label: 'TDS statement', rule: 'due-date.tds.statement' });
   return specs;
 }

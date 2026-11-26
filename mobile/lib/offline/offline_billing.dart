@@ -204,6 +204,32 @@ class OfflineBilling extends ChangeNotifier {
     return null;
   }
 
+  List<KitItem> searchItems(String typed, {int limit = 6}) {
+    final query = typed.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    final seen = <String>{};
+    final all = <KitItem>[];
+    for (final item in items.reversed) {
+      if (seen.add(item.sku)) all.add(KitItem(sku: item.sku, name: item.name, barcode: item.barcode, hsn: item.hsn, gstRate: item.gstRate, price: item.price));
+    }
+    for (final item in kit?.items ?? const <KitItem>[]) {
+      if (seen.add(item.sku)) all.add(item);
+    }
+    if (query.isEmpty) return all.take(limit).toList();
+    int rank(KitItem item) {
+      final name = item.name.toLowerCase();
+      final code = item.sku.toLowerCase();
+      if (code == query || (item.barcode.isNotEmpty && item.barcode == query)) return 0;
+      if (name.startsWith(query)) return 1;
+      if (name.split(' ').any((word) => word.startsWith(query))) return 2;
+      if (name.contains(query)) return 3;
+      if (code.startsWith(query) || (item.barcode.isNotEmpty && item.barcode.endsWith(query))) return 4;
+      return -1;
+    }
+    final ranked = [for (final item in all) if (rank(item) >= 0) (rank: rank(item), item: item)];
+    ranked.sort((a, b) => a.rank != b.rank ? a.rank.compareTo(b.rank) : a.item.name.toLowerCase().compareTo(b.item.name.toLowerCase()));
+    return [for (final entry in ranked.take(limit)) entry.item];
+  }
+
   List<KitParty> findParties(String typed) {
     final words = typed.trim().toLowerCase();
     final known = <String, KitParty>{};

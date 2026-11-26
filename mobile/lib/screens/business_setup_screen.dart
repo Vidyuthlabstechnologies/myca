@@ -24,6 +24,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
   Future<List<StateRef>>? _states;
   Future<Me>? _me;
   String? _state;
+  bool _composition = false;
   String _error = '';
   bool _busy = false;
 
@@ -72,6 +73,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
         name: name,
         gstin: gstin,
         state: gstin.isEmpty ? _state! : '',
+        composition: gstin.isNotEmpty && _composition,
       );
       await state.refresh();
     } on MycaApiException catch (err) {
@@ -233,8 +235,19 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                 labelText: 'GSTIN',
                 helperText: inText(context, 'Leave empty if you are not registered for GST'),
               ),
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) => setState(() {
+                if (!_registered) _composition = false;
+              }),
             ),
+            if (_registered)
+              SwitchListTile(
+                key: const Key('setup.composition'),
+                contentPadding: EdgeInsets.zero,
+                title: Text(inText(context, 'I am a composition dealer')),
+                subtitle: Text(inText(context, 'You pay a fixed share of turnover, so your bills are bills of supply and carry no GST.')),
+                value: _composition,
+                onChanged: (value) => setState(() => _composition = value),
+              ),
             if (!_registered) ...[
               const SizedBox(height: 14),
               FutureBuilder<List<StateRef>>(

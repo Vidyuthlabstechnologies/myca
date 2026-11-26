@@ -130,6 +130,7 @@ const TOOL_RISK = {
   register_offline_device: 'internal_workflow',
   post_offline_sales: 'writes_books',
   find_item: 'read_only',
+  search_items: 'read_only',
   catalogue_settings: 'writes_books',
   catalogue_items: 'writes_books',
   catalogue_view: 'read_only',

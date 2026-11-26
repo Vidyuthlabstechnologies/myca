@@ -793,6 +793,28 @@
       "citation": "CGST Rules rule 66(1) as amended by Notification No. 20/2024-Central Tax: 10th of the following month"
     },
     {
+      "name": "CMP-08 for Q2 of FY 2026-27 is due 2026-10-18",
+      "input": {
+        "rule": "due-date.gst.cmp-08",
+        "periodEnd": "2026-09-30"
+      },
+      "expected": {
+        "dueDate": "2026-10-18"
+      },
+      "citation": "CGST Rules rule 62(1); GST portal FAQ on Form GST CMP-08: the 18th of the month after the quarter"
+    },
+    {
+      "name": "CMP-08 for Q4 of FY 2026-27 is due 2027-04-18",
+      "input": {
+        "rule": "due-date.gst.cmp-08",
+        "periodEnd": "2027-03-31"
+      },
+      "expected": {
+        "dueDate": "2027-04-18"
+      },
+      "citation": "CGST Rules rule 62(1); GST portal FAQ on Form GST CMP-08: the 18th of the month after the quarter"
+    },
+    {
       "name": "GSTR-9 for FY 2025-26 is due 2026-12-31",
       "input": {
         "rule": "due-date.gst.gstr-9",

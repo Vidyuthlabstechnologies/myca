@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../api/models.dart';
@@ -14,17 +16,19 @@ import '../offline/gstin.dart';
 import '../registers.dart';
 import 'offline_bills_screen.dart';
 import 'loyalty_screen.dart';
+import 'counter_items.dart';
 import 'stock_alerts_screen.dart';
 import '../widgets/glass.dart';
 
 const counterUnits = ['NOS', 'PCS', 'KGS', 'GMS', 'LTR', 'MLT', 'MTR', 'BOX', 'PAC', 'BTL', 'TBS', 'DOZ', 'SET', 'BAG', 'CTN', 'PRS'];
 
 class CartLine {
-  CartLine({required this.sku, required this.name, required this.price, required this.gstRate, this.hsn = '', this.unit = '', this.qty = 1, this.lowStock = false, this.onHand});
+  CartLine({required this.sku, required this.name, required this.price, required this.gstRate, this.hsn = '', this.unit = '', this.qty = 1, this.lowStock = false, this.onHand}) : listPrice = price;
 
   final String sku;
   final String name;
-  final num price;
+  num price;
+  final num listPrice;
   final num gstRate;
   final String hsn;
   final String unit;
@@ -93,16 +97,118 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
   ChatPreview? _preview;
   Map<String, dynamic>? _posted;
   int? _redeem;
+  List<ItemHit> _hits = const [];
+  List<ItemHit> _favourites = const [];
+  Timer? _debounce;
+  int _searchSeq = 0;
+  bool _searched = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadFavourites());
+  }
 
   MycaApi get api => AppScope.of(context).api;
 
+  bool get _composition => AppScope.of(context).snapshot?.company.composition == true;
+
+  CartLine _forBill(CartLine line) => _composition && line.gstRate != 0 ? CartLine(sku: line.sku, name: line.name, price: line.price, gstRate: 0, hsn: line.hsn, unit: line.unit, qty: line.qty, lowStock: line.lowStock, onHand: line.onHand) : line;
+
   @override
   void dispose() {
+    _debounce?.cancel();
     _code.dispose();
     _customer.dispose();
     _address.dispose();
     _gstin.dispose();
     super.dispose();
+  }
+
+  Future<List<ItemHit>> _lookup(String query) async {
+    try {
+      return parseItemHits(await api.query('search_items', {'query': query, 'limit': query.isEmpty ? 8 : 6}));
+    } on MycaApiException {
+      return const [];
+    }
+  }
+
+  Future<void> _loadFavourites() async {
+    if (!mounted) return;
+    final found = await _lookup('');
+    if (mounted) setState(() => _favourites = found);
+  }
+
+  void _typed(String text) {
+    _debounce?.cancel();
+    final query = text.trim();
+    final seq = ++_searchSeq;
+    if (query.isEmpty) {
+      setState(() {
+        _hits = const [];
+        _searched = false;
+      });
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 220), () async {
+      final found = await _lookup(query);
+      if (!mounted || seq != _searchSeq) return;
+      setState(() {
+        _hits = found;
+        _searched = true;
+      });
+    });
+  }
+
+  void _clearSearch() {
+    _debounce?.cancel();
+    _searchSeq += 1;
+    _code.clear();
+    _hits = const [];
+    _searched = false;
+  }
+
+  void _pick(ItemHit hit) {
+    if (!hit.billable) {
+      unawaited(_newItem('', sku: hit.sku, name: hit.name));
+      return;
+    }
+    _put(CartLine(sku: hit.sku, name: hit.name, price: hit.price!, gstRate: hit.gstRate!, hsn: hit.hsn, unit: hit.unit, lowStock: hit.lowStock, onHand: hit.tracked ? hit.onHand : null));
+    setState(_clearSearch);
+  }
+
+  Future<void> _addTyped(String text) async {
+    final clean = text.trim();
+    if (clean.isEmpty) return;
+    if (looksLikeItemCode(clean)) return _add(clean);
+    _debounce?.cancel();
+    final seq = ++_searchSeq;
+    final found = await _lookup(clean);
+    if (!mounted || seq != _searchSeq) return;
+    final exact = found.where((hit) => hit.billable && hit.sku.toLowerCase() == clean.toLowerCase()).firstOrNull;
+    if (exact != null) return _pick(exact);
+    if (found.length == 1 && found.first.billable) return _pick(found.first);
+    setState(() {
+      _hits = found;
+      _searched = true;
+    });
+  }
+
+  Future<void> _quickAdd(String name) => _newItem('', sku: quickItemSku(DateTime.now()), name: name.trim());
+
+  Future<void> _editLine(CartLine line) async {
+    final edit = await showMycaSheet<LineEdit>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => LineEditSheet(name: line.name, unit: line.unit, qty: line.qty, price: line.price, listPrice: line.listPrice),
+    );
+    if (edit == null || !mounted) return;
+    setState(() {
+      line.qty = edit.qty;
+      line.price = edit.price;
+      _preview = null;
+      _posted = null;
+    });
   }
 
   Future<void> _scan() async {
@@ -134,7 +240,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
         return;
       }
       _put(CartLine(sku: '${data['sku']}', name: '${data['name']}', price: price, gstRate: gstRate, hsn: '${data['hsn'] ?? ''}', unit: '${data['unit'] ?? ''}', lowStock: data['lowStock'] == true, onHand: data['tracked'] == true && data['onHand'] is num ? data['onHand'] as num : null));
-      _code.clear();
+      if (mounted) setState(_clearSearch);
     } on MycaApiException catch (err) {
       if (mounted) setState(() => _message = err.message);
     } finally {
@@ -142,7 +248,8 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
     }
   }
 
-  void _put(CartLine line) {
+  void _put(CartLine picked) {
+    final line = _forBill(picked);
     setState(() {
       final existing = cart.where((item) => item.sku == line.sku).firstOrNull;
       if (existing != null) {
@@ -159,7 +266,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
     final item = await showMycaSheet<NewItem>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => NewItemSheet(code: code, sku: sku, name: name),
+      builder: (_) => NewItemSheet(code: code, sku: sku, name: name, composition: _composition),
     );
     if (item == null || !mounted) return;
     final result = item.line;
@@ -175,7 +282,8 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
         if (held != null) await api.confirm(held.token);
       }
       _put(result);
-      _code.clear();
+      if (mounted) setState(_clearSearch);
+      unawaited(_loadFavourites());
     } on MycaApiException catch (err) {
       if (mounted) setState(() => _message = err.message);
     } finally {
@@ -365,23 +473,69 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
                   key: const Key('counter-code'),
                   controller: _code,
                   textInputAction: TextInputAction.done,
-                  onSubmitted: _add,
-                  decoration: InputDecoration(labelText: inText(context, 'Barcode or item code')),
+                  onChanged: _typed,
+                  onSubmitted: _addTyped,
+                  decoration: InputDecoration(labelText: inText(context, 'Item name, barcode or code'), prefixIcon: const Icon(Icons.search)),
                 ),
               ),
               const SizedBox(width: 8),
               IconButton.filled(key: const Key('counter-scan'), tooltip: inText(context, 'Scan'), onPressed: _busy ? null : _scan, icon: const Icon(Icons.qr_code_scanner)),
             ],
           ),
+          if (_composition)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(inText(context, 'Composition dealer: these are bills of supply and carry no GST.'), key: const Key('counter-composition'), style: text.bodySmall),
+            ),
+          if (_hits.isNotEmpty)
+            Card(
+              key: const Key('counter-results'),
+              margin: const EdgeInsets.only(top: 8),
+              child: Column(
+                children: [
+                  for (final hit in _hits)
+                    ListTile(
+                      key: Key('counter-hit-${hit.sku}'),
+                      dense: true,
+                      title: Text(hit.name),
+                      subtitle: Text(itemPriceLine(context, hit)),
+                      trailing: const Icon(Icons.add_circle_outline),
+                      onTap: () => _pick(hit),
+                    ),
+                ],
+              ),
+            ),
+          if (_searched && _hits.isEmpty && _code.text.trim().isNotEmpty)
+            ListTile(
+              key: const Key('counter-quick-add'),
+              leading: const Icon(Icons.add_box_outlined),
+              title: Text(inFormat(context, 'Add "{name}" as a new item', {'name': _code.text.trim()})),
+              onTap: () => _quickAdd(_code.text),
+            ),
+          if (_code.text.trim().isEmpty && _favourites.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Wrap(
+                key: const Key('counter-favourites'),
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final hit in _favourites)
+                    ActionChip(key: Key('counter-fav-${hit.sku}'), label: Text(hit.price == null ? hit.name : '${hit.name} · ${rupees(hit.price!)}'), onPressed: () => _pick(hit)),
+                ],
+              ),
+            ),
           const SizedBox(height: 12),
           if (cart.isEmpty)
-            Padding(padding: const EdgeInsets.symmetric(vertical: 24), child: Text(inText(context, 'Scan or type an item to start the bill.'), style: text.bodyMedium, textAlign: TextAlign.center)),
+            Padding(padding: const EdgeInsets.symmetric(vertical: 24), child: Text(inText(context, 'Search an item by name, or scan it, to start the bill.'), style: text.bodyMedium, textAlign: TextAlign.center)),
           for (final line in cart)
             Card(
               child: ListTile(
                 title: Text(line.name),
+                onTap: () => _editLine(line),
                 subtitle: Text([
                   '${rupees(line.price)}${line.unit.isEmpty ? '' : ' / ${line.unit}'} + GST ${line.gstRate}%',
+                  if (line.price != line.listPrice) inFormat(context, 'Shelf price {amount}', {'amount': rupees(line.listPrice)}),
                   if (line.lowStock) '${inText(context, 'Low stock')}: ${line.onHand ?? 0}',
                 ].join(' · ')),
                 trailing: Row(
@@ -392,7 +546,7 @@ class _CounterSaleScreenState extends State<CounterSaleScreen> {
                       if (line.qty <= 0) cart.remove(line);
                       _preview = null;
                     })),
-                    Text('${line.qty}', style: text.titleMedium),
+                    InkWell(key: Key('counter-qty-${line.sku}'), onTap: () => _editLine(line), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8), child: Text(qtyText(line.qty), style: text.titleMedium))),
                     IconButton(tooltip: inText(context, 'One more'), icon: const Icon(Icons.add_circle_outline), onPressed: () => setState(() {
                       line.qty += 1;
                       _preview = null;
@@ -503,8 +657,9 @@ Map<String, Object?>? stockInArgs(NewItem item) {
 final _expiryPattern = RegExp(r'^((0[1-9]|1[0-2])/\d{4}|\d{4}-(0[1-9]|1[0-2])(-\d{2})?)$');
 
 class NewItemSheet extends StatefulWidget {
-  const NewItemSheet({super.key, required this.code, required this.sku, required this.name});
+  const NewItemSheet({super.key, required this.code, required this.sku, required this.name, this.composition = false});
 
+  final bool composition;
   final String code;
   final String sku;
   final String name;
@@ -536,7 +691,7 @@ class _NewItemSheetState extends State<NewItemSheet> {
 
   void _save() {
     final price = parseAmount(_price.text);
-    final gst = parseRate(_gst.text);
+    final gst = widget.composition ? 0 : parseRate(_gst.text);
     if (_name.text.trim().isEmpty) return setState(() => _error = inText(context, 'Give the item a name.'));
     if (price == null) return setState(() => _error = inText(context, 'Enter the selling price before GST.'));
     if (gst == null) return setState(() => _error = inText(context, 'Enter the GST rate, for example 5 or 18. Use 0 if there is none.'));
@@ -563,11 +718,11 @@ class _NewItemSheetState extends State<NewItemSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(inFormat(context, 'New item {code}', {'code': widget.code}), style: Theme.of(context).textTheme.titleLarge),
+            Text(widget.code.isEmpty ? inFormat(context, 'New item {code}', {'code': widget.name}) : inFormat(context, 'New item {code}', {'code': widget.code}), style: Theme.of(context).textTheme.titleLarge),
             Text(inText(context, 'Saved once; the next scan fills the bill.')),
             TextField(key: const Key('item-name'), controller: _name, decoration: InputDecoration(labelText: inText(context, 'Name'))),
             TextField(key: const Key('item-price'), controller: _price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: inText(context, 'Selling price before GST'))),
-            TextField(key: const Key('item-gst'), controller: _gst, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: inText(context, 'GST %'))),
+            if (!widget.composition) TextField(key: const Key('item-gst'), controller: _gst, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: inText(context, 'GST %'))),
             TextField(controller: _hsn, decoration: InputDecoration(labelText: inText(context, 'HSN (optional)'))),
             DropdownButtonFormField<String>(
               key: const Key('item-unit'),
