@@ -42,9 +42,11 @@ async function openingBooks({ name, gstin, state, country, address, city, pin, e
 }
 
 import { storedState } from './books-seal.mjs';
-export function createBusinesses({ db, now = () => Date.now(), booksKey = '' }) {
+export const MAX_OWNED_BUSINESSES = 10;
+
+export function createBusinesses({ db, now = () => Date.now(), booksKey = '', maxOwned = MAX_OWNED_BUSINESSES }) {
   return {
-    async create(userId, { name, gstin = '', state = '', country = '', address = '', city = '', pin = '', kind = '', composition = false } = {}, { demo = false } = {}) {
+    async create(userId, { name, gstin = '', state = '', country = '', address = '', city = '', pin = '', kind = '', composition = false } = {}, { demo = false, unlimited = false } = {}) {
       if (demo) {
         name = DEMO_NAME;
         gstin = DEMO_GSTIN;
@@ -60,6 +62,11 @@ export function createBusinesses({ db, now = () => Date.now(), booksKey = '' }) 
       const opening = await openingBooks({ name: String(name ?? ''), gstin: String(gstin ?? ''), state: String(state ?? ''), country: String(country ?? ''), address: String(address ?? ''), city: String(city ?? ''), pin: String(pin ?? ''), entityType: String(kind ?? '').trim().toLowerCase(), composition }, new Date(now()));
       if (!opening.ok) return opening;
       return db.tx(async (q) => {
+        if (!unlimited) {
+          await q('select pg_advisory_xact_lock(hashtext($1))', [`owned-businesses:${userId}`]);
+          const owned = await q("select count(*)::int as n from memberships m join businesses b on b.id = m.business_id where m.user_id = $1 and m.role = 'owner' and b.deletion_requested_at is null", [userId]);
+          if (owned.rows[0].n >= maxOwned) return { ok: false, error: 'BUSINESS_LIMIT', max: maxOwned };
+        }
         const business = await q('insert into businesses (name, gstin, created_by, created_at, demo, kind) values ($1, $2, $3, $4, $5, $6) returning id', [
           opening.company.name,
           opening.company.gstin,

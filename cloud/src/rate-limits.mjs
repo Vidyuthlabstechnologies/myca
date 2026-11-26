@@ -26,6 +26,27 @@ function keyOf(kind, who) {
   return `${kind}:${createHash('sha256').update(String(who)).digest('hex').slice(0, 32)}`;
 }
 
+export function createMemoryLimiter({ max, windowMs, now = () => Date.now(), maxKeys = 50000 }) {
+  const seen = new Map();
+  return {
+    take(key) {
+      const at = now();
+      const start = Math.floor(at / windowMs) * windowMs;
+      let entry = seen.get(key);
+      if (!entry || entry.start !== start) {
+        if (seen.size >= maxKeys) for (const [other, value] of seen) if (value.start !== start) seen.delete(other);
+        entry = { start, hits: 0 };
+        seen.set(key, entry);
+      }
+      entry.hits += 1;
+      if (entry.hits <= max) return { ok: true };
+      return { ok: false, retryAfterSeconds: Math.max(1, Math.ceil((start + windowMs - at) / 1000)) };
+    },
+  };
+}
+
+export const USER_REQUESTS = Object.freeze({ max: 1500, windowMs: 10 * 60 * 1000 });
+
 export function createRateLimits({ db, now = () => Date.now(), limits = LIMITS }) {
   async function take(kind, who) {
     const rule = limits[kind];

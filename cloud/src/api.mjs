@@ -23,6 +23,7 @@ import { assertSecret } from './tokens.mjs';
 import { createBodyBudget, defaultBodyBudgetBytes } from './body-budget.mjs';
 import { createCrashReports } from './crash-reports.mjs';
 import { createGrowth } from './growth.mjs';
+import { USER_REQUESTS, createMemoryLimiter } from './rate-limits.mjs';
 import { PRIVACY_NOTICE, consentExempt, createConsent, legalLinks, noticeFor, noticesFor } from './consent.mjs';
 import { createPrivacyRequests } from './privacy-requests.mjs';
 import { createUsConsents, PARTNER_TINS, renderConsent, US_PREPARER_NAME } from './us-7216.mjs';
@@ -93,7 +94,9 @@ const OWNER_ONLY_POSTS = new Map([
   ['replace', 'SHARED_VIEW_READ_ONLY'],
 ]);
 
-const WRITES = new Set(['replace', 'uploads', 'propose', 'confirm', 'connector-sync', 'plaid-exchange', 'gusto-connect']);
+const SAFE_AUTH_REASONS = new Set(['TOKEN_EXPIRED', 'DEVICE_REVOKED']);
+
+const WRITES = new Set(['replace', 'uploads', 'propose', 'confirm', 'company', 'connector-sync', 'plaid-exchange', 'gusto-connect']);
 
 export const PROPOSABLE = new Set(['sign_us_return', 'file_us_return', 'import_payroll_tax_forms', 'import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'save_report', 'delete_report', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'ims_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'set_business_address', 'set_party_address', 'set_sku_cost', 'register_offline_device', 'post_offline_sales', 'catalogue_settings', 'loyalty_settings', 'catalogue_items', 'store_order_action', 'loyalty_adjust', 'import_sku_costs', 'record_stock', 'set_costing_method', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note', 'record_collection_reminder', 'record_payment_run', 'attach_document', 'approve_payroll', 'record_salary_payment', 'tds_review_answer', 'record_gst_payment', 'close_year', 'set_transport', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_suta_rate', 'add_recurring', 'stop_recurring', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer', 'set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'import_us_prior_year', 'start_us_amended_return', 'set_us_amended_return']);
 
@@ -503,9 +506,13 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     return signedIn.ok && signedIn.user ? { ...signedIn, consent: await consent.status(signedIn.user.id) } : signedIn;
   }
 
+  const userBudget = createMemoryLimiter({ ...USER_REQUESTS, now });
+
   async function signedIn(req) {
     const who = await auth.authenticate(bearer(req));
-    if (!who.ok) throw httpError(401, 'UNAUTHENTICATED', { reason: who.error });
+    if (!who.ok) throw httpError(401, 'UNAUTHENTICATED', { reason: SAFE_AUTH_REASONS.has(who.error) ? who.error : 'INVALID_TOKEN' });
+    const taken = userBudget.take(who.userId);
+    if (!taken.ok) throw httpError(429, 'RATE_LIMITED', { retryAfterSeconds: taken.retryAfterSeconds, hint: 'Too many requests in a short time. Wait a little and try again.' });
     return who;
   }
 
@@ -846,7 +853,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (method === 'POST') {
         const body = await readJson(req);
         const demo = body.demo === true || reviewer(user);
-        const created = await businesses.create(user.userId, body, { demo });
+        const created = await businesses.create(user.userId, body, { demo, unlimited: reviewer(user) });
+        if (created.error === 'BUSINESS_LIMIT') throw httpError(403, 'BUSINESS_LIMIT', { max: created.max, hint: `You already own ${created.max} businesses, which is the most one account can have. Delete one you no longer use, or ask support if you need more.` });
         if (!created.ok || !demo) return created;
         const context = { userId: user.userId, deviceId: user.deviceId, requestId };
         const seeded = await withBooks(created.business.id, context, (session) => seedDemo(session, indiaDate(now()), { actor: { userId: user.userId, role: 'admin', name: user.name || user.userId } }));
@@ -1183,7 +1191,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       return;
     }
     const payload = JSON.stringify(body, (_key, value) => (typeof value === 'bigint' ? Number(value) : value));
-    res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-request-id': requestId, ...retry });
+    res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'strict-transport-security': 'max-age=31536000; includeSubDomains', 'x-request-id': requestId, ...retry });
     res.end(payload);
   }
 
@@ -1194,7 +1202,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (res.headersSent) {
         res.destroy();
       } else {
-        res.writeHead(500, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+        res.writeHead(500, { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
         res.end('{"ok":false,"error":"INTERNAL_ERROR"}');
       }
     } finally {

@@ -22,7 +22,10 @@ import { redactTinsDeep } from '../../platform/src/us-identity.mjs';
 
 const STARTUP_ATTEMPTS = 10;
 const STARTUP_WAIT_MS = 3000;
-const SHUTDOWN_GRACE_MS = 25000;
+const SHUTDOWN_GRACE_MS = 8000;
+const STATEMENT_TIMEOUT_MS = 30000;
+const LOCK_TIMEOUT_MS = 8000;
+const IDLE_IN_TRANSACTION_MS = 60000;
 
 function required(name) {
   const value = String(process.env[name] || '').trim();
@@ -71,7 +74,7 @@ const hopsProblem = proxyHopsProblem();
 if (hopsProblem) throw new Error(hopsProblem);
 const billingProblem = billingConfigProblem(process.env);
 if (billingProblem) throw new Error(billingProblem);
-const db = createDb(required('MYCA_DATABASE_URL'), { onError: (err) => log({ db: 'idle connection lost', error: String(err && err.message ? err.message : err) }) });
+const db = createDb(required('MYCA_DATABASE_URL'), { statementTimeoutMs: STATEMENT_TIMEOUT_MS, lockTimeoutMs: LOCK_TIMEOUT_MS, idleInTransactionMs: IDLE_IN_TRANSACTION_MS, onError: (err) => log({ db: 'idle connection lost', error: String(err && err.message ? err.message : err) }) });
 await migrateWithRetry(db);
 const handler = createApi({
   db,
