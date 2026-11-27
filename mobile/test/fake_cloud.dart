@@ -20,6 +20,7 @@ class FakeCloud {
   final imports = <String>[];
   final myInvitations = <Map<String, Object?>>[];
   final members = <Map<String, Object?>>[];
+  String gstPortalMode = 'test';
   final openInvites = <Map<String, Object?>>[];
   final invited = <String>[];
   final inviteBodies = <Map<String, Object?>>[];
@@ -587,7 +588,7 @@ class FakeCloud {
         'ok': true,
         'available': gstPortalAvailable,
         if (!gstPortalAvailable) 'reason': 'GSP_KEYS_MISSING',
-        'mode': 'test',
+        'mode': gstPortalMode,
         'simulated': false,
         'sessions': [for (final row in gstPortalSessions.values) row],
       });

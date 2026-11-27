@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/main.dart';
 import 'package:myca/screens/gst_portal_screen.dart';
+import 'package:myca/screens/people_screen.dart';
 
 import 'connectors_test.dart' show hostedOwner;
 import 'fake_cloud.dart';
@@ -157,5 +158,45 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'File'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Filed (simulated)'), findsOneWidget);
+  });
+
+  testWidgets('a sole owner in live mode is told up front to invite a second approver, and can do it from the screen', (tester) async {
+    final cloud = FakeCloud()..gstPortalMode = 'live';
+    await tester.pumpWidget(MycaApp(state: await hostedOwner(cloud)));
+    await tester.pumpAndSettle();
+    await openPortal(tester, form: 'gstr3b');
+    expect(find.byKey(const Key('gstPortal.secondApprover')), findsOneWidget);
+    expect(find.text('Live filing needs a second person'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('gstPortal.inviteApprover')));
+    await tester.pumpAndSettle();
+    expect(find.byType(PeopleScreen), findsOneWidget);
+  });
+
+  testWidgets('with a CA already on the team, or in test mode, there is no such warning', (tester) async {
+    final withCa = FakeCloud()
+      ..gstPortalMode = 'live'
+      ..members.add({'id': 'u2', 'name': 'CA Rao', 'role': 'accountant'});
+    await tester.pumpWidget(MycaApp(state: await hostedOwner(withCa)));
+    await tester.pumpAndSettle();
+    await openPortal(tester, form: 'gstr3b');
+    expect(find.byKey(const Key('gstPortal.secondApprover')), findsNothing);
+  });
+
+  testWidgets('in test mode a sole owner sees no second-approver card', (tester) async {
+    final cloud = FakeCloud();
+    await tester.pumpWidget(MycaApp(state: await hostedOwner(cloud)));
+    await tester.pumpAndSettle();
+    await openPortal(tester, form: 'gstr3b');
+    expect(find.byKey(const Key('gstPortal.secondApprover')), findsNothing);
+  });
+
+  testWidgets('a second owner counts as a second approver too', (tester) async {
+    final cloud = FakeCloud()
+      ..gstPortalMode = 'live'
+      ..members.add({'id': 'u3', 'name': 'Partner', 'role': 'owner'});
+    await tester.pumpWidget(MycaApp(state: await hostedOwner(cloud)));
+    await tester.pumpAndSettle();
+    await openPortal(tester, form: 'gstr3b');
+    expect(find.byKey(const Key('gstPortal.secondApprover')), findsNothing);
   });
 }

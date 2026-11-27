@@ -76,6 +76,8 @@ const hiCore = <String, String>{
   '1 item': '1 आइटम',
   '{n} items': '{n} आइटम',
   'Park this bill and serve the next customer': 'इस बिल को रोकें और अगले ग्राहक को देखें',
+  'Live filing needs a second person': 'लाइव फ़ाइलिंग के लिए दूसरे व्यक्ति की ज़रूरत है',
+  'Each step of a live return is approved by an owner or accountant other than the person who starts it. Invite your CA or a partner before you start, or you will be stopped at the first step.': 'लाइव रिटर्न का हर कदम शुरू करने वाले के अलावा किसी मालिक या अकाउंटेंट से मंज़ूर होता है। शुरू करने से पहले अपने CA या पार्टनर को बुला लें, वरना पहले ही कदम पर रुकना पड़ेगा।',
   'Item name, barcode or code': 'आइटम का नाम, बारकोड या कोड',
   'Search an item by name, or scan it, to start the bill.': 'बिल शुरू करने के लिए आइटम का नाम खोजें या उसे स्कैन करें।',
   'Add "{name}" as a new item': '"{name}" को नए आइटम के रूप में जोड़ें',
