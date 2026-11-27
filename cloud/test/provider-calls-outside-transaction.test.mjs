@@ -172,14 +172,107 @@ test('what is remembered is sealed like the books and is gone after its time', a
   assert.equal(calls.n, 2, 'after thirty minutes the same step is a new request');
 });
 
-test('a claim left by a crashed request does not block for ever', async () => {
+test('a claim left by a crashed request: first retry is told the outcome is unknown, the next one goes ahead', async () => {
   const { businessId, context } = await business();
   const key = 'confirm:tok-crash';
-  await api.db.query("insert into provider_journal (business_id, key, seq, fingerprint, response, created_at) values ($1, $2, 0, 'claim', '{}'::jsonb, to_timestamp($3 / 1000.0))", [businessId, key, clock.at]);
-  await assert.rejects(runner.withProviderBooks(businessId, context, async () => ({ ok: true }), { key }), (err) => err.statusCode === 409);
+  await api.db.query("insert into provider_journal (business_id, key, seq, fingerprint, response, created_at) values ($1, $2, 0, 'dead-owner', '{}'::jsonb, to_timestamp($3 / 1000.0))", [businessId, key, clock.at]);
+  await assert.rejects(runner.withProviderBooks(businessId, context, async () => ({ ok: true }), { key }), (err) => err.statusCode === 409 && err.body.error === 'PROVIDER_CALL_IN_PROGRESS');
   clock.at += 3 * 60 * 1000;
-  const out = await runner.withProviderBooks(businessId, context, async (session) => { session.persist(); return { ok: true }; }, { key });
+  const calls = { n: 0 };
+  const work = async (session) => { await callProvider(calls); session.persist(); return { ok: true }; };
+  await assert.rejects(runner.withProviderBooks(businessId, context, work, { key }), (err) => err.statusCode === 409 && err.body.error === 'OUTCOME_UNKNOWN' && /Check the portal/.test(err.body.hint));
+  assert.equal(calls.n, 0, 'nothing was sent while the outcome was unknown');
+  const out = await runner.withProviderBooks(businessId, context, work, { key });
   assert.equal(out.ok, true);
+  assert.equal(calls.n, 1);
+});
+
+test('a claim taken over from a crashed request that had already got its answer replays it and sends nothing', async () => {
+  const { businessId, context } = await business();
+  const key = 'confirm:tok-answered';
+  const calls = { n: 0 };
+  await api.db.query("insert into provider_journal (business_id, key, seq, fingerprint, response, created_at) values ($1, $2, 0, 'dead-owner', '{}'::jsonb, to_timestamp($3 / 1000.0))", [businessId, key, clock.at]);
+  const sealed = JSON.stringify((await import('../src/books-seal.mjs')).sealState(BOOKS_KEY, businessId, JSON.stringify({ ok: true, status: 200, data: { ack: 'ACK-DONE' } })));
+  await api.db.query("insert into provider_journal (business_id, key, seq, fingerprint, response) values ($1, $2, 1, $3, $4::jsonb)", [businessId, key, providerFingerprint('file-gstr1'), sealed]);
+  clock.at += 3 * 60 * 1000;
+  const out = await runner.withProviderBooks(businessId, context, async (session) => {
+    const answer = await callProvider(calls);
+    session.persist();
+    return { ok: true, ack: answer.data.ack };
+  }, { key, replayMs: 24 * 3600 * 1000 });
+  assert.equal(out.ack, 'ACK-DONE');
+  assert.equal(calls.n, 0, 'the recorded answer was used');
+});
+
+test('a request that is still working keeps its claim alive, so a second one is never let in', async () => {
+  const { businessId, context } = await business();
+  const key = 'confirm:tok-slow';
+  const calls = { n: 0 };
+  let release;
+  calls.during = () => new Promise((resolve) => { release = resolve; });
+  const first = runner.withProviderBooks(businessId, context, async (session) => { await callProvider(calls); session.persist(); return { ok: true }; }, { key, claimMs: 400 });
+  for (let n = 0; n < 50 && calls.n === 0; n += 1) await new Promise((resolve) => setTimeout(resolve, 10));
+  clock.at += 10 * 60 * 1000;
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  await assert.rejects(runner.withProviderBooks(businessId, context, async () => ({ ok: true }), { key, claimMs: 400 }), (err) => err.statusCode === 409);
+  release();
+  assert.equal((await first).ok, true);
+});
+
+test('a request that lost its claim to someone else stops before writing, and never deletes the other owner\'s claim', async () => {
+  const { businessId, context } = await business();
+  const key = 'confirm:tok-stolen';
+  const calls = { n: 0 };
+  let release;
+  calls.during = () => new Promise((resolve) => { release = resolve; });
+  const first = runner.withProviderBooks(businessId, context, async (session) => { await callProvider(calls); session.persist(); return { ok: true }; }, { key, claimMs: 200 });
+  for (let n = 0; n < 50 && calls.n === 0; n += 1) await new Promise((resolve) => setTimeout(resolve, 10));
+  await api.db.query("update provider_journal set fingerprint = 'thief' where business_id = $1 and key = $2 and seq = 0", [businessId, key]);
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  const before = await versionOf(businessId);
+  release();
+  await assert.rejects(first, (err) => err.statusCode === 409);
+  assert.equal(await versionOf(businessId), before, 'nothing was written by the request that lost its claim');
+  const left = await api.db.query("select fingerprint from provider_journal where business_id = $1 and key = $2 and seq = 0", [businessId, key]);
+  assert.equal(left.rows[0]?.fingerprint, 'thief', 'the other owner\'s claim is still there');
+});
+
+test('with no key, a redo after the books changed still replays the answer in memory and sends once', async () => {
+  const { businessId, context } = await business();
+  const calls = { n: 0 };
+  calls.during = async () => {
+    if (calls.n === 1) await api.db.query('update books set version = version + 1 where business_id = $1', [businessId]);
+  };
+  let runs = 0;
+  const out = await runner.withProviderBooks(businessId, context, async (session) => {
+    runs += 1;
+    const answer = await callProvider(calls);
+    session.persist();
+    return { ok: true, ack: answer.data.ack };
+  });
+  assert.equal(out.ack, 'ACK-1');
+  assert.equal(runs, 2);
+  assert.equal(calls.n, 1, 'sent once even though nothing was keyed');
+});
+
+test('when a provider tool is waiting to be confirmed, any request that could confirm it takes the same claim and is protected across requests', async () => {
+  const { businessId, context } = await business();
+  const calls = { n: 0 };
+  let claimedDuring = null;
+  calls.during = async () => {
+    claimedDuring = (await api.db.query("select key from provider_journal where business_id = $1 and seq = 0", [businessId])).rows.map((row) => row.key);
+  };
+  const out = await runner.withProviderBooks(businessId, context, async (session) => {
+    const answer = await callProvider(calls);
+    session.persist();
+    return { ok: true, ack: answer.data.ack };
+  }, { autoKey: () => 'confirm:from-pending' });
+  assert.equal(out.ack, 'ACK-1');
+  assert.deepEqual(claimedDuring, ['confirm:from-pending']);
+  const after = await api.db.query("select count(*)::int as n from provider_journal where business_id = $1 and seq = 0", [businessId]);
+  assert.equal(after.rows[0].n, 0, 'the claim was released');
+  const noPending = await runner.withProviderBooks(businessId, context, async (session) => { session.persist(); return { ok: true }; }, { autoKey: () => '' });
+  assert.equal(noPending.ok, true);
 });
 
 test('the pending tool can be read without a lock so confirm can choose the right path', async () => {

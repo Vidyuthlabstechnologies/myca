@@ -2,6 +2,7 @@
 
 import { readFileSync } from 'node:fs';
 import { integrationReport, keyProblems } from '../cloud/src/integrations.mjs';
+import { goLiveReadiness } from '../cloud/src/go-live.mjs';
 
 function parseEnvFile(path) {
   const out = {};
@@ -29,6 +30,18 @@ for (const [label, settings] of runs) {
   const report = integrationReport(settings);
   console.log(`\n== ${label}: provider mode ${report.mode}, countries ${report.countries.join(', ')}`);
   for (const row of report.integrations) console.log(`  ${row.id.padEnd(24)} ${row.status.padEnd(30)} -> ${row.runsAgainst}`);
+  if (settings.MYCA_PROVIDER_ENV === 'live' && label !== 'as given') {
+    const readiness = goLiveReadiness(settings);
+    if (readiness.gaps.length) {
+      failed = true;
+      console.log(`\n  Not ready to go live: ${readiness.gaps.length} ${readiness.gaps.length === 1 ? 'thing' : 'things'} to fix, and the API would refuse to start until they are:`);
+      for (const item of readiness.gaps) console.log(`  x ${item.what}\n      Fix: ${item.fix}`);
+    } else {
+      console.log('\n  OK: every requirement for live mode is in place.');
+    }
+    for (const warning of readiness.warnings) console.log(`  ! ${warning}`);
+    continue;
+  }
   const problems = keyProblems(settings);
   if (problems.length) {
     failed = true;

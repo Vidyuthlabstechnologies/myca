@@ -10,6 +10,24 @@ locals {
   secret_prefix      = local.is_production ? "" : "${var.environment}-"
   title_suffix       = local.is_production ? "" : " (${var.environment})"
   play_push_audience = "${local.stem}-play-notifications"
+  # What has to be true before provider_mode = "live" is allowed. The server refuses to
+  # start without the same things (cloud/src/go-live.mjs), so a mistake here and a mistake
+  # in the running service both stop before any customer sees it. Each entry is true when
+  # the thing is MISSING.
+  go_live_gaps = [for name, missing in {
+    "environment must be production"                                                = !local.is_production
+    "gsp_live_api_key and gsp_live_api_secret (Quicko live keys)"                   = nonsensitive(contains(["", "unset"], trimspace(var.gsp_live_api_key)) || contains(["", "unset"], trimspace(var.gsp_live_api_secret)))
+    "google_client_ids (the web client id the app is built with)"                   = length(var.google_client_ids) == 0
+    "public_url as an https address"                                                = !startswith(var.public_url, "https://")
+    "play_package_name and play_service_account_json (Google Play billing)"         = var.play_package_name == "" || nonsensitive(contains(["", "unset"], trimspace(var.play_service_account_json)))
+    "deletion_protection = true"                                                    = !var.deletion_protection
+    "sql_availability_type = REGIONAL (a zone outage must not take the books down)" = var.sql_availability_type != "REGIONAL"
+    "min_instances of at least 1 (no cold start on a customer's first request)"     = var.min_instances < 1
+    "alert_email (someone must be told when the API is unhealthy)"                  = var.alert_email == ""
+    "sms_secret, sms_twilio_sid and sms_twilio_from for Twilio"                     = var.sms_provider == "twilio" && (nonsensitive(contains(["", "unset"], trimspace(var.sms_secret))) || var.sms_twilio_sid == "" || var.sms_twilio_from == "")
+    "sms_secret and sms_msg91_template_id (a DLT-registered template) for MSG91"    = var.sms_provider == "msg91" && (nonsensitive(contains(["", "unset"], trimspace(var.sms_secret))) || var.sms_msg91_template_id == "")
+  } : name if missing]
+
   staging_refused = [for setting, on in {
     "provider_mode live or test" = contains(["live", "test"], var.provider_mode)
     enable_channel_pulls         = var.enable_channel_pulls
@@ -387,6 +405,11 @@ resource "google_cloud_run_v2_service" "api" {
     precondition {
       condition     = local.is_production || length(local.staging_refused) == 0
       error_message = "A ${var.environment} stack must never file, pay or send anything real. Unset: ${join(", ", local.staging_refused)}."
+    }
+
+    precondition {
+      condition     = var.provider_mode != "live" || length(local.go_live_gaps) == 0
+      error_message = "provider_mode is live, but ${length(local.go_live_gaps)} thing(s) it depends on are not set. Set: ${join("; ", local.go_live_gaps)}."
     }
 
     precondition {

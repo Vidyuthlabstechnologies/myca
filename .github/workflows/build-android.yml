@@ -114,6 +114,19 @@ jobs:
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
         if: ${{ vars.GCP_WIF_PROVIDER != '' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
 
+      - name: Check the app and the deployed server agree
+        if: ${{ vars.GCP_WIF_PROVIDER != '' && startsWith(github.ref, 'refs/tags/v') && inputs.backend != 'test' }}
+        shell: bash
+        env:
+          API_REGION: ${{ vars.GCP_API_REGION }}
+          REQUIRE_LIVE: ${{ vars.MYCA_REQUIRE_LIVE_ON_RELEASE }}
+        run: |
+          set -euo pipefail
+          gcloud run services describe myca-api --project "$PROJECT" --region "$API_REGION" --format=json > "$RUNNER_TEMP/service.json"
+          args=(--service "$RUNNER_TEMP/service.json" --cloud-url "$CLOUD_URL" --google-client-id "$GOOGLE_SERVER_CLIENT_ID")
+          if [ "$REQUIRE_LIVE" = "true" ]; then args+=(--require-live); fi
+          node scripts/check-release-config.mjs "${args[@]}"
+
       - name: Install the upload key from Secret Manager
         if: ${{ vars.GCP_WIF_PROVIDER != '' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
         working-directory: mobile/android

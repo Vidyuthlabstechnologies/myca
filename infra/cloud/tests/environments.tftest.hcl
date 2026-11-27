@@ -388,3 +388,107 @@ run "staging_refuses_live_key_slots" {
 
   expect_failures = [google_cloud_run_v2_service.api]
 }
+
+run "live_mode_with_nothing_else_set_is_refused" {
+  command = plan
+
+  variables {
+    provider_mode = "live"
+  }
+
+  expect_failures = [google_cloud_run_v2_service.api]
+}
+
+run "live_mode_names_every_missing_thing_and_the_service_still_plans_when_all_are_set" {
+  command = plan
+
+  variables {
+    provider_mode             = "live"
+    gsp_live_api_key          = "key_live_abc123"
+    gsp_live_api_secret       = "secret_live_abc123"
+    google_client_ids         = ["web.apps.googleusercontent.com"]
+    public_url                = "https://api.myca.example"
+    play_service_account_json = "{\"client_email\":\"play@test.iam.gserviceaccount.com\"}"
+    sql_availability_type     = "REGIONAL"
+    alert_email               = "ops@myca.example"
+    sms_provider              = "msg91"
+    sms_secret                = "authkey-0123456789"
+    sms_msg91_template_id     = "template-1"
+  }
+
+  assert {
+    condition     = length(local.go_live_gaps) == 0
+    error_message = "A complete live configuration must have no gaps: ${join("; ", local.go_live_gaps)}."
+  }
+
+  assert {
+    condition     = google_cloud_run_v2_service.api.template[0].containers[0].env != null
+    error_message = "The service must plan with live mode on."
+  }
+}
+
+run "live_mode_refuses_a_single_zone_database" {
+  command = plan
+
+  variables {
+    provider_mode             = "live"
+    gsp_live_api_key          = "key_live_abc123"
+    gsp_live_api_secret       = "secret_live_abc123"
+    google_client_ids         = ["web.apps.googleusercontent.com"]
+    public_url                = "https://api.myca.example"
+    play_service_account_json = "{\"client_email\":\"play@test.iam.gserviceaccount.com\"}"
+    alert_email               = "ops@myca.example"
+  }
+
+  expect_failures = [google_cloud_run_v2_service.api]
+}
+
+run "live_mode_refuses_unprotected_deletion" {
+  command = plan
+
+  variables {
+    provider_mode             = "live"
+    deletion_protection       = false
+    gsp_live_api_key          = "key_live_abc123"
+    gsp_live_api_secret       = "secret_live_abc123"
+    google_client_ids         = ["web.apps.googleusercontent.com"]
+    public_url                = "https://api.myca.example"
+    play_service_account_json = "{\"client_email\":\"play@test.iam.gserviceaccount.com\"}"
+    sql_availability_type     = "REGIONAL"
+    alert_email               = "ops@myca.example"
+  }
+
+  expect_failures = [google_cloud_run_v2_service.api]
+}
+
+run "live_mode_refuses_msg91_without_a_dlt_template" {
+  command = plan
+
+  variables {
+    provider_mode             = "live"
+    gsp_live_api_key          = "key_live_abc123"
+    gsp_live_api_secret       = "secret_live_abc123"
+    google_client_ids         = ["web.apps.googleusercontent.com"]
+    public_url                = "https://api.myca.example"
+    play_service_account_json = "{\"client_email\":\"play@test.iam.gserviceaccount.com\"}"
+    sql_availability_type     = "REGIONAL"
+    alert_email               = "ops@myca.example"
+    sms_provider              = "msg91"
+    sms_secret                = "authkey-0123456789"
+  }
+
+  expect_failures = [google_cloud_run_v2_service.api]
+}
+
+run "test_mode_is_not_asked_for_any_of_it" {
+  command = plan
+
+  variables {
+    provider_mode = "test"
+  }
+
+  assert {
+    condition     = length(local.go_live_gaps) > 0
+    error_message = "The list exists in test mode too but is only enforced in live mode."
+  }
+}

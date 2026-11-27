@@ -18,6 +18,7 @@ import { applyKeySlots, integrationReport, keyProblems } from './integrations.mj
 import { usEfileSetup } from '../../platform/src/us-efile.mjs';
 import { residencyProblem } from './residency.mjs';
 import { testSignInFromEnv } from './test-sign-in.mjs';
+import { goLiveProblem } from './go-live.mjs';
 import { redactTinsDeep } from '../../platform/src/us-identity.mjs';
 
 const STARTUP_ATTEMPTS = 10;
@@ -60,6 +61,8 @@ async function migrateWithRetry(db) {
 
 const environmentRefusal = environmentProblem();
 if (environmentRefusal) throw new Error(environmentRefusal);
+const goLiveRefusal = goLiveProblem();
+if (goLiveRefusal) throw new Error(goLiveRefusal);
 const keyRefusals = keyProblems();
 if (keyRefusals.length) throw new Error(`Provider keys are mixed or incomplete, so the API will not start:\n- ${keyRefusals.join('\n- ')}`);
 const keySlots = applyKeySlots();

@@ -56,6 +56,7 @@ function signedOut() {
 // instances share a business: the second writer waits, then runs on the first one's
 // result, so document numbers and the ledger chain never fork.
 
+import { randomUUID } from 'node:crypto';
 import { openState, storedState } from './books-seal.mjs';
 export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey = '' }) {
   const inside = (given, work) => (given ? work(given) : db.tx(work));
@@ -188,9 +189,22 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
     });
   }
 
+  function memoryJournal() {
+    const seen = new Map();
+    return {
+      size: () => seen.size,
+      async load() {},
+      lookup: (seq, fingerprint) => (seen.get(seq)?.fingerprint === fingerprint ? seen.get(seq).response : null),
+      async record(seq, fingerprint, response) {
+        seen.set(seq, { fingerprint, response });
+      },
+    };
+  }
+
   function journalFor(businessId, key, replayMs, log) {
     const seen = new Map();
     return {
+      size: () => seen.size,
       async load() {
         const found = await db.query('select seq, fingerprint, response from provider_journal where business_id = $1 and key = $2 and seq > $3 and created_at > $4', [businessId, key, CLAIM_SEQ, new Date(now() - replayMs)]);
         for (const row of found.rows) {
@@ -220,46 +234,88 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
     };
   }
 
-  async function claim(businessId, key) {
+  // The claim row says "this action is being sent right now". It carries its owner, is kept
+  // alive while the work runs, and is only ever released by the request that holds it.
+  async function claim(businessId, key, owner, claimMs) {
     const taken = await db.query(
-      `insert into provider_journal (business_id, key, seq, fingerprint, response) values ($1, $2, $3, 'claim', '{}'::jsonb)
-       on conflict (business_id, key, seq) do update set created_at = now() where provider_journal.created_at < $4
-       returning seq`,
-      [businessId, key, CLAIM_SEQ, new Date(now() - CLAIM_MS)],
+      `insert into provider_journal (business_id, key, seq, fingerprint, response, created_at) values ($1, $2, $3, $5, '{}'::jsonb, $6)
+       on conflict (business_id, key, seq) do update set fingerprint = $5, created_at = $6 where provider_journal.created_at < $4
+       returning (xmax = 0) as fresh`,
+      [businessId, key, CLAIM_SEQ, new Date(now() - claimMs), owner, new Date(now())],
     );
-    return taken.rowCount > 0;
+    if (!taken.rowCount) return 'busy';
+    return taken.rows[0].fresh ? 'fresh' : 'takeover';
   }
 
-  async function release(businessId, key) {
-    await db.query('delete from provider_journal where business_id = $1 and key = $2 and seq = $3', [businessId, key, CLAIM_SEQ]).catch(() => {});
+  async function release(businessId, key, owner) {
+    await db.query('delete from provider_journal where business_id = $1 and key = $2 and seq = $3 and fingerprint = $4', [businessId, key, CLAIM_SEQ, owner]).catch(() => {});
+  }
+
+  function busy() {
+    const err = fail(409, 'PROVIDER_CALL_IN_PROGRESS');
+    err.body = { ok: false, error: 'PROVIDER_CALL_IN_PROGRESS', hint: 'The same request is already being sent. Wait a moment and look again before sending it twice.' };
+    return err;
+  }
+
+  function outcomeUnknown() {
+    const err = fail(409, 'OUTCOME_UNKNOWN');
+    err.body = { ok: false, error: 'OUTCOME_UNKNOWN', hint: 'An earlier attempt at this may have reached the government before it was interrupted, and we did not get its answer. Check the portal for the result first. If it is not there, send it again.' };
+    return err;
   }
 
   // For work that calls a government or other provider. The books are read without a lock,
   // the work runs in memory with no transaction open, and a short transaction then writes the
   // result only if nobody else changed the books meanwhile. Every provider answer is recorded
   // the moment it arrives, so a retry after a failed commit, a crash or a changed book replays
-  // the answer and never calls the provider a second time.
-  async function withProviderBooks(businessId, context, run, { key = '', hashes: wanted = [], replayMs = JOURNAL_REPLAY_MS, log = () => {} } = {}) {
-    const keyed = String(key || '');
-    if (keyed && !(await claim(businessId, keyed))) {
-      const err = fail(409, 'PROVIDER_CALL_IN_PROGRESS');
-      err.body = { ok: false, error: 'PROVIDER_CALL_IN_PROGRESS', hint: 'The same request is already being sent. Wait a moment and look again before sending it twice.' };
-      throw err;
-    }
+  // the answer and never calls the provider a second time. Work with no key still replays within
+  // this request; when a provider tool is waiting to be confirmed, autoKey names it so even a
+  // chat "yes" is protected across requests.
+  async function withProviderBooks(businessId, context, run, { key = '', autoKey = null, hashes: wanted = [], replayMs = JOURNAL_REPLAY_MS, claimMs = CLAIM_MS, log = () => {} } = {}) {
+    const owner = randomUUID();
+    let keyed = String(key || '');
+    let heartbeat = null;
+    let lost = false;
+    let journal = memoryJournal();
+    const hold = async (name) => {
+      const got = await claim(businessId, name, owner, claimMs);
+      if (got === 'busy') throw busy();
+      keyed = name;
+      journal = journalFor(businessId, keyed, replayMs, log);
+      await journal.load();
+      if (got === 'takeover' && journal.size() === 0) {
+        await release(businessId, keyed, owner);
+        keyed = '';
+        throw outcomeUnknown();
+      }
+      heartbeat = setInterval(async () => {
+        try {
+          const kept = await db.query('update provider_journal set created_at = $4 where business_id = $1 and key = $2 and seq = $3 and fingerprint = $5', [businessId, keyed, CLAIM_SEQ, new Date(now()), owner]);
+          if (!kept.rowCount) lost = true;
+        } catch {
+          lost = true;
+        }
+      }, claimMs / 4);
+      heartbeat.unref();
+    };
     try {
-      const journal = keyed ? journalFor(businessId, keyed, replayMs, log) : null;
+      if (keyed) await hold(keyed);
       for (let attempt = 1; attempt <= COMMIT_ATTEMPTS; attempt += 1) {
-        if (journal) await journal.load();
+        if (keyed) await journal.load();
         const found = await db.query('select version, state from books where business_id = $1', [businessId]);
         const row = found.rows[0];
         if (!row) throw fail(404, 'BUSINESS_NOT_FOUND');
         await stillSignedIn(db.query, context);
         const { books, documents, session } = await open(db.query, businessId, row.state, row.version, wanted);
+        if (!keyed && typeof autoKey === 'function') {
+          const named = String(autoKey(session.state.pendingChatAction) || '');
+          if (named) await hold(named);
+        }
         const auditedBefore = session.state.auditEvents.length;
         const demo = (await db.query('select demo from businesses where id = $1', [businessId])).rows[0]?.demo === true;
         const identity = demo ? identityOf(session.state) : '';
         const watched = storeWatch(session.state);
-        const out = journal ? await withProviderJournal(journal, () => run(session, db.query)) : await run(session, db.query);
+        const out = await withProviderJournal(journal, () => run(session, db.query));
+        if (lost) throw busy();
         const committed = await db.tx(async (q) => {
           const locked = await q('select version, state from books where business_id = $1 for update', [businessId]);
           const current = locked.rows[0];
@@ -280,7 +336,8 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
       err.body = { ok: false, error: 'BOOKS_CHANGED', hint: 'The books were changed by someone else while this was being sent. Nothing was sent twice; look at the books and try again.' };
       throw err;
     } finally {
-      if (keyed) await release(businessId, keyed);
+      if (heartbeat) clearInterval(heartbeat);
+      if (keyed) await release(businessId, keyed, owner);
     }
   }
 

@@ -440,7 +440,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     return chatInBooks(session, { businessId, userId, actor, message, canPost });
   }
   const billing = billingGiven || createBilling({ db, now, log });
-  const withProviderBooks = (businessId, context, run, options = {}) => runner.withProviderBooks(businessId, context, run, { log, ...options });
+  const pendingProviderKey = (pending) => (pending && pending.token && (ENGINE_PROVIDER_TOOLS.includes(pending.name) || pending.name === US_FILE_TOOL) ? `confirm:${pending.token}` : '');
+  const withProviderBooks = (businessId, context, run, options = {}) => runner.withProviderBooks(businessId, context, run, { log, autoKey: pendingProviderKey, ...options });
   const govt = createGovtActions({ connectors, withBooks: (...args) => runner.withBooks(...args), withProviderBooks, fetchFn: gspFetch });
   const gstPortal = createGstPortal({ db, connectors, withBooks: (...args) => runner.withBooks(...args), withProviderBooks, billing, key: connectorKey, fetchFn: gspFetch, now });
   const quicko = createQuicko({ db, connectors, withBooks: (...args) => runner.withBooks(...args), key: connectorKey, fetchFn: gspFetch, now });
