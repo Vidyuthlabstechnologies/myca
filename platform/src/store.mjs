@@ -105,6 +105,7 @@ export function createState() {
     gstCreditOpening: null,
     tdsReviews: {},
     payrollRuns: {},
+    payrollAdjustments: {},
     usReturns: {},
     salesTaxRates: [],
     salesTaxNexus: [],
@@ -224,6 +225,7 @@ export function serialize(state) {
     gstCreditOpening: state.gstCreditOpening || null,
     tdsReviews: state.tdsReviews || {},
     payrollRuns: state.payrollRuns || {},
+    payrollAdjustments: state.payrollAdjustments || {},
     usReturns: state.usReturns || {},
     salesTaxRates: state.salesTaxRates || [],
     salesTaxNexus: state.salesTaxNexus || [],
@@ -424,6 +426,7 @@ export function deserialize(raw) {
   state.gstCreditOpening = raw.gstCreditOpening && typeof raw.gstCreditOpening === 'object' ? raw.gstCreditOpening : null;
   state.tdsReviews = raw.tdsReviews && typeof raw.tdsReviews === 'object' ? raw.tdsReviews : {};
   state.payrollRuns = raw.payrollRuns && typeof raw.payrollRuns === 'object' ? raw.payrollRuns : {};
+  state.payrollAdjustments = raw.payrollAdjustments && typeof raw.payrollAdjustments === 'object' ? raw.payrollAdjustments : {};
   state.usReturns = raw.usReturns && typeof raw.usReturns === 'object' && !Array.isArray(raw.usReturns) ? raw.usReturns : {};
   state.salesTaxRates = Array.isArray(raw.salesTaxRates) ? raw.salesTaxRates : [];
   state.salesTaxNexus = Array.isArray(raw.salesTaxNexus) ? raw.salesTaxNexus : [];

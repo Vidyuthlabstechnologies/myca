@@ -1,4 +1,5 @@
 import { withProviderContext } from '../../platform/src/provider-context.mjs';
+import { providerFingerprint } from '../../platform/src/provider-journal.mjs';
 import { providerEnvironment, serviceProviderEnvironment, mockModeEnabled } from '../../platform/src/runtime-config.mjs';
 import { runTool } from '../../platform/src/tools.mjs';
 import { runSandboxOperation } from '../../platform/src/sandbox-adapter.mjs';
@@ -74,7 +75,7 @@ function modeWords(mode) {
   return mode === 'live' ? 'live' : mode === 'test' ? 'test (sandbox)' : 'off';
 }
 
-export function createGovtActions({ connectors, withBooks, fetchFn = null }) {
+export function createGovtActions({ connectors, withBooks, withProviderBooks = withBooks, fetchFn = null }) {
   async function context(businessId, channel) {
     const config = await connectors.load(businessId, channel);
     if (!config || config.enabled === false) return { config: null, chosen: 'test' };
@@ -100,7 +101,7 @@ export function createGovtActions({ connectors, withBooks, fetchFn = null }) {
       sandbox: { ...sandbox, ...(fetchFn ? { fetchFn } : {}), ...(config ? { irpUser: irpUser(config) } : {}) },
       ...(config ? { govt: { env: config.environment, ...irpUser(config) } } : {}),
     };
-    return withProviderContext(providerContext, () => withBooks(businessId, ctx, async (session) => {
+    return withProviderContext(providerContext, () => withProviderBooks(businessId, ctx, async (session) => {
       const effective = providerEnvironment();
       const out = await runSandboxOperation({
         operationId,
@@ -112,7 +113,7 @@ export function createGovtActions({ connectors, withBooks, fetchFn = null }) {
       session.persist();
       const { payload, ...rest } = out;
       return { ...rest, ...described(chosen, effective) };
-    }));
+    }, { key: `irp:${operationId}:${providerFingerprint(JSON.stringify(params))}` }));
   }
 
   return {

@@ -52,7 +52,7 @@ function serviceMode(env) {
   return String(env.MYCA_GSP_ENV || '').trim().toLowerCase() === 'live' ? 'live' : 'test';
 }
 
-export function createGstPortal({ db, connectors, withBooks, billing = null, key = '', env = process.env, fetchFn = null, now = () => Date.now() }) {
+export function createGstPortal({ db, connectors, withBooks, withProviderBooks = withBooks, billing = null, key = '', env = process.env, fetchFn = null, now = () => Date.now() }) {
   const sealing = key.length >= 32;
 
   async function keysFor(businessId) {
@@ -292,11 +292,11 @@ export function createGstPortal({ db, connectors, withBooks, billing = null, key
       row = live.row;
     }
     const args = { period: String(body.period || '').trim(), gstin: reg.gstin, otp: body.otp, pan: body.pan, caApprovalId: body.caApprovalId, actorId: actor.actor.userId, role: actor.actor.role };
-    const out = await withProviderContext(contextFor(keys, row), () => withBooks(businessId, ctx, async (session) => {
+    const out = await withProviderContext(contextFor(keys, row), () => withProviderBooks(businessId, ctx, async (session) => {
       const result = await steps[step](session.state, args, actor.actor);
       if (result.ok || step === 'check') session.persist();
       return { ...result, mode: providerEnvironment(), simulated: mockModeEnabled() };
-    }));
+    }, { key: `gst:${form}:${step}:${args.period}:${reg.gstin}` }));
     if (!out.ok && ENDED.has(String(out.error))) await endSession(businessId, reg.gstin, out.error);
     await audit(businessId, ctx, `gst_portal.${form}_${step}`, { gstin: reg.gstin, period: args.period, ok: out.ok === true, error: out.ok ? '' : String(out.error || ''), simulated: mockModeEnabled() });
     return out;
@@ -314,11 +314,11 @@ export function createGstPortal({ db, connectors, withBooks, billing = null, key
     const blocked = ready(keys);
     if (blocked) return blocked;
     const args = { quarter: String(body.quarter || '').trim(), form: body.form, tan: body.tan, filingType: body.filingType, caApprovalId: body.caApprovalId, actorId: actor.actor.userId, role: actor.actor.role };
-    const out = await withProviderContext(contextFor(keys), () => withBooks(businessId, ctx, async (session) => {
+    const out = await withProviderContext(contextFor(keys), () => withProviderBooks(businessId, ctx, async (session) => {
       const result = await generateTdsFvu(session.state, args, actor.actor);
       if (result.ok) session.persist();
       return { ...result, mode: providerEnvironment(), simulated: mockModeEnabled() };
-    }));
+    }, { key: `tds-fvu:${args.quarter}:${String(args.form || '26Q')}` }));
     await audit(businessId, ctx, 'gst_portal.tds_fvu', { quarter: args.quarter, form: String(args.form || '26Q'), ok: out.ok === true, error: out.ok ? '' : String(out.error || ''), simulated: mockModeEnabled() });
     return out;
   }

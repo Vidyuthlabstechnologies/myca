@@ -68,7 +68,7 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, read
           } finally {
             await q('alter table audit_log enable trigger audit_log_no_update');
           }
-          for (const table of ['store_orders', 'store_links', 'access_log', 'shared_books', 'inbound_sales', 'inbound_keys', 'gst_portal_sessions', 'business_connectors', 'invitations', 'memberships', 'books']) {
+          for (const table of ['provider_journal', 'store_orders', 'store_links', 'access_log', 'shared_books', 'inbound_sales', 'inbound_keys', 'gst_portal_sessions', 'business_connectors', 'invitations', 'memberships', 'books']) {
             await q(`delete from ${table} where business_id = $1`, [row.id]);
           }
           await q('delete from businesses where id = $1', [row.id]);
@@ -108,6 +108,7 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, read
     }
     if (summary.users) log({ requestId, job: 'purge', usersErased: summary.users });
     summary.accessRows = (await db.query('delete from access_log where at < $1', [new Date(now() - ACCESS_LOG_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
+    await db.query('delete from provider_journal where created_at < $1', [new Date(now() - 7 * 24 * 60 * 60 * 1000)]);
     summary.crashRows = (await db.query('delete from crash_reports where last_seen < $1', [new Date(now() - CRASH_REPORT_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     summary.otpRows = (await db.query('delete from otp_challenges where created_at < $1', [new Date(now() - OTP_CHALLENGE_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     summary.rateRows = rateLimits ? await rateLimits.prune() : 0;
