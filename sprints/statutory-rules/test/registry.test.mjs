@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import { RULE_MODULES, registeredRecords } from '../src/registry.mjs';
-import { RULES, registryIntegrity, rule, validateRules, isIsoDate } from '../src/index.mjs';
+import { RULES, registryIntegrity, rule, validateRules, isIsoDate, mergeRecords } from '../src/index.mjs';
+import { loadDataRecords } from '../src/data.mjs';
 
 const rulesDirectory = new URL('../src/rules/', import.meta.url);
 const EXPECTED_MODULES = ['audit-thresholds', 'due-dates', 'gst', 'holidays', 'income-tax', 'malaysia', 'malaysia-payroll', 'msme', 'payroll', 'presumptive', 'tds', 'uae', 'united-kingdom', 'us-federal', 'us-individual', 'us-sales-tax', 'us-state-returns', 'us-states'];
@@ -28,7 +29,8 @@ test('the registered records pass integrity: shape, unique versions, no overlaps
   const result = validateRules(records);
   assert.deepEqual(result.problems, [], JSON.stringify(result.problems, null, 2));
   assert.deepEqual(registryIntegrity(), { ok: true, problems: [] });
-  assert.equal(RULES.length, records.length);
+  const dataFiles = loadDataRecords(new URL('../data/', import.meta.url).pathname);
+  assert.equal(RULES.length, mergeRecords(records, dataFiles).length);
 });
 
 test('every registered record has an id, value, act, source and a valid inclusive date range', () => {

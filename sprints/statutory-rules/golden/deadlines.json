@@ -815,6 +815,28 @@
       "citation": "CGST Rules rule 62(1); GST portal FAQ on Form GST CMP-08: the 18th of the month after the quarter"
     },
     {
+      "name": "GSTR-4 for FY 2025-26 is due 2026-06-30",
+      "input": {
+        "rule": "due-date.gst.gstr-4",
+        "periodEnd": "2026-03-31"
+      },
+      "expected": {
+        "dueDate": "2026-06-30"
+      },
+      "citation": "CGST Rules rule 62(1): the annual composition return, 30 June after the year; confirmed by the owner's chartered accountant on 2026-11-27"
+    },
+    {
+      "name": "GSTR-4 for FY 2026-27 is due 2027-06-30",
+      "input": {
+        "rule": "due-date.gst.gstr-4",
+        "periodEnd": "2027-03-31"
+      },
+      "expected": {
+        "dueDate": "2027-06-30"
+      },
+      "citation": "CGST Rules rule 62(1): the annual composition return, 30 June after the year"
+    },
+    {
       "name": "GSTR-9 for FY 2025-26 is due 2026-12-31",
       "input": {
         "rule": "due-date.gst.gstr-9",

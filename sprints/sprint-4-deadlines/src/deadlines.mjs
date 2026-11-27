@@ -173,6 +173,10 @@ export function listDeadlines({ clients, months }) {
       const itr = itrCategory(profile, fyStart);
       const itrDue = dueDateFor({ rule: itr.rule, periodEnd: end });
       if (itrDue.dueDate && inWindow(itrDue.dueDate)) out.push(row(profile, { returnType: 'ITR', label: itr.label }, fy, itrDue.dueDate));
+      if (profile.composition) {
+        const gstr4 = dueDateFor({ rule: 'due-date.gst.gstr-4', periodEnd: end });
+        if (gstr4.dueDate && inWindow(gstr4.dueDate)) out.push(row(profile, { returnType: 'GSTR-4', label: 'GSTR-4 (composition, yearly)' }, fy, gstr4.dueDate));
+      }
       if (gstr9Required(profile, fyStart)) {
         const gstr9 = dueDateFor({ rule: 'due-date.gst.gstr-9', periodEnd: end });
         if (gstr9.dueDate && inWindow(gstr9.dueDate)) out.push(row(profile, { returnType: 'GSTR-9', label: 'GSTR-9' }, fy, gstr9.dueDate));
@@ -197,6 +201,7 @@ export function returnsFor(profile) {
   const seen = new Map();
   for (const spec of [...monthlySpecs(profile), ...quarterlySpecs(profile)]) seen.set(`${spec.returnType}|${spec.label}`, { code: spec.returnType, label: spec.label });
   seen.set('ITR', { code: 'ITR', label: itrCategory(profile, '2026-04-01').label });
+  if (profile.composition) seen.set('GSTR-4', { code: 'GSTR-4', label: 'GSTR-4 (composition, yearly)' });
   if (gstr9Required(profile, '2026-04-01')) seen.set('GSTR-9', { code: 'GSTR-9', label: 'GSTR-9' });
   if (profile.advanceTax) seen.set('ADVANCE_TAX', { code: 'ADVANCE_TAX', label: 'Advance tax' });
   return [...seen.values()];
