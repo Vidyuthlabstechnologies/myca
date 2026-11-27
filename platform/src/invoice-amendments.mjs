@@ -58,7 +58,7 @@ export function planAmendment(state, args = {}) {
   if (date < invoice.date) return { ok: false, error: 'DATE_BEFORE_INVOICE', date, invoiceDate: invoice.date };
   if (isPeriodLocked(state, date)) return { ok: false, error: 'PERIOD_LOCKED', date, lockThrough: state.lockThrough };
   const lastDate = gstCorrectionDeadline(invoice.date, { state, gstin: invoice.registrationGstin, ruleId: 'gst.gstr1.amendment-deadline', onDate: date });
-  if (date > lastDate) return { ok: false, error: 'AMENDMENT_TIME_BARRED', date, lastDate, ruleId: 'gst.gstr1.amendment-deadline', hint: `${invoice.id} can be amended in GSTR-1 only up to ${gstCorrectionDeadlineWhy(invoice.date, lastDate)}, whichever is earlier (section 37(3)); after that the correction is a credit or debit note.` };
+  if (date > lastDate) return { ok: false, error: 'AMENDMENT_TIME_BARRED', date, lastDate, ruleId: 'gst.gstr1.amendment-deadline', hint: `${invoice.id} can be amended in GSTR-1 only up to ${gstCorrectionDeadlineWhy(invoice.date, lastDate, { ruleId: 'gst.gstr1.amendment-deadline', onDate: date })}, whichever is earlier (section 37(3)); after that the correction is a credit or debit note.` };
   if (filingFor(state, 'GSTR-1', periodOf(date))) return { ok: false, error: 'AMENDMENT_PERIOD_FILED', period: periodOf(date), hint: 'GSTR-1 for the month of the amendment is already filed; date it in an open month.' };
   const reason = String(args.reason || '').trim().slice(0, 120);
   if (!reason) return { ok: false, error: 'REASON_REQUIRED' };

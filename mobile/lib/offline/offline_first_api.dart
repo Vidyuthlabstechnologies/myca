@@ -170,7 +170,10 @@ class OfflineFirstApi implements MycaApi {
     }
     final price = args['price'], rate = args['gstRate'];
     if (price is! num || rate is! num) return _blocked(off('Give the item a selling price and a GST rate to save it without a connection.'));
-    if (rate < 0 || rate > 28) return _blocked(off('Enter a GST rate from 0 to 28 for the item.'));
+    final allowed = offline.kit?.gstRates ?? const <num>[];
+    if (rate < 0 || rate > 100 || (allowed.isNotEmpty && rate != 0 && !allowed.contains(rate))) {
+      return _blocked(allowed.isEmpty ? off('Enter a valid GST rate for the item.') : off('That GST rate is not in force. Use one of: {rates}.', {'rates': allowed.map((r) => '$r%').join(', ')}));
+    }
     _pending
       ..clear()
       ..[token] = _LocalPending(name, args);
