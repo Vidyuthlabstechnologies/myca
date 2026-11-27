@@ -36,7 +36,7 @@ test('a Google client id the server does not accept is the failure that would br
   const report = check(description(), app({ googleServerClientId: 'other.apps.googleusercontent.com' }));
   assert.equal(report.ok, false);
   assert.match(report.problems[0], /Sign-in would fail for everyone/);
-  assert.match(report.problems[0], /other\.apps\.googleusercontent\.com/);
+  assert.ok(report.problems[0].includes('other.apps.googleusercontent.com'));
 });
 
 test('a server with no Google client id, or an app with none, is refused with its own reason', () => {

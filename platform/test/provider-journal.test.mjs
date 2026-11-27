@@ -87,6 +87,22 @@ test('the fingerprint changes with any part of the call', () => {
   assert.equal(providerFingerprint('x', 1), providerFingerprint('x', '1'));
 });
 
+test('a fingerprint is keyed: the same call under another key differs, and it is not a plain hash of the call', async () => {
+  const { createHash } = await import('node:crypto');
+  const saved = process.env.MYCA_BOOKS_KEY;
+  try {
+    process.env.MYCA_BOOKS_KEY = 'key-one-0123456789012345678901234567890';
+    const one = providerFingerprint('POST', '/file', '{"otp":"123456"}');
+    assert.equal(one, providerFingerprint('POST', '/file', '{"otp":"123456"}'));
+    assert.notEqual(one, createHash('sha256').update(['POST', '/file', '{"otp":"123456"}'].join('\u0000')).digest('hex'));
+    process.env.MYCA_BOOKS_KEY = 'key-two-0123456789012345678901234567890';
+    assert.notEqual(one, providerFingerprint('POST', '/file', '{"otp":"123456"}'));
+  } finally {
+    if (saved === undefined) delete process.env.MYCA_BOOKS_KEY;
+    else process.env.MYCA_BOOKS_KEY = saved;
+  }
+});
+
 test('journaledCall outside a scope just makes the call', async () => {
   let n = 0;
   assert.equal(await journaledCall('f', async () => { n += 1; return { ok: true, n }; }).then((r) => r.n), 1);
