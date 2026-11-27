@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { releaseConfigProblems, serviceFacts } from '../src/release-config.mjs';
 
 const CLIENT = '645603112925-web.apps.googleusercontent.com';
+const WRONG = 'other.apps.googleusercontent.com';
 
 function description(env = {}, url = 'https://myca-api-541813254937.asia-south1.run.app') {
   const all = { MYCA_GOOGLE_CLIENT_IDS: CLIENT, MYCA_PROVIDER_ENV: 'live', MYCA_ENVIRONMENT: 'production', MYCA_PUBLIC_URL: 'https://api.myca.example', ...env };
@@ -33,10 +34,10 @@ test('an app and a server that agree pass', () => {
 });
 
 test('a Google client id the server does not accept is the failure that would break sign-in for everyone', () => {
-  const report = check(description(), app({ googleServerClientId: 'other.apps.googleusercontent.com' }));
+  const report = check(description(), app({ googleServerClientId: WRONG }));
   assert.equal(report.ok, false);
   assert.match(report.problems[0], /Sign-in would fail for everyone/);
-  assert.ok(report.problems[0].includes('other.apps.googleusercontent.com'));
+  assert.ok(report.problems[0].split(/[\s,]+/).includes(WRONG));
 });
 
 test('a server with no Google client id, or an app with none, is refused with its own reason', () => {

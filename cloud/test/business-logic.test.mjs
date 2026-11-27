@@ -88,9 +88,18 @@ test('two people confirming one preview at the same moment post it once', async 
   const staff = { token: ravi.accessToken, businessId: owner.businessId };
   const held = await post(owner, 'propose', { name: 'create_invoice', args: sale() });
   const token = held.body.preview.token;
-  const answers = await Promise.all([owner, staff, owner, staff, owner, staff].map((who) => post(who, 'confirm', { token })));
+  const askers = [owner, staff, owner, staff, owner, staff];
+  const answers = await Promise.all(askers.map((who) => post(who, 'confirm', { token })));
   assert.equal(answers.filter((answer) => answer.body.posted === true && !answer.body.replayed).length, 1, JSON.stringify(answers.map((answer) => answer.body)));
-  assert.equal(answers.filter((answer) => answer.body.replayed === true).length, 5);
+  // The preview belongs to whoever proposed it. Whoever reaches the books second sees the first
+  // one's result as "already done"; a staff member who happens to reach them before the owner
+  // is told nothing of theirs is waiting. Either way nothing is posted twice.
+  answers.forEach((answer, at) => {
+    const posted = answer.body.posted === true && !answer.body.replayed;
+    const replayed = answer.body.replayed === true;
+    const nothingWaiting = answer.body.error === 'NOTHING_PENDING';
+    assert.equal(posted || replayed || (askers[at] === staff && nothingWaiting), true, `${askers[at] === staff ? 'staff' : 'owner'}: ${JSON.stringify(answer.body)}`);
+  });
   assert.equal(await invoices(owner), 1);
   const books = await api.books(owner.businessId);
   assert.equal(books.invoices[0].id, 'INV-0001');

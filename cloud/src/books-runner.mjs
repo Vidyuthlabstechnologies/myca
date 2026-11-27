@@ -209,7 +209,8 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
         const found = await db.query('select seq, fingerprint, response from provider_journal where business_id = $1 and key = $2 and seq > $3 and created_at > $4', [businessId, key, CLAIM_SEQ, new Date(now() - replayMs)]);
         for (const row of found.rows) {
           try {
-            seen.set(row.seq, { fingerprint: row.fingerprint, response: openState(booksKey, businessId, row.response) });
+            const entry = openState(booksKey, businessId, row.response);
+            if (entry && typeof entry.fingerprint === 'string' && entry.response) seen.set(row.seq, entry);
           } catch {
             continue;
           }
@@ -225,7 +226,7 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
           await db.query(
             `insert into provider_journal (business_id, key, seq, fingerprint, response) values ($1, $2, $3, $4, $5::jsonb)
              on conflict (business_id, key, seq) do update set fingerprint = excluded.fingerprint, response = excluded.response, created_at = now()`,
-            [businessId, key, seq, fingerprint, storedState(booksKey, businessId, JSON.stringify(response))],
+            [businessId, key, seq, 'sealed', storedState(booksKey, businessId, JSON.stringify({ fingerprint, response }))],
           );
         } catch (err) {
           log({ providerJournal: 'could not record a provider answer', error: String(err && err.message ? err.message : err) });
@@ -341,12 +342,5 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
     }
   }
 
-  async function pendingToolName(businessId) {
-    const found = await db.query('select state from books where business_id = $1', [businessId]);
-    if (!found.rows[0]) return '';
-    const state = openState(booksKey, businessId, found.rows[0].state);
-    return String(state?.pendingChatAction?.name || '');
-  }
-
-  return { withBooks, withProviderBooks, pendingToolName, withReadOnlyBooks, withSharedBooks, share, replaceBooks };
+  return { withBooks, withProviderBooks, withReadOnlyBooks, withSharedBooks, share, replaceBooks };
 }

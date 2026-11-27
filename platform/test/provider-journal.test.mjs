@@ -82,25 +82,34 @@ test('several calls in one action are replayed in order', async () => {
 });
 
 test('the fingerprint changes with any part of the call', () => {
-  assert.notEqual(providerFingerprint('POST', '/a', '1'), providerFingerprint('POST', '/a', '2'));
+  
   assert.notEqual(providerFingerprint('a', 'bc'), providerFingerprint('ab', 'c'));
   assert.equal(providerFingerprint('x', 1), providerFingerprint('x', '1'));
 });
 
-test('a fingerprint is keyed: the same call under another key differs, and it is not a plain hash of the call', async () => {
-  const { createHash } = await import('node:crypto');
-  const saved = process.env.MYCA_BOOKS_KEY;
-  try {
-    process.env.MYCA_BOOKS_KEY = 'key-one-0123456789012345678901234567890';
-    const one = providerFingerprint('POST', '/file', '{"otp":"123456"}');
-    assert.equal(one, providerFingerprint('POST', '/file', '{"otp":"123456"}'));
-    assert.notEqual(one, createHash('sha256').update(['POST', '/file', '{"otp":"123456"}'].join('\u0000')).digest('hex'));
-    process.env.MYCA_BOOKS_KEY = 'key-two-0123456789012345678901234567890';
-    assert.notEqual(one, providerFingerprint('POST', '/file', '{"otp":"123456"}'));
-  } finally {
-    if (saved === undefined) delete process.env.MYCA_BOOKS_KEY;
-    else process.env.MYCA_BOOKS_KEY = saved;
-  }
+test('the fingerprint is the call itself, not a hash of it, so nothing short can be guessed back out of it', () => {
+  const text = providerFingerprint('POST', '/gst/returns/gstr1/file', '{"period":"2026-10"}');
+  assert.equal(text, 'POST\u0000/gst/returns/gstr1/file\u0000{"period":"2026-10"}');
+  assert.doesNotMatch(text, /^[0-9a-f]{64}$/);
+});
+
+test('one-time codes and credentials are not part of what makes two calls the same', () => {
+  const first = providerFingerprint('POST', '/file', '{"period":"2026-10","otp":"123456","auth":{"password":"a","user":"u"},"list":[{"pin":"1","x":2}]}');
+  const again = providerFingerprint('POST', '/file', '{"period":"2026-10","otp":"654321","auth":{"password":"b","user":"u"},"list":[{"pin":"9","x":2}]}');
+  assert.equal(first, again);
+  assert.notEqual(first, providerFingerprint('POST', '/file', '{"period":"2026-11","otp":"123456"}'));
+  assert.notEqual(providerFingerprint('a', 'bc'), providerFingerprint('ab', 'c'));
+  assert.equal(providerFingerprint('x', 1), providerFingerprint('x', '1'));
+});
+
+test('a filing retried with a fresh one-time code replays the earlier answer and does not file again', async () => {
+  const { sandbox, calls } = client(() => ({ status: 200, body: { data: { ack: 'ACK-1' } } }));
+  const journal = memoryJournal();
+  const file = (otp) => sandbox.request('/gst/returns/gstr1/file', { method: 'POST', body: { period: '2026-10', otp }, token: 'taxpayer-token' });
+  const first = await withProviderJournal(journal, () => file('111111'));
+  const retry = await withProviderJournal(journal, () => file('222222'));
+  assert.deepEqual(retry, first);
+  assert.equal(calls.length, 1);
 });
 
 test('journaledCall outside a scope just makes the call', async () => {

@@ -94,6 +94,8 @@ const OWNER_ONLY_POSTS = new Map([
   ['replace', 'SHARED_VIEW_READ_ONLY'],
 ]);
 
+class ProviderPath extends Error {}
+
 const SAFE_AUTH_REASONS = new Set(['TOKEN_EXPIRED', 'DEVICE_REVOKED']);
 
 const WRITES = new Set(['replace', 'uploads', 'propose', 'confirm', 'company', 'connector-sync', 'plaid-exchange', 'gusto-connect']);
@@ -1120,11 +1122,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return withBooks(businessId, context, (session) => session.propose(name, proposed, actor));
       }
       if (action === 'confirm') {
-        const pendingName = await runner.pendingToolName(businessId);
         const token = String(body.token || '').slice(0, 80);
-        const reachesProvider = ENGINE_PROVIDER_TOOLS.includes(pendingName) || pendingName === US_FILE_TOOL;
-        const runConfirm = reachesProvider && token ? (run) => withProviderBooks(businessId, context, run, { key: `confirm:${token}`, replayMs: JOURNAL_KEEP_MS }) : (run) => withBooks(businessId, context, run);
-        return runConfirm(async (session) => {
+        const confirmIn = async (session) => {
           const unprotected = await secondStepMissing(user.userId, session.state.pendingChatAction?.name);
           if (unprotected) return unprotected;
           const unpaid = await unpaidFiling(businessId, session);
@@ -1133,7 +1132,20 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           // reach the IRS or the e-file partner, at the service's own provider setting.
           if (session.state.pendingChatAction?.name === US_FILE_TOOL) return asUsFiling(session, businessId, user.userId, () => session.confirm(body.token, actor));
           return asEngineProviderCall(session, user.userId, clientAddress(req), () => session.confirm(body.token, actor));
-        });
+        };
+        // An ordinary confirm takes the books lock exactly as it always did. If, once it has the
+        // books, it finds a provider tool waiting, it steps aside before calling out and does the
+        // same work where no lock or transaction is held while the government answers.
+        try {
+          return await withBooks(businessId, context, async (session) => {
+            const waiting = session.state.pendingChatAction?.name;
+            if (token && (ENGINE_PROVIDER_TOOLS.includes(waiting) || waiting === US_FILE_TOOL)) throw new ProviderPath();
+            return confirmIn(session);
+          });
+        } catch (err) {
+          if (!(err instanceof ProviderPath)) throw err;
+        }
+        return withProviderBooks(businessId, context, confirmIn, { key: `confirm:${token}`, replayMs: JOURNAL_KEEP_MS });
       }
       if (action === 'discard') return withBooks(businessId, context, (session) => session.discard(actor));
       if (action === 'query') {

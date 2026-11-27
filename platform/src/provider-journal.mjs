@@ -1,5 +1,4 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { createHmac } from 'node:crypto';
 
 const store = new AsyncLocalStorage();
 
@@ -7,14 +6,28 @@ export function withProviderJournal(journal, fn) {
   return store.run({ journal, seq: 0 }, fn);
 }
 
-// Only ever compared for equality. It is keyed, so someone who can read the journal cannot
-// work a short code (an EVC OTP, say) back out of a fingerprint by trying every value.
-function fingerprintKey() {
-  return `myca.provider-journal.v1:${process.env.MYCA_BOOKS_KEY || process.env.MYCA_TOKEN_SECRET || ''}`;
+// The text a retry of the same call must match. It is compared for equality and kept only inside
+// the sealed journal entry, never hashed or stored in the clear. One-time codes and credentials
+// are left out: a filing retried with a fresh code is the same filing and must replay.
+const NOT_PART_OF_THE_CALL = /^(otp|evc|pin|pass(word|code)?|secret|token)$/i;
+
+function withoutCodes(value) {
+  if (Array.isArray(value)) return value.map(withoutCodes);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([key]) => !NOT_PART_OF_THE_CALL.test(key)).map(([key, inner]) => [key, withoutCodes(inner)]));
+  return value;
+}
+
+function canonical(part) {
+  const text = String(part ?? '');
+  try {
+    return JSON.stringify(withoutCodes(JSON.parse(text)));
+  } catch {
+    return text;
+  }
 }
 
 export function providerFingerprint(...parts) {
-  return createHmac('sha256', fingerprintKey()).update(parts.map((part) => String(part ?? '')).join('\u0000')).digest('hex');
+  return parts.map(canonical).join('\u0000');
 }
 
 export async function journaledCall(fingerprint, call) {

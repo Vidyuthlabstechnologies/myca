@@ -156,13 +156,16 @@ test('what is remembered is sealed like the books and is gone after its time', a
   const calls = { n: 0 };
   const key = 'gst:gstr1:save:2026-11:S';
   await runner.withProviderBooks(businessId, context, async (session) => {
-    await callProvider(calls, 'save', { ok: true, status: 200, data: { taxpayer: 'SECRET-TAXPAYER-NAME' } });
+    await journaledCall(providerFingerprint('POST', '/save', '{"invoice":"INV-SECRET-777"}'), async () => { calls.n += 1; return { ok: true, status: 200, data: { taxpayer: 'SECRET-TAXPAYER-NAME' } }; });
     session.persist();
     return { ok: true };
   }, { key });
   const stored = await api.db.query('select response from provider_journal where business_id = $1 and key = $2 and seq = 1', [businessId, key]);
   assert.equal(stored.rowCount, 1);
   assert.doesNotMatch(JSON.stringify(stored.rows[0].response), /SECRET-TAXPAYER-NAME/);
+  assert.doesNotMatch(JSON.stringify(stored.rows[0].response), /INV-SECRET-777/, 'the request text is sealed too');
+  const column = await api.db.query('select fingerprint from provider_journal where business_id = $1 and key = $2 and seq = 1', [businessId, key]);
+  assert.equal(column.rows[0].fingerprint, 'sealed', 'nothing about the request is stored in the clear');
   clock.at += 31 * 60 * 1000;
   await runner.withProviderBooks(businessId, context, async (session) => {
     await callProvider(calls, 'save', { ok: true, status: 200, data: { taxpayer: 'SECOND' } });
@@ -192,8 +195,8 @@ test('a claim taken over from a crashed request that had already got its answer 
   const key = 'confirm:tok-answered';
   const calls = { n: 0 };
   await api.db.query("insert into provider_journal (business_id, key, seq, fingerprint, response, created_at) values ($1, $2, 0, 'dead-owner', '{}'::jsonb, to_timestamp($3 / 1000.0))", [businessId, key, clock.at]);
-  const sealed = JSON.stringify((await import('../src/books-seal.mjs')).sealState(BOOKS_KEY, businessId, JSON.stringify({ ok: true, status: 200, data: { ack: 'ACK-DONE' } })));
-  await api.db.query("insert into provider_journal (business_id, key, seq, fingerprint, response) values ($1, $2, 1, $3, $4::jsonb)", [businessId, key, providerFingerprint('file-gstr1'), sealed]);
+  const sealed = JSON.stringify((await import('../src/books-seal.mjs')).sealState(BOOKS_KEY, businessId, JSON.stringify({ fingerprint: providerFingerprint('file-gstr1'), response: { ok: true, status: 200, data: { ack: 'ACK-DONE' } } })));
+  await api.db.query("insert into provider_journal (business_id, key, seq, fingerprint, response) values ($1, $2, 1, 'sealed', $3::jsonb)", [businessId, key, sealed]);
   clock.at += 3 * 60 * 1000;
   const out = await runner.withProviderBooks(businessId, context, async (session) => {
     const answer = await callProvider(calls);
@@ -273,9 +276,4 @@ test('when a provider tool is waiting to be confirmed, any request that could co
   assert.equal(after.rows[0].n, 0, 'the claim was released');
   const noPending = await runner.withProviderBooks(businessId, context, async (session) => { session.persist(); return { ok: true }; }, { autoKey: () => '' });
   assert.equal(noPending.ok, true);
-});
-
-test('the pending tool can be read without a lock so confirm can choose the right path', async () => {
-  const { businessId } = await business();
-  assert.equal(await runner.pendingToolName(businessId), '');
 });
