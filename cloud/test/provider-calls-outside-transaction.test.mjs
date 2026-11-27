@@ -277,3 +277,30 @@ test('when a provider tool is waiting to be confirmed, any request that could co
   const noPending = await runner.withProviderBooks(businessId, context, async (session) => { session.persist(); return { ok: true }; }, { autoKey: () => '' });
   assert.equal(noPending.ok, true);
 });
+
+test('a key built from the request is a keyed digest, so what the request is about is never in a database key', async () => {
+  const { businessId, context } = await business();
+  const calls = { n: 0 };
+  const seenKeys = [];
+  calls.during = async () => {
+    seenKeys.push(...(await api.db.query('select key from provider_journal where business_id = $1 and seq = 0', [businessId])).rows.map((row) => row.key));
+  };
+  const run = (params) => runner.withProviderBooks(businessId, context, async (session) => {
+    await callProvider(calls, 'irp');
+    session.persist();
+    return { ok: true };
+  }, { key: 'irp:einvoice_generate', keyParts: [JSON.stringify(params)] });
+  await run({ invoiceId: 'INV-SECRET-9', buyer: 'ACME LTD' });
+  assert.equal(seenKeys.length, 1);
+  assert.match(seenKeys[0], /^irp:einvoice_generate:[0-9a-f]{32}$/);
+  assert.doesNotMatch(seenKeys[0], /SECRET|ACME/);
+  const keys = await api.db.query('select distinct key from provider_journal where business_id = $1', [businessId]);
+  assert.ok(keys.rows.every((row) => !/SECRET|ACME/.test(row.key)), 'the stored journal key holds no request text');
+  seenKeys.length = 0;
+  await run({ invoiceId: 'INV-SECRET-9', buyer: 'ACME LTD' });
+  const again = seenKeys[0];
+  seenKeys.length = 0;
+  await run({ invoiceId: 'INV-OTHER-1', buyer: 'ACME LTD' });
+  assert.equal(again, `irp:einvoice_generate:${again.split(':')[2]}`);
+  assert.notEqual(again, seenKeys[0], 'a different request is a different key');
+});

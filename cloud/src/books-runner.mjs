@@ -56,7 +56,7 @@ function signedOut() {
 // instances share a business: the second writer waits, then runs on the first one's
 // result, so document numbers and the ledger chain never fork.
 
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { openState, storedState } from './books-seal.mjs';
 export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey = '' }) {
   const inside = (given, work) => (given ? work(given) : db.tx(work));
@@ -189,6 +189,13 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
     });
   }
 
+  // Anything that names an action in the database but could carry what the request is about
+  // (an invoice, a party, a vehicle) is reduced to a keyed digest first. The readable request
+  // text lives only inside the sealed journal entry.
+  function keyDigest(parts) {
+    return createHmac('sha256', booksKey || 'myca-provider-journal').update(parts.map((part) => String(part ?? '')).join('\u0000')).digest('hex').slice(0, 32);
+  }
+
   function memoryJournal() {
     const seen = new Map();
     return {
@@ -271,9 +278,9 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
   // the answer and never calls the provider a second time. Work with no key still replays within
   // this request; when a provider tool is waiting to be confirmed, autoKey names it so even a
   // chat "yes" is protected across requests.
-  async function withProviderBooks(businessId, context, run, { key = '', autoKey = null, hashes: wanted = [], replayMs = JOURNAL_REPLAY_MS, claimMs = CLAIM_MS, log = () => {} } = {}) {
+  async function withProviderBooks(businessId, context, run, { key = '', keyParts = null, autoKey = null, hashes: wanted = [], replayMs = JOURNAL_REPLAY_MS, claimMs = CLAIM_MS, log = () => {} } = {}) {
     const owner = randomUUID();
-    let keyed = String(key || '');
+    let keyed = key ? (Array.isArray(keyParts) ? `${key}:${keyDigest(keyParts)}` : String(key)) : '';
     let heartbeat = null;
     let lost = false;
     let journal = memoryJournal();

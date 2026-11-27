@@ -1,5 +1,4 @@
 import { withProviderContext } from '../../platform/src/provider-context.mjs';
-import { providerFingerprint } from '../../platform/src/provider-journal.mjs';
 import { providerEnvironment, serviceProviderEnvironment, mockModeEnabled } from '../../platform/src/runtime-config.mjs';
 import { runTool } from '../../platform/src/tools.mjs';
 import { runSandboxOperation } from '../../platform/src/sandbox-adapter.mjs';
@@ -113,7 +112,7 @@ export function createGovtActions({ connectors, withBooks, withProviderBooks = w
       session.persist();
       const { payload, ...rest } = out;
       return { ...rest, ...described(chosen, effective) };
-    }, { key: `irp:${operationId}:${providerFingerprint(JSON.stringify(params))}` }));
+    }, { key: `irp:${operationId}`, keyParts: [JSON.stringify(params)] }));
   }
 
   return {
