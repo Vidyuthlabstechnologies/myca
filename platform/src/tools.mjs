@@ -70,6 +70,7 @@ import { askedMonths, deadlineRun, filingRows } from './deadline-run.mjs';
 import { listFilings, recordFiling } from './filings.mjs';
 import { draftSupplierReminder, recordSupplierReminder } from './supplier-reminders.mjs';
 import { addEmployee, changeSalary, endEmployment, listEmployees, setEmployeeBank } from './employees.mjs';
+import { setAdjustment } from './payroll-adjustments.mjs';
 import { payrollFor, approvePayroll, recordSalaryPayment, listPayroll, payslip } from './payroll.mjs';
 import { pfEcr, esiReturn, payrollPayoutFile } from './payroll-files.mjs';
 import { countryOf, isCountry, toolServesCountry } from './country.mjs';
@@ -3130,6 +3131,13 @@ export const TOOLS = [
     description: 'Set an employee\'s monthly salary from a date. Earlier months keep the salary they had. Owner only.',
     args: ['id', 'effectiveFrom', 'components'],
     run: (state, args = {}) => changeSalary(state, args),
+  },
+  {
+    name: 'set_payroll_adjustment',
+    title: 'This month\'s pay changes',
+    description: 'For one employee and one month before payroll is approved: loss-of-pay days (whole or half), overtime, a bonus and arrears, in rupees. Loss of pay reduces the days paid; the rest is added to gross pay and is not provident fund wages. Give all four each time; zeros clear the month. Owner only.',
+    args: ['id', 'period', 'lopDays', 'overtime', 'bonus', 'arrears', 'note'],
+    run: (state, args = {}) => setAdjustment(state, args),
   },
   {
     name: 'set_employee_bank',

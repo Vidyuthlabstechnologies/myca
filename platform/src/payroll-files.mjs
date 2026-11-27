@@ -29,8 +29,8 @@ export function pfEcr(state, requested) {
   const rows = [];
   const missing = [];
   for (const row of run.rows) {
-    if (!row.pfWagesPaise) continue;
     const employee = employeeOf(state, row.employeeId);
+    if (!row.pfWagesPaise && !(employee.pfMember && (row.paidDays ?? row.daysWorked) === 0)) continue;
     if (!employee.uan) missing.push(row.name);
     rows.push({
       uan: employee.uan || '',
@@ -42,7 +42,7 @@ export function pfEcr(state, requested) {
       epfContribution: rupee(row.pfEmployeePaise),
       epsContribution: rupee(row.epsPaise),
       epfEpsDifference: rupee(row.pfEmployerPaise + row.epsPaise) - rupee(row.epsPaise),
-      ncpDays: row.daysInMonth - row.daysWorked,
+      ncpDays: row.daysInMonth - (row.paidDays ?? row.daysWorked),
       refundOfAdvances: 0,
     });
   }
@@ -116,11 +116,11 @@ export function esiReturn(state, requested) {
     rows.push({
       ipNumber: employee.esiNumber || '',
       name: row.name,
-      daysWorked: row.daysWorked,
+      daysWorked: row.paidDays ?? row.daysWorked,
       wages: rupee(row.grossPaise),
       employeeContribution: toRupees(row.esiEmployeePaise),
       employerContribution: toRupees(row.esiEmployerPaise),
-      reasonCode: row.daysWorked === 0 ? '0' : '',
+      reasonCode: (row.paidDays ?? row.daysWorked) === 0 ? '0' : '',
       lastWorkingDay: employee.leftOn && employee.leftOn.startsWith(period) ? employee.leftOn : '',
     });
   }

@@ -13,7 +13,7 @@ const MAX_LIMIT = 2000;
 const SENTENCE_IDS = 20;
 const SHEET_TRANSFERS = 300;
 const CHANGE_ACTION = /^(?:chat\.confirm|recurring_posted|bank_rule_applied|exceptions\.|file\.|books_ledger\.|documents\.|client\.|user\.|external\.|sandbox\.)/;
-const CHANGE_TOOLS = new Set(['lock_period', 'unlock_period', 'set_company', 'set_supplier_terms', 'save_report', 'delete_report', 'set_employee_bank', 'run_automation', 'run_recurring', 'request_documents', 'record_document_received', 'correct_eval']);
+const CHANGE_TOOLS = new Set(['lock_period', 'unlock_period', 'set_company', 'set_supplier_terms', 'save_report', 'delete_report', 'set_employee_bank', 'set_payroll_adjustment', 'run_automation', 'run_recurring', 'request_documents', 'record_document_received', 'correct_eval']);
 const ID_FIELDS = [['invoice', 'id'], ['bill', 'id'], ['expense', 'id'], ['creditNote', 'id'], ['debitNote', 'id'], ['purchaseNote', 'id'], ['note', 'id'], ['amendment', 'id'], ['report', 'name'], ['reminder', 'id'], ['rule', 'id'], ['line', 'id'], ['quote', 'id'], ['schedule', 'id'], ['employee', 'id'], ['settlement', 'id'], ['data', 'id']];
 const CONFIRM_FAILURES = {
   NOTHING_PENDING: 'nothing was waiting',

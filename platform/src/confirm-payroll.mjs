@@ -1,6 +1,7 @@
 import { planEmployee, planSalaryChange, planLeaving, planEmployeeBank } from './employees.mjs';
 import { planApproval, planSalaryPayment, payrollWords } from './payroll.mjs';
 import { money } from './confirm-words.mjs';
+import { planAdjustment } from './payroll-adjustments.mjs';
 
 const EMPLOYEE_REASONS = {
   SALARIES_PRIVATE: () => 'Only the owner can see or change employees and salaries.',
@@ -26,8 +27,19 @@ const EMPLOYEE_REASONS = {
   BANK_DETAILS_REQUIRED: () => 'Give both the account number and the IFSC.',
 };
 
+const ADJUSTMENT_REASONS = {
+  INVALID_PERIOD: () => 'Give the month as YYYY-MM, for example 2026-10.',
+  ALREADY_APPROVED: () => 'That month is already approved, so its pay can no longer change.',
+  PERIOD_LOCKED: (p) => `That month is locked up to ${p.lockThrough}.`,
+  NOT_EMPLOYED: (p) => p.hint,
+  NOTHING_TO_CHANGE: () => 'Give loss-of-pay days, overtime, a bonus or arrears.',
+  BAD_LOP_DAYS: () => 'Loss-of-pay days are whole or half days, zero or more.',
+  LOP_EXCEEDS_DAYS: (p) => p.hint,
+  BAD_AMOUNT: (p) => p.hint || `${p.name} needs an amount of zero or more.`,
+};
+
 function employeeBlocked(plan) {
-  const reason = EMPLOYEE_REASONS[plan.error];
+  const reason = ADJUSTMENT_REASONS[plan.error] || EMPLOYEE_REASONS[plan.error];
   return { blockers: [reason ? reason(plan) : plan.error], summary: '', effects: [], figures: {} };
 }
 
@@ -125,5 +137,26 @@ export function employeeBankPreview(state, args) {
     summary: `Pay ${planned.employee.name} (${planned.employee.id}) into account ending ${planned.bankAccount.slice(-4)}, ${planned.ifsc}.`,
     effects: ['Used only for the salary payout file. Nothing is posted to the books.'],
     figures: {},
+  };
+}
+
+export function payrollAdjustmentPreview(state, args) {
+  const plan = planAdjustment(state, args);
+  if (!plan.ok) return employeeBlocked(plan);
+  const next = plan.next;
+  const parts = [
+    next.lopDays ? `${next.lopDays} ${next.lopDays === 1 ? 'day' : 'days'} loss of pay` : '',
+    next.overtime ? `overtime ${money(next.overtime)}` : '',
+    next.bonus ? `bonus ${money(next.bonus)}` : '',
+    next.arrears ? `arrears ${money(next.arrears)}` : '',
+  ].filter(Boolean);
+  const clears = !parts.length;
+  return {
+    blockers: [],
+    summary: clears ? `${plan.employee.name}: no changes for ${plan.period}.` : `${plan.employee.name}, ${plan.period}: ${parts.join(', ')}.`,
+    effects: clears
+      ? ['Any earlier changes for this month are removed.']
+      : [`${plan.employee.name} was employed ${plan.daysWorked} days this month, so pay is for ${plan.daysWorked - next.lopDays} of them.`, 'Overtime, bonus and arrears are added to gross pay; they are not provident fund wages.', 'Provident fund, state insurance and TDS are worked out again from the new gross when you open the payroll.'],
+    figures: { period: plan.period, lopDays: next.lopDays, overtime: next.overtime, bonus: next.bonus, arrears: next.arrears },
   };
 }

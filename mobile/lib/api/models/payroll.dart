@@ -130,11 +130,25 @@ class PayrollRow {
     required this.deductions,
     required this.net,
     required this.notes,
+    this.paidDays,
+    this.lopDays = 0,
+    this.overtime = 0,
+    this.bonus = 0,
+    this.arrears = 0,
   });
 
   factory PayrollRow.fromJson(Object? json) {
     final map = _map(json);
     final notes = map['notes'];
+    num earned(String name) {
+      final parts = map['components'];
+      if (parts is! List) return 0;
+      for (final part in parts) {
+        if (part is Map && part['name'] == name) return _num(part['amount']);
+      }
+      return 0;
+    }
+
     return PayrollRow(
       employeeId: _text(map['employeeId']),
       name: _text(map['name']),
@@ -144,6 +158,11 @@ class PayrollRow {
       deductions: _num(map['deductions']),
       net: _num(map['net']),
       notes: notes is List ? notes.map(_text).toList() : const <String>[],
+      paidDays: map['paidDays'] is num ? map['paidDays'] as num : null,
+      lopDays: _num(map['lopDays']),
+      overtime: earned('Overtime'),
+      bonus: earned('Bonus'),
+      arrears: earned('Arrears'),
     );
   }
 
@@ -155,6 +174,13 @@ class PayrollRow {
   final num deductions;
   final num net;
   final List<String> notes;
+  final num? paidDays;
+  final num lopDays;
+  final num overtime;
+  final num bonus;
+  final num arrears;
+
+  num get daysPaid => paidDays ?? daysWorked;
 }
 
 class PayrollRun {

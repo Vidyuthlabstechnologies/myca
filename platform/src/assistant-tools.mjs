@@ -73,6 +73,7 @@ const TOOL_RISK = {
   tds_review_answer: 'writes_books',
   record_tds_deposit: 'writes_books',
   change_salary: 'writes_books',
+  set_payroll_adjustment: 'writes_books',
   end_employment: 'writes_books',
   set_employee_bank: 'writes_books',
   set_payment_terms: 'writes_books',
