@@ -231,17 +231,37 @@ class OfflineFirstApi implements MycaApi {
       if (bill != null && bill.status != EntryStatus.synced) return {'ok': true, 'data': offline.documentOf(bill)};
     }
     if (name == 'find_item' && _skipServer) return _localItem(args);
+    if (name == 'search_items' && _skipServer) return _localSearch(args);
     try {
       return await _online(() => inner.query(name, args));
     } on MycaApiException catch (err) {
       if (!isUnreachable(err)) rethrow;
       if (name == 'find_item') return _localItem(args);
+      if (name == 'search_items') return _localSearch(args);
       if (name == 'invoice_document') {
         final bill = offline.billById('${args['id'] ?? ''}');
         if (bill != null) return {'ok': true, 'data': offline.documentOf(bill)};
       }
       rethrow;
     }
+  }
+
+  Map<String, Object?> _localSearch(Map<String, Object?> args) {
+    final query = '${args['query'] ?? ''}';
+    final asked = args['limit'];
+    final limit = asked is int && asked >= 1 && asked <= 30 ? asked : 6;
+    final found = offline.searchItems(query, limit: limit);
+    return {
+      'ok': true,
+      'data': {
+        'query': query.trim().toLowerCase(),
+        'favourites': query.trim().isEmpty,
+        'offline': true,
+        'items': [
+          for (final item in found) {'sku': item.sku, 'name': item.name, 'barcode': item.barcode, 'hsn': item.hsn, 'gstRate': item.gstRate, 'price': item.price, 'unit': item.unit, 'tracked': false, 'onHand': item.onHand, 'lowStock': false},
+        ],
+      },
+    };
   }
 
   Map<String, Object?> _localItem(Map<String, Object?> args) {

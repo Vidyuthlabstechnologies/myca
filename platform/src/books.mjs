@@ -116,6 +116,7 @@ export function newBook(company = {}) {
     gstCreditOpening: null,
     tdsReviews: {},
     payrollRuns: {},
+    payrollAdjustments: {},
     usReturns: {},
     salesTaxRates: [],
     salesTaxNexus: [],
@@ -216,6 +217,7 @@ export function serializeBook(book) {
     gstCreditOpening: book.gstCreditOpening || null,
     tdsReviews: book.tdsReviews || {},
     payrollRuns: book.payrollRuns || {},
+    payrollAdjustments: book.payrollAdjustments || {},
     usReturns: book.usReturns || {},
     salesTaxRates: book.salesTaxRates || [],
     salesTaxNexus: book.salesTaxNexus || [],
@@ -313,6 +315,7 @@ export function deserializeBook(raw) {
   book.gstCreditOpening = raw.gstCreditOpening && typeof raw.gstCreditOpening === 'object' ? raw.gstCreditOpening : null;
   book.tdsReviews = raw.tdsReviews && typeof raw.tdsReviews === 'object' ? raw.tdsReviews : {};
   book.payrollRuns = raw.payrollRuns && typeof raw.payrollRuns === 'object' ? raw.payrollRuns : {};
+  book.payrollAdjustments = raw.payrollAdjustments && typeof raw.payrollAdjustments === 'object' ? raw.payrollAdjustments : {};
   book.usReturns = raw.usReturns && typeof raw.usReturns === 'object' && !Array.isArray(raw.usReturns) ? raw.usReturns : {};
   book.salesTaxRates = Array.isArray(raw.salesTaxRates) ? raw.salesTaxRates : [];
   book.salesTaxNexus = Array.isArray(raw.salesTaxNexus) ? raw.salesTaxNexus : [];

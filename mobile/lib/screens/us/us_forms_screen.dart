@@ -13,6 +13,7 @@ import '../../us/us_return.dart';
 import '../../widgets.dart';
 import 'us_fields.dart';
 import 'us_form_editor_screen.dart';
+import '../../widgets/glass.dart';
 
 class UsFormsScreen extends StatefulWidget {
   const UsFormsScreen({super.key, required this.taxYear, this.joint = false});
@@ -55,7 +56,7 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
   Future<void> _pickKind() async {
     final kinds = await _kinds!;
     if (!mounted) return;
-    final picked = await showModalBottomSheet<UsFormKind>(
+    final picked = await showMycaSheet<UsFormKind>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,

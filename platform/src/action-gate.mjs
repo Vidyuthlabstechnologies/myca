@@ -1,3 +1,4 @@
+import { journaledCall, providerFingerprint } from './provider-journal.mjs';
 import { createHash } from 'node:crypto';
 import { ENGINE_EXTERNAL_ACTIONS } from './countries/manifests.mjs';
 import { channelPullsEnabled, liveCallsEnabled, loadEnvFile, mockModeEnabled, productionCallsEnabled, testModeEnabled } from './runtime-config.mjs';
@@ -609,7 +610,8 @@ export async function performExternalAction(state, request = {}, execute) {
   const claim = item.actionClass === 'write' && !item.local && !testModeEnabled() ? claimApproval(action, request.approvalId) : { ok: true, approval: null };
   if (!claim.ok) return claim;
 
-  const result = await runWithDeadline(action, execute, deadlineFor(item, request.timeoutMs));
+  const attempt = () => runWithDeadline(action, execute, deadlineFor(item, request.timeoutMs));
+  const result = item.irreversible && !item.local ? await journaledCall(providerFingerprint(actionId, action.paramsHash), attempt) : await attempt();
   if (claim.approval) settleApproval(claim.approval, { ok: result.ok === true, error: result.error, actor: action.actor });
   recordAudit(action, { beforeHash, result, approvalId: claim.approval?.approvalId || '' });
   return result;

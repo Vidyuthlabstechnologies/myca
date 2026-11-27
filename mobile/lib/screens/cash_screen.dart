@@ -10,6 +10,7 @@ import '../theme.dart';
 import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'pay_bills_screen.dart';
+import '../widgets/glass.dart';
 
 class CashScreen extends StatefulWidget {
   const CashScreen({super.key});
@@ -88,7 +89,7 @@ class _CashScreenState extends State<CashScreen> {
   }
 
   Future<void> _updateBalance(CashForecast forecast) async {
-    final entered = await showModalBottomSheet<(num?, num?)>(
+    final entered = await showMycaSheet<(num?, num?)>(
       context: context,
       isScrollControlled: true,
       builder: (sheet) =>

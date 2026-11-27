@@ -9,6 +9,9 @@ import '../india/india_strings.dart';
 import '../proposal_flow.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../widgets/glass.dart';
+import '../registers.dart';
+import 'counter_items.dart' show qtyText;
 
 class PayrollScreen extends StatefulWidget {
   const PayrollScreen({super.key, required this.period});
@@ -51,6 +54,23 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
     'approve_payroll',
     {'period': run.period, 'draftHash': run.draftHash},
   );
+
+  Future<void> _adjust(PayrollRun run, PayrollRow row) async {
+    final edit = await showMycaSheet<Map<String, num>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _AdjustSheet(row: row, month: run.month),
+    );
+    if (edit == null || !mounted) return;
+    await propose(inFormat(context, 'Pay changes for {name}', {'name': row.name}), 'set_payroll_adjustment', {
+      'id': row.employeeId,
+      'period': run.period,
+      'lopDays': edit['lopDays'],
+      'overtime': edit['overtime'],
+      'bonus': edit['bonus'],
+      'arrears': edit['arrears'],
+    });
+  }
 
   Future<void> _saveFile(PayrollRun run, {required bool pf}) async {
     final state = AppScope.of(context);
@@ -225,12 +245,13 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
                           RowCard(
                             leading: TintTile(tint: Tint.ask, letter: row.name[0].toUpperCase()),
                             title: row.name,
-                            subtitle: row.daysWorked < row.daysInMonth
+                            onTap: run.status == 'approved' || run.isUs ? null : () => _adjust(run, row),
+                            subtitle: row.daysPaid < row.daysInMonth
                                 ? inFormat(context, 'Gross {gross} · deductions {deductions} · net {net} · {worked} of {days} days', {
                                     'gross': rupees(row.gross),
                                     'deductions': rupees(row.deductions),
                                     'net': rupees(row.net),
-                                    'worked': row.daysWorked,
+                                    'worked': qtyText(row.daysPaid),
                                     'days': row.daysInMonth,
                                   })
                                 : inFormat(context, 'Gross {gross} · deductions {deductions} · net {net}', {
@@ -355,6 +376,79 @@ class _Totals extends StatelessWidget {
             line(inText(context, 'Employer contributions'), totals.employerContributions),
           line(inText(context, 'Total cost'), totals.employerCost, strong: true),
         ],
+      ),
+    );
+  }
+}
+
+
+class _AdjustSheet extends StatefulWidget {
+  const _AdjustSheet({required this.row, required this.month});
+
+  final PayrollRow row;
+  final String month;
+
+  @override
+  State<_AdjustSheet> createState() => _AdjustSheetState();
+}
+
+class _AdjustSheetState extends State<_AdjustSheet> {
+  late final _lop = TextEditingController(text: widget.row.lopDays == 0 ? '' : qtyText(widget.row.lopDays));
+  late final _overtime = TextEditingController(text: widget.row.overtime == 0 ? '' : qtyText(widget.row.overtime));
+  late final _bonus = TextEditingController(text: widget.row.bonus == 0 ? '' : qtyText(widget.row.bonus));
+  late final _arrears = TextEditingController(text: widget.row.arrears == 0 ? '' : qtyText(widget.row.arrears));
+  String _error = '';
+
+  @override
+  void dispose() {
+    for (final field in [_lop, _overtime, _bonus, _arrears]) {
+      field.dispose();
+    }
+    super.dispose();
+  }
+
+  num? _read(TextEditingController field, {required bool days}) {
+    final text = field.text.trim().replaceAll(',', '');
+    if (text.isEmpty) return 0;
+    final value = days ? num.tryParse(text) : parseAmount(text);
+    if (value == null || !value.isFinite || value < 0) return null;
+    if (days && (value * 2).round() != value * 2) return null;
+    return value;
+  }
+
+  void _save() {
+    final lop = _read(_lop, days: true);
+    if (lop == null) return setState(() => _error = inText(context, 'Enter days as a whole or half number, for example 2 or 1.5.'));
+    final overtime = _read(_overtime, days: false);
+    final bonus = _read(_bonus, days: false);
+    final arrears = _read(_arrears, days: false);
+    if (overtime == null || bonus == null || arrears == null) return setState(() => _error = inText(context, 'Enter amounts as numbers, for example 1500 or 1500.50.'));
+    Navigator.of(context).pop(<String, num>{'lopDays': lop, 'overtime': overtime, 'bonus': bonus, 'arrears': arrears});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final money = const TextInputType.numberWithOptions(decimal: true);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(inFormat(context, '{name}: changes for {month}', {'name': widget.row.name, 'month': widget.month}), style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(inText(context, 'Loss of pay reduces the days paid. Overtime, bonus and arrears are added to gross pay.'), style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 12),
+            TextField(key: const Key('adjust-lop'), controller: _lop, keyboardType: money, decoration: InputDecoration(labelText: inText(context, 'Loss-of-pay days'))),
+            TextField(key: const Key('adjust-overtime'), controller: _overtime, keyboardType: money, decoration: InputDecoration(labelText: inText(context, 'Overtime'), prefixText: moneyPrefix)),
+            TextField(key: const Key('adjust-bonus'), controller: _bonus, keyboardType: money, decoration: InputDecoration(labelText: inText(context, 'Bonus'), prefixText: moneyPrefix)),
+            TextField(key: const Key('adjust-arrears'), controller: _arrears, keyboardType: money, decoration: InputDecoration(labelText: inText(context, 'Arrears'), prefixText: moneyPrefix)),
+            if (_error.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error, key: const Key('adjust-error'), style: TextStyle(color: Theme.of(context).colorScheme.error))),
+            const SizedBox(height: 12),
+            FilledButton(key: const Key('adjust-save'), onPressed: _save, child: Text(inText(context, 'Preview'))),
+          ],
+        ),
       ),
     );
   }

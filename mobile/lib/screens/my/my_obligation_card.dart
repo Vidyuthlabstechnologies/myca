@@ -7,6 +7,7 @@ import '../../my/my_strings.dart';
 import '../../my/my_tools.dart';
 import '../../my/my_turnover.dart';
 import 'my_widgets.dart';
+import '../../widgets/glass.dart';
 
 String _isoDay(DateTime day) => '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
 
@@ -82,7 +83,7 @@ class _MyObligationCardState extends State<MyObligationCard> {
   }
 
   Future<void> _edit() async {
-    final entered = await showModalBottomSheet<MyTurnover>(
+    final entered = await showMycaSheet<MyTurnover>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,

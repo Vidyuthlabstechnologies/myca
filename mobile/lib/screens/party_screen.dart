@@ -20,6 +20,7 @@ import 'remind_customer_screen.dart';
 import 'statements_screen.dart';
 import 'uae/uae_document_screen.dart';
 import 'uae/uae_invoice_screen.dart';
+import '../widgets/glass.dart';
 
 part 'party_screen/composer.dart';
 part 'party_screen/supplier_terms_sheet.dart';
@@ -500,7 +501,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
 
   Future<void> _tdsWithheld(Party party) async {
     final today = AppScope.of(context).now();
-    final draft = await showModalBottomSheet<_TdsWithheldDraft>(
+    final draft = await showMycaSheet<_TdsWithheldDraft>(
       context: context,
       isScrollControlled: true,
       builder: (sheet) => _TdsWithheldSheet(
@@ -527,7 +528,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     final current = AppScope.of(
       context,
     ).snapshot?.termsFor(party.name, party.gstin);
-    final days = await showModalBottomSheet<int>(
+    final days = await showMycaSheet<int>(
       context: context,
       isScrollControlled: true,
       builder: (sheet) {
@@ -580,7 +581,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   }
 
   Future<void> _setSupplierTerms(Party party) async {
-    final draft = await showModalBottomSheet<_SupplierTermsDraft>(
+    final draft = await showMycaSheet<_SupplierTermsDraft>(
       context: context,
       isScrollControlled: true,
       builder: (_) => _SupplierTermsSheet(name: party.name),

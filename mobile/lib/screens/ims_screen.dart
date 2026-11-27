@@ -12,6 +12,7 @@ import '../proposal_flow.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import '../widgets/utf16_limit.dart';
+import '../widgets/glass.dart';
 
 const _filters = ['all', 'undecided', 'accept', 'reject', 'pending', 'missing'];
 
@@ -179,7 +180,7 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
   });
 
   Future<void> _openRow(ImsRow row) async {
-    final choice = await showModalBottomSheet<_ImsChoice>(
+    final choice = await showMycaSheet<_ImsChoice>(
       context: context,
       isScrollControlled: true,
       builder: (_) => _ImsSheet(row: row),

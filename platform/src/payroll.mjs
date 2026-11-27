@@ -6,6 +6,8 @@ import { isPeriodLocked } from './period-lock.mjs';
 import { isReturnPeriod } from './return-period.mjs';
 import { salaryOn, salaryPrivate } from './employees.mjs';
 import { recordTdsEntry, tdsPayableAccountId } from './tds-deduction.mjs';
+import { daysIn, daysWorked, lastDay } from './payroll-days.mjs';
+import { adjustmentOf } from './payroll-adjustments.mjs';
 
 const { computeIncomeTax } = incomeTax;
 
@@ -43,15 +45,6 @@ function monthName(period) {
   return `${MONTHS[m - 1]} ${y}`;
 }
 
-function daysIn(period) {
-  const [y, m] = period.split('-').map(Number);
-  return new Date(Date.UTC(y, m, 0)).getUTCDate();
-}
-
-function lastDay(period) {
-  return `${period}-${String(daysIn(period)).padStart(2, '0')}`;
-}
-
 function ruleOn(id, date, used, unreviewed) {
   const found = rules.rule(id, date);
   if (!found.ok) return { error: 'PAYROLL_RULE_MISSING', ruleId: id };
@@ -59,15 +52,6 @@ function ruleOn(id, date, used, unreviewed) {
   if (!used.includes(key)) used.push(key);
   if (!(found.record.attestations || []).length) unreviewed.add(key);
   return { value: found.record.value };
-}
-
-function daysWorked(employee, period) {
-  const start = `${period}-01`;
-  const end = lastDay(period);
-  const from = employee.joinedOn > start ? employee.joinedOn : start;
-  const to = employee.leftOn && employee.leftOn < end ? employee.leftOn : end;
-  if (to < from) return 0;
-  return Number(to.slice(8, 10)) - Number(from.slice(8, 10)) + 1;
 }
 
 function pfWagesOf(components) {
@@ -209,10 +193,16 @@ export function computePayroll(state, requested) {
     if (worked <= 0) continue;
     const structure = salaryOn(employee, asOf) || salaryOn(employee, employee.joinedOn);
     if (!structure) continue;
-    const fraction = worked / days;
+    const adjustment = adjustmentOf(state, period, employee.id);
+    const lopDays = Math.min(adjustment.lopDays, worked);
+    const paidDays = worked - lopDays;
+    const fraction = paidDays / days;
     const components = structure.components.map((item) => ({ name: item.name, paise: Math.round(paise(item.amount) * fraction) }));
+    for (const [name, rupees] of [['Overtime', adjustment.overtime], ['Bonus', adjustment.bonus], ['Arrears', adjustment.arrears]]) {
+      if (rupees > 0) components.push({ name, paise: paise(rupees) });
+    }
     const grossPaise = components.reduce((sum, item) => sum + item.paise, 0);
-    const row = { employeeId: employee.id, name: employee.name, designation: employee.designation || '', daysWorked: worked, daysInMonth: days, components, grossPaise, pfEmployeePaise: 0, pfEmployerPaise: 0, epsPaise: 0, edliPaise: 0, esiEmployeePaise: 0, esiEmployerPaise: 0, ptPaise: 0, tdsPaise: 0, notes: [] };
+    const row = { employeeId: employee.id, name: employee.name, designation: employee.designation || '', daysWorked: worked, paidDays, lopDays, daysInMonth: days, components, grossPaise, pfEmployeePaise: 0, pfEmployerPaise: 0, epsPaise: 0, edliPaise: 0, esiEmployeePaise: 0, esiEmployerPaise: 0, ptPaise: 0, tdsPaise: 0, notes: [] };
     if (employee.pfMember) {
       const ceiling = ruleOn('payroll.epf.wage-ceiling', asOf, used, unreviewed);
       const employeeRate = ruleOn('payroll.epf.employee-rate', asOf, used, unreviewed);
@@ -253,15 +243,30 @@ export function computePayroll(state, requested) {
         if (!used.includes(key)) used.push(key);
         if (!(pt.record.attestations || []).length) unreviewed.add(key);
         const fullMonthGross = structure.components.reduce((sum, item) => sum + paise(item.amount), 0);
-        row.ptPaise = professionalTax(pt.record, employee, fullMonthGross, period);
+        row.ptPaise = professionalTax(pt.record, employee, lopDays > 0 ? grossPaise : fullMonthGross, period);
+        const room = Math.max(0, grossPaise - row.pfEmployeePaise - row.esiEmployeePaise);
+        if (row.ptPaise > room) {
+          row.ptPaise = room;
+          row.notes.push('Pay this month is too low to deduct the full professional tax, so only what the pay can bear is deducted.');
+        }
         row.ptState = pt.record.value.state;
         if (!employee.sex && !pt.record.value.slabs.all) row.notes.push('No sex recorded, so the professional tax slab for men is used.');
         if (pt.record.value.basis === 'half-yearly') row.notes.push(`Professional tax in ${pt.record.value.state} is half-yearly; it is deducted in the months the rule names.`);
       }
     }
+    if (!employee.ptState) {
+      const home = String(state.company?.state || '').trim();
+      const homeRule = /^[0-9]{2}$/.test(home) ? rules.rule(`payroll.pt.${home}`, asOf) : null;
+      if (homeRule && homeRule.ok && homeRule.record.value.levied !== false) row.notes.push(`No professional tax state is recorded for ${employee.name}, but the business state charges professional tax, so none is deducted. Set the employee's state so it is.`);
+    }
     const tds = salaryTds(state, employee, period, grossPaise, used, unreviewed, notes);
     if (tds.error) return fail(tds.error, { ruleId: tds.ruleId });
     row.tdsPaise = tds.paise;
+    const tdsRoom = Math.max(0, grossPaise - row.pfEmployeePaise - row.esiEmployeePaise - row.ptPaise);
+    if (row.tdsPaise > tdsRoom) {
+      row.tdsPaise = Math.floor(tdsRoom / 100) * 100;
+      row.notes.push('Pay this month is too low to deduct all the TDS due, so only what the pay can bear is deducted; the rest is picked up in the coming months.');
+    }
     row.tdsBasis = { annualTaxPaise: tds.annualTaxPaise, projectedSalaryPaise: tds.projectedSalaryPaise, regime: tds.regime, noPan: tds.noPan };
     if (tds.noPan) row.notes.push('No PAN recorded, so TDS is at the higher rate the law sets for a payee without PAN.');
     row.deductionsPaise = row.pfEmployeePaise + row.esiEmployeePaise + row.ptPaise + row.tdsPaise;
@@ -360,6 +365,8 @@ export function planApproval(state, args = {}) {
   if (runRecord(state, data.period)) return fail('ALREADY_APPROVED', { period: data.period });
   if (!data.rows.length) return fail('NO_EMPLOYEES', { period: data.period });
   if (isPeriodLocked(state, lastDay(data.period))) return fail('PERIOD_LOCKED', { date: lastDay(data.period), lockThrough: state.lockThrough });
+  const negative = data.rows.filter((row) => row.net < 0).map((row) => row.name);
+  if (negative.length) return fail('NEGATIVE_NET', { period: data.period, names: negative, hint: `Deductions are more than the pay for ${negative.join(', ')}. Check the month's changes before approving.` });
   if (args.draftHash && args.draftHash !== data.draftHash) return fail('DRAFT_CHANGED', { period: data.period });
   return { ok: true, data };
 }

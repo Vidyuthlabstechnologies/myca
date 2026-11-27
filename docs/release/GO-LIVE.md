@@ -57,6 +57,39 @@ The API refuses to start, and Cloud Run keeps the previous revision serving, whe
 The startup log line `"startup":"services"` lists which slots were used and each integration's
 status, never a key's value.
 
+## The one change, and what stands behind it
+
+Going live is one line: `provider_mode = "live"` in the production Terraform variables. Nothing
+else is edited, because the change either completes cleanly or refuses with the full list of what
+is missing. Three things check the same list, so a mistake cannot slip past all of them:
+
+1. **Terraform refuses to plan it** until all of these are set: `gsp_live_api_key` and
+   `gsp_live_api_secret`, `google_client_ids`, an https `public_url`, `play_service_account_json`
+   with the Play package, `deletion_protection = true`, `sql_availability_type = "REGIONAL"`,
+   `min_instances` of at least 1, an `alert_email`, and, for the SMS provider you chose, its
+   secret and sender (Twilio) or its DLT-registered template id (MSG91). The error names every one
+   that is missing, not only the first.
+2. **The API refuses to start** in live mode without the same things on the running service (and
+   without test phones, a fixed test code or printed sign-in codes). Cloud Run keeps the previous
+   revision serving, so a mistake never takes customers down.
+3. **`node scripts/check-keys.mjs prod.env --live`** prints the list and the fix for each item
+   before you change anything. Phone sign-in off, no admin user, no model key and no email relay are
+   warnings, not blockers: Google sign-in alone is a valid launch.
+
+The Android release needs no change either: push the tag `vX.Y.Z`. The tag build already refuses to
+run without the upload key, an https `MYCA_CLOUD_URL` and the Google client id. It now also reads
+the deployed server and fails the build if the app's Google client id is not one the server
+accepts (sign-in would fail for everyone), if the app calls a different address from the one the
+server is reached at, or if it would point at a staging server. Set the repository variable
+`MYCA_REQUIRE_LIVE_ON_RELEASE` to `true` to also refuse a release while the server is still in
+test mode.
+
+Government and provider calls (filings, e-invoices, e-way bills, the e-file partner) no longer run
+inside the books transaction. Each answer is recorded as it arrives and replayed on a retry, and a
+second identical request is refused while the first is out, so a failed commit, a crash or a
+double tap cannot file twice. If a request is cut off before its answer is known, the next attempt
+is told to check the portal first; the one after that goes ahead.
+
 ## Check keys before they go anywhere
 
 ```
@@ -114,10 +147,10 @@ Do these in order. Nothing here is undone by going live; rolling back is step 7.
    (`gsp_live_api_key`, `gsp_live_api_secret`, `stripe_live_secret_key`, `stripe_live_webhook_secret`,
    `stripe_live_price_us_plus`). Terraform refuses a test key in a live variable. Apply: the API
    keeps running in sandbox and the live keys stay out of the process.
-3. **Check:** `node scripts/check-keys.mjs prod.env --live` says OK for "after switching to live".
+3. **Check:** `node scripts/check-keys.mjs prod.env --live` says every requirement for live mode is in place.
 4. **Read last night's smoke result** (Cloud Logging, `jsonPayload.job="sandbox-smoke"`) and run
    `node scripts/sandbox-smoke.mjs` on the PC; every check you rely on must say passed.
-5. **Switch:** set `provider_mode = "live"` and apply. That is the only change.
+5. **Switch:** set `provider_mode = "live"` and apply. That is the only change; if anything is missing, Terraform stops and names it.
 6. **Verify within ten minutes:**
    - `GET /v1/health/live` answers `"providerMode":"live"`;
    - the app no longer shows the sandbox banner (pull to refresh or reopen);

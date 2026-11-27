@@ -11,7 +11,7 @@ import { setChannelIdentity, importTcsStatement, import26asCredits, marketplaceC
 import { recordTdsWithheld, tdsCreditCheck } from './tds-credits.mjs';
 import { offlineKit, registerOfflineDevice, postOfflineSales } from './offline-sales.mjs';
 import { loyaltyInvoice, loyaltyAfterInvoice, loyaltyAfterCreditNote, setLoyaltySettings, loyaltyBalance, loyaltyAdjust } from './loyalty.mjs';
-import { findItem, setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins, stockMoves } from './sku-margins.mjs';
+import { findItem, searchItems, setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins, stockMoves } from './sku-margins.mjs';
 import { dailyClose } from './daily-close.mjs';
 import { setCatalogueSettings, setCatalogueItems, catalogueView, storeOrders, storeOrderAction } from './catalogue.mjs';
 import { setCostingMethod, inventoryCosting, stockAlerts } from './inventory-costing.mjs';
@@ -70,6 +70,7 @@ import { askedMonths, deadlineRun, filingRows } from './deadline-run.mjs';
 import { listFilings, recordFiling } from './filings.mjs';
 import { draftSupplierReminder, recordSupplierReminder } from './supplier-reminders.mjs';
 import { addEmployee, changeSalary, endEmployment, listEmployees, setEmployeeBank } from './employees.mjs';
+import { setAdjustment } from './payroll-adjustments.mjs';
 import { payrollFor, approvePayroll, recordSalaryPayment, listPayroll, payslip } from './payroll.mjs';
 import { pfEcr, esiReturn, payrollPayoutFile } from './payroll-files.mjs';
 import { countryOf, isCountry, toolServesCountry } from './country.mjs';
@@ -2325,6 +2326,13 @@ export const TOOLS = [
     run: (state, args = {}) => findItem(state, args),
   },
   {
+    name: 'search_items',
+    title: 'Search items by name',
+    description: 'Search saved products by name, SKU or barcode as you type, in any script. With no query it lists the items sold most in the last 90 days, for a quick-tap grid at the counter. Read-only.',
+    args: ['query', 'limit'],
+    run: (state, args = {}) => searchItems(state, args),
+  },
+  {
     name: 'offline_kit',
     title: 'Offline billing kit',
     description: 'Everything a phone needs to bill without a connection: the business, the lock date, items with price, GST rate and stock, parties, open invoices, the rule 46(e) limit and the phone\'s own invoice series. India only; for the app, never the assistant. Read-only.',
@@ -3123,6 +3131,13 @@ export const TOOLS = [
     description: 'Set an employee\'s monthly salary from a date. Earlier months keep the salary they had. Owner only.',
     args: ['id', 'effectiveFrom', 'components'],
     run: (state, args = {}) => changeSalary(state, args),
+  },
+  {
+    name: 'set_payroll_adjustment',
+    title: 'This month\'s pay changes',
+    description: 'For one employee and one month before payroll is approved: loss-of-pay days (whole or half), overtime, a bonus and arrears, in rupees. Loss of pay reduces the days paid; the rest is added to gross pay and is not provident fund wages. Give all four each time; zeros clear the month. Owner only.',
+    args: ['id', 'period', 'lopDays', 'overtime', 'bonus', 'arrears', 'note'],
+    run: (state, args = {}) => setAdjustment(state, args),
   },
   {
     name: 'set_employee_bank',

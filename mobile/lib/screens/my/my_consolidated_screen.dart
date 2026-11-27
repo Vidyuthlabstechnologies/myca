@@ -11,6 +11,7 @@ import '../../my/my_strings.dart';
 import '../../my/my_tools.dart';
 import 'my_einvoice_detail_screen.dart';
 import 'my_widgets.dart';
+import '../../widgets/glass.dart';
 
 class _ReceiptLine {
   final amount = TextEditingController();
@@ -189,7 +190,7 @@ class _MyConsolidatedScreenState extends State<MyConsolidatedScreen> {
 
   Future<bool?> _confirmSheet(MyStrings t, MyHeld held) {
     num figure(String key) => held.figures[key] is num ? held.figures[key] as num : 0;
-    return showModalBottomSheet<bool>(
+    return showMycaSheet<bool>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,

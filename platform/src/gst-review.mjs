@@ -1,6 +1,9 @@
 import { regArg, scopeKey } from './registrations.mjs';
 import { createHash } from 'node:crypto';
 import { localToday } from './dates.mjs';
+import { gstCorrectionDeadline, gstCorrectionDeadlineWhy } from './credit-notes.mjs';
+import { creditAtRisk } from './gstr2b-check.mjs';
+import { OPEN_STATUSES } from './exceptions.mjs';
 import { periodSummary } from './period-summary.mjs';
 import { paymentFor } from './gst-payment.mjs';
 
@@ -25,7 +28,36 @@ function heldWhy(code) {
   return HELD_WORDS[code] || String(code || '').toLowerCase().replace(/_/g, ' ');
 }
 
-export function draftHashOf(summary, payment = null) {
+export function twoBPosition(state, period, gstin) {
+  const found = creditAtRisk(state, { period, gstin });
+  if (!found.ok) return null;
+  const data = found.data;
+  return { loaded: Boolean(data.statement), inBooks: round2(data.creditInBooks), atRisk: round2(data.creditAtRisk), bills: data.risks.length, suppliers: (data.bySupplier || []).slice(0, 3).map((row) => row.supplier).filter(Boolean) };
+}
+
+const REVERSAL_CODES = new Set(['RULE_37_REVERSAL', 'RULE_37A_REVERSAL']);
+
+export function openReversals(state) {
+  const rows = (Array.isArray(state.exceptions) ? state.exceptions : []).filter((entry) => REVERSAL_CODES.has(entry.code) && OPEN_STATUSES.has(entry.status));
+  const amount = round2(rows.reduce((sum, entry) => sum + Number(entry.moneyAtRisk || 0), 0));
+  return { count: rows.length, amount, invoices: rows.map((entry) => String(entry.evidence?.invoiceNo || '')).filter(Boolean).slice(0, 5) };
+}
+
+export function reversalNote(open) {
+  if (!open || !open.count) return '';
+  const which = open.invoices.length ? ` (${open.invoices.join(', ')}${open.count > open.invoices.length ? ' and more' : ''})` : '';
+  return `${open.count === 1 ? '1 credit reversal' : `${open.count} credit reversals`} worth ₹${open.amount}${which} ${open.count === 1 ? 'is' : 'are'} open in your exceptions list. This return does not make ${open.count === 1 ? 'it' : 'them'}: enter ${open.count === 1 ? 'it' : 'them'} in table 4(B) of GSTR-3B on the portal before you file, or resolve ${open.count === 1 ? 'it' : 'them'} first.`;
+}
+
+export function twoBNote(position) {
+  if (!position || !(position.inBooks > 0)) return '';
+  if (!position.loaded) return 'It has not been checked against GSTR-2B, because no 2B has been added for this month. A supplier who has not filed can still reduce it, and credit claimed without it can bring interest and a notice. Add the 2B before you file.';
+  if (!(position.atRisk > 0)) return 'It matches the GSTR-2B you added.';
+  const who = position.suppliers.length ? ` Suppliers to chase: ${position.suppliers.join(', ')}.` : '';
+  return `${position.bills === 1 ? '1 bill' : `${position.bills} bills`} with ₹${position.atRisk} of credit ${position.bills === 1 ? 'is' : 'are'} not confirmed by the GSTR-2B you added. Claiming credit the 2B does not show can bring interest and a notice.${who}`;
+}
+
+export function draftHashOf(summary, payment = null, twoB = null, reversals = null) {
   const held = (summary.gstr1.held || []).map((item) => `${item.inum}:${item.code}`).sort();
   const basis = {
     broughtForward: payment ? payment.broughtForward : null,
@@ -41,6 +73,8 @@ export function draftHashOf(summary, payment = null) {
     debitNotes: summary.debitNotes || null,
     purchaseNotes: summary.purchaseNotes || null,
     held,
+    twoB: twoB ? { loaded: twoB.loaded, atRisk: twoB.atRisk, bills: twoB.bills } : null,
+    reversals: reversals && reversals.count ? { count: reversals.count, amount: reversals.amount } : null,
   };
   return createHash('sha256').update(JSON.stringify(basis)).digest('hex');
 }
@@ -71,7 +105,7 @@ function payLines(payment) {
   return lines;
 }
 
-function stepsFor(summary, payment) {
+function stepsFor(summary, payment, limit = null, twoB = null, reversals = null) {
   const month = monthName(summary.period);
   const file = summary.gstr1;
   const steps = [];
@@ -113,8 +147,13 @@ function stepsFor(summary, payment) {
       ...(purchaseNotes.count ? [{ label: purchaseNotes.count === 1 ? '1 debit note to a supplier, credit reversed' : `${purchaseNotes.count} debit notes to suppliers, credit reversed`, amount: round2(-(purchaseNotes.cgst + purchaseNotes.sgst + purchaseNotes.igst)) }] : []),
       ...heads(summary.inputCredit).map((head) => ({ label: `${head.label} credit`, amount: head.amount })),
       { label: 'Input credit', amount: round2(summary.inputCredit.total), strong: true },
+      ...(twoB && twoB.inBooks > 0 && twoB.loaded && twoB.atRisk > 0 ? [{ label: 'Credit the GSTR-2B does not confirm', amount: twoB.atRisk }] : []),
+      ...(reversals && reversals.count ? [{ label: 'Credit reversals still open, not in this return', amount: reversals.amount }] : []),
     ],
-    note: 'This is the credit shown on your bills. It has not been checked against GSTR-2B, so a supplier who has not filed can still reduce it.',
+    note: ['This is the credit shown on your bills.', twoB && twoB.inBooks > 0 ? twoBNote(twoB) : 'It has not been checked against GSTR-2B, so a supplier who has not filed can still reduce it.', limit ? itcLimitNote(limit, summary.inputCredit.total) : '', reversalNote(reversals)].filter(Boolean).join(' '),
+    ...(reversals && reversals.count ? { reversalsOpen: reversals.count } : {}),
+    ...(twoB && twoB.inBooks > 0 && (!twoB.loaded || twoB.atRisk > 0) ? { creditAtRisk: twoB.loaded ? twoB.atRisk : null, twoBMissing: !twoB.loaded } : {}),
+    ...(limit && limit.passed && summary.inputCredit.total > 0 ? { timeBarred: true } : {}),
     question: 'Is this information correct?',
     yes: 'Yes, correct',
     no: 'Something is wrong',
@@ -154,6 +193,22 @@ function recordFor(state, period, gstin) {
   return Object.hasOwn(all, key) ? all[key] : null;
 }
 
+const DAY_MS = 86400000;
+
+export function itcTimeLimit(state, period, gstin, today = localToday()) {
+  const firstDay = `${String(period || '').slice(0, 7)}-01`;
+  const last = gstCorrectionDeadline(firstDay, { state, gstin, ruleId: 'gst.itc.time-limit', onDate: firstDay < '2022-10-01' ? today : firstDay });
+  const daysLeft = Math.round((Date.parse(`${last}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY_MS);
+  return { last, daysLeft, passed: daysLeft < 0, why: gstCorrectionDeadlineWhy(firstDay, last) };
+}
+
+export function itcLimitNote(limit, credit) {
+  if (!(credit > 0)) return '';
+  if (limit.passed) return `Time limit: credit on bills of this financial year could be taken only until ${limit.why} (section 16(4)). That date has passed, so this credit may be disallowed. Check with your CA before you claim it.`;
+  if (limit.daysLeft <= 45) return `Time limit: claim this credit by ${limit.why} (section 16(4)); after that it is lost${limit.daysLeft <= 7 ? `, and that is ${limit.daysLeft === 0 ? 'today' : limit.daysLeft === 1 ? 'tomorrow' : `in ${limit.daysLeft} days`}` : ''}.`;
+  return '';
+}
+
 export function reviewOf(state, period, gstin) {
   const regd = regArg(state, gstin);
   if (!regd.ok) return regd;
@@ -162,11 +217,14 @@ export function reviewOf(state, period, gstin) {
   const summary = summarised.data;
   const paid = paymentFor(state, summary.period, { gstin: regd.gstin });
   const payment = paid.ok ? paid.data : null;
-  const draftHash = draftHashOf(summary, payment);
+  const twoB = twoBPosition(state, summary.period, regd.gstin);
+  const reversals = openReversals(state);
+  const draftHash = draftHashOf(summary, payment, twoB, reversals);
   const record = recordFor(state, summary.period, regd.gstin);
   const current = record && record.draftHash === draftHash ? record : null;
   const changed = Boolean(record && !current && Object.keys(record.answers || {}).length);
-  const steps = stepsFor(summary, payment).map((step) => {
+  const limit = itcTimeLimit(state, summary.period, regd.gstin);
+  const steps = stepsFor(summary, payment, limit, twoB, reversals).map((step) => {
     const answer = current?.answers?.[step.id] || null;
     return { ...step, status: answer ? (answer.answer === 'wrong' ? 'wrong' : 'confirmed') : 'open', answer };
   });
@@ -184,6 +242,9 @@ export function reviewOf(state, period, gstin) {
       toPay: payment ? payment.toPay : null,
       changed,
       steps: steps.map((step) => ({ ...step, waitingFor: blockedBy(step)?.id || null })),
+      itcLimit: limit,
+      twoB,
+      reversals,
       next: next ? next.id : null,
       approved: Boolean(current?.approval),
       approval: current?.approval || null,

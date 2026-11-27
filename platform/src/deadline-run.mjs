@@ -5,7 +5,7 @@ import { localToday } from './dates.mjs';
 import { monthsBack, withFilings } from './filings.mjs';
 
 const { complianceRun } = deadlines;
-const DEADLINE_COLUMNS = ['clientId', 'name', 'entity', 'turnover', 'gst', 'qrmp', 'tdsDeductor', 'pf', 'esi', 'advanceTax', 'tp', 'state', 'profession', 'gstTds', 'presumptive'];
+const DEADLINE_COLUMNS = ['clientId', 'name', 'entity', 'turnover', 'gst', 'qrmp', 'tdsDeductor', 'composition', 'pf', 'esi', 'advanceTax', 'tp', 'state', 'profession', 'gstTds', 'presumptive'];
 const NO_DOCS = 'clientId,period,returnType,docType,status,receivedDate,source\n';
 const YEAR_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 export const MAX_DEADLINE_MONTHS = 60;
@@ -44,6 +44,7 @@ function deadlineProfile(clientId, company, extra, salesInvoices) {
     gst: gstin ? 'TRUE' : 'FALSE',
     qrmp: String(extra.gstFrequency || company.gstFrequency || 'monthly').toLowerCase() === 'quarterly' ? 'TRUE' : 'FALSE',
     tdsDeductor: yes(extra.tdsDeductor ?? company.tdsDeductor) ? 'TRUE' : 'FALSE',
+    composition: gstin && yes(extra.composition ?? company.composition) ? 'TRUE' : 'FALSE',
     pf: yes(extra.pf ?? company.pf) ? 'TRUE' : 'FALSE',
     esi: yes(extra.esi ?? company.esi) ? 'TRUE' : 'FALSE',
     advanceTax: yes(extra.advanceTax ?? company.advanceTax) ? 'TRUE' : 'FALSE',

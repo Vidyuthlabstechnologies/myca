@@ -39,6 +39,56 @@ void main() {
     expect(tokens.values.values.any((value) => value.contains(FakeCloud.code)), isFalse);
   });
 
+  test('a composition dealer is sent to the server as one, and a regular business is not', () async {
+    final cloud = FakeCloud();
+    final session = await signedIn(cloud);
+    await session.createBusiness(name: 'Sharma Kirana', gstin: '29AAACH7409R1ZV', composition: true);
+    expect(cloud.createdBodies.single['composition'], true);
+    expect(cloud.company['composition'], true);
+    final other = await signedIn(FakeCloud());
+    final plain = FakeCloud();
+    final regular = await signedIn(plain);
+    await regular.createBusiness(name: 'Gupta Traders', gstin: '29AAACH7409R1ZV');
+    expect(plain.createdBodies.single.containsKey('composition'), isFalse);
+    expect(other.signedIn, isTrue);
+  });
+
+  testWidgets('setup offers the composition choice only once a GSTIN is typed, and sends it', (tester) async {
+    final cloud = FakeCloud()..userName = 'Asha';
+    final tokens = MemoryTokenStore();
+    final session = await tester.runAsync(() => signedIn(cloud, tokens));
+    final state = AppState(
+      cloud: session,
+      store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true),
+      pickTextFile: (_) async => null,
+      now: () => DateTime(2026, 10, 6, 10),
+    );
+    await tester.pumpWidget(MycaApp(state: state));
+    await tester.pumpAndSettle();
+    expect(find.text('Tell us about the business'), findsOneWidget);
+    expect(find.byKey(const Key('setup.composition')), findsNothing);
+    await tester.enterText(find.widgetWithText(TextField, 'Business name'), 'Sharma Kirana');
+    await tester.enterText(find.widgetWithText(TextField, 'GSTIN'), '29AAACH7409R1ZV');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('setup.composition')), findsOneWidget);
+    expect(tester.widget<SwitchListTile>(find.byKey(const Key('setup.composition'))).value, isFalse);
+    await tester.tap(find.byKey(const Key('setup.composition')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(find.byKey(const Key('setup.composition'))).value, isTrue);
+    await tester.enterText(find.widgetWithText(TextField, 'GSTIN'), '');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('setup.composition')), findsNothing);
+    await tester.enterText(find.widgetWithText(TextField, 'GSTIN'), '29AAACH7409R1ZV');
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(find.byKey(const Key('setup.composition'))).value, isFalse, reason: 'clearing the GSTIN turned it off');
+    await tester.tap(find.byKey(const Key('setup.composition')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(cloud.createdBodies.single['composition'], true);
+    expect(cloud.createdBodies.single['gstin'], '29AAACH7409R1ZV');
+  });
+
   test('wrong code and bad phone surface plain messages', () async {
     final session = sessionOn(FakeCloud());
     await expectLater(session.requestCode('12345'), throwsA(isA<MycaApiException>().having((e) => e.message, 'message', contains('10-digit'))));

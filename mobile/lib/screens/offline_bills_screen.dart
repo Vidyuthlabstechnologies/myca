@@ -9,6 +9,7 @@ import '../offline/offline_models.dart';
 import '../pos/printer.dart';
 import '../pos/receipt.dart';
 import '../registers.dart';
+import '../widgets/glass.dart';
 
 String offlineProblemWords(String error, String hint) {
   final said = switch (error) {
@@ -103,7 +104,7 @@ class _OfflineBillsScreenState extends State<OfflineBillsScreen> {
   }
 
   Future<void> _billActions(OfflineBill bill) async {
-    final choice = await showModalBottomSheet<String>(
+    final choice = await showMycaSheet<String>(
       context: context,
       builder: (sheet) => SafeArea(
         child: ListView(
@@ -157,7 +158,7 @@ class _OfflineBillsScreenState extends State<OfflineBillsScreen> {
   }
 
   Future<void> _receiptActions(OfflineReceipt receipt) async {
-    final choice = await showModalBottomSheet<String>(
+    final choice = await showMycaSheet<String>(
       context: context,
       builder: (sheet) => SafeArea(
         child: ListView(
@@ -190,7 +191,7 @@ class _OfflineBillsScreenState extends State<OfflineBillsScreen> {
       setState(() => _message = 'Nothing on this phone has money due.');
       return;
     }
-    final picked = await showModalBottomSheet<(String, String, num)>(
+    final picked = await showMycaSheet<(String, String, num)>(
       context: context,
       isScrollControlled: true,
       builder: (sheet) => SafeArea(

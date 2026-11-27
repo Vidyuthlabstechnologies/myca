@@ -28,7 +28,7 @@ export function mondayOf(day) {
   return date.toISOString().slice(0, 10);
 }
 
-export function createJobs({ db, secret = '', rateLimits = null, withBooks, readBooks = null, connectors = null, syncChannels = null, pullsEnabled = () => false, sender = null, vault = null, billing = null, now = () => Date.now(), log = () => {} }) {
+export function createJobs({ db, secret = '', rateLimits = null, withBooks, readBooks = null, connectors = null, syncChannels = null, pullsEnabled = () => false, dailyBudgetMs = 45000, clock = () => Date.now(), sender = null, vault = null, billing = null, now = () => Date.now(), log = () => {} }) {
   async function recordsHeldUntil(businessId, requestId) {
     if (!readBooks) return null;
     try {
@@ -68,7 +68,7 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, read
           } finally {
             await q('alter table audit_log enable trigger audit_log_no_update');
           }
-          for (const table of ['store_orders', 'store_links', 'access_log', 'shared_books', 'inbound_sales', 'inbound_keys', 'gst_portal_sessions', 'business_connectors', 'invitations', 'memberships', 'books']) {
+          for (const table of ['provider_journal', 'store_orders', 'store_links', 'access_log', 'shared_books', 'inbound_sales', 'inbound_keys', 'gst_portal_sessions', 'business_connectors', 'invitations', 'memberships', 'books']) {
             await q(`delete from ${table} where business_id = $1`, [row.id]);
           }
           await q('delete from businesses where id = $1', [row.id]);
@@ -108,6 +108,7 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, read
     }
     if (summary.users) log({ requestId, job: 'purge', usersErased: summary.users });
     summary.accessRows = (await db.query('delete from access_log where at < $1', [new Date(now() - ACCESS_LOG_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
+    await db.query('delete from provider_journal where created_at < $1', [new Date(now() - 7 * 24 * 60 * 60 * 1000)]);
     summary.crashRows = (await db.query('delete from crash_reports where last_seen < $1', [new Date(now() - CRASH_REPORT_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     summary.otpRows = (await db.query('delete from otp_challenges where created_at < $1', [new Date(now() - OTP_CHALLENGE_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     summary.rateRows = rateLimits ? await rateLimits.prune() : 0;
@@ -123,7 +124,20 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, read
   async function daily(requestId) {
     const found = await db.query('select b.business_id from books b join businesses x on x.id = b.business_id where x.deletion_requested_at is null order by b.business_id');
     const summary = { ok: true, businesses: found.rowCount, ran: 0, skipped: 0, reminders: 0, warnings: 0, pulled: 0, storeOrdersPruned: 0, failed: [] };
-    for (const row of found.rows) {
+    const startedAt = clock();
+    try {
+      summary.billing = billing && billing.refreshDue ? await billing.refreshDue() : { checked: 0, changed: 0, failed: 0 };
+    } catch (err) {
+      summary.billing = { checked: 0, changed: 0, failed: 1 };
+      log({ requestId, job: 'daily', billing: String(err && err.stack ? err.stack : err) });
+    }
+    summary.purge = await purge(requestId);
+    for (const [position, row] of found.rows.entries()) {
+      if (clock() - startedAt > dailyBudgetMs) {
+        summary.partial = true;
+        summary.remaining = found.rowCount - position;
+        break;
+      }
       const businessId = row.business_id;
       try {
         const out = await withBooks(businessId, { requestId, userId: null, deviceId: null }, async (session) => {
@@ -164,13 +178,6 @@ export function createJobs({ db, secret = '', rateLimits = null, withBooks, read
         log({ requestId, job: 'daily', businessId, error: String(err && err.stack ? err.stack : err) });
       }
     }
-    try {
-      summary.billing = billing && billing.refreshDue ? await billing.refreshDue() : { checked: 0, changed: 0, failed: 0 };
-    } catch (err) {
-      summary.billing = { checked: 0, changed: 0, failed: 1 };
-      log({ requestId, job: 'daily', billing: String(err && err.stack ? err.stack : err) });
-    }
-    summary.purge = await purge(requestId);
     log({ requestId, job: 'daily', ...summary, failed: summary.failed.length });
     return summary;
   }

@@ -1,3 +1,4 @@
+import { journaledCall, providerFingerprint } from './provider-journal.mjs';
 import { sameSecrets } from './held-secret.mjs';
 import { loadEnvFile, testModeEnabled } from './runtime-config.mjs';
 import { providerContext } from './provider-context.mjs';
@@ -241,6 +242,8 @@ export class SandboxClient {
       body: options.form ? options.form : options.body === undefined ? undefined : JSON.stringify(options.body),
       signal: deadline(options, 30000),
     });
+    const method = options.method || 'POST';
+    const run = async () => {
     try {
       let res = await send(token);
       let data = await res.json().catch(() => ({}));
@@ -259,6 +262,9 @@ export class SandboxClient {
     } catch (err) {
       return { ok: false, error: String(err.message || err) };
     }
+    };
+    if (method === 'GET') return run();
+    return journaledCall(providerFingerprint(method, url, options.form ? 'form' : JSON.stringify(options.body ?? null)), run);
   }
 
   async ping(options = {}) {

@@ -515,6 +515,14 @@ export const BOOKS_TOOL_SCHEMAS = {
     required: ['code'],
     properties: { code: { type: 'string', minLength: 1, maxLength: 64 } },
   },
+  search_items: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      query: { type: 'string', maxLength: 64 },
+      limit: { type: 'integer', minimum: 1, maximum: 30 },
+    },
+  },
   loyalty_settings: {
     type: 'object',
     additionalProperties: false,
@@ -753,6 +761,20 @@ export const BOOKS_TOOL_SCHEMAS = {
       stateWithholding: { type: 'number', minimum: 0 },
       bankAccount: { type: 'string', minLength: 9, maxLength: 18 },
       ifsc: { type: 'string', minLength: 9, maxLength: 11 },
+    },
+  },
+  set_payroll_adjustment: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'period'],
+    properties: {
+      id: { type: 'string', pattern: '^EMP-[0-9]{4,}$' },
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      lopDays: { type: 'number', minimum: 0, maximum: 31 },
+      overtime: { type: 'number', minimum: 0, maximum: 10000000 },
+      bonus: { type: 'number', minimum: 0, maximum: 10000000 },
+      arrears: { type: 'number', minimum: 0, maximum: 10000000 },
+      note: { type: 'string', maxLength: 80 },
     },
   },
   set_employee_bank: {

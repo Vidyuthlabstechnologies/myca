@@ -381,3 +381,45 @@ export function findItem(state, args = {}) {
   const held = Math.round(onHand * 1000) / 1000;
   return { ok: true, data: { found: true, code, sku, name: item.name || sku, barcode: item.barcode || '', hsn: item.hsn || '', gstRate: item.gstRate ?? null, price: item.price ?? null, cost: item.cost ?? null, unit: item.unit || '', reorderLevel: item.reorderLevel ?? null, onHand: held, lowStock: item.reorderLevel != null && held <= item.reorderLevel, batches, tracked: (state.stockMoves || []).some((move) => move.sku === sku) } };
 }
+
+const SEARCH_LIMIT = 30;
+const FAVOURITE_DAYS = 90;
+
+export function foldForSearch(value) {
+  return String(value == null ? '' : value).normalize('NFD').replace(/[̀-ͯ]/g, '').normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function matchRank(item, sku, query) {
+  const name = foldForSearch(item.name || sku);
+  const code = foldForSearch(sku);
+  const barcode = String(item.barcode || '');
+  if (code === query || (barcode && barcode === query)) return 0;
+  if (name.startsWith(query)) return 1;
+  if (name.split(' ').some((word) => word.startsWith(query))) return 2;
+  if (name.includes(query)) return 3;
+  if (code.startsWith(query) || (barcode && barcode.endsWith(query))) return 4;
+  return -1;
+}
+
+export function searchItems(state, args = {}) {
+  const query = foldForSearch(args.query);
+  const asked = Number(args.limit);
+  const limit = Number.isInteger(asked) && asked >= 1 ? Math.min(asked, SEARCH_LIMIT) : 12;
+  const all = skus(state);
+  const since = localToday(new Date(Date.now() - FAVOURITE_DAYS * 86400000));
+  const sold = new Map();
+  for (const move of state.stockMoves || []) {
+    if (Number(move.qty) < 0 && String(move.date || '') >= since) sold.set(move.sku, (sold.get(move.sku) || 0) + 1);
+  }
+  const onHand = new Map();
+  for (const move of state.stockMoves || []) onHand.set(move.sku, Math.round(((onHand.get(move.sku) || 0) + Number(move.qty || 0)) * 1000) / 1000);
+  const rows = [];
+  for (const sku of Object.keys(all)) {
+    const item = all[sku] || {};
+    const rank = query ? matchRank(item, sku, query) : sold.has(sku) ? 5 : 6;
+    if (rank < 0) continue;
+    rows.push({ rank, sold: sold.get(sku) || 0, row: { sku, name: item.name || sku, barcode: item.barcode || '', hsn: item.hsn || '', gstRate: item.gstRate ?? null, price: item.price ?? null, unit: item.unit || '', tracked: onHand.has(sku), onHand: onHand.has(sku) ? onHand.get(sku) : null, lowStock: item.reorderLevel != null && onHand.has(sku) && onHand.get(sku) <= item.reorderLevel } });
+  }
+  rows.sort((a, b) => a.rank - b.rank || b.sold - a.sold || a.row.name.localeCompare(b.row.name));
+  return { ok: true, data: { query, favourites: !query, items: rows.slice(0, limit).map((entry) => entry.row), more: rows.length > limit } };
+}

@@ -13,6 +13,7 @@ import '../../widgets/qr_image.dart';
 import 'my_einvoice_create_screen.dart';
 import 'my_self_billed_screen.dart';
 import 'my_widgets.dart';
+import '../../widgets/glass.dart';
 
 String myDateTime(String iso) {
   final at = DateTime.tryParse(iso);
@@ -138,7 +139,7 @@ class _MyEinvoiceDetailScreenState extends State<MyEinvoiceDetailScreen> {
 
   Future<void> _reasonAction({required bool reject}) async {
     final t = MyStrings.of(context);
-    final reason = await showModalBottomSheet<String>(
+    final reason = await showMycaSheet<String>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,

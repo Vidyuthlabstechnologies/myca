@@ -8,6 +8,7 @@ import '../india/india_strings.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'ca_screen.dart';
+import '../widgets/glass.dart';
 
 class ReviewScreen extends StatefulWidget {
   const ReviewScreen({
@@ -91,7 +92,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
   }
 
   Future<void> _wrong(GstReview review, ReviewStep step) async {
-    final note = await showModalBottomSheet<String>(
+    final note = await showMycaSheet<String>(
       context: context,
       isScrollControlled: true,
       builder: (sheet) => const _WrongSheet(),

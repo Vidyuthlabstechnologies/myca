@@ -6,6 +6,7 @@ import '../cloud/cloud_session.dart';
 import '../format.dart';
 import '../india/india_strings.dart';
 import '../theme.dart';
+import 'people_screen.dart';
 
 String _processingNote(String lang, String processing) => switch (processing) {
   'processed' => inLine(lang, 'The portal accepted every invoice.'),
@@ -37,6 +38,7 @@ class _GstPortalScreenState extends State<GstPortalScreen> {
   final _loginOtp = TextEditingController();
   final _evcOtp = TextEditingController();
   GstPortalStatus? _status;
+  People? _people;
   String _error = '';
   String _note = '';
   String _busy = '';
@@ -79,12 +81,47 @@ class _GstPortalScreenState extends State<GstPortalScreen> {
 
   String get _gstin => _session?.gstin ?? widget.gstin;
 
+  bool get _soleApprover {
+    final people = _people;
+    if (people == null || _status?.mode != 'live') return false;
+    return people.members.where((member) => member.role == 'owner' || member.role == 'accountant').length < 2;
+  }
+
+  Widget _secondApproverCard(TextTheme text) => Card(
+    key: const Key('gstPortal.secondApprover'),
+    margin: const EdgeInsets.only(bottom: 12),
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(inText(context, 'Live filing needs a second person'), style: text.titleSmall),
+          const SizedBox(height: 4),
+          Text(inText(context, 'Each step of a live return is approved by an owner or accountant other than the person who starts it. Invite your CA or a partner before you start, or you will be stopped at the first step.'), style: text.bodyMedium),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            key: const Key('gstPortal.inviteApprover'),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AppScope(state: AppScope.of(context), child: const PeopleScreen()))).then((_) => _reload()),
+            child: Text(inText(context, 'Invite someone')),
+          ),
+        ],
+      ),
+    ),
+  );
+
   Future<void> _reload() async {
     try {
       final status = await _cloud.gstPortalStatus();
+      People? people;
+      try {
+        people = await _cloud.people();
+      } on MycaApiException {
+        people = null;
+      }
       if (!mounted) return;
       setState(() {
         _status = status;
+        _people = people;
         _error = '';
         final session = status.sessionFor(widget.gstin);
         if (session != null && _username.text.isEmpty) _username.text = session.username;
@@ -338,6 +375,7 @@ class _GstPortalScreenState extends State<GstPortalScreen> {
                 style: text.bodySmall?.copyWith(color: Palette.danger),
               ),
             const SizedBox(height: 12),
+            if (_soleApprover) _secondApproverCard(text),
             if (session == null || !session.connected) ..._connect(text, session) else ..._filing(text, session),
           ],
           if (_busy.isNotEmpty) ...[

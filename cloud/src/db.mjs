@@ -6,7 +6,7 @@ import { databaseSsl } from './runtime.mjs';
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
-const CONNECTION_CODES = new Set(['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EPIPE', '08000', '08001', '08003', '08004', '08006', '57P01', '57P02', '57P03', '53300']);
+const CONNECTION_CODES = new Set(['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EPIPE', '08000', '08001', '08003', '08004', '08006', '57P01', '57P02', '57P03', '53300', '55P03', '25P03']);
 const CONNECTION_MESSAGES = new Set([
   'timeout exceeded when trying to connect',
   'Connection terminated due to connection timeout',
@@ -29,9 +29,15 @@ function translated(err) {
   return lost ? serverBusy(err) : err;
 }
 
-export function createDb(connectionString, { max = 10, connectionTimeoutMillis = 5000, onError = () => {} } = {}) {
+export function sessionOptions({ statementTimeoutMs = 0, lockTimeoutMs = 0, idleInTransactionMs = 0 } = {}) {
+  const part = (name, ms) => (Number.isInteger(ms) && ms > 0 ? [`-c ${name}=${ms}`] : []);
+  return [...part('statement_timeout', statementTimeoutMs), ...part('lock_timeout', lockTimeoutMs), ...part('idle_in_transaction_session_timeout', idleInTransactionMs)].join(' ');
+}
+
+export function createDb(connectionString, { max = 10, connectionTimeoutMillis = 5000, onError = () => {}, statementTimeoutMs = 0, lockTimeoutMs = 0, idleInTransactionMs = 0 } = {}) {
   const ssl = databaseSsl();
-  const pool = new pg.Pool({ connectionString, max, connectionTimeoutMillis, ...(ssl ? { ssl } : {}) });
+  const options = sessionOptions({ statementTimeoutMs, lockTimeoutMs, idleInTransactionMs });
+  const pool = new pg.Pool({ connectionString, max, connectionTimeoutMillis, ...(options ? { options } : {}), ...(ssl ? { ssl } : {}) });
   pool.on('error', onError);
   const query = (text, params) => pool.query(text, params).catch((err) => { throw translated(err); });
   const acquire = () => pool.connect().catch((err) => { throw translated(err); });
@@ -72,6 +78,8 @@ export async function migrate(db) {
   const applied = [];
   for (const name of names) {
     const ran = await db.tx(async (q) => {
+      await q('set local statement_timeout = 0');
+      await q('set local lock_timeout = 0');
       await q('lock table schema_migrations in exclusive mode');
       const seen = await q('select 1 from schema_migrations where name = $1', [name]);
       if (seen.rowCount) return false;

@@ -11,6 +11,7 @@ import 'my_einvoice_create_screen.dart';
 import 'my_einvoice_detail_screen.dart';
 import 'my_self_billed_screen.dart';
 import 'my_widgets.dart';
+import '../../widgets/glass.dart';
 
 Future<(List<MyEinvoice>, bool)> loadMyEinvoices(AppState state) async {
   final server = await MyTools(state.api).list();
@@ -26,7 +27,7 @@ Future<(List<MyEinvoice>, bool)> loadReceivedEinvoices(AppState state) async {
 
 Future<void> openNewEinvoice(BuildContext context) async {
   final t = MyStrings.of(context);
-  final picked = await showModalBottomSheet<String>(
+  final picked = await showMycaSheet<String>(
     context: context,
     showDragHandle: true,
     builder: (sheet) => SafeArea(

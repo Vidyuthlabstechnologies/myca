@@ -296,6 +296,14 @@ class _EmployeeBankScreenState extends State<EmployeeBankScreen> with ProposalFl
   }
 }
 
+String _sexWords(BuildContext context, String value) => switch (value) {
+  'male' => inText(context, 'Male'),
+  'female' => inText(context, 'Female'),
+  _ => inText(context, 'Not set'),
+};
+
+String _regimeWords(BuildContext context, String value) => value == 'old' ? inText(context, 'Old regime') : inText(context, 'New regime');
+
 class EmployeeFormScreen extends StatefulWidget {
   const EmployeeFormScreen({super.key, this.employee, this.leaving = false});
 
@@ -316,9 +324,13 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
   final _other = TextEditingController();
   final _workState = TextEditingController();
   final _federalWithholding = TextEditingController();
+  final _uan = TextEditingController();
+  final _esiNumber = TextEditingController();
   DateTime? _date;
   bool _pf = false;
   bool _esi = false;
+  String _sex = '';
+  String _regime = 'new';
 
   bool get _us => (AppScope.of(context).snapshot?.company.country ?? 'IN') == 'US';
 
@@ -339,7 +351,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
 
   @override
   void dispose() {
-    for (final c in [_name, _role, _pan, _basic, _hra, _other]) {
+    for (final c in [_name, _role, _pan, _basic, _hra, _other, _workState, _federalWithholding, _uan, _esiNumber]) {
       c.dispose();
     }
     super.dispose();
@@ -391,6 +403,12 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
     if (_adding && _name.text.trim().isEmpty) {
       return setState(() => _error = inText(context, 'Enter the employee\'s name.'));
     }
+    final uan = _uan.text.replaceAll(RegExp(r'\s'), '');
+    final esiNumber = _esiNumber.text.replaceAll(RegExp(r'\s'), '');
+    if (_adding && !_us && !_uk) {
+      if (uan.isNotEmpty && !RegExp(r'^[0-9]{12}$').hasMatch(uan)) return setState(() => _error = inText(context, 'The UAN is 12 digits.'));
+      if (_esi && esiNumber.isNotEmpty && !RegExp(r'^[0-9]{10}$').hasMatch(esiNumber)) return setState(() => _error = inText(context, 'The ESI number is 10 digits.'));
+    }
     setState(() => _error = '');
     if (_adding) {
       await propose(inFormat(context, 'Add {name}', {'name': _name.text.trim()}), 'add_employee', {
@@ -405,6 +423,10 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
           if (_pan.text.trim().isNotEmpty) 'pan': _pan.text.trim().toUpperCase(),
           'pfMember': _pf,
           'esiMember': _esi,
+          if (uan.isNotEmpty) 'uan': uan,
+          if (_esi && esiNumber.isNotEmpty) 'esiNumber': esiNumber,
+          if (_sex.isNotEmpty) 'sex': _sex,
+          'taxRegime': _regime,
         },
       });
     } else {
@@ -520,6 +542,31 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
                         labelText: inText(context, 'PAN (optional)'),
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      key: const Key('employee-uan'),
+                      controller: _uan,
+                      keyboardType: TextInputType.number,
+                      maxLength: 14,
+                      decoration: InputDecoration(labelText: inText(context, 'UAN (optional)'), counterText: ''),
+                    ),
+                    Text(inText(context, 'Sex (used for professional tax)'), style: text.bodyMedium),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final value in const ['', 'male', 'female'])
+                          ChoiceChip(key: Key('employee-sex-${value.isEmpty ? 'none' : value}'), label: Text(_sexWords(context, value)), selected: _sex == value, onSelected: (_) => setState(() => _sex = value)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(inText(context, 'Tax regime for salary TDS'), style: text.bodyMedium),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final value in const ['new', 'old'])
+                          ChoiceChip(key: Key('employee-regime-$value'), label: Text(_regimeWords(context, value)), selected: _regime == value, onSelected: (_) => setState(() => _regime = value)),
+                      ],
+                    ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(inText(context, 'In provident fund')),
@@ -532,6 +579,14 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
                       value: _esi,
                       onChanged: (v) => setState(() => _esi = v),
                     ),
+                    if (_esi)
+                      TextField(
+                        key: const Key('employee-esi-number'),
+                        controller: _esiNumber,
+                        keyboardType: TextInputType.number,
+                        maxLength: 12,
+                        decoration: InputDecoration(labelText: inText(context, 'ESI number (optional)'), counterText: ''),
+                      ),
                   ],
                   Text(
                     inText(context, 'Records only. No payroll is run and no deduction is worked out yet.'),

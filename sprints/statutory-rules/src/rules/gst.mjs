@@ -398,6 +398,17 @@ export const RULES = [
     attestations: []
   },
   {
+    id: 'gst.itc.time-limit',
+    value: { month: 11, day: 30, after: 'end_of_financial_year_of_the_invoice', orAnnualReturnIfEarlier: true },
+    basis: 'date_of_the_invoice_or_debit_note',
+    effectiveFrom: '2022-10-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: '16(4)',
+    source: 'CGST Act 2017 s.16(4) as amended by the Finance Act, 2022 ("November" for "September") w.e.f. 01.10.2022 by Notification No. 18/2022-Central Tax dated 28.09.2022: input tax credit on an invoice or debit note cannot be taken after the thirtieth day of November following the end of the financial year to which the invoice or debit note pertains, or the date of furnishing the relevant annual return, whichever is earlier; s.16(5) and (6) carry separate extensions for particular years and are not modelled',
+    attestations: []
+  },
+  {
     id: 'gst.gstr1.amendment-deadline',
     value: { month: 11, day: 30, after: 'end_of_financial_year_of_the_details', orAnnualReturnIfEarlier: true },
     basis: 'date_of_the_amendment',

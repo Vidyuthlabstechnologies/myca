@@ -11,6 +11,7 @@ import '../theme.dart';
 import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import '../widgets/utf16_limit.dart';
+import '../widgets/glass.dart';
 
 class ReminderDraft {
   const ReminderDraft({required this.text, required this.due});
@@ -30,7 +31,7 @@ Future<ReminderDraft?> showReminderSheet(
   BuildContext context, {
   String text = '',
 }) {
-  return showModalBottomSheet<ReminderDraft>(
+  return showMycaSheet<ReminderDraft>(
     context: context,
     isScrollControlled: true,
     builder: (sheet) => _ReminderSheet(text: text),
@@ -166,7 +167,7 @@ Future<bool> confirmReminderDone(
 ) async {
   final api = AppScope.of(context).api;
   final navigator = Navigator.of(context);
-  final yes = await showModalBottomSheet<bool>(
+  final yes = await showMycaSheet<bool>(
     context: context,
     builder: (sheet) {
       final text = Theme.of(sheet).textTheme;

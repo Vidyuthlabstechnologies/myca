@@ -801,6 +801,9 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'change_salary' && result.salary) {
     return `${result.employee.name} is at ${money(result.salary.monthly)} a month from ${result.salary.from}.`;
   }
+  if (name === 'set_payroll_adjustment' && result.employee) {
+    return result.cleared ? `Cleared this month's pay changes for ${result.employee.name} (${result.period}).` : `Saved the pay changes for ${result.employee.name} for ${result.period}. Open the payroll to see the new figures; nothing is posted until you approve it.`;
+  }
   if (name === 'end_employment' && result.employee) {
     return `Recorded that ${result.employee.name} left on ${result.employee.leftOn}.`;
   }

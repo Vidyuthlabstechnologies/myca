@@ -18,11 +18,15 @@ import { applyKeySlots, integrationReport, keyProblems } from './integrations.mj
 import { usEfileSetup } from '../../platform/src/us-efile.mjs';
 import { residencyProblem } from './residency.mjs';
 import { testSignInFromEnv } from './test-sign-in.mjs';
+import { goLiveProblem } from './go-live.mjs';
 import { redactTinsDeep } from '../../platform/src/us-identity.mjs';
 
 const STARTUP_ATTEMPTS = 10;
 const STARTUP_WAIT_MS = 3000;
-const SHUTDOWN_GRACE_MS = 25000;
+const SHUTDOWN_GRACE_MS = 8000;
+const STATEMENT_TIMEOUT_MS = 30000;
+const LOCK_TIMEOUT_MS = 8000;
+const IDLE_IN_TRANSACTION_MS = 60000;
 
 function required(name) {
   const value = String(process.env[name] || '').trim();
@@ -57,6 +61,8 @@ async function migrateWithRetry(db) {
 
 const environmentRefusal = environmentProblem();
 if (environmentRefusal) throw new Error(environmentRefusal);
+const goLiveRefusal = goLiveProblem();
+if (goLiveRefusal) throw new Error(goLiveRefusal);
 const keyRefusals = keyProblems();
 if (keyRefusals.length) throw new Error(`Provider keys are mixed or incomplete, so the API will not start:\n- ${keyRefusals.join('\n- ')}`);
 const keySlots = applyKeySlots();
@@ -71,7 +77,7 @@ const hopsProblem = proxyHopsProblem();
 if (hopsProblem) throw new Error(hopsProblem);
 const billingProblem = billingConfigProblem(process.env);
 if (billingProblem) throw new Error(billingProblem);
-const db = createDb(required('MYCA_DATABASE_URL'), { onError: (err) => log({ db: 'idle connection lost', error: String(err && err.message ? err.message : err) }) });
+const db = createDb(required('MYCA_DATABASE_URL'), { statementTimeoutMs: STATEMENT_TIMEOUT_MS, lockTimeoutMs: LOCK_TIMEOUT_MS, idleInTransactionMs: IDLE_IN_TRANSACTION_MS, onError: (err) => log({ db: 'idle connection lost', error: String(err && err.message ? err.message : err) }) });
 await migrateWithRetry(db);
 const handler = createApi({
   db,

@@ -16,13 +16,14 @@ import { createDevices } from './devices.mjs';
 import { createBusinesses, engineRole } from './businesses.mjs';
 import { hostedCountries, publicCountries, residencyRefusal } from './residency.mjs';
 import { US_RETURN_YEARS } from '../../platform/src/us-return.mjs';
-import { createBooksRunner } from './books-runner.mjs';
+import { createBooksRunner, JOURNAL_KEEP_MS } from './books-runner.mjs';
 import { createMembers } from './members.mjs';
 import { IMPORT_CONTENT_ARG, isImport } from '../../platform/src/import-documents.mjs';
 import { assertSecret } from './tokens.mjs';
 import { createBodyBudget, defaultBodyBudgetBytes } from './body-budget.mjs';
 import { createCrashReports } from './crash-reports.mjs';
 import { createGrowth } from './growth.mjs';
+import { USER_REQUESTS, createMemoryLimiter } from './rate-limits.mjs';
 import { PRIVACY_NOTICE, consentExempt, createConsent, legalLinks, noticeFor, noticesFor } from './consent.mjs';
 import { createPrivacyRequests } from './privacy-requests.mjs';
 import { createUsConsents, PARTNER_TINS, renderConsent, US_PREPARER_NAME } from './us-7216.mjs';
@@ -93,9 +94,13 @@ const OWNER_ONLY_POSTS = new Map([
   ['replace', 'SHARED_VIEW_READ_ONLY'],
 ]);
 
-const WRITES = new Set(['replace', 'uploads', 'propose', 'confirm', 'connector-sync', 'plaid-exchange', 'gusto-connect']);
+class ProviderPath extends Error {}
 
-export const PROPOSABLE = new Set(['sign_us_return', 'file_us_return', 'import_payroll_tax_forms', 'import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'save_report', 'delete_report', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'ims_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'set_business_address', 'set_party_address', 'set_sku_cost', 'register_offline_device', 'post_offline_sales', 'catalogue_settings', 'loyalty_settings', 'catalogue_items', 'store_order_action', 'loyalty_adjust', 'import_sku_costs', 'record_stock', 'set_costing_method', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note', 'record_collection_reminder', 'record_payment_run', 'attach_document', 'approve_payroll', 'record_salary_payment', 'tds_review_answer', 'record_gst_payment', 'close_year', 'set_transport', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_suta_rate', 'add_recurring', 'stop_recurring', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer', 'set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'import_us_prior_year', 'start_us_amended_return', 'set_us_amended_return']);
+const SAFE_AUTH_REASONS = new Set(['TOKEN_EXPIRED', 'DEVICE_REVOKED']);
+
+const WRITES = new Set(['replace', 'uploads', 'propose', 'confirm', 'company', 'connector-sync', 'plaid-exchange', 'gusto-connect']);
+
+export const PROPOSABLE = new Set(['sign_us_return', 'file_us_return', 'import_payroll_tax_forms', 'import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_payroll_adjustment', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'save_report', 'delete_report', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'ims_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'set_business_address', 'set_party_address', 'set_sku_cost', 'register_offline_device', 'post_offline_sales', 'catalogue_settings', 'loyalty_settings', 'catalogue_items', 'store_order_action', 'loyalty_adjust', 'import_sku_costs', 'record_stock', 'set_costing_method', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note', 'record_collection_reminder', 'record_payment_run', 'attach_document', 'approve_payroll', 'record_salary_payment', 'tds_review_answer', 'record_gst_payment', 'close_year', 'set_transport', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_suta_rate', 'add_recurring', 'stop_recurring', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer', 'set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview', 'import_us_prior_year', 'start_us_amended_return', 'set_us_amended_return']);
 
 const NOT_A_PLACE_OF_BUSINESS = new Set(['97', '99']);
 
@@ -437,8 +442,10 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     return chatInBooks(session, { businessId, userId, actor, message, canPost });
   }
   const billing = billingGiven || createBilling({ db, now, log });
-  const govt = createGovtActions({ connectors, withBooks: (...args) => runner.withBooks(...args), fetchFn: gspFetch });
-  const gstPortal = createGstPortal({ db, connectors, withBooks: (...args) => runner.withBooks(...args), billing, key: connectorKey, fetchFn: gspFetch, now });
+  const pendingProviderKey = (pending) => (pending && pending.token && (ENGINE_PROVIDER_TOOLS.includes(pending.name) || pending.name === US_FILE_TOOL) ? `confirm:${pending.token}` : '');
+  const withProviderBooks = (businessId, context, run, options = {}) => runner.withProviderBooks(businessId, context, run, { log, autoKey: pendingProviderKey, ...options });
+  const govt = createGovtActions({ connectors, withBooks: (...args) => runner.withBooks(...args), withProviderBooks, fetchFn: gspFetch });
+  const gstPortal = createGstPortal({ db, connectors, withBooks: (...args) => runner.withBooks(...args), withProviderBooks, billing, key: connectorKey, fetchFn: gspFetch, now });
   const quicko = createQuicko({ db, connectors, withBooks: (...args) => runner.withBooks(...args), key: connectorKey, fetchFn: gspFetch, now });
   const publicOrigin = (req) => {
     const configured = String(process.env.MYCA_PUBLIC_URL || '').trim().replace(/\/+$/, '');
@@ -451,7 +458,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const growth = createGrowth({ db, now, siteUrl: growthConfig.siteUrl ?? process.env.MYCA_SITE_URL ?? '', reward: growthConfig.reward ?? process.env.MYCA_REFERRAL_REWARD ?? '' });
   const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain }, storedBytes: (businessId) => businesses.storedBytes(businessId), limitBytes: MAX_BUSINESS_BYTES });
   const rateLimits = createRateLimits({ db, now, limits: limitsGiven });
-  const whatsApp = createWhatsApp({ db, withBooks, billing, withSharedBooks: runner.withSharedBooks, syncOf, rateLimits, config: whatsapp, sender: whatsappSender, now, log, chat: (session, how) => whatsAppChat(session, how), consented: (userId) => consent.accepted(userId) });
+  const whatsApp = createWhatsApp({ db, withBooks: withProviderBooks, billing, withSharedBooks: runner.withSharedBooks, syncOf, rateLimits, config: whatsapp, sender: whatsappSender, now, log, chat: (session, how) => whatsAppChat(session, how), consented: (userId) => consent.accepted(userId) });
   const consent = createConsent({ db, now, notices: noticesFor(hostedCountries()) });
   const usConsents = createUsConsents({ db, now, environment });
   const privacyRequests = createPrivacyRequests({ db, now });
@@ -503,9 +510,13 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     return signedIn.ok && signedIn.user ? { ...signedIn, consent: await consent.status(signedIn.user.id) } : signedIn;
   }
 
+  const userBudget = createMemoryLimiter({ ...USER_REQUESTS, now });
+
   async function signedIn(req) {
     const who = await auth.authenticate(bearer(req));
-    if (!who.ok) throw httpError(401, 'UNAUTHENTICATED', { reason: who.error });
+    if (!who.ok) throw httpError(401, 'UNAUTHENTICATED', { reason: SAFE_AUTH_REASONS.has(who.error) ? who.error : 'INVALID_TOKEN' });
+    const taken = userBudget.take(who.userId);
+    if (!taken.ok) throw httpError(429, 'RATE_LIMITED', { retryAfterSeconds: taken.retryAfterSeconds, hint: 'Too many requests in a short time. Wait a little and try again.' });
     return who;
   }
 
@@ -678,7 +689,9 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     }
     if (parts[1] === 'jobs' && parts[2] === 'daily' && parts.length === 3 && method === 'POST') {
       if (!jobTokenMatches(jobToken, req.headers[JOB_HEADER])) throw httpError(404, 'NOT_FOUND');
-      return jobs.daily(requestId);
+      const daily = await jobs.daily(requestId);
+      if (daily.partial) throw httpError(503, 'DAILY_PARTIAL', { remaining: daily.remaining, ran: daily.ran, skipped: daily.skipped });
+      return daily;
     }
 
     const user = await signedIn(req);
@@ -844,7 +857,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (method === 'POST') {
         const body = await readJson(req);
         const demo = body.demo === true || reviewer(user);
-        const created = await businesses.create(user.userId, body, { demo });
+        const created = await businesses.create(user.userId, body, { demo, unlimited: reviewer(user) });
+        if (created.error === 'BUSINESS_LIMIT') throw httpError(403, 'BUSINESS_LIMIT', { max: created.max, hint: `You already own ${created.max} businesses, which is the most one account can have. Delete one you no longer use, or ask support if you need more.` });
         if (!created.ok || !demo) return created;
         const context = { userId: user.userId, deviceId: user.deviceId, requestId };
         const seeded = await withBooks(created.business.id, context, (session) => seedDemo(session, indiaDate(now()), { actor: { userId: user.userId, role: 'admin', name: user.name || user.userId } }));
@@ -1069,7 +1083,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (action === 'connector-sync') {
         const configured = await connectors.configured(businessId);
         if (!configured.length) return { ok: false, error: 'NO_CONNECTORS', hint: 'Connect a channel first.' };
-        return withBooks(businessId, context, async (session) => {
+        return withProviderBooks(businessId, context, async (session) => {
           const out = await syncChannels(session.state, { to: body.to }, { actor: actor.actor, connectors: configured });
           session.persist();
           return out;
@@ -1108,7 +1122,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return withBooks(businessId, context, (session) => session.propose(name, proposed, actor));
       }
       if (action === 'confirm') {
-        return withBooks(businessId, context, async (session) => {
+        const token = String(body.token || '').slice(0, 80);
+        const confirmIn = async (session) => {
           const unprotected = await secondStepMissing(user.userId, session.state.pendingChatAction?.name);
           if (unprotected) return unprotected;
           const unpaid = await unpaidFiling(businessId, session);
@@ -1117,7 +1132,20 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           // reach the IRS or the e-file partner, at the service's own provider setting.
           if (session.state.pendingChatAction?.name === US_FILE_TOOL) return asUsFiling(session, businessId, user.userId, () => session.confirm(body.token, actor));
           return asEngineProviderCall(session, user.userId, clientAddress(req), () => session.confirm(body.token, actor));
-        });
+        };
+        // An ordinary confirm takes the books lock exactly as it always did. If, once it has the
+        // books, it finds a provider tool waiting, it steps aside before calling out and does the
+        // same work where no lock or transaction is held while the government answers.
+        try {
+          return await withBooks(businessId, context, async (session) => {
+            const waiting = session.state.pendingChatAction?.name;
+            if (token && (ENGINE_PROVIDER_TOOLS.includes(waiting) || waiting === US_FILE_TOOL)) throw new ProviderPath();
+            return confirmIn(session);
+          });
+        } catch (err) {
+          if (!(err instanceof ProviderPath)) throw err;
+        }
+        return withProviderBooks(businessId, context, confirmIn, { key: `confirm:${token}`, replayMs: JOURNAL_KEEP_MS });
       }
       if (action === 'discard') return withBooks(businessId, context, (session) => session.discard(actor));
       if (action === 'query') {
@@ -1125,7 +1153,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           const plus = await billing.usPlusAllows(businessId);
           if (!plus.ok) return plus;
         }
-        if (ENGINE_SYNC_TOOLS.includes(body.name)) return withBooks(businessId, context, (session) => withProviderContext({ environment: serviceProviderEnvironment() }, () => session.query(body.name, body.args || {}, actor)));
+        if (ENGINE_SYNC_TOOLS.includes(body.name)) return withProviderBooks(businessId, context, (session) => withProviderContext({ environment: serviceProviderEnvironment() }, () => session.query(body.name, body.args || {}, actor)));
         const queried = await runner.withReadOnlyBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
         if (body.name === 'catalogue_view' && queried?.data?.link?.path) queried.data.link.url = `${publicOrigin(req)}${queried.data.link.path}`;
         return queried;
@@ -1135,7 +1163,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
         const asker = withChatLanguage(actor, body.lang);
         const canPost = await billing.allows(businessId, 'post');
-        return withBooks(businessId, context, (session) => chatInBooks(session, { businessId, userId: user.userId, actor, asker, message, address: clientAddress(req), canPost }));
+        return withProviderBooks(businessId, context, (session) => chatInBooks(session, { businessId, userId: user.userId, actor, asker, message, address: clientAddress(req), canPost }));
       }
       if (action === 'company') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
@@ -1181,7 +1209,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       return;
     }
     const payload = JSON.stringify(body, (_key, value) => (typeof value === 'bigint' ? Number(value) : value));
-    res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-request-id': requestId, ...retry });
+    res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'strict-transport-security': 'max-age=31536000; includeSubDomains', 'x-request-id': requestId, ...retry });
     res.end(payload);
   }
 
@@ -1192,7 +1220,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (res.headersSent) {
         res.destroy();
       } else {
-        res.writeHead(500, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+        res.writeHead(500, { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
         res.end('{"ok":false,"error":"INTERNAL_ERROR"}');
       }
     } finally {
