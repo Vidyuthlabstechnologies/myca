@@ -7,6 +7,8 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../growth.dart';
 import 'apple_auth.dart';
+import '../format.dart';
+import '../india/india_strings.dart';
 import 'token_store.dart';
 
 const _messages = {
@@ -112,14 +114,23 @@ const _messages = {
 
 String waitMessage(Object? retryAfterSeconds) {
   final seconds = retryAfterSeconds is num ? retryAfterSeconds.ceil() : 0;
-  if (seconds <= 0) return _messages['RATE_LIMITED']!;
+  if (seconds <= 0) return cloudMessage('RATE_LIMITED');
   final minutes = (seconds / 60).ceil();
-  final wait = seconds < 60 ? '$seconds seconds' : (minutes == 1 ? 'a minute' : '$minutes minutes');
-  return 'That was a lot of requests in a short time. Try again in $wait.';
+  final lang = formatLanguage;
+  final wait = seconds < 60
+      ? inFill(inDynamic(lang, '{n} seconds'), {'n': seconds})
+      : (minutes == 1 ? inDynamic(lang, 'a minute') : inFill(inDynamic(lang, '{n} minutes'), {'n': minutes}));
+  return inFill(inDynamic(lang, 'That was a lot of requests in a short time. Try again in {wait}.'), {'wait': wait});
 }
 
-String cloudMessage(String code, [String hint = '']) =>
-    _messages[code] ?? (hint.trim().isNotEmpty ? hint.trim() : 'Something went wrong ($code).');
+// The server's message for a code, in the app's language when it has one. A hint the server sent
+// is shown as it is.
+String cloudMessage(String code, [String hint = '']) {
+  final english = _messages[code];
+  if (english != null) return inDynamic(formatLanguage, english);
+  if (hint.trim().isNotEmpty) return hint.trim();
+  return inFill(inDynamic(formatLanguage, 'Something went wrong ({code}).'), {'code': code});
+}
 
 const _secondStepOver = 'This sign-in attempt is over. Tap Start over and sign in again.';
 
@@ -131,27 +142,28 @@ const _secondStepMessages = {
 
 const _changeLocked = 'Too many wrong codes. Wait 15 minutes, or sign in again with your authenticator code, then try again.';
 
-String _triesLeft(int left) => 'That code is not right. $left ${left == 1 ? 'try' : 'tries'} left.';
+String _triesLeft(int left) => left == 1 ? inDynamic(formatLanguage, 'That code is not right. 1 try left.') : inFill(inDynamic(formatLanguage, 'That code is not right. {n} tries left.'), {'n': left});
 
 bool _lastTry(String code, int? left) => left != null && left <= 0 && (code == 'INVALID_CODE' || code == 'CODE_USED');
 
 String secondStepMessage(String code, Object? attemptsRemaining) {
   final left = attemptsRemaining is num ? attemptsRemaining.toInt() : null;
-  if (_lastTry(code, left)) return _secondStepOver;
-  if (code == 'CODE_USED' && left == null) return _secondStepOver;
+  if (_lastTry(code, left)) return inDynamic(formatLanguage, _secondStepOver);
+  if (code == 'CODE_USED' && left == null) return inDynamic(formatLanguage, _secondStepOver);
   if (code == 'INVALID_CODE' && left != null) return _triesLeft(left);
-  return _secondStepMessages[code] ?? cloudMessage(code);
+  final line = _secondStepMessages[code];
+  return line != null ? inDynamic(formatLanguage, line) : cloudMessage(code);
 }
 
 String? _changeCodeMessage(String code, Object? attemptsRemaining) {
   final left = attemptsRemaining is num ? attemptsRemaining.toInt() : null;
-  if (code == 'TOO_MANY_ATTEMPTS' || _lastTry(code, left)) return _changeLocked;
+  if (code == 'TOO_MANY_ATTEMPTS' || _lastTry(code, left)) return inDynamic(formatLanguage, _changeLocked);
   if (code == 'INVALID_CODE' && left != null) return _triesLeft(left);
-  return code == 'CODE_USED' ? _secondStepMessages[code] : null;
+  return code == 'CODE_USED' ? inDynamic(formatLanguage, _secondStepMessages[code]!) : null;
 }
 
 String? _restoreMessage(String code, Object? attemptsRemaining) =>
-    code == 'BODY_TOO_LARGE' ? 'That file is too large to restore from the app. Your books were not changed.' : null;
+    code == 'BODY_TOO_LARGE' ? inDynamic(formatLanguage, 'That file is too large to restore from the app. Your books were not changed.') : null;
 
 String? _setupCodeMessage(String code, Object? attemptsRemaining) {
   final left = attemptsRemaining is num ? attemptsRemaining.toInt() : null;
@@ -168,8 +180,8 @@ class SecondStepResult {
     if (!usedRecoveryCode) return '';
     final left = recoveryCodesLeft;
     return left == null
-        ? 'You used a recovery code. Make new ones in Security.'
-        : 'You used a recovery code. $left left. Make new ones in Security.';
+        ? inDynamic(formatLanguage, 'You used a recovery code. Make new ones in Security.')
+        : inFill(inDynamic(formatLanguage, 'You used a recovery code. {n} left. Make new ones in Security.'), {'n': left});
   }
 }
 

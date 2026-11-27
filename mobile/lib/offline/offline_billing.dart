@@ -1,3 +1,4 @@
+import 'offline_words.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -254,41 +255,41 @@ class OfflineBilling extends ChangeNotifier {
   OfflineDraft draftSale(Map<String, Object?> args) {
     final current = kit;
     final code = series?.code ?? '';
-    if (current == null || code.isEmpty) return const OfflineDraft(problem: 'This phone is not set up to bill offline yet. Open MyCA once with a connection and it sets itself up.');
+    if (current == null || code.isEmpty) return OfflineDraft(problem: off('This phone is not set up to bill offline yet. Open MyCA once with a connection and it sets itself up.'));
     for (final key in const ['exportSale', 'supplyType']) {
-      if (args[key] != null) return const OfflineDraft(problem: 'Exports and SEZ supplies need a connection. Make this invoice when you are back online.');
+      if (args[key] != null) return OfflineDraft(problem: off('Exports and SEZ supplies need a connection. Make this invoice when you are back online.'));
     }
     final date = offlineText(args['date']).isEmpty ? _isoDay(now()) : offlineText(args['date']);
-    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(date)) return const OfflineDraft(problem: 'The bill date could not be read.');
-    if (current.lockThrough.isNotEmpty && date.compareTo(current.lockThrough) <= 0) return OfflineDraft(problem: 'Your books are locked up to ${current.lockThrough}, so a bill dated $date cannot be made.');
+    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(date)) return OfflineDraft(problem: off('The bill date could not be read.'));
+    if (current.lockThrough.isNotEmpty && date.compareTo(current.lockThrough) <= 0) return OfflineDraft(problem: off('Your books are locked up to {lock}, so a bill dated {date} cannot be made.', {'lock': current.lockThrough, 'date': date}));
     final rawLines = offlineMaps(args['lines']);
-    if (rawLines.isEmpty) return const OfflineDraft(problem: 'Add at least one item to the bill.');
+    if (rawLines.isEmpty) return OfflineDraft(problem: off('Add at least one item to the bill.'));
     for (final (index, line) in rawLines.indexed) {
-      if (line['cess'] != null || line['cessRate'] != null || line['cessPerUnit'] != null || offlineText(line['supply']).isNotEmpty) return const OfflineDraft(problem: 'Cess and nil-rated, exempt or non-GST lines need a connection. Make this bill when you are back online.');
-      if (line['gstRate'] == null || offlineText(line['gstRate']).isEmpty) return OfflineDraft(problem: 'Line ${index + 1} needs a GST rate.');
+      if (line['cess'] != null || line['cessRate'] != null || line['cessPerUnit'] != null || offlineText(line['supply']).isNotEmpty) return OfflineDraft(problem: off('Cess and nil-rated, exempt or non-GST lines need a connection. Make this bill when you are back online.'));
+      if (line['gstRate'] == null || offlineText(line['gstRate']).isEmpty) return OfflineDraft(problem: off('Line {n} needs a GST rate.', {'n': index + 1}));
     }
     final lines = rawLines.map(OfflineLine.fromJson).toList();
     for (final (index, line) in lines.indexed) {
-      if (!line.qty.isFinite || line.qty <= 0 || !line.rate.isFinite || line.rate < 0 || !line.gstRate.isFinite || line.gstRate < 0) return OfflineDraft(problem: 'Line ${index + 1} has a quantity, price or GST rate that cannot be used.');
+      if (!line.qty.isFinite || line.qty <= 0 || !line.rate.isFinite || line.rate < 0 || !line.gstRate.isFinite || line.gstRate < 0) return OfflineDraft(problem: off('Line {n} has a quantity, price or GST rate that cannot be used.', {'n': index + 1}));
     }
     if (current.composition) {
       final taxed = lines.indexWhere((line) => line.gstRate != 0);
-      if (taxed >= 0) return OfflineDraft(problem: 'A composition dealer issues a bill of supply and cannot collect GST (section 10(4)). Give line ${taxed + 1} a GST rate of 0.');
+      if (taxed >= 0) return OfflineDraft(problem: off('A composition dealer issues a bill of supply and cannot collect GST (section 10(4)). Give line {n} a GST rate of 0.', {'n': taxed + 1}));
     }
     final partyGstin = normalGstin(offlineText(args['partyGstin']));
     final gstinIssue = gstinProblem(partyGstin);
     if (gstinIssue != null) return OfflineDraft(problem: gstinIssue);
-    if (partyGstin.isNotEmpty && current.einvoiceB2b) return const OfflineDraft(problem: 'Your business must generate an e-invoice (IRN) before a B2B invoice is issued, and that needs a connection. Make this invoice when you are back online, or bill without the buyer\'s GSTIN if it is a sale to a consumer.');
+    if (partyGstin.isNotEmpty && current.einvoiceB2b) return OfflineDraft(problem: off('Your business must generate an e-invoice (IRN) before a B2B invoice is issued, and that needs a connection. Make this invoice when you are back online, or bill without the buyer\'s GSTIN if it is a sale to a consumer.'));
     final partyName = offlineText(args['partyName']).isEmpty ? 'Walk-in' : offlineText(args['partyName']);
     final supplierState = current.state.isNotEmpty ? current.state : gstinState(current.gstin);
     final pos = _stateCode(args['partyState']).isNotEmpty ? _stateCode(args['partyState']) : partyGstin.isNotEmpty ? gstinState(partyGstin) : supplierState;
     final figures = billFigures([for (final line in lines) BillLineInput(qty: line.qty, rate: line.rate, gstRate: line.gstRate)], supplierState: supplierState, placeOfSupply: pos);
-    if (figures.taxable <= 0) return const OfflineDraft(problem: 'The bill comes to zero. Add a price.');
+    if (figures.taxable <= 0) return OfflineDraft(problem: off('The bill comes to zero. Add a price.'));
     final taxablePaise = lines.fold<int>(0, (sum, line) => sum + (line.qty * line.rate * 100).round());
     if (partyGstin.isEmpty && current.gstin.isNotEmpty && !current.composition && taxablePaise >= current.buyerDetailsPaise) {
       final address = offlineText(args['partyAddress']).isNotEmpty ? offlineText(args['partyAddress']) : current.parties.where((party) => party.name == partyName && party.gstin.isEmpty).map((party) => party.address).firstWhere((text) => text.isNotEmpty, orElse: () => '');
       final rupees = current.buyerDetailsPaise ~/ 100;
-      if (unnamedBuyers.contains(partyName.toLowerCase()) || address.isEmpty) return OfflineDraft(problem: 'A tax invoice to an unregistered buyer with a taxable value of ₹$rupees or more must carry the buyer\'s name and address with the state (rule 46(e)). Add them before you give out this bill.');
+      if (unnamedBuyers.contains(partyName.toLowerCase()) || address.isEmpty) return OfflineDraft(problem: off('A tax invoice to an unregistered buyer with a taxable value of ₹{amount} or more must carry the buyer\'s name and address with the state (rule 46(e)). Add them before you give out this bill.', {'amount': rupees}));
     }
     return OfflineDraft(figures: figures, partyName: partyName, partyGstin: partyGstin, placeOfSupply: pos, lines: lines, nextId: offlineInvoiceId(series!.code, date, _nextNumber(date)), date: date);
   }
@@ -340,16 +341,16 @@ class OfflineBilling extends ChangeNotifier {
     final date = offlineText(args['date']).isEmpty ? _isoDay(now()) : offlineText(args['date']);
     final local = billById(invoiceId);
     final known = (kit?.openInvoices ?? const <KitInvoice>[]).where((inv) => inv.id == invoiceId).firstOrNull;
-    if (local == null && known == null) return 'This phone has no record of $invoiceId with money due. Take this payment when you are back online.';
+    if (local == null && known == null) return off('This phone has no record of {invoice} with money due. Take this payment when you are back online.', {'invoice': invoiceId});
     final invoiceDate = local?.date ?? known!.date;
-    if (date.compareTo(invoiceDate) < 0) return 'A receipt cannot be dated before the invoice ($invoiceDate).';
+    if (date.compareTo(invoiceDate) < 0) return off('A receipt cannot be dated before the invoice ({date}).', {'date': invoiceDate});
     final lock = kit?.lockThrough ?? '';
-    if (lock.isNotEmpty && date.compareTo(lock) <= 0) return 'Your books are locked up to $lock.';
+    if (lock.isNotEmpty && date.compareTo(lock) <= 0) return off('Your books are locked up to {lock}.', {'lock': lock});
     final paidAtBill = local?.payment == null ? 0 : offlineNum(local!.payment!['amount']);
     final due = (local != null ? local.total - paidAtBill : known!.due) - _localPaid(invoiceId);
     final value = amount == null ? due : (amount is num ? amount : num.tryParse('$amount'));
-    if (value == null || value <= 0) return 'Enter the amount received.';
-    if (value > due + 0.005) return 'Only ₹${due.toStringAsFixed(2)} is due on $invoiceId.';
+    if (value == null || value <= 0) return off('Enter the amount received.');
+    if (value > due + 0.005) return off('Only ₹{amount} is due on {invoice}.', {'amount': due.toStringAsFixed(2), 'invoice': invoiceId});
     return null;
   }
 
@@ -414,7 +415,7 @@ class OfflineBilling extends ChangeNotifier {
 
   Future<String?> voidBill(String ref, String reason) => _exclusive(() async {
     final bill = bills.where((b) => b.ref == ref).firstOrNull;
-    if (bill == null) return 'That bill is not on this phone.';
+    if (bill == null) return off('That bill is not on this phone.');
     if (bill.status == EntryStatus.synced) return '${bill.id} is in your books now. Cancel it from the invoice, which issues a credit note.';
     final updated = Map<String, dynamic>.from(bill.data)
       ..['voided'] = {'reason': reason.trim().isEmpty ? 'Cancelled at the counter' : reason.trim(), 'at': now().toUtc().toIso8601String()}
@@ -462,7 +463,7 @@ class OfflineBilling extends ChangeNotifier {
 
   Future<String?> fixGstin(String ref, String gstin) => _exclusive(() async {
     final bill = bills.where((b) => b.ref == ref).firstOrNull;
-    if (bill == null) return 'That bill is not on this phone.';
+    if (bill == null) return off('That bill is not on this phone.');
     final clean = normalGstin(gstin);
     final problem = gstinProblem(clean);
     if (problem != null) return problem;
@@ -588,8 +589,8 @@ class OfflineBilling extends ChangeNotifier {
   }
 
   Future<SyncOutcome> _sync(MycaApi api) async {
-    if (_business.isEmpty) return const SyncOutcome(message: 'Offline billing is not set up yet.');
-    if (!ready) return const SyncOutcome(message: 'Offline billing is not set up yet.');
+    if (_business.isEmpty) return SyncOutcome(message: off('Offline billing is not set up yet.'));
+    if (!ready) return SyncOutcome(message: off('Offline billing is not set up yet.'));
     _syncing = true;
     notifyListeners();
     var sent = 0, synced = 0, needsYou = 0, empty = 0;
@@ -605,7 +606,7 @@ class OfflineBilling extends ChangeNotifier {
         final reply = await api.propose(offlineSaleTool, args);
         final preview = reply.preview;
         if (preview == null) {
-          lastSyncMessage = reply.reply.isEmpty ? 'MyCA did not take the offline bills.' : reply.reply;
+          lastSyncMessage = reply.reply.isEmpty ? off('MyCA did not take the offline bills.') : reply.reply;
           break;
         }
         final confirmed = await api.confirm(preview.token);
@@ -615,7 +616,7 @@ class OfflineBilling extends ChangeNotifier {
           continue;
         }
         if (results.isEmpty) {
-          lastSyncMessage = confirmed.reply.isEmpty ? 'MyCA did not say what happened to the offline bills. They stay on this phone and are sent again.' : confirmed.reply;
+          lastSyncMessage = confirmed.reply.isEmpty ? off('MyCA did not say what happened to the offline bills. They stay on this phone and are sent again.') : confirmed.reply;
           break;
         }
         sent += batch.length;
@@ -642,7 +643,7 @@ class OfflineBilling extends ChangeNotifier {
     } on MycaApiException catch (err) {
       if (isUnreachable(err)) {
         markOnline(false);
-        lastSyncMessage = 'Waiting for a connection. ${waitingCount == 1 ? '1 entry is' : '$waitingCount entries are'} saved on this phone.';
+        lastSyncMessage = waitingCount == 1 ? off('Waiting for a connection. 1 entry is saved on this phone.') : off('Waiting for a connection. {n} entries are saved on this phone.', {'n': waitingCount});
         return SyncOutcome(sent: sent, synced: synced, needsYou: needsYou, reachedServer: false, message: lastSyncMessage);
       }
       lastSyncMessage = err.message;
@@ -654,7 +655,7 @@ class OfflineBilling extends ChangeNotifier {
   }
 
   String _summary(int synced, int needsYou) {
-    if (synced == 0 && needsYou == 0) return 'Everything on this phone is in your books.';
+    if (synced == 0 && needsYou == 0) return off('Everything on this phone is in your books.');
     final parts = <String>[if (synced > 0) '${synced == 1 ? '1 entry' : '$synced entries'} reached your books', if (needsYou > 0) '${needsYou == 1 ? '1 needs' : '$needsYou need'} you'];
     return '${parts.join('; ')}.';
   }

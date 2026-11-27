@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../offline/offline_words.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
@@ -13,29 +14,29 @@ import '../widgets/glass.dart';
 
 String offlineProblemWords(String error, String hint) {
   final said = switch (error) {
-    'FIGURES_DIFFER' => 'MyCA worked out different GST figures from the ones printed on this bill.',
-    'NUMBER_TAKEN' => 'Another bill in your books already has this number.',
-    'OVERPAYMENT' => 'This is more than is due on the invoice.',
-    'PERIOD_LOCKED' => 'Your books are locked for this date.',
-    'INVALID_GSTIN' => 'MyCA did not accept the customer\'s GSTIN.',
-    'WRONG_SERIES' => 'This number is not from this phone\'s series.',
-    'NOT_OFFLINE' => 'This kind of bill needs a connection.',
-    'INVOICE_NOT_FOUND' => 'The invoice is not in your books.',
-    _ => error.isEmpty ? 'MyCA did not take this entry.' : 'MyCA did not take this entry ($error).',
+    'FIGURES_DIFFER' => off('MyCA worked out different GST figures from the ones printed on this bill.'),
+    'NUMBER_TAKEN' => off('Another bill in your books already has this number.'),
+    'OVERPAYMENT' => off('This is more than is due on the invoice.'),
+    'PERIOD_LOCKED' => off('Your books are locked for this date.'),
+    'INVALID_GSTIN' => off('MyCA did not accept the customer\'s GSTIN.'),
+    'WRONG_SERIES' => off('This number is not from this phone\'s series.'),
+    'NOT_OFFLINE' => off('This kind of bill needs a connection.'),
+    'INVOICE_NOT_FOUND' => off('The invoice is not in your books.'),
+    _ => error.isEmpty ? off('MyCA did not take this entry.') : off('MyCA did not take this entry ({error}).', {'error': error}),
   };
   return hint.isEmpty ? said : '$said $hint';
 }
 
 String _statusWords(EntryStatus status) => switch (status) {
-  EntryStatus.waiting => 'Waiting to sync',
-  EntryStatus.synced => 'In your books',
-  EntryStatus.conflict => 'Needs you',
-  EntryStatus.rejected => 'Not taken',
+  EntryStatus.waiting => off('Waiting to sync'),
+  EntryStatus.synced => off('In your books'),
+  EntryStatus.conflict => off('Needs you'),
+  EntryStatus.rejected => off('Not taken'),
 };
 
 String _time(String iso) {
   final at = DateTime.tryParse(iso)?.toLocal();
-  if (at == null) return 'never';
+  if (at == null) return off('never');
   final hour = at.hour % 12 == 0 ? 12 : at.hour % 12;
   return '${dayMonthYear(isoDate(at))}, $hour:${at.minute.toString().padLeft(2, '0')} ${at.hour < 12 ? 'AM' : 'PM'}';
 }
@@ -110,14 +111,14 @@ class _OfflineBillsScreenState extends State<OfflineBillsScreen> {
         child: ListView(
           shrinkWrap: true,
           children: [
-            ListTile(title: Text('${bill.id} · ${rupees(bill.total)}'), subtitle: Text('${bill.partyName} · ${_statusWords(bill.status)}${bill.voided != null ? ' · cancelled' : ''}')),
+            ListTile(title: Text('${bill.id} · ${rupees(bill.total)}'), subtitle: Text('${bill.partyName} · ${_statusWords(bill.status)}${bill.voided != null ? ' · ${off('cancelled')}' : ''}')),
             if (bill.status == EntryStatus.conflict || bill.status == EntryStatus.rejected) Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text(offlineProblemWords(bill.error, bill.hint))),
             if (bill.error == 'FIGURES_DIFFER' && bill.engine.isNotEmpty)
               ListTile(
                 key: const Key('offline-accept-engine'),
                 leading: const Icon(Icons.rule),
-                title: Text('Use MyCA\'s figures: ${rupees(offlineNum(bill.engine['total']))}'),
-                subtitle: Text('Printed ${rupees(bill.total)}. Give the customer the reprinted bill.'),
+                title: Text(off('Use MyCA\'s figures: {total}', {'total': rupees(offlineNum(bill.engine['total']))})),
+                subtitle: Text(off('Printed {total}. Give the customer the reprinted bill.', {'total': rupees(bill.total)})),
                 onTap: () => Navigator.of(sheet).pop('accept'),
               ),
             if (bill.error == 'NUMBER_TAKEN') ListTile(key: const Key('offline-renumber'), leading: const Icon(Icons.pin_outlined), title: Text(inText(context, 'Give it the next number on this phone')), subtitle: Text(inText(context, 'Then reprint it for the customer.')), onTap: () => Navigator.of(sheet).pop('renumber')),
@@ -164,9 +165,9 @@ class _OfflineBillsScreenState extends State<OfflineBillsScreen> {
         child: ListView(
           shrinkWrap: true,
           children: [
-            ListTile(title: Text('${rupees(receipt.amount)} against ${receipt.invoiceId}'), subtitle: Text('${receipt.partyName} · ${_statusWords(receipt.status)}')),
+            ListTile(title: Text(off('{amount} against {invoice}', {'amount': rupees(receipt.amount), 'invoice': receipt.invoiceId})), subtitle: Text('${receipt.partyName} · ${_statusWords(receipt.status)}')),
             if (receipt.status != EntryStatus.waiting && receipt.status != EntryStatus.synced) Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text(offlineProblemWords(receipt.error, receipt.hint))),
-            if (receipt.error == 'OVERPAYMENT' && receipt.due != null && receipt.due! > 0) ListTile(key: const Key('offline-receipt-due'), leading: const Icon(Icons.edit_outlined), title: Text('Record ${rupees(receipt.due!)}, the amount due'), onTap: () => Navigator.of(sheet).pop('due')),
+            if (receipt.error == 'OVERPAYMENT' && receipt.due != null && receipt.due! > 0) ListTile(key: const Key('offline-receipt-due'), leading: const Icon(Icons.edit_outlined), title: Text(off('Record {amount}, the amount due', {'amount': rupees(receipt.due!)})), onTap: () => Navigator.of(sheet).pop('due')),
             if (receipt.status == EntryStatus.rejected) ListTile(leading: const Icon(Icons.refresh), title: Text(inText(context, 'Try again')), onTap: () => Navigator.of(sheet).pop('retry')),
             if (receipt.status != EntryStatus.synced) ListTile(key: const Key('offline-receipt-drop'), leading: const Icon(Icons.delete_outline), title: Text(inText(context, 'Remove this receipt')), subtitle: Text(inText(context, 'Only if the money was not received.')), onTap: () => Navigator.of(sheet).pop('drop')),
           ],
@@ -199,7 +200,7 @@ class _OfflineBillsScreenState extends State<OfflineBillsScreen> {
           shrinkWrap: true,
           children: [
             ListTile(title: Text(inText(context, 'Which bill is being paid?'))),
-            for (final option in options) ListTile(title: Text('${option.$1} · ${option.$2}'), subtitle: Text('Due ${rupees(option.$3)}'), onTap: () => Navigator.of(sheet).pop(option)),
+            for (final option in options) ListTile(title: Text('${option.$1} · ${option.$2}'), subtitle: Text(off('Due {amount}', {'amount': rupees(option.$3)})), onTap: () => Navigator.of(sheet).pop(option)),
           ],
         ),
       ),
@@ -262,9 +263,9 @@ class _OfflineBillsScreenState extends State<OfflineBillsScreen> {
                         style: text.titleMedium,
                       ),
                       const SizedBox(height: 4),
-                      if (series != null) Text('This phone numbers its offline bills INV-${series.code}${fyCodeOf(isoDate(AppScope.of(context).now()))}-0001 onwards.', style: text.bodyMedium),
+                      if (series != null) Text(off('This phone numbers its offline bills INV-{code}{fy}-0001 onwards.', {'code': series.code, 'fy': fyCodeOf(isoDate(AppScope.of(context).now()))}), style: text.bodyMedium),
                       if (!books.ready) Text(inText(context, 'Not set up yet: open MyCA once with a connection and this phone sets itself up for offline billing.'), style: text.bodyMedium),
-                      Text('Items and customers saved ${_time(books.kitAt)}. Last sync ${_time(books.lastSyncAt)}.', style: text.bodySmall),
+                      Text(off('Items and customers saved {saved}. Last sync {synced}.', {'saved': _time(books.kitAt), 'synced': _time(books.lastSyncAt)}), style: text.bodySmall),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,

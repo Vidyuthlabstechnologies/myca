@@ -1,3 +1,4 @@
+import 'offline_words.dart';
 import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../format.dart';
@@ -128,7 +129,7 @@ class OfflineFirstApi implements MycaApi {
     final token = '$offlineTokenPrefix${now().microsecondsSinceEpoch}-${_tokens++}';
     if (name == 'create_invoice') {
       final points = args['redeemPoints'];
-      if (points is num && points > 0) return _blocked('Loyalty points need a connection. Bill without using points, or wait until you are back online.');
+      if (points is num && points > 0) return _blocked(off('Loyalty points need a connection. Bill without using points, or wait until you are back online.'));
       final draft = offline.draftSale(args);
       if (!draft.ok) return _blocked(draft.problem);
       final figures = draft.figures!;
@@ -140,8 +141,8 @@ class OfflineFirstApi implements MycaApi {
         reply: '',
         preview: ChatPreview(
           token: token,
-          summary: 'Bill ${draft.nextId} to ${draft.partyName}: ${rupees(figures.taxable)} + $taxWords = ${rupees(figures.total)}.',
-          effects: const ['No connection, so this bill is saved on this phone with its own number and reaches your books when you are back online.'],
+          summary: off('Bill {id} to {party}: {taxable} + {tax} = {total}.', {'id': draft.nextId, 'party': draft.partyName, 'taxable': rupees(figures.taxable), 'tax': taxWords, 'total': rupees(figures.total)}),
+          effects: [off('No connection, so this bill is saved on this phone with its own number and reaches your books when you are back online.')],
           figures: {...figures.totals(), 'offline': true, 'id': draft.nextId},
         ),
         posted: false,
@@ -159,8 +160,8 @@ class OfflineFirstApi implements MycaApi {
         reply: '',
         preview: ChatPreview(
           token: token,
-          summary: 'Received ${amount is num ? rupees(amount) : 'the amount due'} against ${args['invoiceId']} by ${args['mode'] ?? 'cash'}.',
-          effects: const ['No connection, so this receipt is saved on this phone and reaches your books when you are back online.'],
+          summary: off('Received {amount} against {invoice} by {mode}.', {'amount': amount is num ? rupees(amount) : off('the amount due'), 'invoice': args['invoiceId'], 'mode': offMode('${args['mode'] ?? 'cash'}')}),
+          effects: [off('No connection, so this receipt is saved on this phone and reaches your books when you are back online.')],
           figures: const {'offline': true},
         ),
         posted: false,
@@ -168,14 +169,14 @@ class OfflineFirstApi implements MycaApi {
       );
     }
     final price = args['price'], rate = args['gstRate'];
-    if (price is! num || rate is! num) return _blocked('Give the item a selling price and a GST rate to save it without a connection.');
-    if (rate < 0 || rate > 28) return _blocked('Enter a GST rate from 0 to 28 for the item.');
+    if (price is! num || rate is! num) return _blocked(off('Give the item a selling price and a GST rate to save it without a connection.'));
+    if (rate < 0 || rate > 28) return _blocked(off('Enter a GST rate from 0 to 28 for the item.'));
     _pending
       ..clear()
       ..[token] = _LocalPending(name, args);
     return ChatReply(
       reply: '',
-      preview: ChatPreview(token: token, summary: 'Save ${args['name'] ?? args['sku']} at ${rupees(price)} + GST $rate%.', effects: const ['Saved on this phone until you are back online.'], figures: const {'offline': true}),
+      preview: ChatPreview(token: token, summary: off('Save {item} at {price} + GST {rate}%.', {'item': args['name'] ?? args['sku'], 'price': rupees(price), 'rate': rate}), effects: [off('Saved on this phone until you are back online.')], figures: const {'offline': true}),
       posted: false,
       blocked: false,
     );
@@ -185,12 +186,12 @@ class OfflineFirstApi implements MycaApi {
   Future<ChatReply> confirm(String token) async {
     if (!token.startsWith(offlineTokenPrefix)) return _online(() => inner.confirm(token));
     final held = _pending.remove(token);
-    if (held == null) return _blocked('That preview has gone. Make the bill again.');
+    if (held == null) return _blocked(off('That preview has gone. Make the bill again.'));
     try {
       if (held.name == 'create_invoice') {
         final bill = await offline.saveSale(held.args);
         return ChatReply(
-          reply: 'Saved ${bill.id} on this phone: ${rupees(bill.total)}. It reaches your books when you are back online.',
+          reply: off('Saved {id} on this phone: {total}. It reaches your books when you are back online.', {'id': bill.id, 'total': rupees(bill.total)}),
           preview: null,
           posted: true,
           blocked: false,
@@ -218,7 +219,7 @@ class OfflineFirstApi implements MycaApi {
   Future<ChatReply> discard() async {
     if (_pending.isNotEmpty) {
       _pending.clear();
-      return const ChatReply(reply: 'Discarded. Nothing was saved.', preview: null, posted: false, blocked: false);
+      return ChatReply(reply: off('Discarded. Nothing was saved.'), preview: null, posted: false, blocked: false);
     }
     return _online(inner.discard);
   }

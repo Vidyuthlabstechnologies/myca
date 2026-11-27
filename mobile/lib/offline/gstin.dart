@@ -1,3 +1,4 @@
+import 'offline_words.dart';
 const _alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 const gstStateNames = <String, String>{
@@ -16,19 +17,19 @@ String normalGstin(String value) => value.replaceAll(RegExp(r'\s'), '').toUpperC
 String? gstinProblem(String value) {
   final gstin = normalGstin(value);
   if (gstin.isEmpty) return null;
-  if (gstin.length != 15) return 'A GSTIN has 15 characters; this one has ${gstin.length}.';
-  if (!gstStateNames.containsKey(gstin.substring(0, 2))) return 'The GSTIN starts with ${gstin.substring(0, 2)}, which is not a GST state code.';
-  if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$').hasMatch(gstin.substring(2, 12))) return 'Characters 3 to 12 of a GSTIN are the PAN, and these are not a PAN.';
-  if (!RegExp(r'^[0-9A-Z]$').hasMatch(gstin[12]) || !RegExp(r'^[0-9A-Z]$').hasMatch(gstin[13])) return 'This GSTIN has a character that cannot be there.';
+  if (gstin.length != 15) return off('A GSTIN has 15 characters; this one has {n}.', {'n': gstin.length});
+  if (!gstStateNames.containsKey(gstin.substring(0, 2))) return off('The GSTIN starts with {code}, which is not a GST state code.', {'code': gstin.substring(0, 2)});
+  if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$').hasMatch(gstin.substring(2, 12))) return off('Characters 3 to 12 of a GSTIN are the PAN, and these are not a PAN.');
+  if (!RegExp(r'^[0-9A-Z]$').hasMatch(gstin[12]) || !RegExp(r'^[0-9A-Z]$').hasMatch(gstin[13])) return off('This GSTIN has a character that cannot be there.');
   var sum = 0;
   for (var i = 0; i < 14; i++) {
     final at = _alphabet.indexOf(gstin[i]);
-    if (at < 0) return 'This GSTIN has a character that cannot be there.';
+    if (at < 0) return off('This GSTIN has a character that cannot be there.');
     final product = (i.isEven ? 1 : 2) * at;
     sum += product ~/ 36 + product % 36;
   }
   final expected = _alphabet[(36 - sum % 36) % 36];
-  if (gstin[14] != expected) return 'The last character of this GSTIN does not match the rest. Check it with the customer.';
+  if (gstin[14] != expected) return off('The last character of this GSTIN does not match the rest. Check it with the customer.');
   return null;
 }
 

@@ -97,6 +97,10 @@ bool indiaHindi(BuildContext context) => indiaLang(context) == 'hi';
 
 String inLine(String lang, String english) => lang == 'en' ? english : (indiaLanguage(lang).table[english] ?? english);
 
+// For lines chosen at run time (a server message looked up by its code). Their English text is
+// listed where it is written, and the language test requires each to have a Hindi and Marathi line.
+String inDynamic(String lang, String english) => inLine(lang, english);
+
 String inText(BuildContext context, String english) => inLine(indiaLang(context), english);
 
 String inFormat(BuildContext context, String template, Map<String, Object?> parts) => inFill(inLine(indiaLang(context), template), parts);
