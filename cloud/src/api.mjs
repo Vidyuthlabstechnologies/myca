@@ -29,6 +29,7 @@ import { createPrivacyRequests } from './privacy-requests.mjs';
 import { createUsConsents, PARTNER_TINS, renderConsent, US_PREPARER_NAME } from './us-7216.mjs';
 import { GB_SECOND_STEP_TOOLS, SECOND_STEP_FOR_FILING, SECOND_STEP_FOR_HMRC, US_SECOND_STEP_TOOLS, usSecondStepRequired } from './us-safeguards.mjs';
 import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
+import { createRules } from './rules.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
 import { createOidcVerifier } from './oidc.mjs';
 import { createAppleKeys, createAppleVerifier } from './apple.mjs';
@@ -346,7 +347,7 @@ export function clientAddress(req, hops = trustedProxyHops()) {
   return String(parts[parts.length - hops] || '').slice(0, 64);
 }
 
-export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, appleClientIds = [], appleKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', environment = 'local', healthTimeoutMs = 2000, playPush = {}, testSignIn = null, otpGlobalPerHour = OTP_MAX_GLOBAL_PER_HOUR, rateLimits: limitsGiven = LIMITS, adminUserIds = [], jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0, gspFetch = null, smokeFetch = null, growth: growthConfig = {} }) {
+export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, appleClientIds = [], appleKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', environment = 'local', healthTimeoutMs = 2000, playPush = {}, testSignIn = null, otpGlobalPerHour = OTP_MAX_GLOBAL_PER_HOUR, rateLimits: limitsGiven = LIMITS, adminUserIds = [], jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0, gspFetch = null, smokeFetch = null, growth: growthConfig = {}, rules: rulesGiven = null }) {
   process.env.MYCA_HOSTED = '1';
   assertSecret(secret);
   const budget = createBodyBudget(Number.isSafeInteger(bodyBudgetBytes) && bodyBudgetBytes > 0 ? bodyBudgetBytes : defaultBodyBudgetBytes({ constrainedMemory: process.constrainedMemory(), ceiling: MAX_BUSINESS_BYTES }));
@@ -463,6 +464,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const usConsents = createUsConsents({ db, now, environment });
   const privacyRequests = createPrivacyRequests({ db, now });
   const recordAccess = createAccessLog(db);
+  const rules = rulesGiven || createRules({ db, now, log });
   const isAdmin = (userId) => {
     const listed = typeof adminUserIds === 'function' ? adminUserIds() : adminUserIds;
     return Array.isArray(listed) && listed.some((id) => isUuid(id) && id.toLowerCase() === String(userId).toLowerCase());
@@ -723,6 +725,17 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         await throttle('privacyRequest', user.userId);
         return privacyRequests.create(user.userId, await readJson(req));
       }
+      throw httpError(404, 'NOT_FOUND');
+    }
+
+    if (parts[1] === 'admin' && parts[2] === 'rules') {
+      if (!isAdmin(user.userId)) throw httpError(404, 'NOT_FOUND');
+      if (parts.length === 3 && method === 'GET') {
+        log({ requestId, admin: 'rules-list', userId: user.userId });
+        return rules.list();
+      }
+      if (parts.length === 3 && method === 'POST') return rules.add(user.userId, await readJson(req));
+      if (parts.length === 4 && method === 'DELETE') return rules.revoke(user.userId, parts[3], await readJson(req));
       throw httpError(404, 'NOT_FOUND');
     }
 

@@ -46,13 +46,24 @@ export function ruleOverlay() {
   return live.map((record) => structuredClone(record));
 }
 
-export function setRuleOverlay(records) {
+function assess(records) {
   const shape = validateRules(records);
   if (!shape.ok) return { ok: false, problems: shape.problems };
   const candidate = createRuleBook(assemble(records));
   if (!candidate.integrity.ok) return { ok: false, problems: candidate.integrity.problems };
+  return { ok: true, candidate };
+}
+
+export function checkRuleOverlay(records) {
+  const out = assess(records);
+  return out.ok ? { ok: true } : out;
+}
+
+export function setRuleOverlay(records) {
+  const out = assess(records);
+  if (!out.ok) return out;
   live = records.map((record) => structuredClone(record));
-  REGISTRY = candidate;
+  REGISTRY = out.candidate;
   RULES = REGISTRY.records;
   return { ok: true, records: live.length };
 }
