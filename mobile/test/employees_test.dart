@@ -52,6 +52,7 @@ void main() {
         ],
         'pfMember': false,
         'esiMember': false,
+        'taxRegime': 'new',
       });
       expect(api.employees.length, 1, reason: 'nothing before posting');
       await tester.tap(find.text('Post it'));
@@ -64,6 +65,62 @@ void main() {
       );
     },
   );
+
+  testWidgets('the form asks for UAN, ESI number, sex and tax regime, and sends them', (tester) async {
+    final api = FakeMycaApi(signedIn: true);
+    await openEmployees(tester, api);
+    await tester.tap(find.text('Add employee'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Anita Rao');
+    await tester.enterText(find.widgetWithText(TextField, 'Basic'), '18000');
+    expect(find.byKey(const Key('employee-esi-number')), findsNothing, reason: 'only when in ESI');
+    await tester.enterText(find.byKey(const Key('employee-uan')), '1012 3456 7890');
+    await tester.ensureVisible(find.byKey(const Key('employee-sex-female')));
+    await tester.tap(find.byKey(const Key('employee-sex-female')));
+    await tester.tap(find.byKey(const Key('employee-regime-old')));
+    await tester.tap(find.text('In provident fund'));
+    await tester.tap(find.text('In state insurance (ESI)'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('employee-esi-number')));
+    await tester.enterText(find.byKey(const Key('employee-esi-number')), '3112345678');
+    await tester.ensureVisible(find.text('Preview'));
+    await tester.tap(find.text('Preview'));
+    await tester.pumpAndSettle();
+    final args = api.proposals.last.args;
+    expect(args['uan'], '101234567890');
+    expect(args['esiNumber'], '3112345678');
+    expect(args['sex'], 'female');
+    expect(args['taxRegime'], 'old');
+    expect(args['pfMember'], true);
+    expect(args['esiMember'], true);
+    expect(args.containsKey('ptState'), isFalse, reason: 'the business state is used when none is given');
+  });
+
+  testWidgets('a UAN or ESI number of the wrong length is explained and nothing is sent', (tester) async {
+    final api = FakeMycaApi(signedIn: true);
+    await openEmployees(tester, api);
+    await tester.tap(find.text('Add employee'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Anita Rao');
+    await tester.enterText(find.widgetWithText(TextField, 'Basic'), '18000');
+    await tester.enterText(find.byKey(const Key('employee-uan')), '12345');
+    await tester.ensureVisible(find.text('Preview'));
+    await tester.tap(find.text('Preview'));
+    await tester.pumpAndSettle();
+    expect(find.text('The UAN is 12 digits.'), findsOneWidget);
+    expect(api.proposals, isEmpty);
+    await tester.enterText(find.byKey(const Key('employee-uan')), '');
+    await tester.ensureVisible(find.text('In state insurance (ESI)'));
+    await tester.tap(find.text('In state insurance (ESI)'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('employee-esi-number')));
+    await tester.enterText(find.byKey(const Key('employee-esi-number')), '123');
+    await tester.ensureVisible(find.text('Preview'));
+    await tester.tap(find.text('Preview'));
+    await tester.pumpAndSettle();
+    expect(find.text('The ESI number is 10 digits.'), findsOneWidget);
+    expect(api.proposals, isEmpty);
+  });
 
   testWidgets(
     'an employee\'s salary history shows, and leaving moves them to Left',

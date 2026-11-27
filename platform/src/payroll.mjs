@@ -259,6 +259,11 @@ export function computePayroll(state, requested) {
         if (pt.record.value.basis === 'half-yearly') row.notes.push(`Professional tax in ${pt.record.value.state} is half-yearly; it is deducted in the months the rule names.`);
       }
     }
+    if (!employee.ptState) {
+      const home = String(state.company?.state || '').trim();
+      const homeRule = /^[0-9]{2}$/.test(home) ? rules.rule(`payroll.pt.${home}`, asOf) : null;
+      if (homeRule && homeRule.ok && homeRule.record.value.levied !== false) row.notes.push(`No professional tax state is recorded for ${employee.name}, but the business state charges professional tax, so none is deducted. Set the employee's state so it is.`);
+    }
     const tds = salaryTds(state, employee, period, grossPaise, used, unreviewed, notes);
     if (tds.error) return fail(tds.error, { ruleId: tds.ruleId });
     row.tdsPaise = tds.paise;
