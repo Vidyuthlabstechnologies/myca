@@ -46,9 +46,28 @@ export function ruleOverlay() {
   return live.map((record) => structuredClone(record));
 }
 
+function kindOf(value) {
+  return value === null ? 'null' : Array.isArray(value) ? 'list' : typeof value;
+}
+
+function sameShape(base, given) {
+  if (kindOf(base) !== kindOf(given)) return false;
+  if (Array.isArray(base)) return base.length === 0 || given.length > 0 && given.every((entry) => sameShape(base[0], entry));
+  if (kindOf(base) === 'object') return Object.keys(base).every((key) => key in given && sameShape(base[key], given[key]));
+  return true;
+}
+
+function shapeProblems(records) {
+  const known = new Map();
+  for (const record of [...(BUILT_IN || []), ...FROM_FILES]) if (!known.has(record.id)) known.set(record.id, record.value);
+  return records.filter((record) => known.has(record.id) && !sameShape(known.get(record.id), record.value)).map((record) => ({ code: 'RULE_VALUE_SHAPE', id: record.id, message: `The value of ${record.id} must have the same shape as the rule it changes` }));
+}
+
 function assess(records) {
   const shape = validateRules(records);
   if (!shape.ok) return { ok: false, problems: shape.problems };
+  const wrong = shapeProblems(records);
+  if (wrong.length > 0) return { ok: false, problems: wrong };
   const candidate = createRuleBook(assemble(records));
   if (!candidate.integrity.ok) return { ok: false, problems: candidate.integrity.problems };
   return { ok: true, candidate };

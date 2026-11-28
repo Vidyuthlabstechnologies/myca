@@ -115,3 +115,16 @@ test('the shipped GSTR-4 rule comes from a data file and gives the confirmed dat
   assert.equal(rule('due-date.gst.gstr-4', '2026-03-31').value.day, 30);
   assert.equal(rule('due-date.gst.gstr-4', '2026-03-31').record.act, 'CGST');
 });
+
+test('a change to an existing rule must keep the shape of its value, so a typo cannot break callers', () => {
+  const wrongKind = setRuleOverlay([version('gst.rates.valid', '2030-01-01', null, { rates: [5] })]);
+  assert.equal(wrongKind.ok, false);
+  assert.ok(wrongKind.problems.some((problem) => problem.code === 'RULE_VALUE_SHAPE'));
+  assert.equal(setRuleOverlay([version('gst.rates.valid', '2030-01-01', null, [])]).ok, false, 'a list that was never empty cannot become empty');
+  assert.equal(setRuleOverlay([version('gst.rates.valid', '2030-01-01', null, ['5'])]).ok, false);
+  assert.equal(setRuleOverlay([version('gst.itc.time-limit', '2030-01-01', null, { month: 12 })]).ok, false, 'a missing field is refused');
+  assert.equal(setRuleOverlay([version('gst.itc.time-limit', '2030-01-01', null, { month: '12', day: 31, after: 'x', orAnnualReturnIfEarlier: true })]).ok, false);
+  const base = rule('gst.rates.valid', '2026-12-01').value;
+  assert.equal(setRuleOverlay([version('gst.rates.valid', '2030-01-01', null, [...base, 3])]).ok, true);
+  assert.deepEqual(rule('gst.rates.valid', '2030-06-01').value.at(-1), 3);
+});
