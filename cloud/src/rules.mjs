@@ -93,9 +93,15 @@ export function createRules({ db, now = () => Date.now(), log = () => {}, pollMs
     if (!/^[0-9]{1,18}$/.test(String(id))) throw problem(404, 'NOT_FOUND');
     const reason = text(body && body.reason);
     if (!reason || reason.length > MAX_REASON) throw problem(400, 'REASON_REQUIRED', { hint: 'Say why this change is being withdrawn.' });
-    const done = await db.query('update rule_records set revoked_at = now(), revoked_by = $2, revoked_reason = $3 where id = $1 and revoked_at is null returning id', [id, adminId, reason]);
-    if (done.rowCount === 0) throw problem(404, 'NOT_FOUND');
-    await db.query('update rule_records_stamp set changed_at = now()');
+    await db.tx(async (step) => {
+      await step('select pg_advisory_xact_lock(hashtext($1))', ['rule_records']);
+      const remaining = (await step('select record from rule_records where revoked_at is null and id <> $1 order by id', [id])).rows.map((row) => row.record);
+      const together = checkRuleOverlay(remaining);
+      if (!together.ok) throw problem(409, 'RULE_CONFLICT', { problems: together.problems, hint: 'Withdrawing this would leave the other runtime changes inconsistent.' });
+      const done = await step('update rule_records set revoked_at = now(), revoked_by = $2, revoked_reason = $3 where id = $1 and revoked_at is null returning id', [id, adminId, reason]);
+      if (done.rowCount === 0) throw problem(404, 'NOT_FOUND');
+      await step('update rule_records_stamp set changed_at = now()');
+    });
     log({ rules: 'revoked', by: adminId, id, reason });
     const applied = await load();
     return { ok: true, id: Number(id), applied: applied.ok };

@@ -36,7 +36,7 @@ List everything, with history: `GET /v1/admin/rules`.
 
 Withdraw a change (it stays in the list as history, and the rule goes back to what it was): `DELETE /v1/admin/rules/<id>` with `{ "reason": "..." }`.
 
-If the stored changes were ever inconsistent, the instance keeps the rules it had and logs `overlay refused`; a fresh instance refuses to start rather than run on rules it cannot trust.
+If the stored changes were ever inconsistent, the instance keeps the rules it had and logs `overlay refused`; a fresh instance starts on the built-in rules and logs an ERROR (`runtime rule changes are not valid`) until an admin withdraws the bad change. Watch for that log line.
 
 ## 2. In the repository (use this for the permanent record)
 

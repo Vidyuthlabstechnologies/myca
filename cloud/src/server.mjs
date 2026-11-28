@@ -82,7 +82,7 @@ const db = createDb(required('MYCA_DATABASE_URL'), { statementTimeoutMs: STATEME
 await migrateWithRetry(db);
 const rules = createRules({ db, log });
 const firstLoad = await rules.load();
-if (!firstLoad.ok) throw new Error(`The runtime rule changes in the database are not valid, so the API will not start: ${JSON.stringify(firstLoad.problems).slice(0, 500)}`);
+if (!firstLoad.ok) log({ severity: 'ERROR', rules: 'runtime rule changes are not valid; running on the built-in rules until an admin withdraws them', problems: firstLoad.problems });
 rules.start();
 const handler = createApi({
   db,
