@@ -1,0 +1,13 @@
+[
+  {
+    "id": "due-date.gst.gstr-4",
+    "value": { "period": "year", "monthsAfterPeriodEnd": 3, "day": 30 },
+    "basis": "period_end",
+    "effectiveFrom": "2026-03-31",
+    "effectiveTo": null,
+    "act": "CGST",
+    "section": "rule 62(1)",
+    "source": "FORM GSTR-4, the annual return of a composition taxable person: due on 30 June after the financial year (30 June 2026 for FY 2025-26). Confirmed on 27 November 2026 by the owner's chartered accountant; the notification number is still to be added. Returns for earlier years fell due on 30 April and are not covered here. Looked up by the last day of the financial year; the due day is not moved for weekends or holidays.",
+    "attestations": []
+  }
+]

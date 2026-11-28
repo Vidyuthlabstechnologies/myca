@@ -96,6 +96,8 @@ class OfflineKit {
     return value is num ? value.toInt() : 5000000;
   }
 
+  List<num> get gstRates => [for (final rate in (raw['gstRates'] is List ? raw['gstRates'] as List : const [])) if (rate is num) rate];
+
   List<KitItem> get items => offlineMaps(raw['items']).map(KitItem.fromJson).toList();
   List<KitParty> get parties => offlineMaps(raw['parties']).map(KitParty.fromJson).toList();
   List<KitInvoice> get openInvoices => offlineMaps(raw['openInvoices']).map(KitInvoice.fromJson).toList();

@@ -33,6 +33,14 @@ export function nextDay(isoDate) {
   return `${pad(year + 1, 4)}-01-01`;
 }
 
+export function previousDay(isoDate) {
+  if (!isIsoDate(isoDate)) return null;
+  const [year, month, day] = isoDate.split('-').map(Number);
+  if (day > 1) return `${pad(year, 4)}-${pad(month, 2)}-${pad(day - 1, 2)}`;
+  if (month > 1) return `${pad(year, 4)}-${pad(month - 1, 2)}-${pad(daysInMonth(year, month - 1), 2)}`;
+  return `${pad(year - 1, 4)}-12-31`;
+}
+
 function fyLabel(startYear) {
   return `${pad(startYear, 4)}-${pad((startYear + 1) % 100, 2)}`;
 }

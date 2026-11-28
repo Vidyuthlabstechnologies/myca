@@ -197,9 +197,10 @@ const DAY_MS = 86400000;
 
 export function itcTimeLimit(state, period, gstin, today = localToday()) {
   const firstDay = `${String(period || '').slice(0, 7)}-01`;
-  const last = gstCorrectionDeadline(firstDay, { state, gstin, ruleId: 'gst.itc.time-limit', onDate: firstDay < '2022-10-01' ? today : firstDay });
+  const given = { ruleId: 'gst.itc.time-limit', onDate: firstDay < '2022-10-01' ? today : firstDay };
+  const last = gstCorrectionDeadline(firstDay, { state, gstin, ...given });
   const daysLeft = Math.round((Date.parse(`${last}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY_MS);
-  return { last, daysLeft, passed: daysLeft < 0, why: gstCorrectionDeadlineWhy(firstDay, last) };
+  return { last, daysLeft, passed: daysLeft < 0, why: gstCorrectionDeadlineWhy(firstDay, last, given) };
 }
 
 export function itcLimitNote(limit, credit) {

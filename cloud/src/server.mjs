@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { createApi } from './api.mjs';
+import { createRules } from './rules.mjs';
 import { createConsoleSender } from './auth.mjs';
 import { createDb, migrate } from './db.mjs';
 import { clientIdsFrom } from './google.mjs';
@@ -79,8 +80,13 @@ const billingProblem = billingConfigProblem(process.env);
 if (billingProblem) throw new Error(billingProblem);
 const db = createDb(required('MYCA_DATABASE_URL'), { statementTimeoutMs: STATEMENT_TIMEOUT_MS, lockTimeoutMs: LOCK_TIMEOUT_MS, idleInTransactionMs: IDLE_IN_TRANSACTION_MS, onError: (err) => log({ db: 'idle connection lost', error: String(err && err.message ? err.message : err) }) });
 await migrateWithRetry(db);
+const rules = createRules({ db, log });
+const firstLoad = await rules.load();
+if (!firstLoad.ok) log({ severity: 'ERROR', rules: 'runtime rule changes are not valid; running on the built-in rules until an admin withdraws them', problems: firstLoad.problems });
+rules.start();
 const handler = createApi({
   db,
+  rules,
   billing: createBilling({ db, config: billingConfigFromEnv(process.env), log, usFilingOpen: () => usFilingOpen(process.env, usEfileSetup().mode) }),
   secret: required('MYCA_TOKEN_SECRET'),
   otpSender: otpSender(),

@@ -98,7 +98,7 @@ const GST_RULES = [
     'due-date.gst.cmp-08',
     { period: 'quarter', monthsAfterPeriodEnd: 1, day: 18 },
     '2021-01-01', IN_FORCE, 'CGST', '10',
-    'CGST Rules 2017 rule 62(1) (CBIC tax portal, rule 62): a person paying tax under s.10 furnishes FORM GST CMP-08 for every quarter, and the GST portal FAQ on filing Form GST CMP-08 gives the eighteenth day of the month succeeding the quarter, or as extended by notification. GSTR-4 is not in the registry: sources disagree on whether its annual date is 30 April or 30 June and no notification was found'
+    'CGST Rules 2017 rule 62(1) (CBIC tax portal, rule 62): a person paying tax under s.10 furnishes FORM GST CMP-08 for every quarter, and the GST portal FAQ on filing Form GST CMP-08 gives the eighteenth day of the month succeeding the quarter, or as extended by notification'
   ),
   record(
     'due-date.gst.gstr-9',

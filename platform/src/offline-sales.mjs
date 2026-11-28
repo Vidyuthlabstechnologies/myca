@@ -108,6 +108,11 @@ function kitItem(sku, item, onHand) {
   return { sku, name: item?.name || sku, barcode: item?.barcode || '', hsn: item?.hsn || '', gstRate: item?.gstRate ?? null, price: item?.price ?? null, unit: item?.unit || '', onHand: onHand ?? 0 };
 }
 
+function validGstRates(date) {
+  const found = rules.rule('gst.rates.valid', date);
+  return found.ok && Array.isArray(found.value) ? [...found.value].sort((a, b) => a - b) : [];
+}
+
 export function offlineKit(state, args = {}) {
   const deviceId = cleanDeviceId(args.deviceId);
   if (!deviceId) return { ok: false, error: 'BAD_DEVICE_ID', hint: 'The phone sends its own device id, 8 to 64 letters, digits, - or _.' };
@@ -134,6 +139,7 @@ export function offlineKit(state, args = {}) {
       lockThrough: lockThrough(state),
       einvoiceB2b: einvoiceB2b(state),
       buyerDetails: buyerDetailsRule(state, today),
+      gstRates: validGstRates(today),
       items,
       parties,
       openInvoices,
