@@ -105,7 +105,7 @@ void main() {
   test('the number and the amounts in a message are never lost to translation', () async {
     formatLanguage = 'hi';
     final (books, _) = await ready();
-    final line = books.draftSale(sale(lines: [{'description': 'x', 'qty': 1, 'rate': 10}])).problem!;
+    final line = books.draftSale(sale(lines: [{'description': 'x', 'qty': 1, 'rate': 10}])).problem;
     expect(line, contains('1'));
     formatLanguage = 'mr';
     expect(books.draftSale(sale(lines: [{'description': 'x', 'qty': 1, 'rate': 10}])).problem, 'ओळ 1 साठी GST दर हवा.');
